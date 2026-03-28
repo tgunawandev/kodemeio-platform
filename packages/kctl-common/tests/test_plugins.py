@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import typer
 
-from kctl_common.plugins import KctlPlugin, discover_and_load_plugins
+from kctl_common.plugins import discover_and_load_plugins
 
 
 class TestKctlPluginProtocol:

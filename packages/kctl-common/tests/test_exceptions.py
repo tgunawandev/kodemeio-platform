@@ -10,11 +10,13 @@ from kctl_common.exceptions import (
     AuthenticationError,
     CommandError,
     ConfigError,
-    ConnectionError as KctlConnectionError,
     DockerError,
     KctlError,
     NotFoundError,
     ValidationError,
+)
+from kctl_common.exceptions import (
+    ConnectionError as KctlConnectionError,
 )
 
 
