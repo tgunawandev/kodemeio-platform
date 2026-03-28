@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from kctl_common.callbacks import AppContextBase
 from kctl_common.output import Output
 
@@ -36,3 +38,26 @@ class TestAppContextBase:
         out = ctx.output
         assert out.format == "csv"
         assert out.no_header is True
+
+
+class TestMockOutput:
+    def test_mock_output_json_mode(self) -> None:
+        from kctl_common.testing import mock_output
+
+        out = mock_output()
+        assert out.json_mode is True
+        assert out.format == "json"
+
+    def test_mock_app_context(self) -> None:
+        from kctl_common.testing import mock_app_context
+
+        ctx = mock_app_context(quiet=True)
+        assert ctx.quiet is True
+        assert ctx.output.quiet is True
+
+    def test_temp_config(self, tmp_path: Path) -> None:
+        from kctl_common.testing import temp_config
+
+        profiles = {"default": {"next": {"project_root": "/test"}}}
+        path = temp_config(profiles, base_dir=tmp_path)
+        assert path.exists()
