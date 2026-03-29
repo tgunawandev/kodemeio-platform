@@ -38,3 +38,9 @@ select = ["E", "F", "I", "W", "UP", "B", "SIM", "N"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+
+[dependency-groups]
+dev = [
+    "anyio>=4.13.0",
+    "pytest-anyio>=0.0.0",
+]
