@@ -18,7 +18,7 @@ Public API:
     - testing: Test fixtures (optional dependency)
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 from kctl_common.callbacks import AppContextBase
 from kctl_common.docker import DockerManager
