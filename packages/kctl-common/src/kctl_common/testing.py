@@ -18,7 +18,7 @@ def mock_output(**overrides: Any) -> Output:
     """Create an Output instance in JSON mode for test assertions."""
     defaults = {"json_mode": True, "quiet": False, "format": "json", "no_header": False}
     defaults.update(overrides)
-    return Output(**defaults)
+    return Output(**defaults)  # type: ignore[arg-type]
 
 
 def mock_app_context(**overrides: Any) -> AppContextBase:

@@ -25,6 +25,25 @@
 
 Every CLI must implement: `init`, `add`, `use`, `show`, `validate`, `remove`, `set`, `profiles`, `current`.
 
+## Client Pattern
+
+CLIs with HTTP APIs should subclass `APIClient` (or `AsyncAPIClient`) from `kctl-common`:
+
+- Set `AUTH_HEADER`, `AUTH_PREFIX`, `API_PREFIX` as class attributes to configure authentication and URL prefixing.
+- Override `_unwrap_response` for envelope APIs (e.g., Cloudflare wraps all responses in `{"result": ..., "success": ...}`).
+- Enable retry with `retry_enabled=True` for unreliable or rate-limited APIs. Retry uses exponential backoff with jitter.
+- Override `_map_error` to extract service-specific error messages from non-2xx responses.
+
+### Exceptions
+
+Not all CLIs use HTTP-based clients:
+
+| CLI | Client approach |
+|-----|----------------|
+| kctl-pg | `psycopg` (PostgreSQL wire protocol) |
+| kctl-odoo | JSON-RPC via `httpx` (custom, not APIClient) |
+| kctl-1password | `subprocess` calls to `op` CLI |
+
 ## Error Handling
 
 Use `handle_cli_error()` from kctl-common in `_run()`.

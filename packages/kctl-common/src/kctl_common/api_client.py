@@ -43,7 +43,7 @@ class APIClient:
         retry_max_delay: float = 60.0,
         **_kwargs: Any,
     ) -> None:
-        if not credential:
+        if not credential or not credential.strip():
             raise ConfigError("API credential is required")
 
         resolved_url = base_url or self.BASE_URL
@@ -86,7 +86,7 @@ class APIClient:
 
     def _request(self, method: str, endpoint: str, **kwargs: Any) -> httpx.Response:
         """Send an HTTP request with optional retry logic."""
-        url = endpoint if endpoint.startswith("http") else endpoint
+        url = endpoint.lstrip("/")
         attempts = 1 + (self._max_retries if self._retry_enabled else 0)
 
         last_exc: Exception | None = None

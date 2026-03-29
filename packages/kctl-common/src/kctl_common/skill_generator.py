@@ -71,7 +71,7 @@ def _introspect_app(typer_app: typer.Typer) -> list[dict[str, Any]]:
     return groups
 
 
-def _generate_triggers(cli_name: str, groups: list[dict]) -> str:
+def _generate_triggers(cli_name: str, groups: list[dict[str, Any]]) -> str:
     """Generate trigger patterns from command names and help text."""
     triggers: list[str] = [f'"{cli_name}"']
 

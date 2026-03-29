@@ -8,7 +8,7 @@ Shared CLI infrastructure: `kctl-common` Python package + copier template.
 # Development
 cd packages/kctl-common
 uv sync --all-extras
-uv run pytest tests/ -v           # 187 tests
+uv run pytest tests/ -v           # 238 tests
 uv run ruff check src/ tests/     # Lint
 uv run ruff format src/ tests/    # Format
 uv run mypy src/                  # Type check
@@ -35,7 +35,7 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, 
 | Path | Description |
 |------|-------------|
 | `packages/kctl-common/src/kctl_common/` | Shared library source |
-| `packages/kctl-common/tests/` | 187 tests |
+| `packages/kctl-common/tests/` | 238 tests |
 | `templates/kctl-cli/` | Copier template for new CLIs |
 | `docs/cli-standards.md` | CLI naming and option standards |
 | `docs/architecture.md` | Platform architecture |
@@ -61,6 +61,8 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, 
 | `self_update.py` | PyPI version check + uv tool upgrade |
 | `doctor_base.py` | `DoctorCheck` protocol + `run_doctor()` + 4 built-in checks (Python, uv, git, Docker) |
 | `monitor_base.py` | `health_check_url()`, `ssl_check()`, `dns_check()` |
+| `api_client.py` | `APIClient` — sync HTTP base client with retry, auth header, error mapping |
+| `async_api_client.py` | `AsyncAPIClient` — async HTTP base client with retry, auth header, error mapping |
 | `skill_generator.py` | `SkillGenerator` — Typer app introspection → SKILL.md auto-generation (`skill generate`) |
 
 ## CLI Standards

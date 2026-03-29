@@ -27,6 +27,43 @@ profiles:
     claw:  { project_root: /path/to/kodemeio-openclaw }
 ```
 
+## API Client Base Classes
+
+CLIs that interact with HTTP APIs subclass `APIClient` (sync) or `AsyncAPIClient` (async) from `kctl-common`. These base classes provide authentication, retry with exponential backoff, error mapping, and debug logging.
+
+### Class Attributes
+
+| Attribute | Default | Purpose |
+|-----------|---------|---------|
+| `AUTH_HEADER` | `"Authorization"` | HTTP header name for credentials |
+| `AUTH_PREFIX` | `"Bearer"` | Prefix before the credential value (empty for raw tokens) |
+| `API_PREFIX` | `""` | URL path prefix appended to base URL (e.g., `/v1`) |
+| `BASE_URL` | `""` | Default base URL if not passed at init |
+
+### Override Hooks
+
+| Method | Purpose |
+|--------|---------|
+| `_unwrap_response(response)` | Parse/unwrap response body. Override for envelope APIs (e.g., Cloudflare wraps results in `{"result": ...}`) |
+| `_map_error(response)` | Extract human-readable error detail from error responses |
+| `_is_retryable(response)` | Determine if a failed response should be retried (beyond the default 5xx check) |
+
+### Example Subclass
+
+```python
+from kctl_common.api_client import APIClient
+
+class CloudflareClient(APIClient):
+    BASE_URL = "https://api.cloudflare.com"
+    AUTH_HEADER = "Authorization"
+    AUTH_PREFIX = "Bearer"
+    API_PREFIX = "/client/v4"
+
+    def _unwrap_response(self, response):
+        data = response.json()
+        return data.get("result", data)
+```
+
 ## Dependency Flow
 
 ```
