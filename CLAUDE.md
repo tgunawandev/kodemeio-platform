@@ -8,7 +8,7 @@ Shared CLI infrastructure: `kctl-common` Python package + copier template.
 # Development
 cd packages/kctl-common
 uv sync --all-extras
-uv run pytest tests/ -v           # 80 tests
+uv run pytest tests/ -v           # 181 tests
 uv run ruff check src/ tests/     # Lint
 uv run ruff format src/ tests/    # Format
 uv run mypy src/                  # Type check
@@ -35,7 +35,7 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, 
 | Path | Description |
 |------|-------------|
 | `packages/kctl-common/src/kctl_common/` | Shared library source |
-| `packages/kctl-common/tests/` | 80 tests |
+| `packages/kctl-common/tests/` | 181 tests |
 | `templates/kctl-cli/` | Copier template for new CLIs |
 | `docs/cli-standards.md` | CLI naming and option standards |
 | `docs/architecture.md` | Platform architecture |
@@ -54,6 +54,13 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, 
 | `plugins.py` | `KctlPlugin` protocol + `discover_and_load_plugins(app, group)` |
 | `history.py` | `HistoryStore` — SQLite at `~/.local/share/kodemeio/{app}/history.db` |
 | `testing.py` | `mock_output()`, `mock_app_context()`, `temp_config()` |
+| `docker.py` | `DockerManager` — Docker Compose wrapper (up/down/ps/logs/restart/image_size/prune/exec) |
+| `validate.py` | YAML/JSON/env/Dockerfile linting with `Issue` dataclass |
+| `git_ops.py` | Git workflow helpers — branch_status, pr_create, changelog_generate, diff_summary |
+| `completions.py` | Shell completion generation + install (zsh/bash/fish) |
+| `self_update.py` | PyPI version check + uv tool upgrade |
+| `doctor_base.py` | `DoctorCheck` protocol + `run_doctor()` + 4 built-in checks (Python, uv, git, Docker) |
+| `monitor_base.py` | `health_check_url()`, `ssl_check()`, `dns_check()` |
 
 ## CLI Standards
 
