@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 [manifest]
 members = [
     "kctl-common",
+    "kctl-rustdesk",
     "kodemeio-platform",
 ]
 
@@ -262,6 +263,27 @@ provides-extras = ["testing", "monitor", "dev"]
 dev = [
     { name = "anyio", specifier = ">=4.13.0" },
     { name = "pytest-anyio", specifier = ">=0.0.0" },
+]
+
+[[package]]
+name = "kctl-rustdesk"
+version = "0.1.0"
+source = { editable = "packages/kctl-rustdesk" }
+dependencies = [
+    { name = "kctl-common" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich", specifier = ">=13.9.0" },
+    { name = "typer", specifier = ">=0.15.0" },
 ]
 
 [[package]]
