@@ -1,16 +1,23 @@
 """Auto-generate Claude Code SKILL.md from a Typer CLI app.
 
 Introspects the Typer app via Click's API to extract all command groups,
-subcommands, help text, and parameters. Generates a complete SKILL.md
-with auto-generated trigger patterns.
+subcommands, help text, parameters, and docstring examples. Generates a
+complete SKILL.md with auto-generated trigger patterns and staleness hash.
 
 Usage in each CLI:
     from kctl_common.skill_generator import generate_skill
     generate_skill(app, "kctl-next", "next-admin", "Next.js monorepo management")
+
+Improvements v2:
+    - Extracts examples from docstrings (lines starting with whitespace after "Examples:")
+    - Domain-specific triggers from group names and subcommand names
+    - Staleness hash (command count + group names) embedded in frontmatter
+    - check_stale() function to compare generated vs existing SKILL.md
 """
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -48,11 +55,16 @@ def _introspect_app(typer_app: typer.Typer) -> list[dict[str, Any]]:
                         "type": p.type.name if hasattr(p.type, "name") else str(p.type),
                     }
                     params.append(param_info)
+
+                # Extract examples from docstring
+                examples = _extract_examples(sub_cmd.help or "")
+
                 subcommands.append(
                     {
                         "name": sub_name,
                         "help": sub_cmd.help or "",
                         "params": params,
+                        "examples": examples,
                     }
                 )
             group_info["subcommands"] = subcommands
@@ -71,12 +83,46 @@ def _introspect_app(typer_app: typer.Typer) -> list[dict[str, Any]]:
     return groups
 
 
+def _extract_examples(help_text: str) -> list[str]:
+    """Extract example lines from a docstring.
+
+    Looks for lines after "Examples:" that start with whitespace and
+    contain the CLI name pattern (e.g., "kctl-odoo ...").
+    """
+    examples: list[str] = []
+    in_examples = False
+
+    for line in help_text.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("examples:") or stripped.lower().startswith("example:"):
+            in_examples = True
+            continue
+        if in_examples:
+            if stripped and (stripped.startswith("kctl-") or stripped.startswith("$")):
+                examples.append(stripped)
+            elif stripped and not line.startswith((" ", "\t")):
+                # Non-indented non-empty line = end of examples section
+                break
+
+    return examples
+
+
 def _generate_triggers(cli_name: str, groups: list[dict[str, Any]]) -> str:
-    """Generate trigger patterns from command names and help text."""
-    triggers: list[str] = [f'"{cli_name}"']
+    """Generate trigger patterns from command names, subcommand names, and help text."""
+    triggers: set[str] = {f'"{cli_name}"'}
 
     for group in groups:
-        triggers.append(f'"{group["name"]}"')
+        # Add group name as trigger
+        triggers.add(f'"{group["name"]}"')
+
+        # Add subcommand names as triggers (domain-specific)
+        for sub in group.get("subcommands", []):
+            sub_name = sub.get("name", "")
+            # Only add meaningful subcommand names (skip generic ones)
+            if sub_name not in ("list", "get", "create", "update", "delete", "show", "run", "status"):
+                if len(sub_name) > 3:
+                    triggers.add(f'"{sub_name}"')
+
         # Extract key words from help text
         help_text = group.get("help", "").lower()
         for word in [
@@ -97,11 +143,76 @@ def _generate_triggers(cli_name: str, groups: list[dict[str, Any]]) -> str:
             "migration",
             "backup",
             "restore",
+            "manufacturing",
+            "warehouse",
+            "helpdesk",
+            "fleet",
+            "compliance",
+            "dunning",
+            "budget",
+            "quality",
+            "approval",
+            "invoice",
+            "payment",
+            "payroll",
+            "attendance",
+            "expense",
         ]:
             if word in help_text:
-                triggers.append(f'"{word}"')
+                triggers.add(f'"{word}"')
 
-    return ", ".join(sorted(set(triggers)))
+    # Sort and limit to avoid overly long trigger lists
+    sorted_triggers = sorted(triggers)
+    if len(sorted_triggers) > 80:
+        sorted_triggers = sorted_triggers[:80]
+
+    return ", ".join(sorted_triggers)
+
+
+def _compute_hash(groups: list[dict[str, Any]]) -> str:
+    """Compute a hash of group names + command counts for staleness detection."""
+    parts = []
+    for g in groups:
+        sub_count = len(g.get("subcommands", []))
+        parts.append(f"{g['name']}:{sub_count}")
+    raw = "|".join(sorted(parts))
+    return hashlib.md5(raw.encode()).hexdigest()[:12]
+
+
+def check_stale(
+    typer_app: typer.Typer,
+    skill_file: Path,
+) -> tuple[bool, str]:
+    """Check if a SKILL.md is stale compared to the current CLI.
+
+    Returns:
+        (is_stale, reason) — True if regeneration is needed.
+    """
+    if not skill_file.exists():
+        return True, "SKILL.md does not exist"
+
+    groups = _introspect_app(typer_app)
+    current_hash = _compute_hash(groups)
+    total_commands = sum(len(g.get("subcommands", [])) or 1 for g in groups)
+
+    content = skill_file.read_text()
+
+    # Check for hash in frontmatter
+    for line in content.splitlines():
+        if line.strip().startswith("registry_hash:"):
+            existing_hash = line.split(":", 1)[1].strip()
+            if existing_hash == current_hash:
+                return False, f"Up to date (hash: {current_hash})"
+            return True, f"Hash mismatch: {existing_hash} (file) vs {current_hash} (current)"
+
+    # No hash found — check command count as fallback
+    for line in content.splitlines():
+        if "Total commands:" in line or "~" in line:
+            if f"~{total_commands}" in line:
+                return False, f"Command count matches (~{total_commands})"
+            return True, f"Command count changed (current: ~{total_commands})"
+
+    return True, "No hash or count found in existing SKILL.md"
 
 
 def generate_skill(
@@ -128,6 +239,7 @@ def generate_skill(
     groups = _introspect_app(typer_app)
     total_commands = sum(len(g.get("subcommands", [])) or 1 for g in groups)
     triggers = _generate_triggers(cli_name, groups)
+    registry_hash = _compute_hash(groups)
 
     lines: list[str] = []
 
@@ -139,6 +251,7 @@ def generate_skill(
     lines.append(f"  MUST use for ANY {cli_name} operation.")
     lines.append(f"  Triggers on: {triggers}.")
     lines.append(f"  Auto-generated: {datetime.now(UTC).strftime('%Y-%m-%d')}")
+    lines.append(f"  registry_hash: {registry_hash}")
     lines.append("---")
     lines.append("")
 
@@ -180,7 +293,14 @@ def generate_skill(
         lines.append(f"### `{cli_name} {group['name']}`")
         lines.append("")
         if group["help"]:
-            lines.append(f"{group['help']}")
+            # Only include first paragraph of help (before Examples:)
+            help_first = group["help"].split("\n\n")[0].strip()
+            # Also strip everything from "Examples:" onwards
+            if "Examples:" in help_first:
+                help_first = help_first[: help_first.index("Examples:")].strip()
+            if "Example:" in help_first:
+                help_first = help_first[: help_first.index("Example:")].strip()
+            lines.append(f"{help_first}")
             lines.append("")
 
         subcommands = group.get("subcommands", [])
@@ -197,8 +317,34 @@ def generate_skill(
                         else:
                             param_parts.append(f"[--{p['name']}]")
                     param_str = " " + " ".join(param_parts)
-                lines.append(f"| `{group['name']} {sub['name']}{param_str}` | {sub['help']} |")
+
+                # Truncate help to first sentence for table
+                sub_help = sub.get("help", "")
+                first_sentence = sub_help.split("\n\n")[0].split(". ")[0]
+                if first_sentence and not first_sentence.endswith("."):
+                    first_sentence += "."
+                # Strip "Examples:" section from help
+                if "Examples:" in first_sentence:
+                    first_sentence = first_sentence[: first_sentence.index("Examples:")].strip()
+                if "Example:" in first_sentence:
+                    first_sentence = first_sentence[: first_sentence.index("Example:")].strip()
+
+                lines.append(f"| `{group['name']} {sub['name']}{param_str}` | {first_sentence} |")
             lines.append("")
+
+            # Add examples section if any subcommand has examples
+            group_examples = []
+            for sub in subcommands:
+                for ex in sub.get("examples", []):
+                    group_examples.append(ex)
+            if group_examples:
+                lines.append("**Examples:**")
+                lines.append("```bash")
+                # Show max 5 examples per group
+                for ex in group_examples[:5]:
+                    lines.append(ex)
+                lines.append("```")
+                lines.append("")
         else:
             params = group.get("params", [])
             if params:
