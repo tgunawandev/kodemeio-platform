@@ -134,7 +134,7 @@ def generate_skill(
     # Frontmatter
     lines.append("---")
     lines.append(f"name: {skill_name}")
-    lines.append(f"description: >")
+    lines.append("description: >")
     lines.append(f"  {description} ({len(groups)} groups, ~{total_commands} commands).")
     lines.append(f"  MUST use for ANY {cli_name} operation.")
     lines.append(f"  Triggers on: {triggers}.")
@@ -147,16 +147,16 @@ def generate_skill(
     lines.append("")
     lines.append(f"> Auto-generated from `{cli_name}` command registry. Do not edit manually.")
     lines.append(f"> To regenerate: `{cli_name} skill generate`")
-    lines.append(f"> To add custom content: edit `SKILL.extra.md` in the same directory.")
+    lines.append("> To add custom content: edit `SKILL.extra.md` in the same directory.")
     lines.append("")
 
     # Quick stats
-    lines.append(f"## Overview")
+    lines.append("## Overview")
     lines.append("")
     lines.append(f"**CLI:** `{cli_name}`")
     lines.append(f"**Command groups:** {len(groups)}")
     lines.append(f"**Total commands:** ~{total_commands}")
-    lines.append(f"**Install:** `cd cli && uv tool install --editable .`")
+    lines.append("**Install:** `cd cli && uv tool install --editable .`")
     lines.append("")
 
     # Global options

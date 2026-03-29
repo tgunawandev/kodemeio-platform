@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import subprocess
-from unittest.mock import MagicMock, call, patch
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from kctl_common.git_ops import branch_status, changelog_generate, diff_summary, pr_create, release_tag
 

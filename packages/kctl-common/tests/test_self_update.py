@@ -17,7 +17,6 @@ def _make_result(stdout: str = "", returncode: int = 0) -> subprocess.CompletedP
 
 class TestCheckUpdate:
     def test_newer_version_returns_version(self) -> None:
-        output = "kctl-common (0.3.0)\nAvailable versions: 0.3.0, 0.2.0, 0.1.0\n"
         # The function parses the first non-'(' line as the latest version token
         pip_output = "kctl-common 0.3.0\n"
         with patch("kctl_common.self_update.run_quiet", return_value=_make_result(pip_output)):

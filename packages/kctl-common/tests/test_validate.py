@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from kctl_common.validate import Issue, dockerfile_lint, env_validate, json_lint, yaml_lint
 
 
