@@ -18,6 +18,9 @@ dependencies = [
 [project.scripts]
 kctl-rustdesk = "kctl_rustdesk.cli:_run"
 
+[tool.uv.sources]
+kctl-common = { workspace = true }
+
 [project.entry-points."kctl_rustdesk.plugins"]
 
 [tool.hatch.build.targets.wheel]
