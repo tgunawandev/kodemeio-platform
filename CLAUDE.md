@@ -20,15 +20,36 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 
 ## Architecture
 
-`kctl-common` is a shared Python package (PyPI: kctl-common) used by 5 CLI tools:
+`kctl-common` is a shared Python package (PyPI: kctl-common v0.3.1) used by **21 CLI tools** across 3 repo groups.
 
-- **kctl-next** (kodemeio-next) — Next.js monorepo management
-- **kctl-odoo** (kodemeio-odoo) — Odoo 18 ERP management
-- **kctl-react** (kodemeio-react) — React PWA monorepo management
-- **kctl-api** (kodemeio-fastapi) — FastAPI platform management
-- **kctl-claw** (kodemeio-openclaw) — AI agent gateway management
+### kodemeio-app (5 CLIs)
+- **kctl-next** (kodemeio-next) — Next.js monorepo management (35 groups)
+- **kctl-odoo** (kodemeio-odoo) — Odoo 18 ERP management (70+ groups)
+- **kctl-react** (kodemeio-react) — React PWA monorepo management (31 groups)
+- **kctl-api** (kodemeio-fastapi) — FastAPI platform management (46 groups)
+- **kctl-claw** (kodemeio-openclaw) — AI agent gateway management (29 groups)
 
-Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, keeping domain-specific code local.
+### kodemeio-core (9 CLIs)
+- **kctl-dokploy** (kodemeio-dokploy) — Dokploy deployment platform (37 groups)
+- **kctl-hetzner** (kodemeio-hetzner) — Hetzner Cloud infrastructure (24 groups)
+- **kctl-pg** (kodemeio-postgres) — PostgreSQL administration (24 groups)
+- **kctl-cloudflare** (kodemeio-cloudflare) — Cloudflare DNS/CDN/WAF (27 groups)
+- **kctl-ak** (kodemeio-authentik) — Authentik SSO/identity (24 groups)
+- **kctl-gatus** (kodemeio-gatus) — Gatus health monitoring (8 groups)
+- **kctl-mdm** (kodemeio-headwind) — Headwind MDM device management (12 groups)
+- **kctl-waha** (kodemeio-waha) — WhatsApp HTTP API (8 groups)
+- **kctl-grafana** (kodemeio-grafana) — Grafana monitoring platform (11 groups)
+
+### kodemeio-saas (7 CLIs)
+- **kctl-telegram** (kodemeio-telegram) — Telegram bot platform (7 groups)
+- **kctl-1password** (kodemeio-1password) — 1Password secret management (9 groups)
+- **kctl-claude** (kodemeio-claude) — Claude Code environment management (8 groups)
+- **kctl-github** (kodemeio-github) — Cross-repo GitHub management (10 groups)
+- **kctl-linear** (kodemeio-linear) — Linear project/sprint tracking (9 groups)
+- **kctl-notion** (kodemeio-notion) — Notion wiki/database management (7 groups)
+- **kctl-sentry** (kodemeio-sentry) — Sentry error tracking (10 groups)
+
+Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-common; exceptions are kctl-pg (psycopg/SSH), kctl-odoo (JSON-RPC), kctl-1password (subprocess), kctl-linear (GraphQL), kctl-gatus and kctl-mdm (custom auth).
 
 ## Key Paths
 
