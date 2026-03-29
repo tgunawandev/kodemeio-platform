@@ -16,10 +16,14 @@ Public API:
     - doctor_base: DoctorCheck protocol + built-in checks
     - monitor_base: Health check, SSL, DNS monitoring
     - testing: Test fixtures (optional dependency)
+    - api_client: Base APIClient for httpx-based CLIs
+    - async_api_client: Base AsyncAPIClient for async CLIs
 """
 
 __version__ = "0.3.0"
 
+from kctl_common.api_client import APIClient
+from kctl_common.async_api_client import AsyncAPIClient
 from kctl_common.callbacks import AppContextBase
 from kctl_common.docker import DockerManager
 from kctl_common.doctor_base import CheckResult, DoctorCheck, run_doctor
@@ -39,9 +43,11 @@ from kctl_common.output import Output
 from kctl_common.validate import Issue
 
 __all__ = [
+    "APIClient",
     "APIError",
     "AppContextBase",
     "AppNotFoundError",
+    "AsyncAPIClient",
     "AuthenticationError",
     "CheckResult",
     "CommandError",
