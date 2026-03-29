@@ -16,12 +16,14 @@ dependencies = [
 
 [project.optional-dependencies]
 testing = ["pytest>=8.3.0"]
+monitor = ["httpx>=0.28.0"]
 dev = [
     "pytest>=8.3.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.9.0",
     "mypy>=1.14.0",
     "types-PyYAML>=6.0.0",
+    "httpx>=0.28.0",
 ]
 
 [tool.ruff]
