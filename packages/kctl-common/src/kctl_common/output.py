@@ -102,12 +102,12 @@ class Output:
         fmt = self.format
 
         if fmt == "json" or self.json_mode:
-            if data_for_json:
+            if data_for_json is not None:
                 print(json.dumps(data_for_json, indent=2, default=str))
             return
 
         if fmt == "yaml":
-            if data_for_json:
+            if data_for_json is not None:
                 print(yaml.dump(data_for_json, default_flow_style=False, allow_unicode=True).rstrip())
             else:
                 result: dict[str, dict[str, str]] = {}
