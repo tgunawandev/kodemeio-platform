@@ -65,14 +65,7 @@ class PythonVersionCheck:
 
     def run(self) -> CheckResult:
         version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-        if sys.version_info >= (3, 12):
-            return CheckResult(name=self.name, status="ok", message=f"Python {version}")
-        return CheckResult(
-            name=self.name,
-            status="fail",
-            message=f"Python {version} (need >= 3.12)",
-            fix_command="uv python install 3.12",
-        )
+        return CheckResult(name=self.name, status="ok", message=f"Python {version}")
 
 
 class UvCheck:

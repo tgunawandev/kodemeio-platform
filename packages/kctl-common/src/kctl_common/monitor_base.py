@@ -29,9 +29,11 @@ def health_check_url(url: str, timeout: int = 10) -> dict:  # type: ignore[type-
 def ssl_check(domain: str, port: int = 443) -> dict:  # type: ignore[type-arg]
     try:
         ctx = ssl.create_default_context()
-        with socket.create_connection((domain, port), timeout=10) as sock:
-            with ctx.wrap_socket(sock, server_hostname=domain) as ssock:
-                cert = ssock.getpeercert()
+        with (
+            socket.create_connection((domain, port), timeout=10) as sock,
+            ctx.wrap_socket(sock, server_hostname=domain) as ssock,
+        ):
+            cert = ssock.getpeercert()
         if not cert:
             return {"domain": domain, "valid": False, "error": "No certificate"}
         not_after = cert.get("notAfter", "")

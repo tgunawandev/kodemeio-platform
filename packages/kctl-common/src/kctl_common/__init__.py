@@ -8,12 +8,21 @@ Public API:
     - runner: run(), run_quiet(), git helpers
     - plugins: KctlPlugin protocol + discovery
     - history: HistoryStore
+    - docker: DockerManager
+    - validate: YAML/JSON/env/Dockerfile linting
+    - git_ops: Branch status, PR, changelog, diff
+    - completions: Shell completion generation
+    - self_update: PyPI version check + upgrade
+    - doctor_base: DoctorCheck protocol + built-in checks
+    - monitor_base: Health check, SSL, DNS monitoring
     - testing: Test fixtures (optional dependency)
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from kctl_common.callbacks import AppContextBase
+from kctl_common.docker import DockerManager
+from kctl_common.doctor_base import CheckResult, DoctorCheck, run_doctor
 from kctl_common.exceptions import (
     APIError,
     AppNotFoundError,
@@ -27,20 +36,26 @@ from kctl_common.exceptions import (
     ValidationError,
 )
 from kctl_common.output import Output
+from kctl_common.validate import Issue
 
 __all__ = [
     "APIError",
     "AppContextBase",
     "AppNotFoundError",
     "AuthenticationError",
+    "CheckResult",
     "CommandError",
     "ConfigError",
     "ConnectionError",
     "DockerError",
+    "DockerManager",
+    "DoctorCheck",
+    "Issue",
     "KctlError",
     "NotFoundError",
     "Output",
     "ValidationError",
+    "run_doctor",
 ]
 
 
