@@ -156,9 +156,7 @@ class TestEnvValidate:
 class TestDockerfileLint:
     def test_good_dockerfile_no_issues(self, tmp_path: Path) -> None:
         f = tmp_path / "Dockerfile"
-        f.write_text(
-            "FROM python:3.12-slim\nWORKDIR /app\nUSER appuser\nHEALTHCHECK CMD curl -f http://localhost/\n"
-        )
+        f.write_text("FROM python:3.12-slim\nWORKDIR /app\nUSER appuser\nHEALTHCHECK CMD curl -f http://localhost/\n")
         result = dockerfile_lint(f)
         assert result == []
 
