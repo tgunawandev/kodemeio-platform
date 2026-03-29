@@ -7,12 +7,8 @@ import os
 from pydantic import BaseModel
 
 from kctl_common.config import (
-    CONFIG_FILE,
-    get_default_profile,
-    get_profile_names,
     get_service_config as _get_service_config,
     resolve_active_profile_name as _resolve_active_profile_name,
-    set_default_profile,
     set_service_config as _set_service_config,
 )
 
