@@ -20,7 +20,7 @@ Public API:
     - async_api_client: Base AsyncAPIClient for async CLIs
 """
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 from kctl_common.api_client import APIClient
 from kctl_common.async_api_client import AsyncAPIClient
