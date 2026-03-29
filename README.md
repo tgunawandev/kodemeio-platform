@@ -13,7 +13,7 @@ Shared core library for all `kctl-*` CLI tools.
 
 **Install:** `pip install kctl-common` or `uv add kctl-common`
 
-**Modules:**
+**Modules (15 total):**
 
 | Module | Purpose |
 |--------|---------|
@@ -25,6 +25,14 @@ Shared core library for all `kctl-*` CLI tools.
 | `kctl_common.plugins` | Plugin discovery via Python entry points |
 | `kctl_common.history` | SQLite-based history tracking |
 | `kctl_common.testing` | Shared test fixtures (mock_output, temp_config) |
+| `kctl_common.docker` | `DockerManager` — Docker Compose wrapper (up/down/ps/logs/restart/exec) |
+| `kctl_common.validate` | YAML/JSON/env/Dockerfile linting with `Issue` dataclass |
+| `kctl_common.git_ops` | Git workflow helpers — branch_status, pr_create, changelog_generate |
+| `kctl_common.completions` | Shell completion generation + install (zsh/bash/fish) |
+| `kctl_common.self_update` | PyPI version check + uv tool upgrade |
+| `kctl_common.doctor_base` | `DoctorCheck` protocol + `run_doctor()` + 4 built-in checks |
+| `kctl_common.monitor_base` | `health_check_url()`, `ssl_check()`, `dns_check()` |
+| `kctl_common.skill_generator` | Typer app introspection → SKILL.md auto-generation |
 
 **Used by:** kctl-next, kctl-odoo, kctl-react, kctl-api, kctl-claw
 
@@ -32,11 +40,11 @@ Shared core library for all `kctl-*` CLI tools.
 
 | CLI | Repo | Target | Command Groups |
 |-----|------|--------|---------------|
-| kctl-next | kodemeio-next | Next.js monorepo (4 apps) | 24 |
-| kctl-odoo | kodemeio-odoo | Odoo 18 ERP (96 modules) | 53 |
-| kctl-react | kodemeio-react | React PWA monorepo (11 apps) | 17 |
-| kctl-api | kodemeio-fastapi | FastAPI platform | 32 |
-| kctl-claw | kodemeio-openclaw | AI agent gateway | 16 |
+| kctl-next | kodemeio-next | Next.js monorepo (4 apps) | 35 |
+| kctl-odoo | kodemeio-odoo | Odoo 18 ERP (96 modules) | 70 |
+| kctl-react | kodemeio-react | React PWA monorepo (11 apps) | 31 |
+| kctl-api | kodemeio-fastapi | FastAPI platform | 46 |
+| kctl-claw | kodemeio-openclaw | AI agent gateway | 29 |
 
 ## Templates
 

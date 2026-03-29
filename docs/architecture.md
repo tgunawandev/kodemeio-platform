@@ -6,11 +6,11 @@
 
 | CLI | Repo | Target | Groups |
 |-----|------|--------|--------|
-| kctl-next | kodemeio-next | Next.js monorepo (4 apps) | 24 |
-| kctl-odoo | kodemeio-odoo | Odoo 18 ERP (96 modules) | 53 |
-| kctl-react | kodemeio-react | React PWA monorepo (11 apps) | 17 |
-| kctl-api | kodemeio-fastapi | FastAPI platform | 32 |
-| kctl-claw | kodemeio-openclaw | AI agent gateway | 16 |
+| kctl-next | kodemeio-next | Next.js monorepo (4 apps) | 35 |
+| kctl-odoo | kodemeio-odoo | Odoo 18 ERP (96 modules) | 70 |
+| kctl-react | kodemeio-react | React PWA monorepo (11 apps) | 31 |
+| kctl-api | kodemeio-fastapi | FastAPI platform | 46 |
+| kctl-claw | kodemeio-openclaw | AI agent gateway | 29 |
 
 ## Shared Config
 

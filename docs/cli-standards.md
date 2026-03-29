@@ -8,6 +8,7 @@
 | Diagnostics | `doctor` |
 | Cleanup | `clean` |
 | Dashboard | `dashboard` |
+| Skill docs generation | `skill generate` |
 
 ## Global Options (required in every CLI)
 
