@@ -41,9 +41,14 @@ def run(
         raise CommandError(" ".join(cmd), -1, f"Command not found: {cmd[0]}") from e
 
 
-def run_quiet(cmd: list[str], cwd: Path | None = None, timeout: int = 300) -> subprocess.CompletedProcess[str]:
+def run_quiet(
+    cmd: list[str],
+    cwd: Path | None = None,
+    timeout: int = 300,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     """Run a command, returning result without raising on failure."""
-    return run(cmd, cwd=cwd, check=False, timeout=timeout)
+    return run(cmd, cwd=cwd, check=False, timeout=timeout, env=env)
 
 
 def get_git_sha(cwd: Path | None = None) -> str:
