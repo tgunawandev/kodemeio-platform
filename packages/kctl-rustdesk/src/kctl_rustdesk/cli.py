@@ -10,6 +10,16 @@ from kctl_common import handle_cli_error
 from kctl_common.exceptions import KctlError
 
 from kctl_rustdesk import __version__
+from kctl_rustdesk.commands.audit import app as audit_app
+from kctl_rustdesk.commands.backup import app as backup_app
+from kctl_rustdesk.commands.config_cmd import app as config_app
+from kctl_rustdesk.commands.dashboard import app as dashboard_app
+from kctl_rustdesk.commands.health import app as health_app
+from kctl_rustdesk.commands.maintenance import app as maintenance_app
+from kctl_rustdesk.commands.peers import app as peers_app
+from kctl_rustdesk.commands.setup import app as setup_app
+from kctl_rustdesk.commands.users import app as users_app
+from kctl_rustdesk.core.plugins import discover_and_load_plugins
 
 
 def version_callback(value: bool) -> None:
@@ -50,6 +60,19 @@ def main(
         no_header=no_header,
         host_override=host,
     )
+
+
+app.add_typer(config_app, name="config")
+app.add_typer(health_app, name="health")
+app.add_typer(dashboard_app, name="dashboard")
+app.add_typer(peers_app, name="peers")
+app.add_typer(users_app, name="users")
+app.add_typer(audit_app, name="audit")
+app.add_typer(backup_app, name="backup")
+app.add_typer(setup_app, name="setup")
+app.add_typer(maintenance_app, name="maintenance")
+
+discover_and_load_plugins(app)
 
 
 def _run() -> None:
