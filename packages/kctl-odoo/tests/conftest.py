@@ -1,0 +1,60 @@
+"""Shared test fixtures for kctl-odoo tests."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+
+@pytest.fixture
+def install_dir() -> Path:
+    """Path to the real install/ bundle directory in the Odoo project root.
+
+    Resolution order:
+    1. ``KCTL_ODOO_REPO`` env var → ``{repo}/install``
+    2. Walk up from this file looking for ``install/`` directory
+    3. Skip if not found
+    """
+    # 1. Env var
+    repo = os.environ.get("KCTL_ODOO_REPO")
+    if repo:
+        path = Path(repo) / "install"
+        if path.is_dir():
+            return path
+
+    # 2. Walk up from test file (works when CLI is co-located with repo)
+    cur = Path(__file__).resolve().parent
+    for _ in range(10):
+        candidate = cur / "install"
+        if candidate.is_dir():
+            return candidate
+        parent = cur.parent
+        if parent == cur:
+            break
+        cur = parent
+
+    pytest.skip("install/ directory not found -- set KCTL_ODOO_REPO env var")
+    return Path()  # unreachable, satisfies type checker
+
+
+@pytest.fixture
+def mock_client() -> MagicMock:
+    """A mocked OdooClient that returns predictable data.
+
+    Stubs the most common methods so command-level tests can run without
+    a live Odoo instance.
+    """
+    client = MagicMock()
+    client.database = "test_db"
+    client.uid = 2
+    client.authenticate.return_value = 2
+    client.version_info.return_value = {"server_version": "18.0"}
+    client.check_health.return_value = (True, "18.0")
+    client.search_read.return_value = []
+    client.search_count.return_value = 0
+    client.search.return_value = []
+    client.db_list.return_value = ["db1", "db2"]
+    return client

@@ -1,0 +1,73 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kctl-odoo"
+version = "0.2.0"
+description = "Kodemeio Odoo CLI - manage Odoo 18 ERP instances"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{ name = "Kodemeio", email = "dev@kodeme.io" }]
+keywords = ["odoo", "erp", "cli", "kodemeio", "json-rpc"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "kctl-common>=0.3.0",
+    "httpx>=0.28.0",
+    "openpyxl>=3.1.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-httpx>=0.35.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
+    "types-PyYAML>=6.0.0",
+]
+
+[project.scripts]
+kctl-odoo = "kctl_odoo.cli:_run"
+
+[tool.uv.sources]
+kctl-common = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kctl_odoo"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: tests that read real YAML files from install/ directory",
+    "smoke: tests that require a live Odoo instance",
+]
+
+
+[tool.coverage.run]
+source = ["src/kctl_odoo/core", "src/kctl_odoo/commands/generate.py"]
+omit = ["*/commands/aliases.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
