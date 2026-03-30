@@ -1,0 +1,53 @@
+kind: base
+type: odoo
+
+source:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-odoo
+  branch: "18.0"
+  compose_path: ./docker-compose.prod.yml
+
+server: kodeme-service
+project: kodemeio-service
+
+healthcheck:
+  path: /web/health
+  port: 8069
+  expected_status: 200
+  timeout: 120
+  interval: 10
+
+env_defaults:
+  RUNNING_ENV: production
+  ODOO_WORKERS: "4"
+  ODOO_MAX_CRON_THREADS: "2"
+  ODOO_LIST_DB: "False"
+  WITHOUT_DEMO: "True"
+  PGHOST: "10.0.0.3"
+  PGPORT: "5432"
+  TZ: "Asia/Jakarta"
+
+backup:
+  destination: kodemeio-s3-backups
+  type: postgres
+  schedule: "0 2 * * *"
+  prefix_template: "odoo-{instance_name}"
+  keep_latest: 30
+
+schedules:
+  - name: "{instance_name}-vacuum"
+    cron: "0 4 * * 0"
+    command: "vacuumdb -U {db_user} -d {db_name} --analyze"
+    service: odoo
+    shell: bash
+    timezone: Asia/Jakarta
+  - name: "{instance_name}-session-cleanup"
+    cron: "0 3 * * *"
+    command: "psql -U {db_user} -d {db_name} -c \"DELETE FROM ir_sessions WHERE write_date < NOW() - INTERVAL '7 days'\""
+    service: odoo
+    shell: bash
+    timezone: Asia/Jakarta
+
+post_deploy:
+  odoo_init_db: true

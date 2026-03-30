@@ -1,0 +1,24 @@
+kind: base
+type: react-pwa
+
+source:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-react
+  branch: main
+
+server: kodeme-service
+project: kodemeio-app
+
+healthcheck:
+  path: /
+  port: 80
+  expected_status: 200
+  timeout: 60
+  interval: 5
+
+env_defaults:
+  NODE_ENV: production
+  VITE_AUTH_MODE: oidc
+  VITE_OIDC_AUTHORITY: "https://auth.kodeme.io/application/o/kodemeio/"
+  TZ: "Asia/Jakarta"

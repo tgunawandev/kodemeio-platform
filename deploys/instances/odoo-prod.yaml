@@ -1,0 +1,30 @@
+kind: instance
+extends: ../bases/odoo.yaml
+
+instance:
+  name: kodemeio-odoo-prod
+  description: "Kodemeio Production ERP — Distribution"
+
+dns:
+  zone: kodeme.io
+  name: odoo
+  content: 49.13.14.79
+
+domain:
+  host: odoo.kodeme.io
+  port: 8069
+  service: odoo
+  https: true
+
+database:
+  name: kodemeio_prod
+  user: odoo
+
+env_overrides:
+  PGDATABASE: kodemeio_prod
+  PGUSER: odoo
+  ODOO_DB_FILTER: "^kodemeio_prod$"
+  DOMAIN: odoo.kodeme.io
+
+post_deploy:
+  odoo_profile: profile-distribution
