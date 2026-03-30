@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -23,7 +23,7 @@ def _get_org_slug(c: AppContext) -> str:
 @app.command("list")
 def list_(
     ctx: typer.Context,
-    org: Annotated[Optional[str], typer.Option("--org", help="Organization slug")] = None,
+    org: Annotated[str | None, typer.Option("--org", help="Organization slug")] = None,
 ) -> None:
     """List uptime monitors."""
     actx: AppContext = ctx.obj
@@ -64,7 +64,7 @@ def create(
     ctx: typer.Context,
     name: Annotated[str, typer.Option("--name", help="Monitor name")],
     url: Annotated[str, typer.Option("--url", help="URL to monitor")],
-    org: Annotated[Optional[str], typer.Option("--org", help="Organization slug")] = None,
+    org: Annotated[str | None, typer.Option("--org", help="Organization slug")] = None,
     interval: Annotated[int, typer.Option("--interval", help="Check interval in seconds")] = 60,
     monitor_type: Annotated[str, typer.Option("--type", help="Monitor type (e.g. Ping, GET)")] = "Ping",
     expected_status: Annotated[int, typer.Option("--expected-status", help="Expected HTTP status code")] = 200,
@@ -96,7 +96,7 @@ def create(
 def delete(
     ctx: typer.Context,
     monitor_id: Annotated[int, typer.Argument(help="Monitor ID")],
-    org: Annotated[Optional[str], typer.Option("--org", help="Organization slug")] = None,
+    org: Annotated[str | None, typer.Option("--org", help="Organization slug")] = None,
     force: Annotated[bool, typer.Option("--force", help="Skip confirmation")] = False,
 ) -> None:
     """Delete an uptime monitor."""
@@ -117,7 +117,7 @@ def delete(
 def checks(
     ctx: typer.Context,
     monitor_id: Annotated[int, typer.Argument(help="Monitor ID")],
-    org: Annotated[Optional[str], typer.Option("--org", help="Organization slug")] = None,
+    org: Annotated[str | None, typer.Option("--org", help="Organization slug")] = None,
 ) -> None:
     """Show recent checks for an uptime monitor."""
     actx: AppContext = ctx.obj

@@ -11,14 +11,13 @@ from typing import Any
 import httpx
 from kctl_common.api_client import APIClient
 from kctl_common.exceptions import AuthenticationError, ConfigError
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
 
 
 class GlitchTipClient(APIClient):
     """Synchronous client for GlitchTip Sentry-compatible API."""
 
     AUTH_HEADER = "Authorization"
-    AUTH_PREFIX = "Bearer"
+    AUTH_PREFIX = "Token"
     API_PREFIX = "/api/0"
 
     def __init__(
@@ -36,20 +35,35 @@ class GlitchTipClient(APIClient):
         # Store the original base_url (without API_PREFIX) for health checks
         self._original_base_url = base_url.rstrip("/")
 
-    def _request_with_trailing_slash(self, method: str, endpoint: str, **kwargs: Any) -> Any:
-        """Ensure endpoints have a trailing slash (GlitchTip requirement)."""
-        url = endpoint.lstrip("/")
-        if not url.endswith("/") and "?" not in url:
-            url += "/"
-        return super()._request(method, url, **kwargs)
-
-    # Override the core _request to add trailing slash
+    # Override the core _request to add trailing slash (GlitchTip requirement)
     def _request(self, method: str, endpoint: str, **kwargs: Any) -> httpx.Response:
         """Send request with trailing slash enforcement."""
         url = endpoint.lstrip("/")
         if not url.endswith("/") and "?" not in url:
             url += "/"
         return super()._request(method, url, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Backward-compatible convenience methods
+    # The old client used post(endpoint, data=payload) where data mapped
+    # to httpx json= kwarg. Override to keep that contract.
+    # ------------------------------------------------------------------
+
+    def post(self, endpoint: str, data: dict[str, Any] | None = None, **kwargs: Any) -> Any:
+        """POST with JSON body via 'data' kwarg for backward compat."""
+        if data is not None and "json" not in kwargs:
+            kwargs["json"] = data
+        return self._unwrap_response(self._request("POST", endpoint, **kwargs))
+
+    def put(self, endpoint: str, data: dict[str, Any] | None = None, **kwargs: Any) -> Any:
+        """PUT with JSON body via 'data' kwarg for backward compat."""
+        if data is not None and "json" not in kwargs:
+            kwargs["json"] = data
+        return self._unwrap_response(self._request("PUT", endpoint, **kwargs))
+
+    def delete(self, endpoint: str, **kwargs: Any) -> None:  # type: ignore[override]
+        """DELETE — returns None for backward compat."""
+        self._request("DELETE", endpoint, **kwargs)
 
     # ------------------------------------------------------------------
     # GlitchTip-specific convenience methods

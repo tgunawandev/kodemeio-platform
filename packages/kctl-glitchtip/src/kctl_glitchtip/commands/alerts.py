@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import subprocess
-from typing import Annotated, Optional
+from typing import Annotated
 
 import httpx
 import typer
@@ -86,7 +86,7 @@ def test_webhook(
 @app.command("test-email")
 def test_email(
     ctx: typer.Context,
-    to: Annotated[Optional[str], typer.Option("--to", help="Recipient email (default: admin)")] = None,
+    to: Annotated[str | None, typer.Option("--to", help="Recipient email (default: admin)")] = None,
 ) -> None:
     """Send test email via Django (requires Docker access)."""
     actx: AppContext = ctx.obj

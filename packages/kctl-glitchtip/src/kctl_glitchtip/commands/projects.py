@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -85,7 +85,7 @@ def create(
     name: Annotated[str, typer.Argument(help="Project name")],
     org_slug: Annotated[str, typer.Option("--org", help="Organization slug")],
     team_slug: Annotated[str, typer.Option("--team", help="Team slug")],
-    platform: Annotated[Optional[str], typer.Option("--platform", help="Platform (e.g. python, javascript)")] = None,
+    platform: Annotated[str | None, typer.Option("--platform", help="Platform (e.g. python, javascript)")] = None,
 ) -> None:
     """Create a new project (returns DSN)."""
     actx: AppContext = ctx.obj
@@ -112,8 +112,8 @@ def update(
     ctx: typer.Context,
     org_slug: Annotated[str, typer.Argument(help="Organization slug")],
     project_slug: Annotated[str, typer.Argument(help="Project slug")],
-    name: Annotated[Optional[str], typer.Option("--name", help="New project name")] = None,
-    platform: Annotated[Optional[str], typer.Option("--platform", help="Platform (e.g. python, javascript)")] = None,
+    name: Annotated[str | None, typer.Option("--name", help="New project name")] = None,
+    platform: Annotated[str | None, typer.Option("--platform", help="Platform (e.g. python, javascript)")] = None,
 ) -> None:
     """Update project name or platform."""
     actx: AppContext = ctx.obj
@@ -191,7 +191,7 @@ def dsn_create(
     ctx: typer.Context,
     org_slug: Annotated[str, typer.Argument(help="Organization slug")],
     project_slug: Annotated[str, typer.Argument(help="Project slug")],
-    label: Annotated[Optional[str], typer.Option("--label", help="Key label")] = None,
+    label: Annotated[str | None, typer.Option("--label", help="Key label")] = None,
 ) -> None:
     """Create a new DSN key for a project."""
     actx: AppContext = ctx.obj

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -52,9 +52,9 @@ def _test_connection(url: str, token: str) -> tuple[bool, str]:
 @app.command()
 def init(
     ctx: typer.Context,
-    url: Annotated[Optional[str], typer.Option("--url", help="GlitchTip base URL.")] = None,
-    token: Annotated[Optional[str], typer.Option("--token", help="API token.")] = None,
-    name: Annotated[Optional[str], typer.Option("--name", "-n", help="Profile name.")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="GlitchTip base URL.")] = None,
+    token: Annotated[str | None, typer.Option("--token", help="API token.")] = None,
+    name: Annotated[str | None, typer.Option("--name", "-n", help="Profile name.")] = None,
 ) -> None:
     """Initialize CLI configuration (interactive if no flags given)."""
     actx: AppContext = ctx.obj
@@ -90,8 +90,8 @@ def init(
 def add(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Profile name (e.g. abcfood, staging)")],
-    url: Annotated[Optional[str], typer.Option("--url", help="GlitchTip base URL.")] = None,
-    token: Annotated[Optional[str], typer.Option("--token", help="API token.")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="GlitchTip base URL.")] = None,
+    token: Annotated[str | None, typer.Option("--token", help="API token.")] = None,
     set_default: Annotated[bool, typer.Option("--default", help="Set as default profile.")] = False,
 ) -> None:
     """Add or update a profile's GlitchTip connection."""
@@ -257,7 +257,7 @@ def set_(
     ctx: typer.Context,
     key: Annotated[str, typer.Argument(help="Config key (e.g. url, token, or default_profile)")],
     value: Annotated[str, typer.Argument(help="Value to set")],
-    profile_arg: Annotated[Optional[str], typer.Option("--profile-name", help="Target profile")] = None,
+    profile_arg: Annotated[str | None, typer.Option("--profile-name", help="Target profile")] = None,
 ) -> None:
     """Set a configuration value for the current service."""
     actx: AppContext = ctx.obj

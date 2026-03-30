@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -15,8 +15,8 @@ app = typer.Typer(help="Manage GlitchTip issues and errors.")
 def list_(
     ctx: typer.Context,
     org_slug: Annotated[str, typer.Option("--org", help="Organization slug")],
-    project: Annotated[Optional[str], typer.Option("--project", help="Filter by project slug")] = None,
-    status: Annotated[Optional[str], typer.Option("--status", help="Filter: unresolved, resolved, ignored")] = None,
+    project: Annotated[str | None, typer.Option("--project", help="Filter by project slug")] = None,
+    status: Annotated[str | None, typer.Option("--status", help="Filter: unresolved, resolved, ignored")] = None,
     sort: Annotated[str, typer.Option("--sort", help="Sort by: last_seen, first_seen, count, priority")] = "-last_seen",
     limit: Annotated[int, typer.Option("--limit", help="Max results")] = 25,
 ) -> None:
