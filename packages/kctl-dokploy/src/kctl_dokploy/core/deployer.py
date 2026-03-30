@@ -300,14 +300,19 @@ class Deployer:
         create_args = ["kctl-dokploy", "compose", "create", default_environment_id, "--name", instance_name]
         code, out = self._run_kctl(create_args)
 
-        # Parse the returned compose ID
+        # Parse the returned compose ID from text output
+        # Format: "OK Compose 'name' created: <compose-id>"
         new_compose_id = ""
         if code == 0 and out:
             try:
                 resp = json.loads(out)
                 new_compose_id = resp.get("composeId", "")
             except json.JSONDecodeError:
-                pass
+                # Parse from text: last word after "created:" or last non-empty token
+                for line in out.splitlines():
+                    if "created:" in line:
+                        new_compose_id = line.split("created:")[-1].strip()
+                        break
 
         if new_compose_id:
             self._compose_id = new_compose_id
