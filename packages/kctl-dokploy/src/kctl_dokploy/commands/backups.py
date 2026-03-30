@@ -18,10 +18,10 @@ def list_(
 ) -> None:
     """List all backup configurations."""
     c: AppContext = ctx.obj
-    if compose_id:
-        backups = c.client.get("/backup.all", params={"composeId": compose_id})
-    else:
-        backups = c.client.get("/backup.all")
+    if not compose_id:
+        c.output.error("--compose is required (backups are scoped to compose services)")
+        raise typer.Exit(1)
+    backups = c.client.get("/backup.all", params={"composeId": compose_id})
     if not isinstance(backups, list):
         backups = []
     rows = []

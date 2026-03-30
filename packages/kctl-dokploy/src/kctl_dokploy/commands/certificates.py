@@ -15,7 +15,7 @@ app = typer.Typer(help="Manage SSL certificates.")
 def list_(ctx: typer.Context) -> None:
     """List all SSL certificates."""
     c: AppContext = ctx.obj
-    certs = c.client.get("/certificate.all")
+    certs = c.client.get("/certificates.all")
     if not isinstance(certs, list):
         certs = []
     rows = []
@@ -41,7 +41,7 @@ def get(
 ) -> None:
     """Get certificate details."""
     c: AppContext = ctx.obj
-    data = c.client.get("/certificate.one", params={"certificateId": certificate_id})
+    data = c.client.get("/certificates.one", params={"certificateId": certificate_id})
     if not isinstance(data, dict):
         c.output.error(f"Certificate '{certificate_id}' not found")
         raise typer.Exit(1)
@@ -78,7 +78,7 @@ def create(
     }
     if domain:
         payload["domain"] = domain
-    result = c.client.post("/certificate.create", json=payload)
+    result = c.client.post("/certificates.create", json=payload)
     cid = result.get("certificateId", "") if isinstance(result, dict) else ""
     c.output.success(f"Certificate '{name}' created: {cid}")
     if c.json_mode:
@@ -117,7 +117,7 @@ def import_cert(
         except FileNotFoundError as e:
             c.output.error(f"Chain file not found: {e}")
             raise typer.Exit(1) from e
-    result = c.client.post("/certificate.create", json=payload)
+    result = c.client.post("/certificates.create", json=payload)
     cid = result.get("certificateId", "") if isinstance(result, dict) else ""
     c.output.success(f"Certificate '{name}' imported: {cid}")
     if c.json_mode:
@@ -134,7 +134,7 @@ def remove(
     c: AppContext = ctx.obj
     if not force:
         typer.confirm(f"Remove certificate '{certificate_id}'? This cannot be undone.", abort=True)
-    result = c.client.post("/certificate.remove", json={"certificateId": certificate_id})
+    result = c.client.post("/certificates.remove", json={"certificateId": certificate_id})
     c.output.success(f"Certificate '{certificate_id}' removed")
     if c.json_mode:
         c.output.raw_json(result)
@@ -148,7 +148,7 @@ def renew(
     """Trigger certificate renewal."""
     c: AppContext = ctx.obj
     c.output.info(f"Renewing certificate '{certificate_id}'...")
-    result = c.client.post("/certificate.renew", json={"certificateId": certificate_id})
+    result = c.client.post("/certificates.renew", json={"certificateId": certificate_id})
     c.output.success(f"Certificate '{certificate_id}' renewal triggered")
     if c.json_mode:
         c.output.raw_json(result)

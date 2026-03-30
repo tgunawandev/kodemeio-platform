@@ -13,38 +13,33 @@ app = typer.Typer(help="Manage Dokploy global settings.")
 
 @app.command()
 def show(ctx: typer.Context) -> None:
-    """Show current global settings."""
+    """Show platform settings derived from servers."""
     c: AppContext = ctx.obj
-    data = c.client.get("/settings.one")
-    if not isinstance(data, dict):
-        data = {}
-    # Extract key settings
-    letsencrypt_email = data.get("letsEncryptEmail", data.get("certificateEmail", "-"))
-    cleanup_enabled = str(data.get("cleanupCacheEnabled", data.get("enableDockerCleanup", "-")))
-    traefik_enabled = str(data.get("isTraefikEnabled", data.get("traefikEnabled", "-")))
-    server_ip = data.get("serverIp", data.get("ipAddress", "-"))
-    sections = [
-        (
-            "Server",
-            [
-                ("Server IP", str(server_ip)),
-                ("Let's Encrypt Email", str(letsencrypt_email)),
-                ("Traefik Enabled", traefik_enabled),
-                ("Docker Cleanup", cleanup_enabled),
-            ],
-        ),
-    ]
-    # Add docker/system info if available
-    docker_version = data.get("dockerVersion")
-    os_info = data.get("os")
-    if docker_version or os_info:
-        sys_items = []
-        if docker_version:
-            sys_items.append(("Docker Version", str(docker_version)))
-        if os_info:
-            sys_items.append(("OS", str(os_info)))
-        sections.append(("System", sys_items))
-    c.output.detail("Global Settings", sections, data_for_json=data)
+    servers = c.client.get("/server.all")
+    if not isinstance(servers, list):
+        servers = []
+    all_data = {"servers": servers}
+    sections = []
+    for srv in servers:
+        name = srv.get("name", "unknown")
+        sections.append(
+            (
+                f"Server: {name}",
+                [
+                    ("IP", srv.get("ipAddress", "-")),
+                    ("Status", srv.get("serverStatus", "-")),
+                    ("Type", srv.get("serverType", "-")),
+                    ("Docker Cleanup", str(srv.get("enableDockerCleanup", "-"))),
+                    ("SSH User", srv.get("username", "-")),
+                    ("Port", str(srv.get("port", "-"))),
+                    ("Services", str(srv.get("totalSum", 0))),
+                    ("Created", srv.get("createdAt", "-")),
+                ],
+            ),
+        )
+    if not sections:
+        sections.append(("Settings", [("Info", "No servers found")]))
+    c.output.detail("Platform Settings", sections, data_for_json=all_data)
 
 
 @app.command()

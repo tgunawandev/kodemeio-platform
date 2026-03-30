@@ -23,9 +23,10 @@ def list_(
     if compose_id:
         deployments = c.client.get("/deployment.allByCompose", params={"composeId": compose_id})
     elif application_id:
-        deployments = c.client.get("/deployment.allByApplication", params={"applicationId": application_id})
+        deployments = c.client.get("/deployment.all", params={"applicationId": application_id})
     else:
-        deployments = c.client.get("/deployment.all")
+        c.output.error("Either --compose or --application is required")
+        raise typer.Exit(1)
     if not isinstance(deployments, list):
         deployments = []
     # Sort newest first and apply limit

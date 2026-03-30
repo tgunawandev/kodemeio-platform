@@ -15,7 +15,7 @@ app = typer.Typer(help="Manage Git providers and repositories.")
 def list_(ctx: typer.Context) -> None:
     """List all configured Git providers."""
     c: AppContext = ctx.obj
-    providers = c.client.get("/gitProvider.all")
+    providers = c.client.get("/gitProvider.getAll")
     if not isinstance(providers, list):
         providers = []
     rows = []
