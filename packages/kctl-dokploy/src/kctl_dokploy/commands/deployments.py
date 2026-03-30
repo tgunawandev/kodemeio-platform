@@ -86,21 +86,99 @@ def get(
 @app.command("logs")
 def logs_(
     ctx: typer.Context,
-    deployment_id: Annotated[str, typer.Argument(help="Deployment ID")],
+    deployment_id: Annotated[str | None, typer.Argument(help="Deployment ID (or omit to get latest)")] = None,
+    compose_id: Annotated[str | None, typer.Option("--compose", "-c", help="Compose ID (to find deployment)")] = None,
+    application_id: Annotated[str | None, typer.Option("--application", "-a", help="Application ID")] = None,
 ) -> None:
-    """Show logs for a specific deployment."""
+    """Show deployment logs via SSH to server."""
     c: AppContext = ctx.obj
-    # deployment.log is not available; fetch from centralized list
-    all_deps = c.client.get("/deployment.allCentralized")
-    dep = next(
-        (d for d in (all_deps if isinstance(all_deps, list) else []) if d.get("deploymentId") == deployment_id), None
-    )
-    log_text = dep.get("logPath", dep.get("log", dep.get("logs", ""))) if isinstance(dep, dict) else ""
+
+    dep = None
+    if compose_id:
+        deps = c.client.get("/deployment.allByCompose", params={"composeId": compose_id})
+        if isinstance(deps, list) and deps:
+            sorted_deps = sorted(deps, key=lambda d: d.get("createdAt", ""), reverse=True)
+            if deployment_id:
+                dep = next((d for d in sorted_deps if d.get("deploymentId", "").startswith(deployment_id)), None)
+            else:
+                dep = sorted_deps[0]
+    elif application_id:
+        deps = c.client.get("/deployment.all", params={"applicationId": application_id})
+        if isinstance(deps, list) and deps:
+            sorted_deps = sorted(deps, key=lambda d: d.get("createdAt", ""), reverse=True)
+            if deployment_id:
+                dep = next((d for d in sorted_deps if d.get("deploymentId", "").startswith(deployment_id)), None)
+            else:
+                dep = sorted_deps[0]
+    elif deployment_id:
+        try:
+            all_deps = c.client.get("/deployment.allCentralized")
+            dep = next(
+                (
+                    d
+                    for d in (all_deps if isinstance(all_deps, list) else [])
+                    if d.get("deploymentId", "").startswith(deployment_id)
+                ),
+                None,
+            )
+        except Exception:
+            pass
+    else:
+        c.output.error("Provide a deployment ID or --compose/--application to find it")
+        raise typer.Exit(1)
+
+    log_path = dep.get("logPath", "") if isinstance(dep, dict) else ""
+
+    if not log_path:
+        c.output.error(f"No log path found for deployment '{deployment_id}'")
+        raise typer.Exit(1)
+
+    # Try to read the log file via SSH to the server
+    log_text = ""
+    try:
+        server_id = dep.get("serverId") if isinstance(dep, dict) else None
+        # Get server IP
+        servers = c.client.get("/server.all")
+        server_ip = None
+        if isinstance(servers, list):
+            for s in servers:
+                if server_id and s.get("serverId") == server_id:
+                    server_ip = s.get("ipAddress")
+                    break
+            if not server_ip and servers:
+                server_ip = servers[0].get("ipAddress")
+
+        if server_ip:
+            import subprocess
+
+            result = subprocess.run(
+                [
+                    "ssh",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    "-o",
+                    "ConnectTimeout=5",
+                    f"root@{server_ip}",
+                    f"cat {log_path}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if result.returncode == 0:
+                log_text = result.stdout
+            else:
+                log_text = f"SSH failed: {result.stderr.strip()}\nLog path: {log_path}"
+        else:
+            log_text = f"Could not determine server IP. Log path: {log_path}"
+    except Exception as e:
+        log_text = f"Failed to read log via SSH: {e}\nLog path: {log_path}"
+
     if c.json_mode:
-        c.output.raw_json({"deploymentId": deployment_id, "logs": log_text})
+        c.output.raw_json({"deploymentId": deployment_id, "logPath": log_path, "logs": log_text})
     else:
         c.output.header(f"Deployment Logs: {deployment_id}")
-        c.output.text(str(log_text))
+        c.output.text(log_text)
 
 
 @app.command()

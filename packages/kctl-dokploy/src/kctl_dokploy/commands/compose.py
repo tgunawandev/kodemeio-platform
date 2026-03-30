@@ -126,6 +126,7 @@ def update(
         str | None, typer.Option("--source-type", help="Source type: raw, github, gitlab, git")
     ] = None,
     repository: Annotated[str | None, typer.Option("--repo", help="GitHub repository name")] = None,
+    owner: Annotated[str | None, typer.Option("--owner", help="GitHub owner/org (e.g. tgunawandev)")] = None,
     branch: Annotated[str | None, typer.Option("--branch", help="Git branch")] = None,
     compose_path: Annotated[str | None, typer.Option("--compose-path", help="Path to compose file in repo")] = None,
     github_id: Annotated[str | None, typer.Option("--github-id", help="Dokploy GitHub provider ID")] = None,
@@ -148,6 +149,8 @@ def update(
         payload["sourceType"] = source_type
     if repository is not None:
         payload["repository"] = repository
+    if owner is not None:
+        payload["owner"] = owner
     if branch is not None:
         payload["branch"] = branch
     if compose_path is not None:
