@@ -92,18 +92,23 @@ def get(
 @app.command()
 def create(
     ctx: typer.Context,
-    project_id: Annotated[str, typer.Argument(help="Project ID to create compose in")],
+    environment_id: Annotated[str, typer.Argument(help="Environment ID (from kctl-dokploy projects get)")],
     name: Annotated[str, typer.Option("--name", "-n", help="Compose service name")],
     description: Annotated[str | None, typer.Option("--description", "-d", help="Description")] = None,
     server_id: Annotated[str | None, typer.Option("--server", help="Server ID")] = None,
+    compose_file: Annotated[str | None, typer.Option("--file", "-f", help="Path to docker-compose file")] = None,
 ) -> None:
-    """Create a new compose service in a project."""
+    """Create a new compose service in a project environment."""
     c: AppContext = ctx.obj
-    payload: dict = {"name": name, "projectId": project_id}
+    payload: dict = {"name": name, "environmentId": environment_id}
     if description:
         payload["description"] = description
     if server_id:
         payload["serverId"] = server_id
+    if compose_file:
+        import pathlib
+
+        payload["composeFile"] = pathlib.Path(compose_file).read_text()
     result = c.client.post("/compose.create", json=payload)
     cid = result.get("composeId", "") if isinstance(result, dict) else ""
     c.output.success(f"Compose '{name}' created: {cid}")

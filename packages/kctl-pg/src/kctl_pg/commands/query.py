@@ -28,7 +28,16 @@ def query(
     out = actx.output
 
     c = actx.get_client(database=database)
+    is_ddl = (
+        sql.strip().upper().startswith(("CREATE", "DROP", "ALTER", "GRANT", "REVOKE", "TRUNCATE", "VACUUM", "REINDEX"))
+    )
     try:
+        if is_ddl:
+            c.execute(sql)
+            out.success(f"Statement executed successfully")
+            if out.json_mode:
+                out.raw_json({"status": "ok", "statement": sql})
+            return
         rows = c.fetchall(sql)
     finally:
         c.close()

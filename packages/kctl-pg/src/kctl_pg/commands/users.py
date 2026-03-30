@@ -102,7 +102,15 @@ def create(
         opts.append("SUPERUSER")
 
     opts_str = " ".join(opts)
-    c.execute(f"CREATE ROLE {_quote_ident(name)} {opts_str} PASSWORD %s", (password,))
+    from psycopg import sql
+
+    c.execute(
+        sql.SQL("CREATE ROLE {} {} PASSWORD {}").format(
+            sql.Identifier(name),
+            sql.SQL(opts_str),
+            sql.Literal(password),
+        )
+    )
 
     out.success(f"Role '{name}' created")
     if generated:
@@ -165,7 +173,14 @@ def password(
         new_password = _generate_password()
         generated = True
 
-    c.execute(f"ALTER ROLE {_quote_ident(name)} PASSWORD %s", (new_password,))
+    from psycopg import sql
+
+    c.execute(
+        sql.SQL("ALTER ROLE {} PASSWORD {}").format(
+            sql.Identifier(name),
+            sql.Literal(new_password),
+        )
+    )
     out.success(f"Password updated for '{name}'")
     if generated:
         out.kv("Generated password", new_password)

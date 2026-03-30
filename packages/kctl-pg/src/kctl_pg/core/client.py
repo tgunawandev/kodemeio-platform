@@ -81,7 +81,7 @@ class PostgresClient:
         except Exception as e:
             raise KctlConnectionError(f"{cfg.host}:{cfg.port}", e) from e
 
-    def execute(self, sql: str, params: tuple | dict | None = None) -> None:
+    def execute(self, sql: str | Any, params: tuple | dict | None = None) -> None:
         """Execute SQL without returning results."""
         assert self._conn is not None, "Not connected. Call connect() first."
         try:
