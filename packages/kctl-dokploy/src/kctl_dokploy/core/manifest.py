@@ -281,7 +281,10 @@ def interpolate(manifest: DeployManifest) -> DeployManifest:
             text = text.replace(f"{{{key}}}", value)
         return text
 
-    new_schedules = [sched.model_copy(update={"command": _sub(sched.command)}) for sched in manifest.schedules]
+    new_schedules = [
+        sched.model_copy(update={"name": _sub(sched.name), "command": _sub(sched.command)})
+        for sched in manifest.schedules
+    ]
 
     new_backup: BackupConfig | None = None
     if manifest.backup is not None:

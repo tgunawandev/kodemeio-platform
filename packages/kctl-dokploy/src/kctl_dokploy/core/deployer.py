@@ -92,7 +92,7 @@ class Deployer:
             ``(returncode, stdout)``
         """
         if self.dry_run and self._is_mutating(cmd):
-            return 0, ""
+            return 0, "[dry-run] skipped"
 
         proc = subprocess.run(
             cmd,
@@ -119,6 +119,14 @@ class Deployer:
     def _record_phase(self, phase: str, action: str, message: str) -> None:
         """Append a :class:`PhaseResult` to :attr:`results`."""
         self.results.append(PhaseResult(phase=phase, action=action, message=message))
+
+    def _action(self, action: str) -> str:
+        """Prefix action with 'would-' in dry-run mode."""
+        return f"would-{action}" if self.dry_run else action
+
+    def _msg(self, message: str) -> str:
+        """Prefix message with '[dry-run]' in dry-run mode."""
+        return f"[dry-run] {message}" if self.dry_run else message
 
     # ------------------------------------------------------------------
     # Phase 1 — DNS
@@ -154,7 +162,9 @@ class Deployer:
             ]
         )
         if code == 0:
-            self._record_phase("dns", "created", f"Created {dns.type} record {dns.name} → {dns.content}")
+            self._record_phase(
+                "dns", self._action("created"), self._msg(f"Create {dns.type} record {dns.name} → {dns.content}")
+            )
         else:
             self._record_phase("dns", "failed", f"Failed to create DNS record: {out}")
 
@@ -204,7 +214,9 @@ class Deployer:
             db_created = code == 0
 
         if user_created or db_created:
-            self._record_phase("database", "created", f"Provisioned role={db.user}, db={db.name}")
+            self._record_phase(
+                "database", self._action("created"), self._msg(f"Provision role={db.user}, db={db.name}")
+            )
         else:
             self._record_phase("database", "skipped", f"Role and database already exist: {db.user}/{db.name}")
 
@@ -319,9 +331,14 @@ class Deployer:
                     src.compose_path,
                 ]
             )
-            self._record_phase("compose", "created", f"Created compose {instance_name} (id={self._compose_id})")
+            self._record_phase(
+                "compose", self._action("created"), self._msg(f"Create compose {instance_name} (id={self._compose_id})")
+            )
         else:
-            self._record_phase("compose", "failed", f"Failed to create compose {instance_name}: {out}")
+            if self.dry_run:
+                self._record_phase("compose", "would-created", f"[dry-run] Would create compose {instance_name}")
+            else:
+                self._record_phase("compose", "failed", f"Failed to create compose {instance_name}: {out}")
 
     # ------------------------------------------------------------------
     # Phase 5 — Environment
@@ -393,7 +410,9 @@ class Deployer:
             ]
         )
         if code == 0:
-            self._record_phase("domain", "created", f"Created domain {domain.host}:{domain.port}")
+            self._record_phase(
+                "domain", self._action("created"), self._msg(f"Create domain {domain.host}:{domain.port}")
+            )
         else:
             self._record_phase("domain", "failed", f"Failed to create domain: {out}")
 
@@ -404,12 +423,15 @@ class Deployer:
     def phase_deploy(self) -> None:
         """Trigger a redeploy of the compose service."""
         if not self._compose_id:
-            self._record_phase("deploy", "failed", "No compose_id set — cannot redeploy")
+            if self.dry_run:
+                self._record_phase("deploy", "would-updated", "[dry-run] Would redeploy")
+            else:
+                self._record_phase("deploy", "failed", "No compose_id set — cannot redeploy")
             return
 
         code, out = self._run_kctl(["kctl-dokploy", "compose", "redeploy", "--", self._compose_id])
         if code == 0:
-            self._record_phase("deploy", "updated", f"Redeployed compose {self._compose_id}")
+            self._record_phase("deploy", self._action("updated"), self._msg(f"Redeploy compose {self._compose_id}"))
         else:
             self._record_phase("deploy", "failed", f"Redeploy failed: {out}")
 
@@ -419,6 +441,12 @@ class Deployer:
 
     def phase_verify(self) -> None:
         """Poll the healthcheck URL until it responds or times out."""
+        if self.dry_run:
+            domain = self.manifest.domain
+            host = domain.host or "localhost"
+            self._record_phase("verify", "would-verify", f"[dry-run] Would poll https://{host}")
+            return
+
         hc = self.manifest.healthcheck
         domain = self.manifest.domain
 
@@ -482,7 +510,9 @@ class Deployer:
             ]
         )
         if code == 0:
-            self._record_phase("backup", "created", f"Created backup job → {backup.destination}")
+            self._record_phase(
+                "backup", self._action("created"), self._msg(f"Create backup job → {backup.destination}")
+            )
         else:
             self._record_phase("backup", "failed", f"Failed to create backup: {out}")
 
@@ -537,7 +567,7 @@ class Deployer:
         if failed:
             self._record_phase("schedules", "failed", f"Failed to create: {failed}")
         elif created:
-            self._record_phase("schedules", "created", f"Created schedules: {created}")
+            self._record_phase("schedules", self._action("created"), self._msg(f"Create schedules: {created}"))
         else:
             self._record_phase("schedules", "skipped", "All schedules already exist")
 
@@ -554,7 +584,9 @@ class Deployer:
 
         code, out = self._run_kctl(["kctl-odoo", "bundles", "install", "--profile", pd.odoo_profile])
         if code == 0:
-            self._record_phase("post_deploy", "updated", f"Installed Odoo bundles via profile {pd.odoo_profile}")
+            self._record_phase(
+                "post_deploy", self._action("updated"), self._msg(f"Install Odoo bundles via profile {pd.odoo_profile}")
+            )
         else:
             self._record_phase("post_deploy", "failed", f"Odoo bundle install failed: {out}")
 
