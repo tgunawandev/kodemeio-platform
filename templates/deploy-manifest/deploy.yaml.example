@@ -1,0 +1,113 @@
+# =============================================================================
+# Kodemeio Service Deployment Manifest
+# =============================================================================
+# Declarative, idempotent deployment for Dokploy compose services.
+#
+# Usage:
+#   kctl-dokploy deploy apply --file deploy.yaml          # Create or update
+#   kctl-dokploy deploy apply --file deploy.yaml --dry-run # Preview changes
+#   kctl-dokploy deploy status --file deploy.yaml          # Check current state
+#   kctl-dokploy deploy destroy --file deploy.yaml         # Tear down (careful!)
+#
+# All resources are idempotent — safe to re-run.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Service Identity
+# ---------------------------------------------------------------------------
+service:
+  name: kodemeio-odoo              # Dokploy compose service name
+  description: "Odoo 18 ERP Platform"
+  project: kodemeio-service        # Dokploy project name
+  server: kodeme-service           # Target Dokploy server name
+
+# ---------------------------------------------------------------------------
+# Source — GitHub repo (MANDATORY, no raw compose)
+# ---------------------------------------------------------------------------
+source:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-odoo
+  branch: "18.0"
+  compose_path: ./docker-compose.prod.yml
+
+# ---------------------------------------------------------------------------
+# DNS Records (via kctl-cloudflare)
+# ---------------------------------------------------------------------------
+dns:
+  - zone: kodeme.io
+    type: A
+    name: odoo                     # → odoo.kodeme.io
+    content: 49.13.14.79           # kodeme-service IP
+
+# ---------------------------------------------------------------------------
+# Database (via kctl-pg)
+# ---------------------------------------------------------------------------
+database:
+  host: 10.0.0.3                   # Internal PG on compose network
+  port: 5432
+  name: kodemeio_prod
+  user: odoo
+  # password: auto-generated and stored in 1Password if not exists
+
+# ---------------------------------------------------------------------------
+# Domains (via kctl-dokploy domains)
+# ---------------------------------------------------------------------------
+domains:
+  - host: odoo.kodeme.io
+    port: 8069
+    service: odoo                  # Docker Compose service name
+    https: true
+    cert: letsencrypt
+
+# ---------------------------------------------------------------------------
+# Environment Variables
+# ---------------------------------------------------------------------------
+env_file: .env.prod                # Relative to repo root, pushed to Dokploy
+
+# Inline env overrides (merged on top of env_file)
+env:
+  PGHOST: "10.0.0.3"
+  PGPORT: "5432"
+  DOMAIN: "odoo.kodeme.io"
+  RUNNING_ENV: "production"
+  TZ: "Asia/Jakarta"
+
+# ---------------------------------------------------------------------------
+# Backups (via kctl-dokploy backups)
+# ---------------------------------------------------------------------------
+backups:
+  - destination: kodemeio-s3-backups
+    database: kodemeio_prod
+    type: postgres
+    service: odoo
+    schedule: "0 2 * * *"         # Daily at 2am
+    prefix: odoo-backup
+    keep_latest: 30
+
+# ---------------------------------------------------------------------------
+# Scheduled Tasks (via kctl-dokploy schedules)
+# ---------------------------------------------------------------------------
+schedules:
+  - name: odoo-vacuum
+    cron: "0 4 * * 0"            # Weekly Sunday 4am
+    command: "vacuumdb -U odoo -d kodemeio_prod --analyze"
+    service: odoo
+    shell: bash
+    timezone: Asia/Jakarta
+
+  - name: odoo-session-cleanup
+    cron: "0 3 * * *"            # Daily 3am
+    command: >-
+      psql -U odoo -d kodemeio_prod -c
+      "DELETE FROM ir_sessions WHERE write_date < NOW() - INTERVAL '7 days'"
+    service: odoo
+
+# ---------------------------------------------------------------------------
+# Health Check (post-deploy verification)
+# ---------------------------------------------------------------------------
+healthcheck:
+  url: https://odoo.kodeme.io/web/health
+  expected_status: 200
+  timeout: 120                     # seconds to wait for healthy
+  interval: 10                     # check every N seconds
