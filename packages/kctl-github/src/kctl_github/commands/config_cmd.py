@@ -8,6 +8,7 @@ import typer
 
 from kctl_github.core.callbacks import AppContext
 from kctl_github.core.config import (
+    SERVICE_KEY,
     ServiceConfig,
     get_all_services_in_profile,
     get_profile_names,
@@ -177,3 +178,19 @@ def current(ctx: typer.Context) -> None:
     fields = [(k, str(v) or "(not set)") for k, v in svc.model_dump().items()]
     sections = [("Active Profile", [("Name", active)] + fields)]
     out.detail("Current Config", sections)
+
+
+@app.command()
+def test(ctx: typer.Context) -> None:
+    """Test API connection with current configuration."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    active = resolve_active_profile_name(actx.profile)
+    out.info(f"Testing profile '{active}' \u2192 {SERVICE_KEY}")
+    try:
+        data = actx.client.get("/user")
+        login = data.get("login", "unknown")
+        out.success(f"Connected \u2014 authenticated as '{login}'")
+    except Exception as e:
+        out.error(f"Connection failed: {e}")
+        raise typer.Exit(1) from e

@@ -352,3 +352,17 @@ def current(ctx: typer.Context) -> None:
             "api_url": svc.api_url,
         },
     )
+
+
+@app.command()
+def test(ctx: typer.Context) -> None:
+    """Verify configuration is valid."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    active = resolve_active_profile_name(actx.profile)
+    out.info(f"Testing profile '{active}' \u2192 {SERVICE_KEY}")
+    svc = get_service_config(active)
+    if not svc or not svc.project_root:
+        out.error("No configuration found. Run: kctl-react config init")
+        raise typer.Exit(1)
+    out.success(f"Configuration valid for profile '{active}'")

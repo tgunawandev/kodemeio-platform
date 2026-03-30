@@ -20,6 +20,11 @@ class AppContext(AppContextBase):
 
     _client: NotionClient | None = None
 
+    @property
+    def client(self) -> NotionClient:
+        """Lazy client property."""
+        return self.get_client()
+
     def get_client(self) -> NotionClient:
         """Get or create a NotionClient from the active profile."""
         if self._client is None:

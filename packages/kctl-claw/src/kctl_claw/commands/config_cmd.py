@@ -230,3 +230,19 @@ def init_(
     out.success(f"Profile '{profile_name}' saved to ~/.config/kodemeio/config.yaml")
     out.info(f"  project_root: {svc.project_root}")
     out.info(f"  gateway_url: {svc.gateway_url}")
+
+
+@app.command()
+def test(ctx: typer.Context) -> None:
+    """Verify configuration is valid."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    from kctl_claw.core.config import SERVICE_KEY, get_service_config, resolve_active_profile
+
+    active = resolve_active_profile(actx.profile)
+    out.info(f"Testing profile '{active}' \u2192 {SERVICE_KEY}")
+    svc = get_service_config(active)
+    if not svc or not svc.project_root:
+        out.error("No configuration found. Run: kctl-claw config init")
+        raise typer.Exit(1)
+    out.success(f"Configuration valid for profile '{active}'")

@@ -420,3 +420,17 @@ def current(ctx: typer.Context) -> None:
             "backup_dir": svc_data.get("backup_dir", ""),
         },
     )
+
+
+@app.command()
+def test(ctx: typer.Context) -> None:
+    """Verify configuration is valid."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    active = resolve_active_profile_name(actx.profile, ENV_PREFIX)
+    out.info(f"Testing profile '{active}' \u2192 {SERVICE_KEY}")
+    svc = get_service_config(active, SERVICE_KEY, list(VALID_FIELDS))
+    if not svc:
+        out.error("No configuration found. Run: kctl-claude config init")
+        raise typer.Exit(1)
+    out.success(f"Configuration valid for profile '{active}'")
