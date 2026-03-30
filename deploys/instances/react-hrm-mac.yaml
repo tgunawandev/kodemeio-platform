@@ -1,0 +1,26 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+
+instance:
+  name: kodemeio-react-hrm-mac
+  description: "MAC Customer — HRM PWA"
+
+source_overrides:
+  compose_path: ./docker-compose.hrm.yml
+
+dns:
+  zone: kodeme.io
+  name: hrm-mac
+  content: 49.13.14.79
+
+domain:
+  host: hrm-mac.kodeme.io
+  port: 80
+  service: hrm
+  https: true
+
+env_overrides:
+  VITE_HRM_APP_NAME: "MAC HRM"
+  VITE_HRM_API_BASE_URL: "https://odoo-mac.kodeme.io"
+  VITE_HRM_OIDC_CLIENT_ID: "mac-hrm"
+  VITE_HRM_OIDC_REDIRECT_URI: "https://hrm-mac.kodeme.io/callback"

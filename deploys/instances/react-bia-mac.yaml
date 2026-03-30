@@ -1,0 +1,26 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+
+instance:
+  name: kodemeio-react-bia-mac
+  description: "MAC Customer — BIA PWA"
+
+source_overrides:
+  compose_path: ./docker-compose.bia.yml
+
+dns:
+  zone: kodeme.io
+  name: bia-mac
+  content: 49.13.14.79
+
+domain:
+  host: bia-mac.kodeme.io
+  port: 80
+  service: bia
+  https: true
+
+env_overrides:
+  VITE_BIA_APP_NAME: "MAC BIA"
+  VITE_BIA_API_BASE_URL: "https://odoo-mac.kodeme.io"
+  VITE_BIA_OIDC_CLIENT_ID: "mac-bia"
+  VITE_BIA_OIDC_REDIRECT_URI: "https://bia-mac.kodeme.io/callback"

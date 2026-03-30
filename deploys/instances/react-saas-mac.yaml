@@ -1,0 +1,26 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+
+instance:
+  name: kodemeio-react-saas-mac
+  description: "MAC Customer — SAAS PWA"
+
+source_overrides:
+  compose_path: ./docker-compose.saas.yml
+
+dns:
+  zone: kodeme.io
+  name: saas-mac
+  content: 49.13.14.79
+
+domain:
+  host: saas-mac.kodeme.io
+  port: 80
+  service: saas
+  https: true
+
+env_overrides:
+  VITE_SAAS_APP_NAME: "MAC SAAS"
+  VITE_SAAS_API_BASE_URL: "https://odoo-mac.kodeme.io"
+  VITE_SAAS_OIDC_CLIENT_ID: "mac-saas"
+  VITE_SAAS_OIDC_REDIRECT_URI: "https://saas-mac.kodeme.io/callback"

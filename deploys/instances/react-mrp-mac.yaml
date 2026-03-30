@@ -1,0 +1,26 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+
+instance:
+  name: kodemeio-react-mrp-mac
+  description: "MAC Customer — MRP PWA"
+
+source_overrides:
+  compose_path: ./docker-compose.mrp.yml
+
+dns:
+  zone: kodeme.io
+  name: mrp-mac
+  content: 49.13.14.79
+
+domain:
+  host: mrp-mac.kodeme.io
+  port: 80
+  service: mrp
+  https: true
+
+env_overrides:
+  VITE_MRP_APP_NAME: "MAC MRP"
+  VITE_MRP_API_BASE_URL: "https://odoo-mac.kodeme.io"
+  VITE_MRP_OIDC_CLIENT_ID: "mac-mrp"
+  VITE_MRP_OIDC_REDIRECT_URI: "https://mrp-mac.kodeme.io/callback"

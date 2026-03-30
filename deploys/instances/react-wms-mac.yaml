@@ -1,0 +1,26 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+
+instance:
+  name: kodemeio-react-wms-mac
+  description: "MAC Customer — WMS PWA"
+
+source_overrides:
+  compose_path: ./docker-compose.wms.yml
+
+dns:
+  zone: kodeme.io
+  name: wms-mac
+  content: 49.13.14.79
+
+domain:
+  host: wms-mac.kodeme.io
+  port: 80
+  service: wms
+  https: true
+
+env_overrides:
+  VITE_WMS_APP_NAME: "MAC WMS"
+  VITE_WMS_API_BASE_URL: "https://odoo-mac.kodeme.io"
+  VITE_WMS_OIDC_CLIENT_ID: "mac-wms"
+  VITE_WMS_OIDC_REDIRECT_URI: "https://wms-mac.kodeme.io/callback"
