@@ -8,11 +8,20 @@ version = "0.1.0"
 description = "Kodemeio RustDesk CLI — manage RustDesk server infrastructure"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.0",
+    "kctl-common>=0.3.1",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
     "pyyaml>=6.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-httpx>=0.35.0",
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
+    "types-PyYAML>=6.0.0",
 ]
 
 [project.scripts]
