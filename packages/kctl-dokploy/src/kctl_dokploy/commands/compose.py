@@ -119,10 +119,16 @@ def create(
 @app.command()
 def update(
     ctx: typer.Context,
-    compose_id: Annotated[str, typer.Argument(help="Compose service ID")],
+    compose_id: Annotated[str, typer.Option("--id", "-i", help="Compose service ID")],
     env_content: Annotated[str | None, typer.Option("--env", help="Environment variables content")] = None,
     compose_file: Annotated[str | None, typer.Option("--compose-file", help="Path to docker-compose file")] = None,
-    source_type: Annotated[str | None, typer.Option("--source-type", help="Source type (raw, github, etc.)")] = None,
+    source_type: Annotated[
+        str | None, typer.Option("--source-type", help="Source type: raw, github, gitlab, git")
+    ] = None,
+    repository: Annotated[str | None, typer.Option("--repo", help="GitHub repository name")] = None,
+    branch: Annotated[str | None, typer.Option("--branch", help="Git branch")] = None,
+    compose_path: Annotated[str | None, typer.Option("--compose-path", help="Path to compose file in repo")] = None,
+    github_id: Annotated[str | None, typer.Option("--github-id", help="Dokploy GitHub provider ID")] = None,
 ) -> None:
     """Update a compose service configuration."""
     c: AppContext = ctx.obj
@@ -140,6 +146,14 @@ def update(
         payload["sourceType"] = "raw"
     if source_type is not None:
         payload["sourceType"] = source_type
+    if repository is not None:
+        payload["repository"] = repository
+    if branch is not None:
+        payload["branch"] = branch
+    if compose_path is not None:
+        payload["composePath"] = compose_path
+    if github_id is not None:
+        payload["githubId"] = github_id
     if len(payload) == 1:
         c.output.error("No update options provided. Use --env, --compose-file, or --source-type.")
         raise typer.Exit(1)
