@@ -24,38 +24,38 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 
 ## Architecture
 
-`kctl-common` is a shared Python package (PyPI: kctl-common v0.3.1) used by **21 CLI tools** across 3 repo groups.
+`kctl-common` is a shared Python package (PyPI: kctl-common v0.3.1) used by **21 CLI tools**, all consolidated into this single workspace.
 
-### kodemeio-platform workspace members (8 packages)
+### Workspace Members (21 packages)
+
+#### Shared Library
 - **kctl-common** — Shared CLI infrastructure (v0.3.1, published to PyPI)
+
+#### Infrastructure & Ops
+- **kctl-dokploy** — Dokploy deployment platform (37 groups)
+- **kctl-hetzner** — Hetzner Cloud infrastructure (24 groups)
+- **kctl-pg** — PostgreSQL administration (24 groups)
+- **kctl-cloudflare** — Cloudflare DNS/CDN/WAF (27 groups)
+- **kctl-ak** — Authentik SSO/identity (24 groups)
+- **kctl-grafana** — Grafana monitoring platform (11 groups)
+- **kctl-gatus** — Gatus health monitoring (8 groups)
 - **kctl-rustdesk** — RustDesk server management (9 groups)
+- **kctl-waha** — WhatsApp HTTP API (8 groups)
+
+#### Application Management
+- **kctl-odoo** — Odoo 18 ERP management (70+ groups)
+- **kctl-api** — FastAPI platform management (46 groups)
+- **kctl-react** — React PWA monorepo management (31 groups)
+- **kctl-claw** — AI agent gateway management (29 groups)
+
+#### Developer & SaaS Tools
 - **kctl-op** — 1Password secret management (9 groups) — *renamed from kctl-1password*
 - **kctl-github** — Cross-repo GitHub management (10 groups)
-- **kctl-linear** — Linear project/sprint tracking (9 groups)
-- **kctl-notion** — Notion wiki/database management (7 groups)
 - **kctl-sentry** — Sentry error tracking (10 groups)
+- **kctl-linear** — Linear project/sprint tracking (9 groups)
+- **kctl-claude** — Claude Code environment management (8 groups)
 - **kctl-telegram** — Telegram bot platform (7 groups)
-
-### kodemeio-app (5 CLIs)
-- **kctl-next** (kodemeio-next) — Next.js monorepo management (35 groups)
-- **kctl-odoo** (kodemeio-odoo) — Odoo 18 ERP management (70+ groups)
-- **kctl-react** (kodemeio-react) — React PWA monorepo management (31 groups)
-- **kctl-api** (kodemeio-fastapi) — FastAPI platform management (46 groups)
-- **kctl-claw** (kodemeio-openclaw) — AI agent gateway management (29 groups)
-
-### kodemeio-core (9 CLIs)
-- **kctl-dokploy** (kodemeio-dokploy) — Dokploy deployment platform (37 groups)
-- **kctl-hetzner** (kodemeio-hetzner) — Hetzner Cloud infrastructure (24 groups)
-- **kctl-pg** (kodemeio-postgres) — PostgreSQL administration (24 groups)
-- **kctl-cloudflare** (kodemeio-cloudflare) — Cloudflare DNS/CDN/WAF (27 groups)
-- **kctl-ak** (kodemeio-authentik) — Authentik SSO/identity (24 groups)
-- **kctl-gatus** (kodemeio-gatus) — Gatus health monitoring (8 groups)
-- **kctl-mdm** (kodemeio-headwind) — Headwind MDM device management (12 groups)
-- **kctl-waha** (kodemeio-waha) — WhatsApp HTTP API (8 groups)
-- **kctl-grafana** (kodemeio-grafana) — Grafana monitoring platform (11 groups)
-
-### kodemeio-saas (1 CLI remaining)
-- **kctl-claude** (kodemeio-claude) — Claude Code environment management (8 groups)
+- **kctl-notion** — Notion wiki/database management (7 groups)
 
 Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-common; exceptions are kctl-pg (psycopg/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-gatus and kctl-mdm (custom auth).
 
@@ -63,14 +63,27 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, 
 
 | Path | Description |
 |------|-------------|
-| `packages/kctl-common/src/kctl_common/` | Shared library source |
-| `packages/kctl-common/tests/` | 247 tests |
-| `packages/kctl-op/` | 1Password CLI (renamed from kctl-1password) |
+| `packages/kctl-common/` | Shared library (v0.3.1, PyPI, 247 tests) |
+| `packages/kctl-ak/` | Authentik SSO/identity CLI |
+| `packages/kctl-api/` | FastAPI platform CLI |
+| `packages/kctl-claude/` | Claude Code environment CLI |
+| `packages/kctl-claw/` | AI agent gateway CLI |
+| `packages/kctl-cloudflare/` | Cloudflare DNS/CDN/WAF CLI |
+| `packages/kctl-dokploy/` | Dokploy deployment CLI |
+| `packages/kctl-gatus/` | Gatus health monitoring CLI |
 | `packages/kctl-github/` | GitHub cross-repo management CLI |
+| `packages/kctl-grafana/` | Grafana monitoring CLI |
+| `packages/kctl-hetzner/` | Hetzner Cloud infrastructure CLI |
 | `packages/kctl-linear/` | Linear project tracking CLI |
 | `packages/kctl-notion/` | Notion wiki management CLI |
+| `packages/kctl-odoo/` | Odoo 18 ERP management CLI |
+| `packages/kctl-op/` | 1Password secret management CLI |
+| `packages/kctl-pg/` | PostgreSQL administration CLI |
+| `packages/kctl-react/` | React PWA monorepo CLI |
+| `packages/kctl-rustdesk/` | RustDesk server management CLI |
 | `packages/kctl-sentry/` | Sentry error tracking CLI |
 | `packages/kctl-telegram/` | Telegram bot platform CLI |
+| `packages/kctl-waha/` | WhatsApp HTTP API CLI |
 | `templates/kctl-cli/` | Copier template for new CLIs |
 | `docs/cli-standards.md` | CLI naming and option standards |
 | `docs/architecture.md` | Platform architecture |
