@@ -14,6 +14,7 @@ from kctl_dokploy.commands.audit import app as audit_app
 from kctl_dokploy.commands.backups import app as backups_app
 from kctl_dokploy.commands.bulk import app as bulk_app
 from kctl_dokploy.commands.certificates import app as certificates_app
+from kctl_dokploy.commands.cluster import app as cluster_app
 from kctl_dokploy.commands.compose import app as compose_app
 from kctl_dokploy.commands.config_cmd import app as config_app
 from kctl_dokploy.commands.dashboard import app as dashboard_app
@@ -137,6 +138,7 @@ app.add_typer(security_app, name="security")
 app.add_typer(redirects_app, name="redirects")
 app.add_typer(environments_app, name="environments")
 app.add_typer(schedules_app, name="schedules")
+app.add_typer(cluster_app, name="cluster")
 app.add_typer(patches_app, name="patches")
 app.add_typer(volume_backups_app, name="volume-backups")
 
