@@ -14,16 +14,12 @@ app = typer.Typer(help="Manage scheduled tasks (cron jobs).")
 @app.command("list")
 def list_(
     ctx: typer.Context,
-    application: Annotated[str | None, typer.Option("--application", "-a", help="Application ID")] = None,
-    compose: Annotated[str | None, typer.Option("--compose", "-c", help="Compose ID")] = None,
+    resource_id: Annotated[str, typer.Argument(help="Resource ID (compose, application, or server)")],
+    schedule_type: Annotated[str, typer.Option("--type", "-t", help="Type: compose, application, server")] = "compose",
 ) -> None:
-    """List scheduled tasks."""
+    """List scheduled tasks for a resource."""
     c: AppContext = ctx.obj
-    params: dict = {}
-    if application is not None:
-        params["applicationId"] = application
-    if compose is not None:
-        params["composeId"] = compose
+    params: dict = {"id": resource_id, "scheduleType": schedule_type}
     schedules = c.client.get("/schedule.list", params=params)
     if not isinstance(schedules, list):
         schedules = []
@@ -80,29 +76,36 @@ def get(
 def create(
     ctx: typer.Context,
     name: Annotated[str, typer.Option("--name", "-n", help="Schedule name")],
-    cron: Annotated[str, typer.Option("--cron", help="Cron expression")],
+    cron: Annotated[str, typer.Option("--cron", help="Cron expression (e.g. '0 2 * * *')")],
     command: Annotated[str, typer.Option("--command", help="Command to execute")],
-    schedule_type: Annotated[str, typer.Option("--type", "-t", help="Type: application, compose, or server")],
+    schedule_type: Annotated[str, typer.Option("--type", "-t", help="Type: compose, application, server")] = "compose",
+    compose: Annotated[str | None, typer.Option("--compose", "-c", help="Compose service ID")] = None,
+    service_name: Annotated[
+        str | None, typer.Option("--service", help="Service name in compose (e.g. 'postgres')")
+    ] = None,
     application: Annotated[str | None, typer.Option("--application", "-a", help="Application ID")] = None,
-    compose: Annotated[str | None, typer.Option("--compose", "-c", help="Compose ID")] = None,
-    shell: Annotated[str | None, typer.Option("--shell", help="Shell: bash or sh")] = None,
-    timezone: Annotated[str | None, typer.Option("--timezone", help="Timezone")] = None,
+    server_id: Annotated[str | None, typer.Option("--server", help="Server ID")] = None,
+    shell_type: Annotated[str, typer.Option("--shell", help="Shell: bash or sh")] = "bash",
+    timezone: Annotated[str | None, typer.Option("--timezone", help="Timezone (e.g. 'Asia/Jakarta')")] = None,
 ) -> None:
-    """Create a new scheduled task."""
+    """Create a new scheduled task on a compose, application, or server."""
     c: AppContext = ctx.obj
     payload: dict = {
         "name": name,
         "cronExpression": cron,
         "command": command,
         "scheduleType": schedule_type,
+        "shellType": shell_type,
     }
-    if application is not None:
-        payload["applicationId"] = application
-    if compose is not None:
+    if compose:
         payload["composeId"] = compose
-    if shell is not None:
-        payload["shell"] = shell
-    if timezone is not None:
+    if service_name:
+        payload["serviceName"] = service_name
+    if application:
+        payload["applicationId"] = application
+    if server_id:
+        payload["serverId"] = server_id
+    if timezone:
         payload["timezone"] = timezone
     result = c.client.post("/schedule.create", json=payload)
     sid = result.get("scheduleId", "") if isinstance(result, dict) else ""

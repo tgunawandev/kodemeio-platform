@@ -44,34 +44,86 @@ def list_(
     )
 
 
-@app.command()
-def trigger(
+@app.command("create")
+def create(
     ctx: typer.Context,
-    compose_id: Annotated[str, typer.Argument(help="Compose service ID to back up")],
-    destination_id: Annotated[str | None, typer.Option("--destination", "-d", help="Destination ID")] = None,
+    destination_id: Annotated[str, typer.Option("--destination", "-d", help="S3 destination ID")],
+    database: Annotated[str, typer.Option("--database", help="Database name to back up")],
+    db_type: Annotated[
+        str, typer.Option("--type", "-t", help="Database type: postgres, mysql, mariadb, mongo, web-server")
+    ] = "postgres",
+    postgres_id: Annotated[str | None, typer.Option("--postgres-id", help="Postgres managed DB ID")] = None,
+    mysql_id: Annotated[str | None, typer.Option("--mysql-id", help="MySQL managed DB ID")] = None,
+    mariadb_id: Annotated[str | None, typer.Option("--mariadb-id", help="MariaDB managed DB ID")] = None,
+    mongo_id: Annotated[str | None, typer.Option("--mongo-id", help="MongoDB managed DB ID")] = None,
+    compose_id: Annotated[
+        str | None, typer.Option("--compose", "-c", help="Compose service ID (for compose backups)")
+    ] = None,
+    service_name: Annotated[
+        str | None, typer.Option("--service", help="Service name in compose (e.g. 'postgres')")
+    ] = None,
+    schedule: Annotated[str, typer.Option("--schedule", "-s", help="Cron schedule")] = "0 2 * * *",
+    prefix: Annotated[str, typer.Option("--prefix", help="Backup file prefix")] = "backup",
+    enabled: Annotated[bool, typer.Option("--enabled/--disabled", help="Enable backup schedule")] = True,
 ) -> None:
-    """Trigger a manual backup for a compose service."""
+    """Create a backup configuration for a database or compose service."""
     c: AppContext = ctx.obj
-    out = c.output
-    # If no destination given, try to find the first available one
-    if not destination_id:
-        destinations = c.client.get("/destination.all")
-        if isinstance(destinations, list) and destinations:
-            destination_id = destinations[0].get("destinationId", "")
-        if not destination_id:
-            out.error("No backup destination configured. Create one first with: kctl-dokploy backups add-destination")
-            raise typer.Exit(1)
-    out.info(f"Triggering backup for compose '{compose_id}' -> destination '{destination_id}'...")
-    result = c.client.post(
-        "/backup.create",
-        json={
-            "composeId": compose_id,
-            "destinationId": destination_id,
-        },
-    )
-    out.success(f"Backup triggered for compose '{compose_id}'")
+    backup_type = "compose" if compose_id else "database"
+    payload: dict = {
+        "schedule": schedule,
+        "prefix": prefix,
+        "destinationId": destination_id,
+        "database": database,
+        "databaseType": db_type,
+        "backupType": backup_type,
+        "enabled": enabled,
+    }
+    if postgres_id:
+        payload["postgresId"] = postgres_id
+    if mysql_id:
+        payload["mysqlId"] = mysql_id
+    if mariadb_id:
+        payload["mariadbId"] = mariadb_id
+    if mongo_id:
+        payload["mongoId"] = mongo_id
+    if compose_id:
+        payload["composeId"] = compose_id
+    if service_name:
+        payload["serviceName"] = service_name
+    result = c.client.post("/backup.create", json=payload)
+    bid = result.get("backupId", "") if isinstance(result, dict) else ""
+    c.output.success(f"Backup config created: {bid}")
     if c.json_mode:
-        out.raw_json(result)
+        c.output.raw_json(result)
+
+
+@app.command("run")
+def run_backup(
+    ctx: typer.Context,
+    backup_id: Annotated[str, typer.Argument(help="Backup config ID")],
+    backup_type: Annotated[
+        str, typer.Option("--type", "-t", help="Backup type: postgres, mysql, mariadb, mongo, compose, web-server")
+    ] = "postgres",
+) -> None:
+    """Trigger a manual backup run."""
+    c: AppContext = ctx.obj
+    endpoint_map = {
+        "postgres": "/backup.manualBackupPostgres",
+        "mysql": "/backup.manualBackupMySql",
+        "mariadb": "/backup.manualBackupMariadb",
+        "mongo": "/backup.manualBackupMongo",
+        "compose": "/backup.manualBackupCompose",
+        "web-server": "/backup.manualBackupWebServer",
+    }
+    endpoint = endpoint_map.get(backup_type)
+    if not endpoint:
+        c.output.error(f"Unknown backup type '{backup_type}'. Use: {', '.join(endpoint_map)}")
+        raise typer.Exit(1)
+    c.output.info(f"Running {backup_type} backup '{backup_id}'...")
+    result = c.client.post(endpoint, json={"backupId": backup_id})
+    c.output.success(f"Backup '{backup_id}' triggered successfully")
+    if c.json_mode:
+        c.output.raw_json(result)
 
 
 @app.command()
@@ -131,13 +183,13 @@ def add_destination(
     c: AppContext = ctx.obj
     payload: dict = {
         "name": name,
+        "provider": "s3",
         "accessKey": access_key,
         "secretAccessKey": secret_key,
         "bucket": bucket,
         "region": region,
+        "endpoint": endpoint or "",
     }
-    if endpoint:
-        payload["endpoint"] = endpoint
     result = c.client.post("/destination.create", json=payload)
     did = result.get("destinationId", "") if isinstance(result, dict) else ""
     c.output.success(f"Destination '{name}' created: {did}")

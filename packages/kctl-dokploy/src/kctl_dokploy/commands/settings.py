@@ -141,3 +141,44 @@ def ssh_key_remove(
     c.output.success(f"SSH key '{ssh_key_id}' removed")
     if c.json_mode:
         c.output.raw_json(result)
+
+
+@app.command("openapi")
+def openapi(
+    ctx: typer.Context,
+    endpoint: Annotated[str | None, typer.Argument(help="Filter paths containing this string")] = None,
+    output_file: Annotated[str | None, typer.Option("--output", "-o", help="Save full spec to file")] = None,
+) -> None:
+    """Fetch the Dokploy OpenAPI spec and list all endpoints."""
+    import json
+
+    c: AppContext = ctx.obj
+    # The OpenAPI doc is served via tRPC, not the REST prefix
+    raw = c.client._request("GET", "/trpc/settings.getOpenApiDocument")
+    data = raw.json() if hasattr(raw, "json") else {}
+    result = data.get("result", {}).get("data", {}).get("json", data)
+    doc = json.loads(result) if isinstance(result, str) else result
+
+    if output_file:
+        import pathlib
+
+        pathlib.Path(output_file).write_text(json.dumps(doc, indent=2))
+        c.output.success(f"OpenAPI spec saved to {output_file}")
+        return
+
+    paths = sorted(doc.get("paths", {}).keys())
+    if endpoint:
+        paths = [p for p in paths if endpoint.lower() in p.lower()]
+
+    rows = []
+    for p in paths:
+        methods = list(doc["paths"][p].keys())
+        method = methods[0].upper() if methods else "?"
+        rows.append([method, p])
+
+    c.output.table(
+        f"Dokploy API Endpoints ({len(rows)}/{len(doc.get('paths', {}))})",
+        [("Method", "cyan"), ("Endpoint", "")],
+        rows,
+        data_for_json=[{"method": r[0], "endpoint": r[1]} for r in rows],
+    )

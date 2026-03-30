@@ -16,30 +16,35 @@ from kctl_hetzner.core.callbacks import AppContext
 
 app = typer.Typer(help="Manage Hetzner S3-compatible object storage.")
 
+
 # ---------------------------------------------------------------------------
-# S3 credential resolution
+# S3 credential resolution (profile config → env var → abort)
 # ---------------------------------------------------------------------------
 
-_DEFAULT_ENDPOINT = "https://nbg1.your-objectstorage.com"
-_DEFAULT_REGION = "nbg1"
 
+def _get_profile() -> str | None:
+    """Get profile from current Typer context."""
+    try:
+        ctx = typer.Context
+        import click
 
-def _s3_env() -> tuple[str, str, str, str]:
-    """Return (access_key, secret_key, endpoint, region) from env."""
-    access_key = os.environ.get("S3_SRC_ACCESS_KEY", os.environ.get("AWS_ACCESS_KEY_ID", ""))
-    secret_key = os.environ.get("S3_SRC_SECRET_KEY", os.environ.get("AWS_SECRET_ACCESS_KEY", ""))
-    endpoint = os.environ.get("S3_SRC_ENDPOINT", os.environ.get("S3_ENDPOINT", _DEFAULT_ENDPOINT))
-    region = os.environ.get("S3_SRC_REGION", os.environ.get("S3_REGION", _DEFAULT_REGION))
-    return access_key, secret_key, endpoint, region
+        ctx = click.get_current_context(silent=True)
+        if ctx and ctx.obj is not None:
+            return ctx.obj.profile
+    except Exception:
+        pass
+    return None
 
 
 def _require_creds() -> tuple[str, str, str, str]:
-    """Resolve S3 credentials or abort."""
-    access_key, secret_key, endpoint, region = _s3_env()
+    """Resolve S3 credentials from profile config (with env var overrides) or abort."""
+    from kctl_hetzner.core.config import resolve_s3_connection
+
+    access_key, secret_key, endpoint, region = resolve_s3_connection(_get_profile())
     if not access_key or not secret_key:
         typer.echo(
-            "S3 credentials not configured. Set S3_SRC_ACCESS_KEY and S3_SRC_SECRET_KEY "
-            "(or AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY).",
+            "S3 credentials not configured. Add s3_access_key/s3_secret_key to your "
+            "hetzner profile, or set S3_SRC_ACCESS_KEY/S3_SRC_SECRET_KEY env vars.",
             err=True,
         )
         raise typer.Exit(1)

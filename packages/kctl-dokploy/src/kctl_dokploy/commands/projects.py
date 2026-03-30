@@ -58,16 +58,50 @@ def get(
             ],
         )
     ]
-    for comp in p.get("compose", []):
+    # Show environments with IDs (needed for database creation)
+    for env in p.get("environments", []):
+        env_name = env.get("name", "default")
+        env_id = env.get("environmentId", "")
+        is_default = " (default)" if env.get("isDefault") else ""
+        db_types = ("postgres", "redis", "mysql", "mariadb", "mongo")
+        db_count = sum(len(env.get(dt, [])) for dt in db_types)
+        compose_count = len(env.get("compose", []))
+        app_count = len(env.get("applications", []))
         sections.append(
             (
-                f"Compose: {comp.get('name', '')}",
+                f"Environment: {env_name}{is_default}",
                 [
-                    ("ID", comp.get("composeId", "")),
-                    ("Status", comp.get("composeStatus", "unknown")),
+                    ("ID", env_id),
+                    ("Compose", str(compose_count)),
+                    ("Applications", str(app_count)),
+                    ("Databases", str(db_count)),
                 ],
             )
         )
+        # Show compose services in this environment
+        for comp in env.get("compose", []):
+            sections.append(
+                (
+                    f"  Compose: {comp.get('name', '')}",
+                    [
+                        ("ID", comp.get("composeId", "")),
+                        ("Status", comp.get("composeStatus", "unknown")),
+                    ],
+                )
+            )
+        # Show databases in this environment
+        for dt in db_types:
+            for db in env.get(dt, []):
+                id_field = f"{dt}Id"
+                sections.append(
+                    (
+                        f"  {dt.capitalize()}: {db.get('name', '')}",
+                        [
+                            ("ID", db.get(id_field, "")),
+                            ("Status", db.get(f"{dt}Status", "unknown")),
+                        ],
+                    )
+                )
     c.output.detail(f"Project: {p.get('name')}", sections, data_for_json=p)
 
 

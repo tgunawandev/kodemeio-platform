@@ -41,6 +41,10 @@ class ServiceConfig(BaseModel):
 
     token: str = ""
     dns_token: str = ""
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+    s3_endpoint: str = "https://fsn1.your-objectstorage.com"
+    s3_region: str = "fsn1"
     default_location: str = "fsn1"
     default_image: str = "ubuntu-24.04"
     default_server_type: str = "cx22"
@@ -99,6 +103,31 @@ def resolve_connection(
         dns_token = dns_token_override
 
     return token, dns_token
+
+
+def resolve_s3_connection(
+    profile_name: str | None = None,
+) -> tuple[str, str, str, str]:
+    """Resolve S3 access_key, secret_key, endpoint, region."""
+    pname = resolve_active_profile_name(profile_name)
+    svc = get_service_config(pname)
+
+    access_key = svc.s3_access_key
+    secret_key = svc.s3_secret_key
+    endpoint = svc.s3_endpoint
+    region = svc.s3_region
+
+    # Env var overrides
+    if env_val := os.environ.get("S3_SRC_ACCESS_KEY", os.environ.get("AWS_ACCESS_KEY_ID")):
+        access_key = env_val
+    if env_val := os.environ.get("S3_SRC_SECRET_KEY", os.environ.get("AWS_SECRET_ACCESS_KEY")):
+        secret_key = env_val
+    if env_val := os.environ.get("S3_SRC_ENDPOINT", os.environ.get("S3_ENDPOINT")):
+        endpoint = env_val
+    if env_val := os.environ.get("S3_SRC_REGION", os.environ.get("S3_REGION")):
+        region = env_val
+
+    return access_key, secret_key, endpoint, region
 
 
 __all__ = [
