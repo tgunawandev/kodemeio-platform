@@ -208,8 +208,8 @@ class TestPhaseDns:
         manifest = _make_manifest()
         deployer = Deployer(manifest=manifest, dry_run=False)
 
-        # First call (list) returns empty; second call (create) succeeds
-        list_empty = _mock_proc(0, json.dumps([]))
+        # First call (list) returns text without the FQDN; second call (create) succeeds
+        list_empty = _mock_proc(0, "No records found")
         create_ok = _mock_proc(0, "{}")
 
         with patch("subprocess.run", side_effect=[list_empty, create_ok]):
@@ -223,8 +223,9 @@ class TestPhaseDns:
         manifest = _make_manifest(dns=DnsConfig(zone="example.com", name="app.example.com", content="1.2.3.4"))
         deployer = Deployer(manifest=manifest, dry_run=False)
 
-        existing = [{"name": "app.example.com", "type": "A"}]
-        with patch("subprocess.run", return_value=_mock_proc(0, json.dumps(existing))):
+        # Text output from kctl-cloudflare records list containing the FQDN
+        text_output = "app.example.com  A  1.2.3.4  proxied"
+        with patch("subprocess.run", return_value=_mock_proc(0, text_output)):
             deployer.phase_dns()
 
         dns_result = next(r for r in deployer.results if r.phase == "dns")
@@ -297,7 +298,15 @@ class TestPhaseCompose:
         manifest = _make_manifest()
         deployer = Deployer(manifest=manifest, dry_run=False)
 
-        projects = [{"projectId": "proj-1", "name": "my-project", "compose": []}]
+        projects = [
+            {
+                "projectId": "proj-1",
+                "name": "my-project",
+                "environments": [
+                    {"environmentId": "env-1", "isDefault": True, "compose": []},
+                ],
+            }
+        ]
         create_resp = {"composeId": "comp-new-1"}
 
         with patch(
@@ -322,7 +331,13 @@ class TestPhaseCompose:
             {
                 "projectId": "proj-1",
                 "name": "my-project",
-                "compose": [{"composeId": "comp-abc", "name": "web-app"}],
+                "environments": [
+                    {
+                        "environmentId": "env-1",
+                        "isDefault": True,
+                        "compose": [{"composeId": "comp-abc", "name": "web-app", "githubId": "gh-123"}],
+                    },
+                ],
             }
         ]
         with patch(

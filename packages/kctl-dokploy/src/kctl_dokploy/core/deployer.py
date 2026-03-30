@@ -131,12 +131,11 @@ class Deployer:
             self._record_phase("dns", "skipped", "No DNS config specified")
             return
 
-        records: list | dict = self._run_kctl_json(["kctl-cloudflare", "records", "list", "--zone", dns.zone])
-        if isinstance(records, list):
-            for rec in records:
-                if rec.get("name") == dns.name:
-                    self._record_phase("dns", "skipped", f"Record {dns.name} already exists")
-                    return
+        fqdn = f"{dns.name}.{dns.zone}" if not dns.name.endswith(dns.zone) else dns.name
+        code, out = self._run_kctl(["kctl-cloudflare", "records", "list", "--zone", dns.zone])
+        if code == 0 and fqdn in out:
+            self._record_phase("dns", "skipped", f"Record {dns.name} already exists")
+            return
 
         # Create the record
         code, out = self._run_kctl(
@@ -247,40 +246,46 @@ class Deployer:
                     project_data = proj
                     break
 
-        project_id = (project_data or {}).get("projectId", "")
-        existing_composes: list = (project_data or {}).get("compose", [])
+        # Search environments[].compose[] for existing compose by name
+        existing_composes: list[dict[str, Any]] = []
+        default_environment_id: str = ""
+        for env in (project_data or {}).get("environments", []):
+            if env.get("isDefault"):
+                default_environment_id = env.get("environmentId", "")
+            for comp in env.get("compose", []):
+                existing_composes.append(comp)
 
         # Check if compose already exists
         for comp in existing_composes:
             if comp.get("name") == instance_name:
                 self._compose_id = comp["composeId"]
-                # Update the GitHub source
-                compose_id_arg = f"--{self._compose_id}" if self._compose_id.startswith("-") else self._compose_id
-                self._run_kctl(
-                    [
-                        "kctl-dokploy",
-                        "compose",
-                        "update",
-                        compose_id_arg,
-                        "--source-type",
-                        "github",
-                        "--owner",
-                        src.owner,
-                        "--repo",
-                        src.repo,
-                        "--branch",
-                        src.branch,
-                        "--compose-path",
-                        src.compose_path,
-                    ]
-                )
+                github_id = comp.get("githubId", "")
+                # Update the GitHub source using --id flag
+                update_args = [
+                    "kctl-dokploy",
+                    "compose",
+                    "update",
+                    "--id",
+                    self._compose_id,
+                    "--source-type",
+                    "github",
+                    "--owner",
+                    src.owner,
+                    "--repo",
+                    src.repo,
+                    "--branch",
+                    src.branch,
+                    "--compose-path",
+                    src.compose_path,
+                ]
+                if github_id:
+                    update_args += ["--github-id", github_id]
+                self._run_kctl(update_args)
                 self._record_phase("compose", "updated", f"Updated compose {instance_name} (id={self._compose_id})")
                 return
 
-        # Create new compose
-        create_args = ["kctl-dokploy", "compose", "create", "--name", instance_name]
-        if project_id:
-            create_args += ["--project-id", project_id]
+        # Create new compose using positional environment_id
+        create_args = ["kctl-dokploy", "compose", "create", default_environment_id, "--name", instance_name]
         code, out = self._run_kctl(create_args)
 
         # Parse the returned compose ID
@@ -294,14 +299,14 @@ class Deployer:
 
         if new_compose_id:
             self._compose_id = new_compose_id
-            # Update with GitHub source
-            compose_id_arg = f"--{self._compose_id}" if self._compose_id.startswith("-") else self._compose_id
+            # Update with GitHub source using --id flag
             self._run_kctl(
                 [
                     "kctl-dokploy",
                     "compose",
                     "update",
-                    compose_id_arg,
+                    "--id",
+                    self._compose_id,
                     "--source-type",
                     "github",
                     "--owner",
@@ -339,8 +344,7 @@ class Deployer:
             tmp.write(env_content)
             tmp_path = tmp.name
 
-        compose_id_arg = f"--{self._compose_id}" if self._compose_id.startswith("-") else self._compose_id
-        code, out = self._run_kctl(["kctl-dokploy", "env", "push", compose_id_arg, "--file", tmp_path])
+        code, out = self._run_kctl(["kctl-dokploy", "env", "push", "--", self._compose_id, "--file", tmp_path])
         if code == 0:
             self._record_phase("environment", "updated", f"Pushed {len(env)} env vars to {self._compose_id}")
         else:
@@ -361,8 +365,7 @@ class Deployer:
             self._record_phase("domain", "skipped", "No compose_id set — skipping domain config")
             return
 
-        compose_id_arg = f"--{self._compose_id}" if self._compose_id.startswith("-") else self._compose_id
-        existing: list | dict = self._run_kctl_json(["kctl-dokploy", "domains", "get", compose_id_arg])
+        existing: list | dict = self._run_kctl_json(["kctl-dokploy", "domains", "get", "--", self._compose_id])
         if isinstance(existing, list):
             for d in existing:
                 if d.get("host") == domain.host:
@@ -378,7 +381,8 @@ class Deployer:
                 "kctl-dokploy",
                 "domains",
                 "create",
-                compose_id_arg,
+                "--",
+                self._compose_id,
                 "--host",
                 domain.host,
                 "--port",
@@ -403,8 +407,7 @@ class Deployer:
             self._record_phase("deploy", "failed", "No compose_id set — cannot redeploy")
             return
 
-        compose_id_arg = f"--{self._compose_id}" if self._compose_id.startswith("-") else self._compose_id
-        code, out = self._run_kctl(["kctl-dokploy", "compose", "redeploy", compose_id_arg])
+        code, out = self._run_kctl(["kctl-dokploy", "compose", "redeploy", "--", self._compose_id])
         if code == 0:
             self._record_phase("deploy", "updated", f"Redeployed compose {self._compose_id}")
         else:
@@ -454,8 +457,7 @@ class Deployer:
             self._record_phase("backup", "skipped", "No compose_id — skipping backup setup")
             return
 
-        compose_id_arg = f"--{self._compose_id}" if self._compose_id.startswith("-") else self._compose_id
-        existing: list | dict = self._run_kctl_json(["kctl-dokploy", "backups", "list", compose_id_arg])
+        existing: list | dict = self._run_kctl_json(["kctl-dokploy", "backups", "list", "--", self._compose_id])
         if isinstance(existing, list) and existing:
             self._record_phase("backup", "skipped", "Backup job already configured")
             return
@@ -465,7 +467,8 @@ class Deployer:
                 "kctl-dokploy",
                 "backups",
                 "create",
-                compose_id_arg,
+                "--",
+                self._compose_id,
                 "--destination",
                 backup.destination,
                 "--type",
@@ -494,15 +497,9 @@ class Deployer:
             self._record_phase("schedules", "skipped", "No schedules defined")
             return
 
-        compose_id_arg = (
-            (f"--{self._compose_id}" if self._compose_id.startswith("-") else self._compose_id)
-            if self._compose_id
-            else ""
-        )
-
         list_cmd = ["kctl-dokploy", "schedules", "list"]
-        if compose_id_arg:
-            list_cmd.append(compose_id_arg)
+        if self._compose_id:
+            list_cmd += ["--", self._compose_id]
         existing: list | dict = self._run_kctl_json(list_cmd)
         existing_names = {s.get("name", "") for s in (existing if isinstance(existing, list) else [])}
 
@@ -529,8 +526,8 @@ class Deployer:
                 "--timezone",
                 sched.timezone,
             ]
-            if compose_id_arg:
-                create_cmd.append(compose_id_arg)
+            if self._compose_id:
+                create_cmd += ["--", self._compose_id]
             code, out = self._run_kctl(create_cmd)
             if code == 0:
                 created.append(sched.name)
