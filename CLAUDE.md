@@ -5,14 +5,18 @@ Shared CLI infrastructure: `kctl-common` Python package + copier template.
 ## Quick Commands
 
 ```bash
-# Development
+# Development (full workspace)
+uv sync --all-extras --all-packages   # Install all packages + dev deps
+uv run pytest packages/kctl-common/tests/ -v  # kctl-common: 247 tests
+uv run pytest packages/kctl-op/tests/ -v      # kctl-op: 115 tests
+uv run ruff check packages/*/src/             # Lint all packages
+
+# Single package
 cd packages/kctl-common
 uv sync --all-extras
-uv run pytest tests/ -v           # 238 tests
-uv run ruff check src/ tests/     # Lint
-uv run ruff format src/ tests/    # Format
-uv run mypy src/                  # Type check
-uv build                          # Build wheel + sdist
+uv run pytest tests/ -v
+uv run mypy src/
+uv build
 
 # Scaffold new CLI
 copier copy templates/kctl-cli/ /path/to/new-cli/
@@ -21,6 +25,16 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 ## Architecture
 
 `kctl-common` is a shared Python package (PyPI: kctl-common v0.3.1) used by **21 CLI tools** across 3 repo groups.
+
+### kodemeio-platform workspace members (8 packages)
+- **kctl-common** — Shared CLI infrastructure (v0.3.1, published to PyPI)
+- **kctl-rustdesk** — RustDesk server management (9 groups)
+- **kctl-op** — 1Password secret management (9 groups) — *renamed from kctl-1password*
+- **kctl-github** — Cross-repo GitHub management (10 groups)
+- **kctl-linear** — Linear project/sprint tracking (9 groups)
+- **kctl-notion** — Notion wiki/database management (7 groups)
+- **kctl-sentry** — Sentry error tracking (10 groups)
+- **kctl-telegram** — Telegram bot platform (7 groups)
 
 ### kodemeio-app (5 CLIs)
 - **kctl-next** (kodemeio-next) — Next.js monorepo management (35 groups)
@@ -40,23 +54,23 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 - **kctl-waha** (kodemeio-waha) — WhatsApp HTTP API (8 groups)
 - **kctl-grafana** (kodemeio-grafana) — Grafana monitoring platform (11 groups)
 
-### kodemeio-saas (7 CLIs)
-- **kctl-telegram** (kodemeio-telegram) — Telegram bot platform (7 groups)
-- **kctl-1password** (kodemeio-1password) — 1Password secret management (9 groups)
+### kodemeio-saas (1 CLI remaining)
 - **kctl-claude** (kodemeio-claude) — Claude Code environment management (8 groups)
-- **kctl-github** (kodemeio-github) — Cross-repo GitHub management (10 groups)
-- **kctl-linear** (kodemeio-linear) — Linear project/sprint tracking (9 groups)
-- **kctl-notion** (kodemeio-notion) — Notion wiki/database management (7 groups)
-- **kctl-sentry** (kodemeio-sentry) — Sentry error tracking (10 groups)
 
-Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-common; exceptions are kctl-pg (psycopg/SSH), kctl-odoo (JSON-RPC), kctl-1password (subprocess), kctl-linear (GraphQL), kctl-gatus and kctl-mdm (custom auth).
+Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-common; exceptions are kctl-pg (psycopg/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-gatus and kctl-mdm (custom auth).
 
 ## Key Paths
 
 | Path | Description |
 |------|-------------|
 | `packages/kctl-common/src/kctl_common/` | Shared library source |
-| `packages/kctl-common/tests/` | 238 tests |
+| `packages/kctl-common/tests/` | 247 tests |
+| `packages/kctl-op/` | 1Password CLI (renamed from kctl-1password) |
+| `packages/kctl-github/` | GitHub cross-repo management CLI |
+| `packages/kctl-linear/` | Linear project tracking CLI |
+| `packages/kctl-notion/` | Notion wiki management CLI |
+| `packages/kctl-sentry/` | Sentry error tracking CLI |
+| `packages/kctl-telegram/` | Telegram bot platform CLI |
 | `templates/kctl-cli/` | Copier template for new CLIs |
 | `docs/cli-standards.md` | CLI naming and option standards |
 | `docs/architecture.md` | Platform architecture |
