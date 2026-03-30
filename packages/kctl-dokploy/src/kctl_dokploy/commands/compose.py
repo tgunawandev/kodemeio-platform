@@ -216,16 +216,18 @@ def logs(
     compose_id: Annotated[str, typer.Argument(help="Compose service ID")],
     lines: Annotated[int | None, typer.Option("--lines", "-n", help="Number of log lines")] = None,
 ) -> None:
-    """Show logs for a compose service."""
+    """Show logs for a compose service (fetches from deployment history)."""
     c: AppContext = ctx.obj
-    payload: dict = {"composeId": compose_id}
-    if lines is not None:
-        payload["lines"] = lines
-    # Compose logs are available via the compose detail or docker container logs
-    data = c.client.get("/compose.one", params={"composeId": compose_id})
+    # Get recent deployments and show the latest log
+    deployments = c.client.get("/deployment.allByCompose", params={"composeId": compose_id})
     log_text = ""
-    if isinstance(data, dict):
-        log_text = data.get("logs", data.get("buildLog", data.get("data", "")))
+    if isinstance(deployments, list) and deployments:
+        # Sort newest first
+        sorted_deps = sorted(deployments, key=lambda d: d.get("createdAt", ""), reverse=True)
+        latest = sorted_deps[0]
+        log_text = latest.get("logPath", latest.get("log", latest.get("logs", "")))
+        if not log_text:
+            log_text = f"Deployment: {latest.get('status', 'unknown')} at {latest.get('createdAt', '-')}"
     if c.json_mode:
         c.output.raw_json({"composeId": compose_id, "logs": log_text})
     else:

@@ -43,6 +43,7 @@ from kctl_dokploy.commands.setup import app as setup_app
 from kctl_dokploy.commands.status import app as status_app
 from kctl_dokploy.commands.template import app as template_app
 from kctl_dokploy.commands.users import app as users_app
+from kctl_dokploy.commands.patches import app as patches_app
 from kctl_dokploy.commands.volume_backups import app as volume_backups_app
 from kctl_dokploy.core.callbacks import AppContext
 from kctl_dokploy.core.plugins import discover_and_register_plugins
@@ -136,6 +137,7 @@ app.add_typer(security_app, name="security")
 app.add_typer(redirects_app, name="redirects")
 app.add_typer(environments_app, name="environments")
 app.add_typer(schedules_app, name="schedules")
+app.add_typer(patches_app, name="patches")
 app.add_typer(volume_backups_app, name="volume-backups")
 
 # Hidden aliases for power users
