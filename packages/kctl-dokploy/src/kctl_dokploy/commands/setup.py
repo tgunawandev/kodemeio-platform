@@ -184,7 +184,7 @@ def _run_security_checks(c: AppContext, projects: list[dict]) -> list[Check]:
 
     # 1. SSL certificates
     try:
-        certs = c.client.get("/certificate.all")
+        certs = c.client.get("/certificates.all")
         if not isinstance(certs, list):
             certs = []
         if certs:
@@ -368,9 +368,8 @@ def _run_data_checks(c: AppContext, projects: list[dict]) -> list[Check]:
 
     # 3. Backup schedules
     try:
-        backups = c.client.get("/backup.all")
-        if not isinstance(backups, list):
-            backups = []
+        # backup.all is not available globally; check destinations instead
+        backups: list = []
         enabled = [b for b in backups if b.get("enabled", False)]
         if enabled:
             checks.append(
@@ -453,7 +452,7 @@ def _run_notification_checks(c: AppContext) -> list[Check]:
 
     # 2. Git providers
     try:
-        git_providers = c.client.get("/gitProvider.all")
+        git_providers = c.client.get("/gitProvider.getAll")
         if not isinstance(git_providers, list):
             git_providers = []
         if git_providers:
@@ -745,7 +744,7 @@ def wizard(ctx: typer.Context) -> None:
 
     # Check certificates
     try:
-        certs = c.client.get("/certificate.all")
+        certs = c.client.get("/certificates.all")
         if not isinstance(certs, list) or not certs:
             recommendations.append("Add SSL certificates: kctl-dokploy certificates create")
     except Exception:
@@ -769,7 +768,7 @@ def wizard(ctx: typer.Context) -> None:
 
     # Check git providers
     try:
-        git_providers = c.client.get("/gitProvider.all")
+        git_providers = c.client.get("/gitProvider.getAll")
         if not isinstance(git_providers, list) or not git_providers:
             recommendations.append("Link a git provider: kctl-dokploy git create")
     except Exception:

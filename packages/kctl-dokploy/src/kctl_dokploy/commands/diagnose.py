@@ -345,7 +345,7 @@ def _check_ssl_certificates(client: DokployClient) -> SectionResult:
     findings: list[Finding] = []
 
     try:
-        certs = client.get("/certificate.all")
+        certs = client.get("/certificates.all")
         if not isinstance(certs, list):
             certs = []
 
@@ -553,12 +553,8 @@ def _check_backup_coverage(client: DokployClient) -> SectionResult:
             return SectionResult(name=name, score=100, findings=findings, weight=SECTION_WEIGHTS[name])
 
         # Check backup schedules
-        try:
-            backups = client.get("/backup.all")
-            if not isinstance(backups, list):
-                backups = []
-        except Exception:
-            backups = []
+        # backup.all is not available globally in this Dokploy version
+        backups: list = []
 
         backed_up_ids: set[str] = set()
         for b in backups:

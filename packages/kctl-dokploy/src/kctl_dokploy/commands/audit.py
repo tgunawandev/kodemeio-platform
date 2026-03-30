@@ -60,7 +60,7 @@ def security(ctx: typer.Context) -> None:
 
     # --- SSL certificate expiry checks ---
     try:
-        certs = c.client.get("/certificate.all")
+        certs = c.client.get("/certificates.all")
         if not isinstance(certs, list):
             certs = []
     except Exception:
@@ -224,7 +224,7 @@ def ssl(ctx: typer.Context) -> None:
     """Detailed SSL certificate audit with expiry tracking."""
     c: AppContext = ctx.obj
     try:
-        certs = c.client.get("/certificate.all")
+        certs = c.client.get("/certificates.all")
         if not isinstance(certs, list):
             certs = []
     except Exception as exc:
@@ -387,7 +387,7 @@ def config(ctx: typer.Context) -> None:
 
     # Check 3: Git provider
     try:
-        git_providers = c.client.get("/gitProvider.all")
+        git_providers = c.client.get("/gitProvider.getAll")
         has_git = isinstance(git_providers, list) and len(git_providers) > 0
     except Exception:
         has_git = False
@@ -415,10 +415,10 @@ def config(ctx: typer.Context) -> None:
 
     # Check 5: Docker cleanup
     try:
-        settings = c.client.get("/settings.one")
+        servers = c.client.get("/server.all")
         cleanup_enabled = False
-        if isinstance(settings, dict):
-            cleanup_enabled = bool(settings.get("cleanupDocker", settings.get("dockerCleanup", False)))
+        if isinstance(servers, list):
+            cleanup_enabled = any(s.get("enableDockerCleanup", False) for s in servers)
     except Exception:
         cleanup_enabled = False
     checks.append(

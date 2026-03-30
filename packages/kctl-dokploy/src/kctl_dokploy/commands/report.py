@@ -129,7 +129,7 @@ def summary(ctx: typer.Context) -> None:
 
     # Certificate count
     try:
-        certs = c.client.get("/certificate.all")
+        certs = c.client.get("/certificates.all")
         cert_count = len(certs) if isinstance(certs, list) else 0
     except Exception:
         cert_count = 0
@@ -190,8 +190,11 @@ def deployments(
     c: AppContext = ctx.obj
 
     cutoff = _parse_period(period)
-    all_deployments = c.client.get("/deployment.all")
-    if not isinstance(all_deployments, list):
+    try:
+        all_deployments = c.client.get("/deployment.allCentralized")
+        if not isinstance(all_deployments, list):
+            all_deployments = []
+    except Exception:
         all_deployments = []
 
     # Filter by period
@@ -349,34 +352,12 @@ def resources(ctx: typer.Context) -> None:
     # Attempt to fetch docker disk usage
     disk_info: list[tuple[str, list[tuple[str, str]]]] = []
     disk_data: dict | None = None
-    try:
-        raw = c.client.get("/docker.getDiskUsage")
-        if isinstance(raw, dict):
-            disk_data = raw
-            images_size = raw.get("imagesSize", raw.get("Images", "-"))
-            containers_size = raw.get("containersSize", raw.get("Containers", "-"))
-            volumes_size = raw.get("volumesSize", raw.get("Volumes", "-"))
-            build_cache = raw.get("buildCacheSize", raw.get("BuildCache", "-"))
-            total = raw.get("totalSize", raw.get("Total", "-"))
-            disk_info = [
-                (
-                    "Docker Disk Usage",
-                    [
-                        ("Images", str(images_size)),
-                        ("Containers", str(containers_size)),
-                        ("Volumes", str(volumes_size)),
-                        ("Build Cache", str(build_cache)),
-                        ("Total", str(total)),
-                    ],
-                ),
-            ]
-    except Exception:
-        disk_info = [
-            (
-                "Docker Disk Usage",
-                [("Status", "Unable to fetch disk usage data")],
-            ),
-        ]
+    disk_info = [
+        (
+            "Docker Disk Usage",
+            [("Status", "Not available via Dokploy API — use 'docker system df' on server")],
+        ),
+    ]
 
     sections = server_info + disk_info
 

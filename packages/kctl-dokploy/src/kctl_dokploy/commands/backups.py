@@ -21,7 +21,9 @@ def list_(
     if not compose_id:
         c.output.error("--compose is required (backups are scoped to compose services)")
         raise typer.Exit(1)
-    backups = c.client.get("/backup.all", params={"composeId": compose_id})
+    # Fetch compose detail and extract backup config
+    compose_data = c.client.get("/compose.one", params={"composeId": compose_id})
+    backups = compose_data.get("backups", []) if isinstance(compose_data, dict) else []
     if not isinstance(backups, list):
         backups = []
     rows = []
@@ -86,7 +88,7 @@ def restore(
             abort=True,
         )
     c.output.info(f"Restoring from backup '{backup_id}'...")
-    result = c.client.post("/backup.restore", json={"backupId": backup_id})
+    result = c.client.post("/rollback.rollback", json={"backupId": backup_id})
     c.output.success(f"Restore initiated from backup '{backup_id}'")
     if c.json_mode:
         c.output.raw_json(result)
@@ -167,7 +169,7 @@ def delete_destination(
     c: AppContext = ctx.obj
     if not force:
         typer.confirm(f"Delete destination '{destination_id}'?", abort=True)
-    result = c.client.delete("/destination.delete", json={"destinationId": destination_id})
+    result = c.client.post("/destination.remove", json={"destinationId": destination_id})
     c.output.success(f"Destination '{destination_id}' deleted")
     if c.json_mode:
         c.output.raw_json(result)

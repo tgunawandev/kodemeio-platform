@@ -154,7 +154,7 @@ def delete(
     c: AppContext = ctx.obj
     if not force:
         typer.confirm(f"Delete compose '{compose_id}'? This cannot be undone.", abort=True)
-    result = c.client.delete("/compose.remove", json={"composeId": compose_id})
+    result = c.client.post("/compose.delete", json={"composeId": compose_id})
     c.output.success(f"Compose '{compose_id}' deleted")
     if c.json_mode:
         c.output.raw_json(result)
@@ -221,8 +221,11 @@ def logs(
     payload: dict = {"composeId": compose_id}
     if lines is not None:
         payload["lines"] = lines
-    data = c.client.post("/compose.getLogs", json=payload)
-    log_text = data if isinstance(data, str) else data.get("logs", data.get("data", ""))
+    # Compose logs are available via the compose detail or docker container logs
+    data = c.client.get("/compose.one", params={"composeId": compose_id})
+    log_text = ""
+    if isinstance(data, dict):
+        log_text = data.get("logs", data.get("buildLog", data.get("data", "")))
     if c.json_mode:
         c.output.raw_json({"composeId": compose_id, "logs": log_text})
     else:

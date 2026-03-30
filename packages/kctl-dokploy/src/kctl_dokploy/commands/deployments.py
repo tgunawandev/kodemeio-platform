@@ -54,7 +54,11 @@ def get(
 ) -> None:
     """Get deployment details."""
     c: AppContext = ctx.obj
-    data = c.client.get("/deployment.one", params={"deploymentId": deployment_id})
+    # deployment.one is not available; fetch all centralized and filter
+    all_deps = c.client.get("/deployment.allCentralized")
+    data = next(
+        (d for d in (all_deps if isinstance(all_deps, list) else []) if d.get("deploymentId") == deployment_id), None
+    )
     if not isinstance(data, dict):
         c.output.error(f"Deployment '{deployment_id}' not found")
         raise typer.Exit(1)
@@ -86,8 +90,12 @@ def logs_(
 ) -> None:
     """Show logs for a specific deployment."""
     c: AppContext = ctx.obj
-    data = c.client.get("/deployment.log", params={"deploymentId": deployment_id})
-    log_text = data if isinstance(data, str) else data.get("log", data.get("logs", data.get("data", "")))
+    # deployment.log is not available; fetch from centralized list
+    all_deps = c.client.get("/deployment.allCentralized")
+    dep = next(
+        (d for d in (all_deps if isinstance(all_deps, list) else []) if d.get("deploymentId") == deployment_id), None
+    )
+    log_text = dep.get("logPath", dep.get("log", dep.get("logs", ""))) if isinstance(dep, dict) else ""
     if c.json_mode:
         c.output.raw_json({"deploymentId": deployment_id, "logs": log_text})
     else:
@@ -123,7 +131,7 @@ def cancel(
     """Cancel a running deployment."""
     c: AppContext = ctx.obj
     c.output.info(f"Cancelling deployment '{deployment_id}'...")
-    result = c.client.post("/deployment.cancel", json={"deploymentId": deployment_id})
+    result = c.client.post("/deployment.killProcess", json={"deploymentId": deployment_id})
     c.output.success(f"Deployment '{deployment_id}' cancelled")
     if c.json_mode:
         c.output.raw_json(result)

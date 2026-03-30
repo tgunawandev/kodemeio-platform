@@ -211,15 +211,7 @@ def _check_databases_without_backups(
 
     # Collect backup compose IDs for cross-reference
     backup_compose_ids: set[str] = set()
-    try:
-        backups = c.client.get("/backup.all")
-        if isinstance(backups, list):
-            for b in backups:
-                cid = b.get("composeId", "")
-                if cid:
-                    backup_compose_ids.add(cid)
-    except Exception:
-        pass
+    # backup.all is not available globally; skip cross-reference
 
     for p in projects:
         project_name = p.get("name", "unknown")
@@ -509,7 +501,7 @@ def cleanup(
         for f in actionable:
             if f.category == "Stale deployment" and f.fix_command:
                 try:
-                    c.client.post("/deployment.cancel", json={"deploymentId": f.resource_id})
+                    c.client.post("/deployment.killProcess", json={"deploymentId": f.resource_id})
                     out.success(f"Cancelled stale deployment: {f.name}")
                     cancelled += 1
                 except Exception as exc:

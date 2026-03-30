@@ -47,73 +47,26 @@ def containers(
 
 @app.command()
 def images(ctx: typer.Context) -> None:
-    """List Docker images."""
+    """List Docker images (not available in current Dokploy API)."""
     c: AppContext = ctx.obj
-    try:
-        data = c.client.get("/docker.getImages")
-    except Exception:
-        data = []
-    if not isinstance(data, list):
-        data = []
-    rows = []
-    for img in data:
-        iid = img.get("id", "")[:12]
-        tags = ", ".join(img.get("tags", img.get("RepoTags", []))) or "<none>"
-        size = img.get("size", img.get("Size", 0))
-        size_mb = f"{size / 1024 / 1024:.1f} MB" if isinstance(size, (int, float)) else str(size)
-        rows.append([iid, tags, size_mb])
-    c.output.table(
-        "Docker Images",
-        [("ID", "dim"), ("Tags", "cyan"), ("Size", "")],
-        rows,
-        data_for_json=data,
-    )
+    c.output.warn("Docker images endpoint is not available in this Dokploy version")
+    c.output.info("Use 'docker images' on the server directly, or check the Dokploy dashboard")
 
 
 @app.command()
 def volumes(ctx: typer.Context) -> None:
-    """List Docker volumes."""
+    """List Docker volumes (not available in current Dokploy API)."""
     c: AppContext = ctx.obj
-    try:
-        data = c.client.get("/docker.getVolumes")
-    except Exception:
-        data = []
-    items = (data.get("Volumes", []) if isinstance(data, dict) else []) if not isinstance(data, list) else data
-    rows = []
-    for v in items:
-        name = v.get("Name", v.get("name", ""))
-        driver = v.get("Driver", v.get("driver", "-"))
-        rows.append([name, driver])
-    c.output.table(
-        "Docker Volumes",
-        [("Name", "cyan"), ("Driver", "dim")],
-        rows,
-        data_for_json=items,
-    )
+    c.output.warn("Docker volumes endpoint is not available in this Dokploy version")
+    c.output.info("Use 'docker volume ls' on the server directly, or check the Dokploy dashboard")
 
 
 @app.command()
 def networks(ctx: typer.Context) -> None:
-    """List Docker networks."""
+    """List Docker networks (not available in current Dokploy API)."""
     c: AppContext = ctx.obj
-    try:
-        data = c.client.get("/docker.getNetworks")
-    except Exception:
-        data = []
-    if not isinstance(data, list):
-        data = []
-    rows = []
-    for n in data:
-        name = n.get("Name", n.get("name", ""))
-        driver = n.get("Driver", n.get("driver", "-"))
-        scope = n.get("Scope", n.get("scope", "-"))
-        rows.append([name, driver, scope])
-    c.output.table(
-        "Docker Networks",
-        [("Name", "cyan"), ("Driver", ""), ("Scope", "dim")],
-        rows,
-        data_for_json=data,
-    )
+    c.output.warn("Docker networks endpoint is not available in this Dokploy version")
+    c.output.info("Use 'docker network ls' on the server directly, or check the Dokploy dashboard")
 
 
 @app.command()
@@ -137,25 +90,8 @@ def prune(
 def stats(ctx: typer.Context) -> None:
     """Show Docker disk usage statistics."""
     c: AppContext = ctx.obj
-    try:
-        data = c.client.get("/docker.getDiskUsage")
-    except Exception:
-        data = {}
-    if not isinstance(data, dict):
-        data = {}
-    sections = [
-        (
-            "Disk Usage",
-            [
-                ("Images", str(data.get("images", data.get("Images", "-")))),
-                ("Containers", str(data.get("containers", data.get("Containers", "-")))),
-                ("Volumes", str(data.get("volumes", data.get("Volumes", "-")))),
-                ("Build Cache", str(data.get("buildCache", data.get("BuildCache", "-")))),
-                ("Total", str(data.get("total", data.get("Total", "-")))),
-            ],
-        )
-    ]
-    c.output.detail("Docker Disk Usage", sections, data_for_json=data)
+    c.output.warn("Docker disk usage endpoint is not available in this Dokploy version")
+    c.output.info("Use 'docker system df' on the server directly, or check the Dokploy dashboard")
 
 
 @app.command("restart")

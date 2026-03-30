@@ -60,7 +60,7 @@ def update(
     if not payload:
         c.output.warn("No settings to update. Use --help to see available options.")
         raise typer.Exit(1)
-    result = c.client.post("/settings.update", json=payload)
+    result = c.client.post("/settings.updateServer", json=payload)
     c.output.success("Global settings updated")
     if c.json_mode:
         c.output.raw_json(result)

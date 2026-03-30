@@ -41,7 +41,10 @@ def get(
 ) -> None:
     """Get Git provider details."""
     c: AppContext = ctx.obj
-    data = c.client.get("/gitProvider.one", params={"gitProviderId": provider_id})
+    providers = c.client.get("/gitProvider.getAll")
+    data = next(
+        (p for p in (providers if isinstance(providers, list) else []) if p.get("gitProviderId") == provider_id), None
+    )
     if not isinstance(data, dict):
         c.output.error(f"Git provider '{provider_id}' not found")
         raise typer.Exit(1)

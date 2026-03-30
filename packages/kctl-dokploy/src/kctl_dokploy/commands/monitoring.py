@@ -50,7 +50,7 @@ def resources(ctx: typer.Context) -> None:
     """Show system resource usage (disk, CPU, RAM)."""
     c: AppContext = ctx.obj
     try:
-        data = c.client.get("/server.resources")
+        data = c.client.get("/server.getServerMetrics", params={"serverId": ""})
     except Exception:
         data = {}
     if not isinstance(data, dict):

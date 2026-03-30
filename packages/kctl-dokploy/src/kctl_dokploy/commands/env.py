@@ -39,28 +39,21 @@ def list_(
 ) -> None:
     """List environment variables for a compose service."""
     c: AppContext = ctx.obj
-    data = c.client.post("/compose.getEnvironment", json={"composeId": compose_id})
-    env_str = data if isinstance(data, str) else data.get("environment", data.get("env", ""))
-    if isinstance(env_str, str):
-        lines = [line for line in env_str.strip().splitlines() if line.strip()]
-    elif isinstance(env_str, list):
-        lines = env_str
-    else:
-        lines = []
+    data = c.client.get("/compose.one", params={"composeId": compose_id})
+    env_str = data.get("env", "") if isinstance(data, dict) else ""
+    lines = [line for line in env_str.strip().splitlines() if line.strip()] if isinstance(env_str, str) else []
     rows = []
     for line in lines:
-        if isinstance(line, str) and "=" in line:
+        if "=" in line:
             key, _, value = line.partition("=")
             rows.append([key.strip(), value.strip()])
-        elif isinstance(line, dict):
-            rows.append([line.get("key", ""), line.get("value", "")])
         else:
-            rows.append([str(line), ""])
+            rows.append([line, ""])
     c.output.table(
         f"Environment: {compose_id}",
         [("Key", "cyan"), ("Value", "")],
         rows,
-        data_for_json=data if isinstance(data, (list, dict)) else {"environment": env_str},
+        data_for_json={"composeId": compose_id, "environment": env_str},
     )
 
 
@@ -72,8 +65,8 @@ def get(
 ) -> None:
     """Get a single environment variable."""
     c: AppContext = ctx.obj
-    data = c.client.post("/compose.getEnvironment", json={"composeId": compose_id})
-    env_str = data if isinstance(data, str) else data.get("environment", data.get("env", ""))
+    data = c.client.get("/compose.one", params={"composeId": compose_id})
+    env_str = data.get("env", "") if isinstance(data, dict) else ""
     found_value: str | None = None
     if isinstance(env_str, str):
         for line in env_str.strip().splitlines():
@@ -82,14 +75,6 @@ def get(
                 if k.strip() == key:
                     found_value = v.strip()
                     break
-    elif isinstance(env_str, list):
-        for item in env_str:
-            if isinstance(item, dict) and item.get("key") == key:
-                found_value = item.get("value", "")
-                break
-            elif isinstance(item, str) and item.startswith(f"{key}="):
-                found_value = item.partition("=")[2]
-                break
     if found_value is None:
         c.output.error(f"Variable '{key}' not found in compose {compose_id}")
         raise typer.Exit(1)
