@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from kctl_cloudflare.core.callbacks import AppContext
-from kctl_cloudflare.core.config import (
+from kctl_cf.core.callbacks import AppContext
+from kctl_cf.core.config import (
     CONFIG_FILE,
     SERVICE_KEY,
     ServiceConfig,
@@ -18,7 +18,7 @@ from kctl_cloudflare.core.config import (
     set_default_profile,
     set_service_config,
 )
-from kctl_cloudflare.core.exceptions import KctlError
+from kctl_cf.core.exceptions import KctlError
 
 app = typer.Typer(help="Manage CLI configuration and profiles.")
 

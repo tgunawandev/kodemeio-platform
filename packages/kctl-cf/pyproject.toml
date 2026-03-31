@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kctl-cloudflare"
+name = "kctl-cf"
 version = "0.2.0"
 description = "Kodemeio Cloudflare CLI — manage Cloudflare infrastructure"
 requires-python = ">=3.12"
@@ -27,15 +27,15 @@ dev = [
 ]
 
 [project.scripts]
-kctl-cloudflare = "kctl_cloudflare.cli:_run"
+kctl-cf = "kctl_cf.cli:_run"
 
 [tool.uv.sources]
 kctl-common = { workspace = true }
 
-[project.entry-points."kctl_cloudflare.plugins"]
+[project.entry-points."kctl_cf.plugins"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/kctl_cloudflare"]
+packages = ["src/kctl_cf"]
 
 [tool.ruff]
 target-version = "py312"

@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from kctl_cloudflare.core.callbacks import AppContext
-from kctl_cloudflare.core.utils import require_account
+from kctl_cf.core.callbacks import AppContext
+from kctl_cf.core.utils import require_account
 
 app = typer.Typer(help="Manage Cloudflare Zero Trust Access.")
 

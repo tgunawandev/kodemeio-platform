@@ -16,8 +16,8 @@ PROFILE = os.environ.get("KCTL_TEST_PROFILE", "kodemeio")
 
 
 def _run(cmd: str, json_mode: bool = True, timeout: int = 30) -> tuple:
-    """Run kctl-cloudflare and return (data, returncode)."""
-    args = ["kctl-cloudflare", "-p", PROFILE]
+    """Run kctl-cf and return (data, returncode)."""
+    args = ["kctl-cf", "-p", PROFILE]
     if json_mode:
         args.append("--json")
     args.extend(cmd.split())
@@ -38,7 +38,7 @@ def check_connectivity():
         if rc != 0:
             pytest.skip(f"Cloudflare unreachable on profile {PROFILE}")
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        pytest.skip("kctl-cloudflare not installed or Cloudflare unreachable")
+        pytest.skip("kctl-cf not installed or Cloudflare unreachable")
 
 
 @pytest.mark.smoke

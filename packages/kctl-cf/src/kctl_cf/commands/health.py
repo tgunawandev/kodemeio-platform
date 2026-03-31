@@ -10,10 +10,10 @@ from typing import Annotated, Any
 
 import typer
 
-from kctl_cloudflare.core.callbacks import AppContext
-from kctl_cloudflare.core.config import resolve_active_profile_name
-from kctl_cloudflare.core.exceptions import KctlError
-from kctl_cloudflare.core.utils import status_color, tunnel_status_color
+from kctl_cf.core.callbacks import AppContext
+from kctl_cf.core.config import resolve_active_profile_name
+from kctl_cf.core.exceptions import KctlError
+from kctl_cf.core.utils import status_color, tunnel_status_color
 
 app = typer.Typer(help="Health checks.")
 

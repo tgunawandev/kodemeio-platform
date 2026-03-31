@@ -23,7 +23,7 @@ class TestZones:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.zones import list_
+        from kctl_cf.commands.zones import list_
 
         list_(ctx)
 
@@ -44,7 +44,7 @@ class TestZones:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.zones import get
+        from kctl_cf.commands.zones import get
 
         get(ctx, zone="kodeme.io")
 
@@ -66,7 +66,7 @@ class TestRecords:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.records import list_
+        from kctl_cf.commands.records import list_
 
         list_(ctx, zone=None, record_type=None)
 
@@ -79,7 +79,7 @@ class TestRecords:
         actx = _make_actx(client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.records import create
+        from kctl_cf.commands.records import create
 
         create(ctx, record_type="A", name="test", content="1.2.3.4", ttl=1, proxied=False, zone="kodeme.io")
         mock_client.post.assert_called_once()
@@ -115,7 +115,7 @@ class TestHealth:
         actx.profile = None
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.health import check
+        from kctl_cf.commands.health import check
 
         check(ctx, watch=False, interval=10, notify=False)
 
@@ -124,7 +124,7 @@ class TestHealth:
         assert data["passed"] == data["total"]
 
     def test_health_check_fail(self, mock_client: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
-        from kctl_cloudflare.core.exceptions import ConnectionError as KctlConnectionError
+        from kctl_cf.core.exceptions import ConnectionError as KctlConnectionError
 
         mock_client.check_health.side_effect = KctlConnectionError("https://api.cloudflare.com", None)
         mock_client.account_id = ""
@@ -133,7 +133,7 @@ class TestHealth:
         actx.profile = None
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.health import check
+        from kctl_cf.commands.health import check
 
         with pytest.raises((SystemExit, click.exceptions.Exit)):
             check(ctx, watch=False, interval=10, notify=False)
@@ -153,7 +153,7 @@ class TestCache:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.cache import status
+        from kctl_cf.commands.cache import status
 
         status(ctx, zone="kodeme.io")
 
@@ -172,7 +172,7 @@ class TestSsl:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.ssl import status
+        from kctl_cf.commands.ssl import status
 
         status(ctx, zone="kodeme.io")
 
@@ -194,7 +194,7 @@ class TestTunnels:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.tunnels import list_
+        from kctl_cf.commands.tunnels import list_
 
         list_(ctx)
 
@@ -208,7 +208,7 @@ class TestTunnels:
         actx = _make_actx(client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.tunnels import get
+        from kctl_cf.commands.tunnels import get
 
         with pytest.raises((SystemExit, click.exceptions.Exit)):
             get(ctx, name="test-tunnel")
@@ -233,7 +233,7 @@ class TestWaf:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.waf import list_
+        from kctl_cf.commands.waf import list_
 
         list_(ctx, zone="kodeme.io")
 
@@ -256,7 +256,7 @@ class TestWorkers:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.workers import list_
+        from kctl_cf.commands.workers import list_
 
         list_(ctx)
 
@@ -276,7 +276,7 @@ class TestEmailRouting:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.email_routing import status
+        from kctl_cf.commands.email_routing import status
 
         status(ctx, zone="kodeme.io")
 
@@ -303,7 +303,7 @@ class TestPageRules:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.page_rules import list_
+        from kctl_cf.commands.page_rules import list_
 
         list_(ctx, zone="kodeme.io")
 
@@ -332,7 +332,7 @@ class TestAccess:
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 
-        from kctl_cloudflare.commands.access import apps
+        from kctl_cf.commands.access import apps
 
         apps(ctx)
 
@@ -348,20 +348,20 @@ class TestAccess:
 
 class TestSharedHelpers:
     def test_resolve_zone_with_explicit(self, mock_client: MagicMock) -> None:
-        from kctl_cloudflare.core.utils import resolve_zone
+        from kctl_cf.core.utils import resolve_zone
 
         actx = _make_actx(client=mock_client)
         assert resolve_zone(actx, "kodeme.io") == "kodeme.io"
 
     def test_resolve_zone_auto_default(self, mock_client: MagicMock) -> None:
-        from kctl_cloudflare.core.utils import resolve_zone
+        from kctl_cf.core.utils import resolve_zone
 
         mock_client.get.return_value = [{"name": "kodeme.io"}]
         actx = _make_actx(client=mock_client)
         assert resolve_zone(actx, None) == "kodeme.io"
 
     def test_resolve_zone_no_zones(self, mock_client: MagicMock) -> None:
-        from kctl_cloudflare.core.utils import resolve_zone
+        from kctl_cf.core.utils import resolve_zone
 
         mock_client.get.return_value = []
         actx = _make_actx(client=mock_client)
@@ -369,14 +369,14 @@ class TestSharedHelpers:
             resolve_zone(actx, None)
 
     def test_require_account_present(self, mock_client: MagicMock) -> None:
-        from kctl_cloudflare.core.utils import require_account
+        from kctl_cf.core.utils import require_account
 
         mock_client.account_id = "acct_123"
         actx = _make_actx(client=mock_client)
         assert require_account(actx) == "acct_123"
 
     def test_require_account_missing(self, mock_client: MagicMock) -> None:
-        from kctl_cloudflare.core.utils import require_account
+        from kctl_cf.core.utils import require_account
 
         mock_client.account_id = ""
         actx = _make_actx(client=mock_client)
@@ -398,92 +398,92 @@ class TestDeleteProtection:
 
     def test_records_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.records import delete_
+        from kctl_cf.commands.records import delete_
 
         self._assert_blocked(delete_, ctx, record_id="rec_123", force=False, zone="kodeme.io")
 
     def test_records_delete_with_force(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.records import delete_
+        from kctl_cf.commands.records import delete_
 
         delete_(ctx, record_id="rec_123", force=True, zone="kodeme.io")
         mock_client.delete.assert_called_once()
 
     def test_zone_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.zones import delete_
+        from kctl_cf.commands.zones import delete_
 
         self._assert_blocked(delete_, ctx, zone="kodeme.io", force=False)
 
     def test_tunnel_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.tunnels import delete_
+        from kctl_cf.commands.tunnels import delete_
 
         self._assert_blocked(delete_, ctx, tunnel_id="tun_123", force=False)
 
     def test_r2_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.r2 import delete_
+        from kctl_cf.commands.r2 import delete_
 
         self._assert_blocked(delete_, ctx, name="my-bucket", force=False)
 
     def test_page_rules_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.page_rules import delete_
+        from kctl_cf.commands.page_rules import delete_
 
         self._assert_blocked(delete_, ctx, rule_id="rule_123", force=False, zone="kodeme.io")
 
     def test_worker_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.workers import delete_
+        from kctl_cf.commands.workers import delete_
 
         self._assert_blocked(delete_, ctx, script_name="my-worker", force=False)
 
     def test_waf_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.waf import delete_
+        from kctl_cf.commands.waf import delete_
 
         self._assert_blocked(delete_, ctx, rule_id="rule_123", force=False, zone="kodeme.io")
 
     def test_email_routing_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.email_routing import delete_rule
+        from kctl_cf.commands.email_routing import delete_rule
 
         self._assert_blocked(delete_rule, ctx, rule_id="rule_123", force=False, zone="kodeme.io")
 
     def test_ssl_delete_origin_cert_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.ssl import delete_origin_cert
+        from kctl_cf.commands.ssl import delete_origin_cert
 
         self._assert_blocked(delete_origin_cert, ctx, cert_id="cert_123", force=False)
 
     def test_access_delete_group_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.access import delete_group
+        from kctl_cf.commands.access import delete_group
 
         self._assert_blocked(delete_group, ctx, group_id="grp_123", force=False)
 
     def test_workers_delete_kv_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.workers import delete_kv
+        from kctl_cf.commands.workers import delete_kv
 
         self._assert_blocked(delete_kv, ctx, namespace_id="ns_123", force=False)
 
     def test_workers_delete_route_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.workers import delete_route
+        from kctl_cf.commands.workers import delete_route
 
         self._assert_blocked(delete_route, ctx, route_id="rt_123", force=False, zone="kodeme.io")
 
     def test_redirects_delete_list_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.redirects import delete_list
+        from kctl_cf.commands.redirects import delete_list
 
         self._assert_blocked(delete_list, ctx, list_id="lst_123", force=False)
 
     def test_redirects_delete_item_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.redirects import delete_item
+        from kctl_cf.commands.redirects import delete_item
 
         self._assert_blocked(delete_item, ctx, list_id="lst_123", item_id="itm_456", force=False)
 
@@ -491,73 +491,73 @@ class TestDeleteProtection:
 
     def test_ip_rule_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.waf import delete_ip_rule
+        from kctl_cf.commands.waf import delete_ip_rule
 
         self._assert_blocked(delete_ip_rule, ctx, rule_id="ipr_1", force=False, zone="kodeme.io")
 
     def test_rate_limit_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.waf import delete_rate_limit
+        from kctl_cf.commands.waf import delete_rate_limit
 
         self._assert_blocked(delete_rate_limit, ctx, rule_id="rl_1", force=False, zone="kodeme.io")
 
     def test_access_app_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.access import delete_app
+        from kctl_cf.commands.access import delete_app
 
         self._assert_blocked(delete_app, ctx, app_id="app_1", force=False)
 
     def test_access_policy_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.access import delete_policy
+        from kctl_cf.commands.access import delete_policy
 
         self._assert_blocked(delete_policy, ctx, app_id="app_1", policy_id="pol_1", force=False)
 
     def test_service_token_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.access import delete_service_token
+        from kctl_cf.commands.access import delete_service_token
 
         self._assert_blocked(delete_service_token, ctx, token_id="tok_1", force=False)
 
     def test_workers_cron_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.workers import delete_cron_triggers
+        from kctl_cf.commands.workers import delete_cron_triggers
 
         self._assert_blocked(delete_cron_triggers, ctx, script_name="my-worker", force=False)
 
     def test_custom_hostname_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.custom_hostnames import delete_
+        from kctl_cf.commands.custom_hostnames import delete_
 
         self._assert_blocked(delete_, ctx, hostname_id="ch_1", force=False, zone="kodeme.io")
 
     def test_load_balancer_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.load_balancers import delete_
+        from kctl_cf.commands.load_balancers import delete_
 
         self._assert_blocked(delete_, ctx, lb_id="lb_1", force=False, zone="kodeme.io")
 
     def test_lb_pool_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.load_balancers import delete_pool
+        from kctl_cf.commands.load_balancers import delete_pool
 
         self._assert_blocked(delete_pool, ctx, pool_id="pool_1", force=False)
 
     def test_lb_monitor_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.load_balancers import delete_monitor
+        from kctl_cf.commands.load_balancers import delete_monitor
 
         self._assert_blocked(delete_monitor, ctx, monitor_id="mon_1", force=False)
 
     def test_waiting_room_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.waiting_rooms import delete_
+        from kctl_cf.commands.waiting_rooms import delete_
 
         self._assert_blocked(delete_, ctx, room_id="wr_1", force=False, zone="kodeme.io")
 
     def test_spectrum_delete_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.spectrum import delete_
+        from kctl_cf.commands.spectrum import delete_
 
         self._assert_blocked(delete_, ctx, app_id="spec_1", force=False, zone="kodeme.io")
 
@@ -579,7 +579,7 @@ class TestNewResources:
             }
         ]
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.custom_hostnames import list_
+        from kctl_cf.commands.custom_hostnames import list_
 
         list_(ctx, zone="kodeme.io", hostname=None)
         data = json.loads(capsys.readouterr().out)
@@ -597,7 +597,7 @@ class TestNewResources:
             }
         ]
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.load_balancers import list_
+        from kctl_cf.commands.load_balancers import list_
 
         list_(ctx, zone="kodeme.io")
         data = json.loads(capsys.readouterr().out)
@@ -616,7 +616,7 @@ class TestNewResources:
             }
         ]
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.waiting_rooms import list_
+        from kctl_cf.commands.waiting_rooms import list_
 
         list_(ctx, zone="kodeme.io")
         data = json.loads(capsys.readouterr().out)
@@ -635,7 +635,7 @@ class TestNewResources:
             }
         ]
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.spectrum import list_
+        from kctl_cf.commands.spectrum import list_
 
         list_(ctx, zone="kodeme.io")
         data = json.loads(capsys.readouterr().out)
@@ -644,7 +644,7 @@ class TestNewResources:
     def test_argo_status(self, mock_client: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         mock_client.get.return_value = {"value": "on"}
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.argo import status
+        from kctl_cf.commands.argo import status
 
         status(ctx, zone="kodeme.io")
         data = json.loads(capsys.readouterr().out)
@@ -671,7 +671,7 @@ class TestCompletedResources:
             "modified_on": "2025-01-01T00:00:00Z",
         }
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.records import get
+        from kctl_cf.commands.records import get
 
         get(ctx, record_id="rec_1", zone="kodeme.io")
         data = json.loads(capsys.readouterr().out)
@@ -680,7 +680,7 @@ class TestCompletedResources:
     def test_records_scan(self, mock_client: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         mock_client.post.return_value = {"recs_added": 5, "total_records_parsed": 10}
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.records import scan
+        from kctl_cf.commands.records import scan
 
         scan(ctx, zone="kodeme.io")
         data = json.loads(capsys.readouterr().out)
@@ -691,7 +691,7 @@ class TestCompletedResources:
             {"id": "ssl", "value": "strict", "editable": True, "modified_on": "2025-01-01T00:00:00Z"},
         ]
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.zones import settings
+        from kctl_cf.commands.zones import settings
 
         settings(ctx, zone="kodeme.io")
         data = json.loads(capsys.readouterr().out)
@@ -710,7 +710,7 @@ class TestCompletedResources:
             },
         ]
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.tunnels import connections
+        from kctl_cf.commands.tunnels import connections
 
         connections(ctx, tunnel_id="tun_123")
         data = json.loads(capsys.readouterr().out)
@@ -719,7 +719,7 @@ class TestCompletedResources:
     def test_tunnels_clean_blocked(self, mock_client: MagicMock) -> None:
         mock_client.account_id = "acct_123"
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.tunnels import clean_connections
+        from kctl_cf.commands.tunnels import clean_connections
 
         with pytest.raises((SystemExit, click.exceptions.Exit)):
             clean_connections(ctx, tunnel_id="tun_123", force=False)
@@ -735,7 +735,7 @@ class TestCompletedResources:
             },
         ]
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.pages import projects
+        from kctl_cf.commands.pages import projects
 
         projects(ctx)
         data = json.loads(capsys.readouterr().out)
@@ -745,7 +745,7 @@ class TestCompletedResources:
     def test_pages_delete_project_blocked(self, mock_client: MagicMock) -> None:
         mock_client.account_id = "acct_123"
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.pages import delete_project
+        from kctl_cf.commands.pages import delete_project
 
         with pytest.raises((SystemExit, click.exceptions.Exit)):
             delete_project(ctx, name="my-site", force=False)
@@ -753,7 +753,7 @@ class TestCompletedResources:
     def test_pages_delete_deployment_blocked(self, mock_client: MagicMock) -> None:
         mock_client.account_id = "acct_123"
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.pages import delete_deployment
+        from kctl_cf.commands.pages import delete_deployment
 
         with pytest.raises((SystemExit, click.exceptions.Exit)):
             delete_deployment(ctx, project_name="my-site", deployment_id="dep_1", force=False)
@@ -761,7 +761,7 @@ class TestCompletedResources:
     def test_pages_remove_domain_blocked(self, mock_client: MagicMock) -> None:
         mock_client.account_id = "acct_123"
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.pages import remove_domain
+        from kctl_cf.commands.pages import remove_domain
 
         with pytest.raises((SystemExit, click.exceptions.Exit)):
             remove_domain(ctx, project_name="my-site", domain_name="app.kodeme.io", force=False)
@@ -772,7 +772,7 @@ class TestCompletedResources:
             {"key": "file.txt", "size": 1024, "last_modified": "2025-01-01T00:00:00Z", "etag": "abc123"},
         ]
         ctx = _make_ctx(_make_actx(json_mode=True, client=mock_client))
-        from kctl_cloudflare.commands.r2 import list_objects
+        from kctl_cf.commands.r2 import list_objects
 
         list_objects(ctx, bucket_name="my-bucket", prefix=None, limit=100)
         data = json.loads(capsys.readouterr().out)
@@ -781,14 +781,14 @@ class TestCompletedResources:
     def test_r2_delete_object_blocked(self, mock_client: MagicMock) -> None:
         mock_client.account_id = "acct_123"
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.r2 import delete_object
+        from kctl_cf.commands.r2 import delete_object
 
         with pytest.raises((SystemExit, click.exceptions.Exit)):
             delete_object(ctx, bucket_name="my-bucket", key="file.txt", force=False)
 
     def test_zones_hold_release_blocked(self, mock_client: MagicMock) -> None:
         ctx = _make_ctx(_make_actx(client=mock_client))
-        from kctl_cloudflare.commands.zones import release_hold
+        from kctl_cf.commands.zones import release_hold
 
         # release_hold doesn't need --force (it's a release), just test it runs
         release_hold(ctx, zone="kodeme.io")
@@ -802,7 +802,7 @@ class TestCompletedResources:
 
 class TestUtils:
     def test_human_size(self) -> None:
-        from kctl_cloudflare.core.utils import human_size
+        from kctl_cf.core.utils import human_size
 
         assert human_size(0) == "0.0 B"
         assert human_size(1024) == "1.0 KB"
@@ -810,7 +810,7 @@ class TestUtils:
         assert human_size(1024 * 1024 * 1024) == "1.0 GB"
 
     def test_mask_token(self) -> None:
-        from kctl_cloudflare.core.utils import mask_token
+        from kctl_cf.core.utils import mask_token
 
         assert mask_token("") == "[dim]not set[/dim]"
         assert mask_token("short") == "****"
@@ -820,7 +820,7 @@ class TestUtils:
         assert "****" in result
 
     def test_status_color(self) -> None:
-        from kctl_cloudflare.core.utils import status_color
+        from kctl_cf.core.utils import status_color
 
         assert "[green]" in status_color("active")
         assert "[yellow]" in status_color("pending")
@@ -836,7 +836,7 @@ class TestPlugins:
     def test_discover_no_plugins(self) -> None:
         import typer
 
-        from kctl_cloudflare.core.plugins import discover_and_load_plugins
+        from kctl_cf.core.plugins import discover_and_load_plugins
 
         test_app = typer.Typer()
         loaded = discover_and_load_plugins(test_app)
@@ -852,7 +852,7 @@ class TestConfig:
     def test_config_expand_token(self) -> None:
         import os
 
-        from kctl_cloudflare.core.config import expand_env
+        from kctl_cf.core.config import expand_env
 
         os.environ["TEST_CF_TOKEN"] = "my_secret_token"
         assert expand_env("${TEST_CF_TOKEN}") == "my_secret_token"
@@ -860,7 +860,7 @@ class TestConfig:
         del os.environ["TEST_CF_TOKEN"]
 
     def test_config_resolve_active_profile(self) -> None:
-        from kctl_cloudflare.core.config import resolve_active_profile_name
+        from kctl_cf.core.config import resolve_active_profile_name
 
         assert resolve_active_profile_name("staging") == "staging"
 
@@ -872,7 +872,7 @@ class TestConfig:
 
 class TestExceptions:
     def test_not_found_error(self) -> None:
-        from kctl_cloudflare.core.exceptions import NotFoundError
+        from kctl_cf.core.exceptions import NotFoundError
 
         err = NotFoundError("zone", "kodeme.io")
         assert "zone" in str(err)
@@ -881,13 +881,13 @@ class TestExceptions:
         assert err.identifier == "kodeme.io"
 
     def test_connection_error(self) -> None:
-        from kctl_cloudflare.core.exceptions import ConnectionError as KctlConnectionError
+        from kctl_cf.core.exceptions import ConnectionError as KctlConnectionError
 
         err = KctlConnectionError("https://api.cloudflare.com", ValueError("timeout"))
         assert "api.cloudflare.com" in str(err)
 
     def test_kctl_error_hierarchy(self) -> None:
-        from kctl_cloudflare.core.exceptions import (
+        from kctl_cf.core.exceptions import (
             AuthenticationError,
             ConfigError,
             KctlError,

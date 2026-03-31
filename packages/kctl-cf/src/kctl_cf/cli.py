@@ -1,4 +1,4 @@
-"""Main CLI entry point for kctl-cloudflare."""
+"""Main CLI entry point for kctl-cf."""
 
 from __future__ import annotations
 
@@ -6,47 +6,47 @@ from typing import Annotated
 
 import typer
 
-from kctl_cloudflare import __version__
-from kctl_cloudflare.commands.access import app as access_app
-from kctl_cloudflare.commands.analytics import app as analytics_app
-from kctl_cloudflare.commands.argo import app as argo_app
-from kctl_cloudflare.commands.cache import app as cache_app
-from kctl_cloudflare.commands.config_cmd import app as config_app
-from kctl_cloudflare.commands.custom_hostnames import app as custom_hostnames_app
-from kctl_cloudflare.commands.email_routing import app as email_routing_app
-from kctl_cloudflare.commands.export import app as export_app
-from kctl_cloudflare.commands.health import app as health_app
-from kctl_cloudflare.commands.load_balancers import app as load_balancers_app
-from kctl_cloudflare.commands.page_rules import app as page_rules_app
-from kctl_cloudflare.commands.pages import app as pages_app
-from kctl_cloudflare.commands.r2 import app as r2_app
-from kctl_cloudflare.commands.records import app as records_app
-from kctl_cloudflare.commands.redirects import app as redirects_app
-from kctl_cloudflare.commands.selftest import app as selftest_app
-from kctl_cloudflare.commands.spectrum import app as spectrum_app
-from kctl_cloudflare.commands.speed import app as speed_app
-from kctl_cloudflare.commands.ssl import app as ssl_app
-from kctl_cloudflare.commands.status import app as status_app
-from kctl_cloudflare.commands.terraform import app as terraform_app
-from kctl_cloudflare.commands.tunnels import app as tunnels_app
-from kctl_cloudflare.commands.waf import app as waf_app
-from kctl_cloudflare.commands.waiting_rooms import app as waiting_rooms_app
-from kctl_cloudflare.commands.workers import app as workers_app
-from kctl_cloudflare.commands.zones import app as zones_app
-from kctl_cloudflare.core.callbacks import AppContext
-from kctl_cloudflare.core.exceptions import APIError, AuthenticationError, ConfigError, KctlError
-from kctl_cloudflare.core.exceptions import ConnectionError as KctlConnectionError
-from kctl_cloudflare.core.plugins import discover_and_load_plugins
+from kctl_cf import __version__
+from kctl_cf.commands.access import app as access_app
+from kctl_cf.commands.analytics import app as analytics_app
+from kctl_cf.commands.argo import app as argo_app
+from kctl_cf.commands.cache import app as cache_app
+from kctl_cf.commands.config_cmd import app as config_app
+from kctl_cf.commands.custom_hostnames import app as custom_hostnames_app
+from kctl_cf.commands.email_routing import app as email_routing_app
+from kctl_cf.commands.export import app as export_app
+from kctl_cf.commands.health import app as health_app
+from kctl_cf.commands.load_balancers import app as load_balancers_app
+from kctl_cf.commands.page_rules import app as page_rules_app
+from kctl_cf.commands.pages import app as pages_app
+from kctl_cf.commands.r2 import app as r2_app
+from kctl_cf.commands.records import app as records_app
+from kctl_cf.commands.redirects import app as redirects_app
+from kctl_cf.commands.selftest import app as selftest_app
+from kctl_cf.commands.spectrum import app as spectrum_app
+from kctl_cf.commands.speed import app as speed_app
+from kctl_cf.commands.ssl import app as ssl_app
+from kctl_cf.commands.status import app as status_app
+from kctl_cf.commands.terraform import app as terraform_app
+from kctl_cf.commands.tunnels import app as tunnels_app
+from kctl_cf.commands.waf import app as waf_app
+from kctl_cf.commands.waiting_rooms import app as waiting_rooms_app
+from kctl_cf.commands.workers import app as workers_app
+from kctl_cf.commands.zones import app as zones_app
+from kctl_cf.core.callbacks import AppContext
+from kctl_cf.core.exceptions import APIError, AuthenticationError, ConfigError, KctlError
+from kctl_cf.core.exceptions import ConnectionError as KctlConnectionError
+from kctl_cf.core.plugins import discover_and_load_plugins
 
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"kctl-cloudflare {__version__}")
+        typer.echo(f"kctl-cf {__version__}")
         raise typer.Exit()
 
 
 app = typer.Typer(
-    name="kctl-cloudflare",
+    name="kctl-cf",
     help="Kodemeio Cloudflare CLI - manage DNS, tunnels, WAF, cache, Workers, R2, email routing, access.",
     no_args_is_help=True,
     rich_markup_mode="rich",
@@ -112,7 +112,7 @@ app.add_typer(waiting_rooms_app, name="waiting-rooms")
 discover_and_load_plugins(app)
 
 # Register short aliases
-from kctl_cloudflare.commands.aliases import register_aliases  # noqa: E402
+from kctl_cf.commands.aliases import register_aliases  # noqa: E402
 
 register_aliases(app)
 

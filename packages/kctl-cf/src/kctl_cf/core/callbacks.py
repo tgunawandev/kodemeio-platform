@@ -1,4 +1,4 @@
-"""Typer global callback and shared context for kctl-cloudflare."""
+"""Typer global callback and shared context for kctl-cf."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 
 from kctl_common.callbacks import AppContextBase
 
-from kctl_cloudflare.core.client import CloudflareClient
-from kctl_cloudflare.core.config import resolve_connection
+from kctl_cf.core.client import CloudflareClient
+from kctl_cf.core.config import resolve_connection
 
 
 @dataclass

@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from kctl_cloudflare.core.output import Output
+from kctl_cf.core.output import Output
 
 # ---------------------------------------------------------------------------
 # JSON mode

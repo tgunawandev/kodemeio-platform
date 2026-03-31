@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from kctl_cloudflare.core.callbacks import AppContext
-from kctl_cloudflare.core.utils import human_size, require_account
+from kctl_cf.core.callbacks import AppContext
+from kctl_cf.core.utils import human_size, require_account
 
 app = typer.Typer(help="Manage R2 object storage buckets.")
 

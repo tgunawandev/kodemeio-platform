@@ -1,5 +1,5 @@
-"""Allow running as: python -m kctl_cloudflare."""
+"""Allow running as: python -m kctl_cf."""
 
-from kctl_cloudflare.cli import _run
+from kctl_cf.cli import _run
 
 _run()

@@ -1,4 +1,4 @@
-"""Profile management and configuration resolution for kctl-cloudflare.
+"""Profile management and configuration resolution for kctl-cf.
 
 Wraps kctl-common config functions with Cloudflare-specific defaults.
 """

@@ -18,7 +18,7 @@ class CloudflareClient(APIClient):
 
     def __init__(self, api_token: str = "", account_id: str = "", timeout: float = 30.0, **kwargs: Any):
         if not api_token:
-            raise AuthenticationError("No API token configured. Run: kctl-cloudflare config init")
+            raise AuthenticationError("No API token configured. Run: kctl-cf config init")
         super().__init__(credential=api_token, timeout=timeout, **kwargs)
         self._account_id = account_id
 

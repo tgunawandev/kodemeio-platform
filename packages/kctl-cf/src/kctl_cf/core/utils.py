@@ -1,4 +1,4 @@
-"""Shared utilities for kctl-cloudflare."""
+"""Shared utilities for kctl-cf."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import typer
 
 if TYPE_CHECKING:
-    from kctl_cloudflare.core.callbacks import AppContext
+    from kctl_cf.core.callbacks import AppContext
 
 
 def human_size(nbytes: int | float) -> str:

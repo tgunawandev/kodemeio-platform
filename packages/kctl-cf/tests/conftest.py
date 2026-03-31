@@ -1,4 +1,4 @@
-"""Shared test fixtures for kctl-cloudflare tests."""
+"""Shared test fixtures for kctl-cf tests."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from kctl_cloudflare.core.output import Output
+from kctl_cf.core.output import Output
 
 
 @pytest.fixture

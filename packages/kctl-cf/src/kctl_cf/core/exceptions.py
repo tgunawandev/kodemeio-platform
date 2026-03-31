@@ -1,4 +1,4 @@
-"""Exception hierarchy for kctl-cloudflare — re-exported from kctl-common."""
+"""Exception hierarchy for kctl-cf — re-exported from kctl-common."""
 
 from kctl_common.exceptions import (
     APIError,

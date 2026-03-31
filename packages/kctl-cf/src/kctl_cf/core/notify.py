@@ -81,10 +81,10 @@ def notify_health(
         ``True`` on successful delivery, ``False`` otherwise.
     """
     if passed == total:
-        message = f":white_check_mark: **kctl-cloudflare** health: {passed}/{total} checks passed"
+        message = f":white_check_mark: **kctl-cf** health: {passed}/{total} checks passed"
     else:
         issue_lines = "\n".join(f"- {issue}" for issue in issues)
-        message = f":warning: **kctl-cloudflare** health: {passed}/{total} checks passed\n{issue_lines}"
+        message = f":warning: **kctl-cf** health: {passed}/{total} checks passed\n{issue_lines}"
 
     return send_webhook(message, webhook_url=webhook_url)
 
@@ -106,8 +106,8 @@ def notify_terraform(
     """
     if success:
         user_part = f" by `{user}`" if user else ""
-        message = f":white_check_mark: **kctl-cloudflare** terraform {action} completed{user_part}"
+        message = f":white_check_mark: **kctl-cf** terraform {action} completed{user_part}"
     else:
-        message = f":x: **kctl-cloudflare** terraform {action} FAILED"
+        message = f":x: **kctl-cf** terraform {action} FAILED"
 
     return send_webhook(message)

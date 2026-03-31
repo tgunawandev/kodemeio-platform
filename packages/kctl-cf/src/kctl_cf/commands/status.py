@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import typer
 
-from kctl_cloudflare.core.callbacks import AppContext
-from kctl_cloudflare.core.exceptions import KctlError
-from kctl_cloudflare.core.utils import mask_token, require_account, status_color
+from kctl_cf.core.callbacks import AppContext
+from kctl_cf.core.exceptions import KctlError
+from kctl_cf.core.utils import mask_token, require_account, status_color
 
 app = typer.Typer(help="Account status dashboard.")
 
@@ -14,7 +14,7 @@ app = typer.Typer(help="Account status dashboard.")
 def _safe_list(client: object, path: str, params: dict | None = None) -> list:
     """Fetch a list endpoint, returning [] on any failure."""
     try:
-        from kctl_cloudflare.core.client import CloudflareClient
+        from kctl_cf.core.client import CloudflareClient
 
         assert isinstance(client, CloudflareClient)  # noqa: S101
         result = client.get(path, params=params or {})

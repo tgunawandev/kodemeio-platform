@@ -1,12 +1,12 @@
 """Plugin discovery and loading via entry points.
 
-Third-party packages can register kctl-cloudflare plugins by declaring an entry
-point in the ``kctl_cloudflare.plugins`` group.  Each entry point must resolve to a
+Third-party packages can register kctl-cf plugins by declaring an entry
+point in the ``kctl_cf.plugins`` group.  Each entry point must resolve to a
 class that implements :class:`KctlPlugin`.
 
 Example ``pyproject.toml`` snippet for a plugin package::
 
-    [project.entry-points."kctl_cloudflare.plugins"]
+    [project.entry-points."kctl_cf.plugins"]
     my_plugin = "my_package.plugin:MyPlugin"
 """
 
@@ -20,11 +20,11 @@ import typer
 
 logger = logging.getLogger(__name__)
 
-ENTRY_POINT_GROUP = "kctl_cloudflare.plugins"
+ENTRY_POINT_GROUP = "kctl_cf.plugins"
 
 
 class KctlPlugin(Protocol):
-    """Interface that kctl-cloudflare plugins must implement."""
+    """Interface that kctl-cf plugins must implement."""
 
     name: str
 

@@ -19,16 +19,16 @@ def run(
     smoke: Annotated[bool, typer.Option("--smoke", help="Run smoke tests (requires live API)")] = False,
     coverage: Annotated[bool, typer.Option("--coverage", help="Run with coverage report")] = False,
 ) -> None:
-    """Run the kctl-cloudflare test suite.
+    """Run the kctl-cf test suite.
 
     By default runs unit tests only. Use --smoke to include integration tests
     that require a live Cloudflare API connection.
 
     Examples:
-        kctl-cloudflare selftest run
-        kctl-cloudflare selftest run -v
-        kctl-cloudflare selftest run --smoke
-        kctl-cloudflare selftest run --coverage
+        kctl-cf selftest run
+        kctl-cf selftest run -v
+        kctl-cf selftest run --smoke
+        kctl-cf selftest run --coverage
     """
     # Resolve tests directory relative to package
     pkg_dir = Path(__file__).resolve().parents[3]
@@ -52,7 +52,7 @@ def run(
         cmd.extend(["-m", "not smoke"])
 
     if coverage:
-        cmd.extend(["--cov=kctl_cloudflare", "--cov-report=term-missing"])
+        cmd.extend(["--cov=kctl_cf", "--cov-report=term-missing"])
 
     cmd.extend(["--tb=short", "-q"])
 

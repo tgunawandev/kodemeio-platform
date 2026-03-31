@@ -8,8 +8,8 @@ from typing import Annotated
 
 import typer
 
-from kctl_cloudflare.core.callbacks import AppContext
-from kctl_cloudflare.core.utils import require_account, resolve_zone
+from kctl_cf.core.callbacks import AppContext
+from kctl_cf.core.utils import require_account, resolve_zone
 
 app = typer.Typer(help="Manage Load Balancers, pools, and monitors.")
 

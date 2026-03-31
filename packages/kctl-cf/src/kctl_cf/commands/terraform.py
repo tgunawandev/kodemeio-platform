@@ -8,9 +8,9 @@ from typing import Annotated
 
 import typer
 
-from kctl_cloudflare.core.callbacks import AppContext
-from kctl_cloudflare.core.config import get_service_config, resolve_active_profile_name
-from kctl_cloudflare.core.notify import notify_terraform
+from kctl_cf.core.callbacks import AppContext
+from kctl_cf.core.config import get_service_config, resolve_active_profile_name
+from kctl_cf.core.notify import notify_terraform
 
 app = typer.Typer(help="Run Terraform commands for Cloudflare infrastructure.")
 
