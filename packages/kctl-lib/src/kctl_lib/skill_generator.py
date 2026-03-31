@@ -119,9 +119,11 @@ def _generate_triggers(cli_name: str, groups: list[dict[str, Any]]) -> str:
         for sub in group.get("subcommands", []):
             sub_name = sub.get("name", "")
             # Only add meaningful subcommand names (skip generic ones)
-            if sub_name not in ("list", "get", "create", "update", "delete", "show", "run", "status"):
-                if len(sub_name) > 3:
-                    triggers.add(f'"{sub_name}"')
+            if (
+                sub_name not in ("list", "get", "create", "update", "delete", "show", "run", "status")
+                and len(sub_name) > 3
+            ):
+                triggers.add(f'"{sub_name}"')
 
         # Extract key words from help text
         help_text = group.get("help", "").lower()
