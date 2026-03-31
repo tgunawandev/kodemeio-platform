@@ -1,4 +1,11 @@
-"""Deployment manifest apply/status/list commands."""
+"""Deployment manifest apply/setup/run/post/status/list commands.
+
+Split into stages for resilience:
+  - setup: DNS + DB + compose + env + domain (idempotent, no deploy)
+  - run:   trigger deploy + wait for healthy
+  - post:  backup + schedules + post-deploy hooks
+  - apply: all three stages in sequence
+"""
 
 from __future__ import annotations
 
@@ -9,236 +16,318 @@ from typing import Annotated
 import typer
 
 from kctl_dokploy.core.callbacks import AppContext
-from kctl_dokploy.core.deployer import Deployer
+from kctl_dokploy.core.deployer import Deployer, PhaseResult
 from kctl_dokploy.core.manifest import DeployManifest, load_and_resolve
 
-app = typer.Typer(help="Apply deployment manifests to Dokploy.")
+app = typer.Typer(help="Declarative deployment from YAML manifests.")
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-_PHASE_ORDER = [
-    "dns",
-    "database",
-    "registry",
-    "compose",
-    "environment",
-    "domain",
-    "deploy",
-    "verify",
-    "backup",
-    "schedules",
-    "post_deploy",
-]
 
-_ACTION_COLOR: dict[str, str] = {
-    "created": "green",
-    "updated": "cyan",
-    "skipped": "dim",
-    "failed": "red",
-}
+def _print_summary(c: AppContext, title: str, results: list[PhaseResult]) -> bool:
+    """Print results table. Return True if any phase failed."""
+    rows = []
+    json_data = []
+    for r in results:
+        rows.append([r.phase, r.action, r.message])
+        json_data.append({"phase": r.phase, "action": r.action, "message": r.message})
+
+    c.output.table(
+        title,
+        [("Phase", "cyan"), ("Action", ""), ("Details", "dim")],
+        rows,
+        data_for_json=json_data,
+    )
+    return any(r.action == "failed" for r in results)
 
 
-def _run_phases(
-    deployer: Deployer,
-    skip_deploy: bool = False,
-    skip_verify: bool = False,
+def _load(file: Path, c: AppContext) -> DeployManifest:
+    try:
+        return load_and_resolve(file)
+    except Exception as exc:
+        c.output.error(f"Failed to load manifest: {exc}")
+        raise typer.Exit(1) from exc
+
+
+# ---------------------------------------------------------------------------
+# Stage: setup (DNS + DB + compose + env + domain)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def setup(
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Option("--file", "-f", help="Instance manifest YAML", exists=True)] = ...,  # type: ignore[assignment]
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview changes")] = False,
 ) -> None:
-    """Execute all phases individually, honouring skip flags."""
+    """Stage 1: Infrastructure setup — DNS, database, compose, env, domain.
+
+    Idempotent and safe to re-run. Does NOT trigger a deploy.
+    """
+    c: AppContext = ctx.obj
+    manifest = _load(file, c)
+    mode = " [dry-run]" if dry_run else ""
+    c.output.info(f"Setup: {manifest.instance.name}{mode}")
+
+    deployer = Deployer(manifest=manifest, dry_run=dry_run)
     deployer.phase_dns()
     deployer.phase_database()
     deployer.phase_registry()
     deployer.phase_compose()
     deployer.phase_environment()
     deployer.phase_domain()
-    if not skip_deploy:
-        deployer.phase_deploy()
+
+    has_failures = _print_summary(c, f"Setup: {manifest.instance.name}", deployer.results)
+    if has_failures:
+        c.output.error("Setup failed — fix errors before running deploy.")
+        sys.exit(1)
+    else:
+        c.output.success(f"Setup complete. Run: kctl-dokploy deploy run -f {file}")
+
+
+# ---------------------------------------------------------------------------
+# Stage: run (deploy + verify)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def run(
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Option("--file", "-f", help="Instance manifest YAML", exists=True)] = ...,  # type: ignore[assignment]
+    skip_verify: Annotated[bool, typer.Option("--skip-verify", help="Skip healthcheck")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview changes")] = False,
+) -> None:
+    """Stage 2: Deploy + verify — trigger redeploy and wait for healthy.
+
+    Requires setup to have been run first (compose must exist).
+    """
+    c: AppContext = ctx.obj
+    manifest = _load(file, c)
+    c.output.info(f"Deploy: {manifest.instance.name}")
+
+    deployer = Deployer(manifest=manifest, dry_run=dry_run)
+
+    # Need to find existing compose_id
+    deployer.phase_compose()  # This will find or update existing compose
+    deployer.phase_deploy()
     if not skip_verify:
         deployer.phase_verify()
+
+    has_failures = _print_summary(c, f"Deploy: {manifest.instance.name}", deployer.results)
+    if has_failures:
+        c.output.error("Deploy failed — check logs with: kctl-dokploy deployments logs --compose <id>")
+        sys.exit(1)
+    else:
+        c.output.success(f"Deploy complete. Run: kctl-dokploy deploy post -f {file}")
+
+
+# ---------------------------------------------------------------------------
+# Stage: post (backup + schedules + post-deploy hooks)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def post(
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Option("--file", "-f", help="Instance manifest YAML", exists=True)] = ...,  # type: ignore[assignment]
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview changes")] = False,
+) -> None:
+    """Stage 3: Post-deploy — backup config, schedules, Odoo bundle install.
+
+    Safe to re-run. Requires compose to exist and be deployed.
+    """
+    c: AppContext = ctx.obj
+    manifest = _load(file, c)
+    c.output.info(f"Post-deploy: {manifest.instance.name}")
+
+    deployer = Deployer(manifest=manifest, dry_run=dry_run)
+
+    # Find existing compose_id
+    deployer.phase_compose()
     deployer.phase_backup()
     deployer.phase_schedules()
     deployer.phase_post_deploy()
 
-
-def _print_summary(c: AppContext, deployer: Deployer) -> bool:
-    """Print a results table. Return True if any phase failed."""
-    rows = []
-    json_data = []
-    for result in deployer.results:
-        action_color = _ACTION_COLOR.get(result.action, "")
-        rows.append([result.phase, result.action, result.message])
-        json_data.append(
-            {
-                "phase": result.phase,
-                "action": result.action,
-                "message": result.message,
-            }
-        )
-
-    c.output.table(
-        "Deployment Summary",
-        [("Phase", "cyan"), ("Action", action_color), ("Message", "")],
-        rows,
-        data_for_json=json_data,
-    )
-
-    failed = [r for r in deployer.results if r.action == "failed"]
-    return bool(failed)
+    # Filter out the compose phase from summary (it's just for ID resolution)
+    results = [r for r in deployer.results if r.phase != "compose"]
+    has_failures = _print_summary(c, f"Post-deploy: {manifest.instance.name}", results)
+    if has_failures:
+        c.output.error("Post-deploy had failures.")
+        sys.exit(1)
+    else:
+        c.output.success("Post-deploy complete.")
 
 
 # ---------------------------------------------------------------------------
-# Commands
+# All-in-one: apply (setup + run + post)
 # ---------------------------------------------------------------------------
 
 
 @app.command()
 def apply(
     ctx: typer.Context,
-    file: Annotated[Path, typer.Option("--file", "-f", help="Path to deploy manifest YAML", exists=True)] = ...,  # type: ignore[assignment]
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Simulate without mutating state")] = False,
-    skip_deploy: Annotated[bool, typer.Option("--skip-deploy", help="Skip the deploy phase")] = False,
-    skip_verify: Annotated[bool, typer.Option("--skip-verify", help="Skip the healthcheck verify phase")] = False,
+    file: Annotated[Path, typer.Option("--file", "-f", help="Instance manifest YAML", exists=True)] = ...,  # type: ignore[assignment]
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview changes")] = False,
+    skip_deploy: Annotated[bool, typer.Option("--skip-deploy", help="Run setup only, skip deploy")] = False,
+    skip_verify: Annotated[bool, typer.Option("--skip-verify", help="Skip healthcheck")] = False,
 ) -> None:
-    """Apply a deployment manifest, running all phases in order."""
+    """All-in-one: setup + deploy + post-deploy in sequence."""
     c: AppContext = ctx.obj
-    out = c.output
-
-    try:
-        manifest = load_and_resolve(file)
-    except Exception as exc:
-        out.error(f"Failed to load manifest: {exc}")
-        raise typer.Exit(1) from exc
-
-    instance_name = manifest.instance.name or file.stem
+    manifest = _load(file, c)
     mode = " [dry-run]" if dry_run else ""
-    out.info(f"Applying manifest: {instance_name}{mode}")
+    c.output.info(f"Applying manifest: {manifest.instance.name}{mode}")
 
     deployer = Deployer(manifest=manifest, dry_run=dry_run)
-    _run_phases(deployer, skip_deploy=skip_deploy, skip_verify=skip_verify)
 
-    has_failures = _print_summary(c, deployer)
+    # Stage 1: Setup
+    deployer.phase_dns()
+    deployer.phase_database()
+    deployer.phase_registry()
+    deployer.phase_compose()
+    deployer.phase_environment()
+    deployer.phase_domain()
+
+    # Check setup failures before proceeding
+    setup_failed = any(r.action == "failed" for r in deployer.results)
+    if setup_failed and not dry_run:
+        _print_summary(c, f"Setup Failed: {manifest.instance.name}", deployer.results)
+        c.output.error("Setup failed — stopping before deploy. Fix errors and re-run.")
+        sys.exit(1)
+
+    # Stage 2: Deploy
+    if not skip_deploy:
+        deployer.phase_deploy()
+        if not skip_verify:
+            deployer.phase_verify()
+
+    # Stage 3: Post-deploy
+    deployer.phase_backup()
+    deployer.phase_schedules()
+    deployer.phase_post_deploy()
+
+    has_failures = _print_summary(c, f"Deployment Summary: {manifest.instance.name}", deployer.results)
     if has_failures:
-        out.error("One or more phases failed.")
+        c.output.error("One or more phases failed.")
         sys.exit(1)
     else:
-        out.success("All phases completed successfully.")
+        c.output.success("All phases completed successfully.")
 
 
-@app.command()
-def status(
-    ctx: typer.Context,
-    file: Annotated[Path, typer.Option("--file", "-f", help="Path to deploy manifest YAML", exists=True)] = ...,  # type: ignore[assignment]
-) -> None:
-    """Show deployment status by running all phases in dry-run mode."""
-    c: AppContext = ctx.obj
-    out = c.output
-
-    try:
-        manifest = load_and_resolve(file)
-    except Exception as exc:
-        out.error(f"Failed to load manifest: {exc}")
-        raise typer.Exit(1) from exc
-
-    instance_name = manifest.instance.name or file.stem
-    out.info(f"Checking status for: {instance_name} [dry-run]")
-
-    deployer = Deployer(manifest=manifest, dry_run=True)
-    _run_phases(deployer)
-    _print_summary(c, deployer)
+# ---------------------------------------------------------------------------
+# Batch: apply-all
+# ---------------------------------------------------------------------------
 
 
 @app.command("apply-all")
 def apply_all(
     ctx: typer.Context,
-    dir: Annotated[Path, typer.Option("--dir", "-d", help="Directory containing manifest YAML files")] = Path(
-        "deploys/instances"
-    ),
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Simulate without mutating state")] = False,
+    dir: Annotated[Path, typer.Option("--dir", "-d", help="Directory with manifests")] = Path("deploys/instances"),
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview changes")] = False,
 ) -> None:
-    """Apply all deployment manifests found in a directory."""
+    """Apply all manifests in a directory sequentially."""
     c: AppContext = ctx.obj
-    out = c.output
 
     if not dir.is_dir():
-        out.error(f"Directory not found: {dir}")
+        c.output.error(f"Directory not found: {dir}")
         raise typer.Exit(1)
 
-    manifests = sorted(list(dir.glob("*.yaml")) + list(dir.glob("*.yml")))
-    if not manifests:
-        out.warn(f"No YAML manifests found in {dir}")
+    files = sorted(list(dir.glob("*.yaml")) + list(dir.glob("*.yml")))
+    if not files:
+        c.output.warn(f"No YAML manifests found in {dir}")
         return
 
-    out.info(f"Found {len(manifests)} manifest(s) in {dir}")
+    c.output.info(f"Found {len(files)} manifest(s) in {dir}")
     any_failed = False
 
-    for manifest_path in manifests:
-        out.info(f"--- {manifest_path.name} ---")
+    for f in files:
+        c.output.header(f"--- {f.name} ---")
         try:
-            manifest = load_and_resolve(manifest_path)
+            manifest = load_and_resolve(f)
         except Exception as exc:
-            out.error(f"Failed to load {manifest_path.name}: {exc}")
+            c.output.error(f"Failed to load {f.name}: {exc}")
             any_failed = True
             continue
 
         deployer = Deployer(manifest=manifest, dry_run=dry_run)
-        _run_phases(deployer)
-        has_failures = _print_summary(c, deployer)
-        if has_failures:
+        deployer.phase_dns()
+        deployer.phase_database()
+        deployer.phase_registry()
+        deployer.phase_compose()
+        deployer.phase_environment()
+        deployer.phase_domain()
+        deployer.phase_deploy()
+        deployer.phase_backup()
+        deployer.phase_schedules()
+        deployer.phase_post_deploy()
+
+        if any(r.action == "failed" for r in deployer.results):
+            c.output.error(f"{f.name}: FAILED")
             any_failed = True
+        else:
+            c.output.success(f"{f.name}: OK")
 
     if any_failed:
-        out.error("One or more manifests had failures.")
         sys.exit(1)
-    else:
-        out.success(f"All {len(manifests)} manifest(s) completed successfully.")
+
+
+# ---------------------------------------------------------------------------
+# Status & list
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def status(
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Option("--file", "-f", help="Instance manifest YAML", exists=True)] = ...,  # type: ignore[assignment]
+) -> None:
+    """Check current state vs manifest (dry-run preview)."""
+    c: AppContext = ctx.obj
+    manifest = _load(file, c)
+    c.output.info(f"Status: {manifest.instance.name} [dry-run]")
+
+    deployer = Deployer(manifest=manifest, dry_run=True)
+    deployer.phase_dns()
+    deployer.phase_database()
+    deployer.phase_registry()
+    deployer.phase_compose()
+    deployer.phase_environment()
+    deployer.phase_domain()
+    deployer.phase_deploy()
+    deployer.phase_verify()
+    deployer.phase_backup()
+    deployer.phase_schedules()
+    deployer.phase_post_deploy()
+
+    _print_summary(c, f"Status: {manifest.instance.name}", deployer.results)
 
 
 @app.command("list")
-def list_(
-    ctx: typer.Context,
-) -> None:
-    """List all deployment manifests found in deploys/instances/."""
+def list_(ctx: typer.Context) -> None:
+    """List all instance manifests and their status."""
     c: AppContext = ctx.obj
-    out = c.output
-
-    instances_dir = Path("deploys/instances")
-    if not instances_dir.is_dir():
-        out.warn(f"Directory not found: {instances_dir}")
+    deploy_dir = Path("deploys/instances")
+    if not deploy_dir.is_dir():
+        c.output.warn("No deploys/instances/ directory found")
         return
 
-    manifests = sorted(list(instances_dir.glob("*.yaml")) + list(instances_dir.glob("*.yml")))
-    if not manifests:
-        out.warn(f"No YAML manifests found in {instances_dir}")
+    files = sorted(list(deploy_dir.glob("*.yaml")) + list(deploy_dir.glob("*.yml")))
+    if not files:
+        c.output.warn("No YAML manifests found in deploys/instances/")
         return
 
     rows = []
-    json_data = []
-
-    for manifest_path in manifests:
+    for f in files:
         try:
-            manifest: DeployManifest = load_and_resolve(manifest_path)
-            instance_name = manifest.instance.name or manifest_path.stem
-            mtype = manifest.type
-            domain = manifest.domain.host or "-"
-        except Exception as exc:
-            instance_name = manifest_path.stem
-            mtype = "error"
-            domain = str(exc)
+            m = load_and_resolve(f)
+            rows.append([f.name, m.instance.name, m.type, m.domain.host if m.domain else "-"])
+        except Exception as e:
+            rows.append([f.name, "ERROR", "-", str(e)[:50]])
 
-        rows.append([manifest_path.name, instance_name, mtype, domain])
-        json_data.append(
-            {
-                "file": manifest_path.name,
-                "instance": instance_name,
-                "type": mtype,
-                "domain": domain,
-            }
-        )
-
-    out.table(
-        "Deployment Manifests",
-        [("File", "dim"), ("Instance Name", "cyan"), ("Type", ""), ("Domain", "green")],
+    c.output.table(
+        f"Deployment Manifests ({len(rows)})",
+        [("File", "dim"), ("Instance", "cyan"), ("Type", ""), ("Domain", "green")],
         rows,
-        data_for_json=json_data,
     )
