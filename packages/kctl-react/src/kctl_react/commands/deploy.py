@@ -10,6 +10,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.runner import run
 
 app = typer.Typer(help="Docker Compose deployment management.")
@@ -163,7 +164,7 @@ def images(ctx: typer.Context) -> None:
     for name in actx.app_names:
         # Check for Dockerfile or compose file
         compose_file = root / f"docker-compose.{name}.yml"
-        dockerfile = root / "apps" / name / "Dockerfile"
+        dockerfile = get_app_dir(root, name) / "Dockerfile"
         has_compose = compose_file.exists()
         has_dockerfile = dockerfile.exists()
 
@@ -257,7 +258,7 @@ def readiness(ctx: typer.Context) -> None:
     json_data: list[dict] = []
 
     for name in actx.app_names:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
 
         build_dir = _find_build_dir(app_dir)
         has_build = build_dir is not None
@@ -271,7 +272,7 @@ def readiness(ctx: typer.Context) -> None:
         last_commit_iso = ""
         try:
             result = run(
-                ["git", "log", "-1", "--format=%ci", "--", f"apps/{name}/"],
+                ["git", "log", "-1", "--format=%ci", "--", str(get_app_dir(root, name).relative_to(root)) + "/"],
                 cwd=root,
                 capture=True,
                 timeout=10,

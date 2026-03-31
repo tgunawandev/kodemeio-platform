@@ -10,6 +10,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.exceptions import CommandError
 from kctl_react.core.runner import run, run_pnpm
 
@@ -28,7 +29,7 @@ def outdated(
 
     if app_name:
         actx.validate_app(app_name)
-        cwd = root / "apps" / app_name
+        cwd = get_app_dir(root, app_name)
     else:
         cwd = root
 
@@ -70,7 +71,7 @@ def graph(ctx: typer.Context) -> None:
 
     # Read each app's package.json to find @kodemeio/* deps
     for name in actx.app_names:
-        pkg_file = root / "apps" / name / "package.json"
+        pkg_file = get_app_dir(root, name) / "package.json"
         if not pkg_file.exists():
             continue
 
@@ -105,11 +106,12 @@ def list_(ctx: typer.Context) -> None:
 
     # Apps
     for name in actx.app_names:
-        pkg_file = root / "apps" / name / "package.json"
+        pkg_file = get_app_dir(root, name) / "package.json"
         if not pkg_file.exists():
             continue
         pkg = json.loads(pkg_file.read_text())
-        rows.append([pkg.get("name", ""), pkg.get("version", ""), "app", f"apps/{name}"])
+        rel_path = str(get_app_dir(root, name).relative_to(root))
+        rows.append([pkg.get("name", ""), pkg.get("version", ""), "app", rel_path])
 
     # Packages
     packages_dir = root / "packages"
@@ -142,7 +144,7 @@ def why(
     json_data: list[dict] = []
 
     for name in actx.app_names:
-        pkg_file = root / "apps" / name / "package.json"
+        pkg_file = get_app_dir(root, name) / "package.json"
         if not pkg_file.exists():
             continue
         pkg = json.loads(pkg_file.read_text())
@@ -213,7 +215,7 @@ def duplicates(ctx: typer.Context) -> None:
             pass
 
     for name in actx.app_names:
-        _scan_pkg(root / "apps" / name / "package.json", name)
+        _scan_pkg(get_app_dir(root, name) / "package.json", name)
 
     packages_dir = root / "packages"
     if packages_dir.is_dir():
@@ -394,7 +396,7 @@ def _collect_all_external_deps(root: Path, app_names: list[str], packages: list[
                 versions[dep][workspace] = ver
 
     for name in app_names:
-        _scan(root / "apps" / name / "package.json", name)
+        _scan(get_app_dir(root, name) / "package.json", name)
 
     packages_dir = root / "packages"
     if packages_dir.is_dir():
@@ -764,7 +766,7 @@ def sync(
                 pkg_name = workspace[4:]
                 pkg_file = root / "packages" / pkg_name / "package.json"
             else:
-                pkg_file = root / "apps" / workspace / "package.json"
+                pkg_file = get_app_dir(root, workspace) / "package.json"
 
             if not pkg_file.exists():
                 continue

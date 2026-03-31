@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 
 app = typer.Typer(help="Shared package inspection and management.")
 
@@ -74,7 +75,7 @@ def consumers(
     json_data: list[dict] = []
 
     for app_name in actx.app_names:
-        pkg_file = root / "apps" / app_name / "package.json"
+        pkg_file = get_app_dir(root, app_name) / "package.json"
         if not pkg_file.exists():
             continue
 

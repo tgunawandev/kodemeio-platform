@@ -10,6 +10,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.exceptions import CommandError
 from kctl_react.core.runner import run, run_pnpm
 
@@ -150,7 +151,7 @@ def audit(
 
     if app_name:
         actx.validate_app(app_name)
-        cwd = root / "apps" / app_name
+        cwd = get_app_dir(root, app_name)
         target = app_name
     else:
         cwd = root
@@ -267,9 +268,9 @@ def secrets(
 
     if app_name:
         actx.validate_app(app_name)
-        scan_dirs = [root / "apps" / app_name / "src"]
+        scan_dirs = [get_app_dir(root, app_name) / "src"]
     else:
-        scan_dirs = [root / "apps" / name / "src" for name in actx.app_names]
+        scan_dirs = [get_app_dir(root, name) / "src" for name in actx.app_names]
         # Also scan packages
         packages_dir = root / "packages"
         if packages_dir.is_dir():
@@ -385,7 +386,7 @@ def deps_license(
     if app_name:
         actx.validate_app(app_name)
 
-    cwd = root / "apps" / app_name if app_name else root
+    cwd = get_app_dir(root, app_name) if app_name else root
     target = app_name or "monorepo root"
     out.info(f"Checking dependency licenses for {target}...")
 
@@ -465,9 +466,9 @@ def deps_license(
 def _collect_secrets(root: Path, app_name: str | None, app_names: list[str], packages_dir: Path) -> list[dict]:
     """Collect secret scan findings without printing output."""
     if app_name:
-        scan_dirs = [root / "apps" / app_name / "src"]
+        scan_dirs = [get_app_dir(root, app_name) / "src"]
     else:
-        scan_dirs = [root / "apps" / name / "src" for name in app_names]
+        scan_dirs = [get_app_dir(root, name) / "src" for name in app_names]
         if packages_dir.is_dir():
             for pkg_dir in sorted(packages_dir.iterdir()):
                 src = pkg_dir / "src"
@@ -493,7 +494,7 @@ def _collect_audit(root: Path, app_names: list[str]) -> dict:
     """Collect audit counts without printing output."""
     totals: dict[str, int] = {"critical": 0, "high": 0, "moderate": 0, "low": 0, "info": 0, "total": 0}
     for name in app_names:
-        cwd = root / "apps" / name
+        cwd = get_app_dir(root, name)
         try:
             result = run_pnpm(["audit", "--json"], cwd=cwd, capture=True, timeout=120)
             counts = _parse_audit_json(result.stdout)

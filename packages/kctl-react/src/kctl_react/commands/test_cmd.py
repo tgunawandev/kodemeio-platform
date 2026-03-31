@@ -12,6 +12,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.runner import run, run_turbo
 
 app = typer.Typer(help="Run tests across the monorepo.")
@@ -78,7 +79,7 @@ def test(
     out.info(f"Running tests for {target}{'  (coverage)' if coverage_flag else ''}...")
 
     if watch and app_name:
-        app_dir = root / "apps" / app_name
+        app_dir = get_app_dir(root, app_name)
         try:
             proc = subprocess.Popen(["pnpm", "vitest", "--watch"], cwd=app_dir)
             proc.wait()
@@ -107,7 +108,7 @@ def count(ctx: typer.Context) -> None:
     total = 0
 
     for name in actx.app_names:
-        app_dir = root / "apps" / name / "src"
+        app_dir = get_app_dir(root, name) / "src"
         if not app_dir.is_dir():
             rows.append([name, "0", "[dim]no src[/dim]"])
             continue
@@ -154,7 +155,7 @@ def summary(
     total_skipped = 0
 
     for name in apps:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         if not (app_dir / "src").is_dir():
             continue
 
@@ -226,7 +227,7 @@ def coverage(ctx: typer.Context) -> None:
     json_data: list[dict] = []
 
     for name in actx.app_names:
-        cov_file = root / "apps" / name / "coverage" / "coverage-summary.json"
+        cov_file = get_app_dir(root, name) / "coverage" / "coverage-summary.json"
         if not cov_file.exists():
             rows.append(
                 [name, "[dim]--[/dim]", "[dim]--[/dim]", "[dim]--[/dim]", "[dim]--[/dim]", "[dim]no data[/dim]"]
@@ -283,7 +284,7 @@ def naming(ctx: typer.Context) -> None:
     issues: list[str] = []
 
     for name in actx.app_names:
-        src_dir = root / "apps" / name / "src"
+        src_dir = get_app_dir(root, name) / "src"
         if not src_dir.is_dir():
             rows.append([name, "[dim]--[/dim]", "[dim]--[/dim]", "[dim]no src[/dim]"])
             json_data.append({"app": name, "test_count": 0, "spec_count": 0})
@@ -336,7 +337,7 @@ def threshold(
     any_fail = False
 
     for name in actx.app_names:
-        cov_file = root / "apps" / name / "coverage" / "coverage-summary.json"
+        cov_file = get_app_dir(root, name) / "coverage" / "coverage-summary.json"
         if not cov_file.exists():
             rows.append([name, "[dim]no data[/dim]", f"{min_pct}%", "[dim]SKIP[/dim]"])
             json_data.append({"app": name, "lines_pct": None, "min_pct": min_pct, "status": "skip"})
@@ -387,7 +388,7 @@ def snapshots(
 
     actx.validate_app(app_name)
 
-    src_dir = root / "apps" / app_name / "src"
+    src_dir = get_app_dir(root, app_name) / "src"
     if not src_dir.is_dir():
         out.warn(f"No src/ directory found for {app_name}")
         return

@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.compliance.engine import ComplianceEngine
 from kctl_react.core.compliance.fixes import apply_fixes
 from kctl_react.core.compliance.models import AppReport, CategoryResult
@@ -160,7 +161,7 @@ def audit(
     if all_apps:
         reports: list[AppReport] = []
         for name in actx.app_names:
-            app_path = root / "apps" / name
+            app_path = get_app_dir(root, name)
             report = engine.audit(app_path, name, categories=cat_list)
             reports.append(report)
 
@@ -178,7 +179,7 @@ def audit(
     else:
         assert app_name is not None
         actx.validate_app(app_name)
-        app_path = root / "apps" / app_name
+        app_path = get_app_dir(root, app_name)
         report = engine.audit(app_path, app_name, categories=cat_list)
         _audit_single(actx, report)
 
@@ -224,7 +225,7 @@ def fix(
     for name in names:
         if not all_apps:
             actx.validate_app(name)
-        app_path = root / "apps" / name
+        app_path = get_app_dir(root, name)
 
         prefix = "(dry-run) " if dry_run else ""
         count = apply_fixes(app_path, name, dry_run=dry_run, categories=cat_list)
@@ -271,7 +272,7 @@ def prompt(
 
     if all_apps:
         for name in actx.app_names:
-            app_path = root / "apps" / name
+            app_path = get_app_dir(root, name)
             report = engine.audit(app_path, name, categories=cat_list)
             md = engine.generate_prompt(report)
 
@@ -286,7 +287,7 @@ def prompt(
     else:
         assert app_name is not None
         actx.validate_app(app_name)
-        app_path = root / "apps" / app_name
+        app_path = get_app_dir(root, app_name)
         report = engine.audit(app_path, app_name, categories=cat_list)
         md = engine.generate_prompt(report)
 
@@ -459,7 +460,7 @@ def api_check_cmd(
     if all_apps:
         reports: list[AppReport] = []
         for name in actx.app_names:
-            app_path = root / "apps" / name
+            app_path = get_app_dir(root, name)
             report = _run_api_check_for_app(app_path, name, offline=offline, cat_list=cat_list)
             if report is None:
                 out.warn(f"No OpenAPI schema available for {name}")
@@ -480,7 +481,7 @@ def api_check_cmd(
     else:
         assert app_name is not None
         actx.validate_app(app_name)
-        app_path = root / "apps" / app_name
+        app_path = get_app_dir(root, app_name)
         report = _run_api_check_for_app(app_path, app_name, offline=offline, cat_list=cat_list)
         if report is None:
             out.warn(f"No OpenAPI schema available for {app_name}")
@@ -537,7 +538,7 @@ def api_health_cmd(
     if all_apps:
         reports: list[AppReport] = []
         for name in actx.app_names:
-            app_path = root / "apps" / name
+            app_path = get_app_dir(root, name)
             report = _run_api_health_for_app(
                 app_path,
                 name,
@@ -565,7 +566,7 @@ def api_health_cmd(
     else:
         assert app_name is not None
         actx.validate_app(app_name)
-        app_path = root / "apps" / app_name
+        app_path = get_app_dir(root, app_name)
         report = _run_api_health_for_app(
             app_path,
             app_name,

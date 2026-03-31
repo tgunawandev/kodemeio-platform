@@ -10,6 +10,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 
 app = typer.Typer(help="Maintenance utilities for the React monorepo.")
 
@@ -44,7 +45,7 @@ def _collect_dep_versions(
 
     sources: list[tuple[str, Path]] = []
     for name in app_names:
-        sources.append((name, root / "apps" / name / "package.json"))
+        sources.append((name, get_app_dir(root, name) / "package.json"))
     for name in package_names:
         sources.append((name, root / "packages" / name / "package.json"))
 
@@ -77,7 +78,7 @@ def health_report(ctx: typer.Context) -> None:
     json_data: list[dict] = []
 
     for name in actx.app_names:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         tests = _count_test_files(app_dir)
         codegen = (app_dir / "src" / "generated").is_dir()
         built = (app_dir / "dist").is_dir()
@@ -126,7 +127,7 @@ def cleanup(
 
     # Check apps
     for name in actx.app_names:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         for target in _CLEANUP_TARGETS:
             path = app_dir / target
             if path.exists():
@@ -182,7 +183,7 @@ def dr_status(ctx: typer.Context) -> None:
     json_data: list[dict] = []
 
     for name in actx.app_names:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
 
         dockerfile = (app_dir / "Dockerfile").exists()
         compose = (app_dir / "docker-compose.yml").exists() or (app_dir / "docker-compose.yaml").exists()
@@ -235,7 +236,7 @@ def count_test_files_cmd(ctx: typer.Context) -> None:
     total = 0
 
     for name in actx.app_names:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         count = _count_test_files(app_dir)
         total += count
         rows.append([name, str(count)])

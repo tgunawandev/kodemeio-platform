@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 
 app = typer.Typer(help="Environment variable management.")
 
@@ -43,7 +44,7 @@ def show(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     env_files = _find_env_files(app_dir)
     if not env_files:
@@ -72,13 +73,13 @@ def diff(
     actx.validate_app(app1)
     actx.validate_app(app2)
 
-    env1 = _parse_env_file(root / "apps" / app1 / ".env")
-    env2 = _parse_env_file(root / "apps" / app2 / ".env")
+    env1 = _parse_env_file(get_app_dir(root, app1) / ".env")
+    env2 = _parse_env_file(get_app_dir(root, app2) / ".env")
 
     if not env1:
-        env1 = _parse_env_file(root / "apps" / app1 / ".env.local")
+        env1 = _parse_env_file(get_app_dir(root, app1) / ".env.local")
     if not env2:
-        env2 = _parse_env_file(root / "apps" / app2 / ".env.local")
+        env2 = _parse_env_file(get_app_dir(root, app2) / ".env.local")
 
     all_keys = sorted(set(env1.keys()) | set(env2.keys()))
 
@@ -117,7 +118,7 @@ def validate(
     issues = 0
 
     for name in apps_to_check:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         env_files = _find_env_files(app_dir)
 
         if not env_files:

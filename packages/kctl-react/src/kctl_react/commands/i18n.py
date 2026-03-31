@@ -65,7 +65,7 @@ def coverage(
     rows, json_data = [], []
     for name in apps_to_check:
         actx.validate_app(name)
-        translations = _load_translations(actx.project_root / "apps" / name)
+        translations = _load_translations(actx.get_app_dir(name))
         en_keys = _flatten_keys(translations.get("en", {}))
         id_keys = _flatten_keys(translations.get("id", {}))
         total = len(en_keys)
@@ -96,7 +96,7 @@ def missing(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help="Ap
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    translations = _load_translations(actx.project_root / "apps" / app_name)
+    translations = _load_translations(actx.get_app_dir(app_name))
     en_keys = _flatten_keys(translations.get("en", {}))
     id_keys = _flatten_keys(translations.get("id", {}))
     missing_keys = sorted(en_keys - id_keys)
@@ -113,7 +113,7 @@ def unused(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help="App
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    app_dir = actx.project_root / "apps" / app_name
+    app_dir = actx.get_app_dir(app_name)
     translations = _load_translations(app_dir)
     all_keys = _flatten_keys(translations.get("en", {}))
     # Grep source for t("key") or t('key') patterns
@@ -140,7 +140,7 @@ def sort(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help="App n
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    i18n_dir = _find_i18n_dir(actx.project_root / "apps" / app_name)
+    i18n_dir = _find_i18n_dir(actx.get_app_dir(app_name))
     if i18n_dir is None:
         out.error(f"No i18n directory found for {app_name}")
         raise typer.Exit(1) from None
@@ -179,7 +179,7 @@ def diff(
     actx.validate_app(app_name)
     from kctl_react.core.runner import run_quiet
 
-    i18n_dir = _find_i18n_dir(actx.project_root / "apps" / app_name)
+    i18n_dir = _find_i18n_dir(actx.get_app_dir(app_name))
     if i18n_dir is None:
         out.info("No i18n directory found")
         return
@@ -197,7 +197,7 @@ def validate(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help="A
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    i18n_dir = _find_i18n_dir(actx.project_root / "apps" / app_name)
+    i18n_dir = _find_i18n_dir(actx.get_app_dir(app_name))
 
     if i18n_dir is None:
         out.error(f"No i18n directory found for {app_name} (checked src/i18n/ and messages/)")
@@ -242,7 +242,7 @@ def interpolation(ctx: typer.Context, app_name: Annotated[str, typer.Argument(he
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    app_dir = actx.project_root / "apps" / app_name
+    app_dir = actx.get_app_dir(app_name)
 
     translations = _load_translations(app_dir)
     en = translations.get("en", {})
@@ -286,7 +286,7 @@ def sync_stub(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help="
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    i18n_dir = _find_i18n_dir(actx.project_root / "apps" / app_name)
+    i18n_dir = _find_i18n_dir(actx.get_app_dir(app_name))
     if i18n_dir is None:
         out.error(f"No i18n directory found for {app_name}")
         raise typer.Exit(1) from None

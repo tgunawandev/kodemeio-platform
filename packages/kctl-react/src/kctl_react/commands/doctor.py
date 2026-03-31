@@ -8,6 +8,7 @@ import subprocess
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 
 app = typer.Typer(help="Monorepo health checks.")
 
@@ -111,7 +112,7 @@ def run_doctor(actx: AppContext) -> None:
     out.header("Apps")
 
     for name in actx.app_names:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         if not app_dir.is_dir():
             fail(f"{name}: directory missing")
             continue

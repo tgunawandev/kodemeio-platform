@@ -14,7 +14,7 @@ app = typer.Typer(help="Advanced bundle analysis.")
 
 def _find_assets_dir(actx: AppContext, app_name: str) -> Path | None:
     """Find the JS/CSS assets directory for an app (Vite: dist/assets, Next.js: .next/static)."""
-    app_dir = actx.project_root / "apps" / app_name
+    app_dir = actx.get_app_dir(app_name)
     if actx.is_nextjs(app_name):
         for candidate in (app_dir / ".next" / "static", app_dir / ".next"):
             if candidate.is_dir():
@@ -95,7 +95,7 @@ def treeshake(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help="
     actx.validate_app(app_name)
     import re
 
-    src = actx.project_root / "apps" / app_name / "src"
+    src = actx.get_app_dir(app_name) / "src"
     issues: list[dict] = []
     for f in src.rglob("*.tsx"):
         content = f.read_text(errors="ignore")

@@ -12,6 +12,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.exceptions import CommandError
 from kctl_react.core.runner import run, run_pnpm, run_turbo
 
@@ -524,7 +525,7 @@ def status(ctx: typer.Context) -> None:
     json_data: list[dict] = []
 
     for name in actx.app_names:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         has_cap = _has_capacitor(app_dir)
         has_android = _has_platform(app_dir, "android")
         has_ios = _has_platform(app_dir, "ios")
@@ -573,7 +574,7 @@ def doctor(
     app_dir = None
     if app_name:
         actx.validate_app(app_name)
-        app_dir = root / "apps" / app_name
+        app_dir = get_app_dir(root, app_name)
 
     checks = _validate_environment(root, app_dir, platform)
     _show_checks(out, "Capacitor Doctor" + (f" — {app_name}" if app_name else ""), checks)
@@ -591,7 +592,7 @@ def init(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     if _has_capacitor(app_dir):
         out.warn(f"{app_name}: Capacitor already configured")
@@ -656,7 +657,7 @@ def add(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     if platform not in ("android", "ios"):
         out.error("Platform must be 'android' or 'ios'")
@@ -767,7 +768,7 @@ def sync(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     if not _has_capacitor(app_dir):
         out.error(f"{app_name}: No Capacitor config — run `kctl-react cap init {app_name}` first")
@@ -807,7 +808,7 @@ def run_native(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     if platform not in ("android", "ios"):
         out.error("Platform must be 'android' or 'ios'")
@@ -847,7 +848,7 @@ def open_ide(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     if platform not in ("android", "ios"):
         out.error("Platform must be 'android' or 'ios'")
@@ -879,7 +880,7 @@ def build(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     if platform not in ("android", "ios"):
         out.error("Platform must be 'android' or 'ios'")
@@ -942,7 +943,7 @@ def dev(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
     app_info = actx.apps[app_name]
     port = app_info["port"]
 
@@ -1096,7 +1097,7 @@ def install(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     # Find APK
     apk = _find_apk(app_dir, build_type)
@@ -1138,7 +1139,7 @@ def launch(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     app_id = _get_app_id(app_dir)
     if not app_id:
@@ -1192,7 +1193,7 @@ def logs(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     app_id = _get_app_id(app_dir)
     if not app_id:
@@ -1316,7 +1317,7 @@ def keystore(
 
 def _write_signing_config(out: object, root: Path, app_name: str, ks_path: Path, alias: str) -> None:
     """Write or update signing config in android/app/build.gradle."""
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
     gradle_file = app_dir / "android" / "app" / "build.gradle"
     if not gradle_file.exists():
         out.info("  android/app/build.gradle not found — signing config will be applied when platform is added")

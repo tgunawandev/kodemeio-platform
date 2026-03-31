@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 
 app = typer.Typer(help="Clean build artifacts and caches.")
 
@@ -24,7 +25,7 @@ def run_clean(actx: AppContext, app_name: str | None = None, all_: bool = False)
     removed = 0
 
     for name in apps:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         for dirname in ("dist", ".next", ".turbo", "coverage"):
             target = app_dir / dirname
             if target.is_dir():

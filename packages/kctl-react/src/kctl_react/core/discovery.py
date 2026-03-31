@@ -44,11 +44,17 @@ def _read_pkg_json(path: Path) -> dict:
         return {}
 
 
+APP_TYPE_DIRS = ("spa", "web", "api")
+
+
 def discover_apps(root: Path) -> dict[str, dict[str, Any]]:
     """Discover apps from the apps/ directory.
 
+    Scans apps/{spa,web,api}/ subdirectories for nested app structure.
+    Falls back to flat apps/ scanning for legacy repos.
+
     Returns a dict like:
-      {"sfa": {"port": 4004, "name": "Sales Force Automation", "package": "@kodemeio/sfa"}}
+      {"sfa": {"port": 4004, "name": "Sales Force Automation", "package": "@kodemeio/sfa", "type": "spa", "path": Path(...)}}
 
     Works with any Turbo monorepo — reads package.json for metadata.
     """
@@ -58,6 +64,44 @@ def discover_apps(root: Path) -> dict[str, dict[str, Any]]:
 
     registry: dict[str, dict[str, Any]] = {}
 
+    # Try nested structure first: apps/{spa,web,api}/{app}
+    found_nested = False
+    for type_name in APP_TYPE_DIRS:
+        type_dir = apps_dir / type_name
+        if not type_dir.is_dir():
+            continue
+
+        found_nested = True
+        for app_dir in sorted(type_dir.iterdir()):
+            if not app_dir.is_dir():
+                continue
+
+            pkg_file = app_dir / "package.json"
+            if not pkg_file.exists():
+                continue
+
+            pkg = _read_pkg_json(pkg_file)
+            if not pkg:
+                continue
+
+            dev_script = pkg.get("scripts", {}).get("dev", "")
+            port = _extract_port(dev_script)
+            pkg_name = pkg.get("name", app_dir.name)
+            description = pkg.get("description", "")
+
+            registry[app_dir.name] = {
+                "port": port,
+                "name": description or app_dir.name,
+                "package": pkg_name,
+                "framework": detect_framework(app_dir),
+                "type": type_name,
+                "path": app_dir,
+            }
+
+    if found_nested:
+        return registry
+
+    # Legacy fallback: flat apps/{app} structure
     for app_dir in sorted(apps_dir.iterdir()):
         if not app_dir.is_dir():
             continue
@@ -80,9 +124,24 @@ def discover_apps(root: Path) -> dict[str, dict[str, Any]]:
             "name": description or app_dir.name,
             "package": pkg_name,
             "framework": detect_framework(app_dir),
+            "type": "spa",
+            "path": app_dir,
         }
 
     return registry
+
+
+def get_app_dir(root: Path, app_name: str, registry: dict[str, dict[str, Any]] | None = None) -> Path:
+    """Get the filesystem path for an app, using registry or fallback scanning."""
+    if registry and app_name in registry:
+        return registry[app_name]["path"]
+    # Fallback: scan for it
+    for type_name in APP_TYPE_DIRS:
+        candidate = root / "apps" / type_name / app_name
+        if candidate.is_dir():
+            return candidate
+    # Legacy fallback for backwards compat
+    return root / "apps" / app_name
 
 
 def discover_packages(root: Path) -> list[str]:

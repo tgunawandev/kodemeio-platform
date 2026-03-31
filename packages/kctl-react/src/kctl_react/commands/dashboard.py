@@ -10,6 +10,7 @@ import httpx
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 
 app = typer.Typer(help="Monorepo overview dashboard.")
 
@@ -18,17 +19,17 @@ def _fetch_dashboard(actx: AppContext) -> dict:
     """Collect all dashboard data."""
     root = actx.project_root
 
-    apps_found = sum(1 for a in actx.app_names if (root / "apps" / a).is_dir())
+    apps_found = sum(1 for a in actx.app_names if (get_app_dir(root, a)).is_dir())
     pkgs_found = sum(1 for p in actx.packages if (root / "packages" / p / "package.json").exists())
 
     total_tests = 0
     for name in actx.app_names:
-        src = root / "apps" / name / "src"
+        src = get_app_dir(root, name) / "src"
         if src.is_dir():
             total_tests += len(list(src.rglob("*.test.ts"))) + len(list(src.rglob("*.test.tsx")))
 
     built_apps = sum(
-        1 for a in actx.app_names if (root / "apps" / a / "dist").is_dir() or (root / "apps" / a / ".next").is_dir()
+        1 for a in actx.app_names if (get_app_dir(root, a) / "dist").is_dir() or (get_app_dir(root, a) / ".next").is_dir()
     )
 
     running = 0
@@ -118,7 +119,7 @@ def _display_dashboard(actx: AppContext, data: dict) -> None:
         port = app_info["port"]
         is_running = app_running.get(name, False)
 
-        app_dir = actx.project_root / "apps" / name
+        app_dir = actx.get_app_dir(name)
         built = (app_dir / "dist").is_dir() or (app_dir / ".next").is_dir()
         status_parts = []
         if is_running:

@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 
 app = typer.Typer(help="PWA and Service Worker management (Vite apps).")
 
@@ -30,7 +31,7 @@ def status(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help="App
     actx.validate_app(app_name)
     _require_vite(actx, app_name)
     root = actx.project_root
-    dist = root / "apps" / app_name / "dist"
+    dist = get_app_dir(root, app_name) / "dist"
     sw = dist / "sw.js"
     manifest = dist / "manifest.webmanifest"
     data = {"app": app_name, "sw_exists": sw.exists(), "manifest_exists": manifest.exists()}
@@ -61,7 +62,7 @@ def cache_list(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help=
     out = actx.output
     actx.validate_app(app_name)
     _require_vite(actx, app_name)
-    dist = actx.project_root / "apps" / app_name / "dist"
+    dist = actx.get_app_dir(app_name) / "dist"
     sw = dist / "sw.js"
     if not sw.exists():
         out.warn(f"No built service worker at {sw}")
@@ -87,7 +88,7 @@ def cache_clear(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help
     out = actx.output
     actx.validate_app(app_name)
     _require_vite(actx, app_name)
-    dist = actx.project_root / "apps" / app_name / "dist"
+    dist = actx.get_app_dir(app_name) / "dist"
     cleared = 0
     for f in [dist / "sw.js", dist / "sw.js.map", dist / "workbox-*.js"]:
         if f.exists():
@@ -106,11 +107,11 @@ def manifest_validate(ctx: typer.Context, app_name: Annotated[str, typer.Argumen
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    dist = actx.project_root / "apps" / app_name / "dist"
+    dist = actx.get_app_dir(app_name) / "dist"
     manifest_file = dist / "manifest.webmanifest"
     if not manifest_file.exists():
         # Check public/ too
-        manifest_file = actx.project_root / "apps" / app_name / "public" / "manifest.webmanifest"
+        manifest_file = actx.get_app_dir(app_name) / "public" / "manifest.webmanifest"
     if not manifest_file.exists():
         out.error("No manifest.webmanifest found in dist/ or public/")
         raise typer.Exit(1) from None
@@ -144,9 +145,9 @@ def offline_report(ctx: typer.Context, app_name: Annotated[str, typer.Argument(h
     actx.validate_app(app_name)
     _require_vite(actx, app_name)
     # Count total routes vs precached routes
-    app_dir = actx.project_root / "apps" / app_name / "src" / "pages"
+    app_dir = actx.get_app_dir(app_name) / "src" / "pages"
     total_pages = len(list(app_dir.glob("**/*.tsx"))) if app_dir.exists() else 0
-    dist = actx.project_root / "apps" / app_name / "dist"
+    dist = actx.get_app_dir(app_name) / "dist"
     sw = dist / "sw.js"
     precached = 0
     if sw.exists():
@@ -171,7 +172,7 @@ def sw_info(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help="Ap
     out = actx.output
     actx.validate_app(app_name)
     _require_vite(actx, app_name)
-    vite_config = actx.project_root / "apps" / app_name / "vite.config.ts"
+    vite_config = actx.get_app_dir(app_name) / "vite.config.ts"
     if not vite_config.exists():
         out.error("No vite.config.ts found")
         raise typer.Exit(1)

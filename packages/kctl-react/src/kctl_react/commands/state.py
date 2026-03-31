@@ -25,7 +25,7 @@ def query_keys(
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    src_dir = actx.project_root / "apps" / app_name / "src"
+    src_dir = actx.get_app_dir(app_name) / "src"
 
     results: list[dict] = []
 
@@ -67,7 +67,7 @@ def consistency(
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    src_dir = actx.project_root / "apps" / app_name / "src"
+    src_dir = actx.get_app_dir(app_name) / "src"
 
     # Collect query keys grouped by prefix and the hook files they appear in
     prefix_to_files: dict[str, set[str]] = defaultdict(set)
@@ -134,7 +134,7 @@ def hooks_audit(
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    src_dir = actx.project_root / "apps" / app_name / "src"
+    src_dir = actx.get_app_dir(app_name) / "src"
 
     issues: list[dict] = []
 
@@ -202,7 +202,7 @@ def invalidation_map(
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    src_dir = actx.project_root / "apps" / app_name / "src"
+    src_dir = actx.get_app_dir(app_name) / "src"
 
     entries: list[dict] = []
 

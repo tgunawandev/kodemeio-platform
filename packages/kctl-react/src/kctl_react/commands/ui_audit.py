@@ -70,7 +70,7 @@ def audit(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help="App 
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    src_dir = actx.project_root / "apps" / app_name / "src"
+    src_dir = actx.get_app_dir(app_name) / "src"
     violations: list[dict] = []
     for f in src_dir.rglob("*.tsx"):
         for v in find_raw_html_elements(f):
@@ -102,7 +102,7 @@ def compliance(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help=
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    src_dir = actx.project_root / "apps" / app_name / "src"
+    src_dir = actx.get_app_dir(app_name) / "src"
 
     total_files = 0
     clean_files = 0
@@ -178,7 +178,7 @@ def anti_patterns(ctx: typer.Context, app_name: Annotated[str, typer.Argument(he
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    src_dir = actx.project_root / "apps" / app_name / "src"
+    src_dir = actx.get_app_dir(app_name) / "src"
     issues = _scan_anti_patterns(src_dir)
     if not issues:
         out.success("No React anti-patterns detected")
@@ -200,7 +200,7 @@ def components(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help=
     actx: AppContext = ctx.obj
     out = actx.output
     actx.validate_app(app_name)
-    src_dir = actx.project_root / "apps" / app_name / "src"
+    src_dir = actx.get_app_dir(app_name) / "src"
     imports: dict[str, int] = {}
     for f in src_dir.rglob("*.tsx"):
         for name in scan_imports(f, "@kodemeio/ui"):
@@ -230,7 +230,7 @@ def theme_check(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help
     theme_content = theme_file.read_text()
     defined_vars = set(re.findall(r"--([a-z0-9-]+)\s*:", theme_content))
     # Check source for var(--xxx) references
-    src_dir = actx.project_root / "apps" / app_name / "src"
+    src_dir = actx.get_app_dir(app_name) / "src"
     used_vars: set[str] = set()
     for f in src_dir.rglob("*.tsx"):
         content = f.read_text(errors="ignore")
@@ -253,7 +253,7 @@ def theme_check(ctx: typer.Context, app_name: Annotated[str, typer.Argument(help
     else:
         issues.append("src/index.css not found")
 
-    vite_cfg = actx.project_root / "apps" / app_name / "vite.config.ts"
+    vite_cfg = actx.get_app_dir(app_name) / "vite.config.ts"
     if vite_cfg.exists():
         vite_content = vite_cfg.read_text()
         if "@tailwindcss/vite" not in vite_content:
@@ -855,13 +855,12 @@ def unused(ctx: typer.Context) -> None:
         out.warn("No .tsx component files found")
         return
     # Scan all apps for imports from @kodemeio/ui
-    apps_dir = actx.project_root / "apps"
     usage: dict[str, set[str]] = {name: set() for name in comp_names}
-    if apps_dir.exists():
-        for app_dir in sorted(apps_dir.iterdir()):
-            src_dir = app_dir / "src"
-            if not src_dir.is_dir():
-                continue
+    for app_name in actx.app_names:
+        app_dir = actx.get_app_dir(app_name)
+        src_dir = app_dir / "src"
+        if not src_dir.is_dir():
+            continue
             app_name = app_dir.name
             for tsx_file in src_dir.rglob("*.tsx"):
                 try:

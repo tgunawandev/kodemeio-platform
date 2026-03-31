@@ -9,7 +9,7 @@ from typing import Any
 from kctl_common.callbacks import AppContextBase
 
 from kctl_react.core.config import resolve_project_root
-from kctl_react.core.discovery import discover_apps, discover_packages
+from kctl_react.core.discovery import discover_apps, discover_packages, get_app_dir as _get_app_dir
 
 
 @dataclass
@@ -57,6 +57,10 @@ class AppContext(AppContextBase):
     def is_nextjs(self, app_name: str) -> bool:
         """Check if an app uses Next.js."""
         return self.get_framework(app_name) == "nextjs"
+
+    def get_app_dir(self, app_name: str) -> Path:
+        """Get the filesystem path for an app."""
+        return _get_app_dir(self.project_root, app_name, self.apps)
 
     def validate_app(self, app_name: str) -> None:
         """Validate app name against discovered apps."""

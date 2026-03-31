@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.runner import run_pnpm
 
 app = typer.Typer(help="OpenAPI schema fetch and type generation.")
@@ -39,7 +40,7 @@ def codegen(
     failed = 0
 
     for name in apps_to_gen:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
 
         if not (app_dir / "openapi-ts.config.ts").exists():
             out.warn(f"{name}: no openapi-ts.config.ts, skipping")
@@ -75,7 +76,7 @@ def status(ctx: typer.Context) -> None:
         return "[green]OK[/green]" if ok else "[red]--[/red]"
 
     for name in actx.app_names:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         has_config = (app_dir / "openapi-ts.config.ts").exists()
         has_generated = (app_dir / "src" / "generated").is_dir()
         has_types_api = (app_dir / "src" / "types" / "api.ts").exists()
@@ -114,7 +115,7 @@ def diff(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
     gen_dir = app_dir / "src" / "generated"
 
     if not (app_dir / "openapi-ts.config.ts").exists():
@@ -179,7 +180,7 @@ def endpoints(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     # Look for generated types file
     types_file = app_dir / "src" / "generated" / "types.gen.ts"
@@ -244,7 +245,7 @@ def verify(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
     src_dir = app_dir / "src"
 
     issues: list[list[str]] = []
@@ -322,7 +323,7 @@ def drift(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
     src_dir = app_dir / "src"
 
     types_gen = src_dir / "generated" / "types.gen.ts"
@@ -402,7 +403,7 @@ def schema_health(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
     src_dir = app_dir / "src"
 
     checks: list[dict] = []

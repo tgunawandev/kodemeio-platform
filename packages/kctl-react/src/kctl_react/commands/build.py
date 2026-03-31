@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.runner import run_turbo
 
 app = typer.Typer(help="Production builds and bundle analysis.")
@@ -114,7 +115,7 @@ def _show_sizes(actx: AppContext, app_name: str | None) -> None:
     json_data: list[dict] = []
 
     for name in apps_to_check:
-        build_dir = _find_build_dir(root / "apps" / name)
+        build_dir = _find_build_dir(get_app_dir(root, name))
         has_build = build_dir is not None
         total_size = _get_dist_size(build_dir) if build_dir else 0
 
@@ -159,7 +160,7 @@ def _collect_sizes(root: Path, app_name: str | None, app_names: list[str]) -> di
     apps_to_check = [app_name] if app_name else app_names
     apps_data: dict[str, int] = {}
     for name in apps_to_check:
-        build_dir = _find_build_dir(root / "apps" / name)
+        build_dir = _find_build_dir(get_app_dir(root, name))
         apps_data[name] = _get_dist_size(build_dir) if build_dir else 0
     return {"apps": apps_data}
 
@@ -194,7 +195,7 @@ def compare(
     json_data: list[dict] = []
 
     for name in apps_to_check:
-        build_dir = _find_build_dir(root / "apps" / name)
+        build_dir = _find_build_dir(get_app_dir(root, name))
         current = _get_dist_size(build_dir) if build_dir else 0
         previous = prev_apps.get(name, 0)
         diff = current - previous
@@ -261,7 +262,7 @@ def chunks(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    build_dir = _find_build_dir(root / "apps" / app_name)
+    build_dir = _find_build_dir(get_app_dir(root, app_name))
 
     if not build_dir:
         out.warn(f"{app_name}: not built (run `kctl-react build {app_name}` first)")
@@ -317,7 +318,7 @@ def bundle(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    build_dir = _find_build_dir(root / "apps" / app_name)
+    build_dir = _find_build_dir(get_app_dir(root, app_name))
 
     if not build_dir:
         out.warn(f"{app_name}: not built — run `kctl-react build {app_name}` first")

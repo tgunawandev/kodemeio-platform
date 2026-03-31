@@ -49,7 +49,9 @@ def affected(
 
     for f in changed:
         parts = f.split("/")
-        if len(parts) >= 2 and parts[0] == "apps" and parts[1] in apps:
+        if len(parts) >= 3 and parts[0] == "apps" and parts[1] in ("spa", "web", "api") and parts[2] in apps:
+            app_changes[parts[2]].append(f)
+        elif len(parts) >= 2 and parts[0] == "apps" and parts[1] in apps:
             app_changes[parts[1]].append(f)
         elif parts[0] == "packages":
             pkg_changes.append(f)

@@ -14,6 +14,7 @@ from kctl_react.commands.clean import run_clean
 from kctl_react.commands.dashboard import _display_dashboard, _fetch_dashboard
 from kctl_react.commands.doctor import run_doctor
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.config import resolve_active_profile_name
 
 app = typer.Typer(help="App inventory, status, and health checks.")
@@ -29,7 +30,7 @@ def list_(ctx: typer.Context) -> None:
     json_data: list[dict] = []
 
     for app_name, info in actx.apps.items():
-        app_dir = actx.project_root / "apps" / app_name
+        app_dir = actx.get_app_dir(app_name)
         exists = app_dir.is_dir()
         status = "[green]OK[/green]" if exists else "[red]missing[/red]"
 
@@ -96,7 +97,7 @@ def status(
 
     for name in apps_to_check:
         info = actx.apps[name]
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
 
         has_dir = app_dir.is_dir()
         has_pkg = (app_dir / "package.json").exists()
@@ -268,7 +269,7 @@ def info(ctx: typer.Context) -> None:
         pass
 
     profile = resolve_active_profile_name(actx.profile)
-    apps_count = sum(1 for a in actx.app_names if (root / "apps" / a).is_dir())
+    apps_count = sum(1 for a in actx.app_names if (get_app_dir(root, a)).is_dir())
 
     sections: list[tuple[str, list[tuple[str, str]]]] = [
         (

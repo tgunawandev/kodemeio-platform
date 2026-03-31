@@ -10,6 +10,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.exceptions import CommandError
 from kctl_react.core.runner import run
 
@@ -321,7 +322,7 @@ def pwa(
     json_data: list[dict] = []
 
     for name in apps_to_check:
-        app_dir = root / "apps" / name
+        app_dir = get_app_dir(root, name)
         checks = _check_pwa_readiness(app_dir)
 
         def _icon(val: bool) -> str:
@@ -377,7 +378,7 @@ def bundle(
 
     actx.validate_app(app_name)
 
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     # Gather files from build output — Vite: dist/assets, Next.js: .next/static
     search_dir: Path | None = None
@@ -450,7 +451,7 @@ def vitals(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
     src_dir = app_dir / "src"
 
     checks: list[tuple[str, bool, str]] = []
@@ -578,7 +579,7 @@ def images(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     image_extensions = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".ico"}
     search_dirs = [app_dir / "public", app_dir / "src" / "assets"]
@@ -640,7 +641,7 @@ def fonts(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     checks: list[tuple[str, bool, str]] = []
 

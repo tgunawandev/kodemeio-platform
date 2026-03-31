@@ -11,6 +11,7 @@ import typer
 
 from kctl_react.core.analyzers import read_tsconfig_strict
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 from kctl_react.core.exceptions import CommandError
 from kctl_react.core.runner import run, run_turbo
 
@@ -34,7 +35,7 @@ def _run_strict_check(actx: AppContext) -> None:
     any_not_strict = False
 
     for app_name in actx.app_names:
-        app_dir = root / "apps" / app_name
+        app_dir = get_app_dir(root, app_name)
         is_strict = read_tsconfig_strict(app_dir)
         status = "strict" if is_strict else "[red]NOT strict[/red]"
         rows.append([app_name, status])
@@ -66,7 +67,7 @@ def _run_tsconfig_audit(actx: AppContext) -> None:
     any_issues = False
 
     for app_name in actx.app_names:
-        app_dir = root / "apps" / app_name
+        app_dir = get_app_dir(root, app_name)
         tsconfig_path = app_dir / "tsconfig.json"
 
         if not tsconfig_path.exists():
@@ -124,7 +125,7 @@ def _run_conventions(actx: AppContext, app_name: str) -> None:
 
     actx.validate_app(app_name)
 
-    src_dir = root / "apps" / app_name / "src"
+    src_dir = get_app_dir(root, app_name) / "src"
 
     rows: list[list[str]] = []
     json_data: list[dict[str, str]] = []
@@ -147,7 +148,7 @@ def _run_conventions(actx: AppContext, app_name: str) -> None:
                 lines = file_path.read_text().splitlines()
             except OSError:
                 continue
-            rel = str(file_path.relative_to(root / "apps" / app_name))
+            rel = str(file_path.relative_to(get_app_dir(root, app_name)))
             for line_num, line in enumerate(lines, start=1):
                 if '"use client"' in line or "'use client'" in line:
                     rows.append([rel, str(line_num), "use client directive", line.strip()])

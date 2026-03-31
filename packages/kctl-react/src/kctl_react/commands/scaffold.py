@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from kctl_react.core.callbacks import AppContext
+from kctl_react.core.discovery import get_app_dir
 
 app = typer.Typer(help="Scaffold new apps, pages, hooks, and components.")
 
@@ -26,7 +27,7 @@ def page(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     if actx.is_nextjs(app_name):
         # Next.js App Router: app/{slug}/page.tsx
@@ -99,7 +100,7 @@ def hook(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     # Convert resource to hook name
     singular = resource[:-1] if resource.endswith("s") and not resource.endswith("ss") else resource
@@ -169,7 +170,7 @@ def form(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     form_file = app_dir / "src" / "components" / f"{name}.tsx"
     if form_file.exists():
@@ -238,7 +239,7 @@ def test(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
     src_dir = app_dir / "src"
 
     # Determine directory: follow the source file if it exists
@@ -295,7 +296,7 @@ def component(
     root = actx.project_root
 
     actx.validate_app(app_name)
-    app_dir = root / "apps" / app_name
+    app_dir = get_app_dir(root, app_name)
 
     # Next.js: components/ at root, Vite: src/components/
     comp_dir = app_dir / "components" if actx.is_nextjs(app_name) else app_dir / "src" / "components"

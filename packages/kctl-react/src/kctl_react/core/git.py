@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from kctl_react.core.discovery import discover_apps, discover_packages
+from kctl_react.core.discovery import discover_apps, discover_packages, get_app_dir
 
 
 def get_changed_files(root: Path, base: str = "HEAD~1") -> list[str]:
@@ -85,8 +85,11 @@ def get_affected_apps(root: Path, base: str = "HEAD~1") -> list[str]:
         if filepath in root_config_files:
             return valid_apps
 
-        # Direct app change
-        if len(parts) >= 2 and parts[0] == "apps" and parts[1] in app_registry:
+        # Direct app change: apps/spa/sfa/... or apps/web/corporate/...
+        if len(parts) >= 3 and parts[0] == "apps" and parts[1] in ("spa", "web", "api") and parts[2] in app_registry:
+            affected.add(parts[2])
+        # Legacy flat: apps/sfa/...
+        elif len(parts) >= 2 and parts[0] == "apps" and parts[1] in app_registry:
             affected.add(parts[1])
 
         # Package change
@@ -98,7 +101,7 @@ def get_affected_apps(root: Path, base: str = "HEAD~1") -> list[str]:
         import json
 
         for app_name in valid_apps:
-            pkg_file = root / "apps" / app_name / "package.json"
+            pkg_file = get_app_dir(root, app_name, app_registry) / "package.json"
             if not pkg_file.exists():
                 continue
             try:
