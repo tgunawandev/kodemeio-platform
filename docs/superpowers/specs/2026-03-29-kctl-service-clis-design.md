@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-5 CLIs to implement, each focused on daily operations for managing Kodemeio infrastructure. All use kctl-common v0.3.1 (APIClient, config profiles, Output formatting).
+5 CLIs to implement, each focused on daily operations for managing Kodemeio infrastructure. All use kctl-lib v0.4.0 (APIClient, config profiles, Output formatting).
 
 | CLI | Repo | API Type | Command Groups | Priority |
 |-----|------|----------|---------------|----------|
@@ -429,7 +429,7 @@ class ServiceConfig(BaseModel):
 
 ## 7. Shared Patterns
 
-All 5 CLIs follow these conventions from kctl-common:
+All 5 CLIs follow these conventions from kctl-lib:
 
 ### Global Options
 `--json`, `--quiet/-q`, `--format/-f` (pretty/json/csv/yaml), `--no-header`, `--profile/-p`, `--version/-V`

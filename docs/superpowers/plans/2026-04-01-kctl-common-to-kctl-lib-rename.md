@@ -1,10 +1,10 @@
-# Rename kctl-common → kctl-lib Implementation Plan
+# Rename kctl-lib → kctl-lib Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rename the shared library from `kctl-common` to `kctl-lib` — package name, Python module, directory, all imports, dependencies, CI/CD, docs, and templates.
+**Goal:** Rename the shared library from `kctl-lib` to `kctl-lib` — package name, Python module, directory, all imports, dependencies, CI/CD, docs, and templates.
 
-**Architecture:** This is a mechanical rename across the entire monorepo. The PyPI package name changes from `kctl-common` to `kctl-lib`, the Python import changes from `kctl_common` to `kctl_lib`, and the directory moves from `packages/kctl-common/` to `packages/kctl-lib/`. Version bumps to `0.4.0` since this is a breaking change for any external consumers.
+**Architecture:** This is a mechanical rename across the entire monorepo. The PyPI package name changes from `kctl-lib` to `kctl-lib`, the Python import changes from `kctl_lib` to `kctl_lib`, and the directory moves from `packages/kctl-lib/` to `packages/kctl-lib/`. Version bumps to `0.4.0` since this is a breaking change for any external consumers.
 
 **Tech Stack:** Python 3.12+, uv workspace, Hatchling build, GitHub Actions CI/CD
 
@@ -14,8 +14,8 @@
 
 | What | Count |
 |------|-------|
-| Directory rename | 1 (`packages/kctl-common/` → `packages/kctl-lib/`) |
-| Python module rename | 1 (`src/kctl_common/` → `src/kctl_lib/`) |
+| Directory rename | 1 (`packages/kctl-lib/` → `packages/kctl-lib/`) |
+| Python module rename | 1 (`src/kctl_lib/` → `src/kctl_lib/`) |
 | Dependent `pyproject.toml` files | 22 |
 | Python files with imports | ~216 |
 | CI/CD workflow files | 2 |
@@ -27,8 +27,8 @@
 ### Task 1: Rename the core package directory and module
 
 **Files:**
-- Rename: `packages/kctl-common/` → `packages/kctl-lib/`
-- Rename: `packages/kctl-lib/src/kctl_common/` → `packages/kctl-lib/src/kctl_lib/`
+- Rename: `packages/kctl-lib/` → `packages/kctl-lib/`
+- Rename: `packages/kctl-lib/src/kctl_lib/` → `packages/kctl-lib/src/kctl_lib/`
 - Modify: `packages/kctl-lib/pyproject.toml`
 - Modify: `packages/kctl-lib/src/kctl_lib/__init__.py`
 
@@ -36,20 +36,20 @@
 
 ```bash
 cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform
-git mv packages/kctl-common packages/kctl-lib
+git mv packages/kctl-lib packages/kctl-lib
 ```
 
 - [ ] **Step 2: Rename the Python module directory**
 
 ```bash
-git mv packages/kctl-lib/src/kctl_common packages/kctl-lib/src/kctl_lib
+git mv packages/kctl-lib/src/kctl_lib packages/kctl-lib/src/kctl_lib
 ```
 
 - [ ] **Step 3: Update pyproject.toml package name and version**
 
 In `packages/kctl-lib/pyproject.toml`, change:
 ```toml
-name = "kctl-common"
+name = "kctl-lib"
 version = "0.3.1"
 description = "Shared core library for kctl-* CLI tools"
 ```
@@ -64,15 +64,15 @@ description = "Shared core library for kctl-* CLI tools"
 
 In `packages/kctl-lib/src/kctl_lib/__init__.py`, change:
 - `__version__ = "0.3.1"` → `__version__ = "0.4.0"`
-- All `from kctl_common.` → `from kctl_lib.`
-- Docstring: `"""kctl-common:` → `"""kctl-lib:`
+- All `from kctl_lib.` → `from kctl_lib.`
+- Docstring: `"""kctl-lib:` → `"""kctl-lib:`
 
 - [ ] **Step 5: Update all internal imports within kctl-lib**
 
-Replace all `from kctl_common` and `import kctl_common` with `from kctl_lib` and `import kctl_lib` in every `.py` file under `packages/kctl-lib/src/kctl_lib/` and `packages/kctl-lib/tests/`:
+Replace all `from kctl_lib` and `import kctl_lib` with `from kctl_lib` and `import kctl_lib` in every `.py` file under `packages/kctl-lib/src/kctl_lib/` and `packages/kctl-lib/tests/`:
 
 ```bash
-find packages/kctl-lib/ -name '*.py' -exec sed -i 's/from kctl_common/from kctl_lib/g; s/import kctl_common/import kctl_lib/g' {} +
+find packages/kctl-lib/ -name '*.py' -exec sed -i 's/from kctl_lib/from kctl_lib/g; s/import kctl_lib/import kctl_lib/g' {} +
 ```
 
 - [ ] **Step 6: Verify kctl-lib tests pass**
@@ -89,7 +89,7 @@ Expected: All 247 tests pass.
 
 ```bash
 git add packages/kctl-lib/
-git commit -m "refactor: rename kctl-common to kctl-lib (core package)
+git commit -m "refactor: rename kctl-lib to kctl-lib (core package)
 
 Rename directory, Python module, bump version to 0.4.0.
 All 247 internal tests updated."
@@ -100,8 +100,8 @@ All 247 internal tests updated."
 ### Task 2: Update all 22 dependent CLIs — pyproject.toml files
 
 Each of the 22 CLI packages has two references in `pyproject.toml`:
-1. `"kctl-common>=0.3.1"` in `[project.dependencies]`
-2. `kctl-common = { workspace = true }` in `[tool.uv.sources]`
+1. `"kctl-lib>=0.4.0"` in `[project.dependencies]`
+2. `kctl-lib = { workspace = true }` in `[tool.uv.sources]`
 
 **Files (22 pyproject.toml files):**
 - Modify: `packages/kctl-ak/pyproject.toml`
@@ -133,7 +133,7 @@ cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform
 
 # Update dependency name (handles both >=0.3.0 and >=0.3.1 variants)
 find packages/ -name 'pyproject.toml' -not -path 'packages/kctl-lib/*' \
-  -exec sed -i 's/"kctl-common>="/"kctl-lib>=/g' {} +
+  -exec sed -i 's/"kctl-lib>="/"kctl-lib>=/g' {} +
 
 # Update version floor to 0.4.0
 find packages/ -name 'pyproject.toml' -not -path 'packages/kctl-lib/*' \
@@ -141,13 +141,13 @@ find packages/ -name 'pyproject.toml' -not -path 'packages/kctl-lib/*' \
 
 # Update uv workspace source
 find packages/ -name 'pyproject.toml' -not -path 'packages/kctl-lib/*' \
-  -exec sed -i 's/kctl-common = { workspace = true }/kctl-lib = { workspace = true }/g' {} +
+  -exec sed -i 's/kctl-lib = { workspace = true }/kctl-lib = { workspace = true }/g' {} +
 ```
 
 - [ ] **Step 2: Verify changes look correct**
 
 ```bash
-grep -r 'kctl-common' packages/*/pyproject.toml
+grep -r 'kctl-lib' packages/*/pyproject.toml
 # Expected: no output (all references replaced)
 
 grep -r 'kctl-lib' packages/*/pyproject.toml | head -10
@@ -160,14 +160,14 @@ grep -r 'kctl-lib' packages/*/pyproject.toml | head -10
 git add packages/*/pyproject.toml
 git commit -m "refactor: update all 22 CLIs to depend on kctl-lib>=0.4.0
 
-Replace kctl-common references in all pyproject.toml files."
+Replace kctl-lib references in all pyproject.toml files."
 ```
 
 ---
 
 ### Task 3: Update all Python imports across 22 CLI packages
 
-All `from kctl_common` and `import kctl_common` statements in every CLI's `src/` and `tests/` directories must change to `kctl_lib`.
+All `from kctl_lib` and `import kctl_lib` statements in every CLI's `src/` and `tests/` directories must change to `kctl_lib`.
 
 **Files:** ~216 Python files across `packages/kctl-*/src/` and `packages/kctl-*/tests/`
 
@@ -178,17 +178,17 @@ cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform
 
 # Replace in all Python files under packages/ (excluding kctl-lib which was already done in Task 1)
 find packages/ -name '*.py' -not -path 'packages/kctl-lib/*' \
-  -exec sed -i 's/from kctl_common/from kctl_lib/g; s/import kctl_common/import kctl_lib/g' {} +
+  -exec sed -i 's/from kctl_lib/from kctl_lib/g; s/import kctl_lib/import kctl_lib/g' {} +
 ```
 
 - [ ] **Step 2: Also replace any string references (e.g., in docstrings, comments)**
 
 ```bash
 # Check for remaining string references
-grep -r 'kctl_common' packages/ --include='*.py' -l
+grep -r 'kctl_lib' packages/ --include='*.py' -l
 # Expected: no output
 
-grep -r 'kctl-common' packages/ --include='*.py' -l
+grep -r 'kctl-lib' packages/ --include='*.py' -l
 # Expected: no output (or only in comments that are fine to keep)
 ```
 
@@ -224,7 +224,7 @@ Expected: Tests pass for each sampled CLI.
 
 ```bash
 git add packages/
-git commit -m "refactor: replace all kctl_common imports with kctl_lib
+git commit -m "refactor: replace all kctl_lib imports with kctl_lib
 
 Updated ~216 Python files across 22 CLI packages."
 ```
@@ -239,24 +239,24 @@ Updated ~216 Python files across 22 CLI packages."
 
 - [ ] **Step 1: Update ci.yml**
 
-Replace all occurrences of `packages/kctl-common` with `packages/kctl-lib` and `kctl-common` with `kctl-lib`:
+Replace all occurrences of `packages/kctl-lib` with `packages/kctl-lib` and `kctl-lib` with `kctl-lib`:
 
 ```bash
-sed -i 's|packages/kctl-common|packages/kctl-lib|g; s|kctl-common|kctl-lib|g' \
+sed -i 's|packages/kctl-lib|packages/kctl-lib|g; s|kctl-lib|kctl-lib|g' \
   .github/workflows/ci.yml
 ```
 
 - [ ] **Step 2: Update publish.yml**
 
 ```bash
-sed -i 's|packages/kctl-common|packages/kctl-lib|g; s|kctl-common|kctl-lib|g' \
+sed -i 's|packages/kctl-lib|packages/kctl-lib|g; s|kctl-lib|kctl-lib|g' \
   .github/workflows/publish.yml
 ```
 
 - [ ] **Step 3: Verify the changes**
 
 ```bash
-grep -n 'kctl-common\|kctl_common' .github/workflows/*.yml
+grep -n 'kctl-lib\|kctl_lib' .github/workflows/*.yml
 # Expected: no output
 ```
 
@@ -264,7 +264,7 @@ grep -n 'kctl-common\|kctl_common' .github/workflows/*.yml
 
 ```bash
 git add .github/workflows/
-git commit -m "ci: update workflows for kctl-common → kctl-lib rename"
+git commit -m "ci: update workflows for kctl-lib → kctl-lib rename"
 ```
 
 ---
@@ -285,7 +285,7 @@ git commit -m "ci: update workflows for kctl-common → kctl-lib rename"
 cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform
 
 find templates/kctl-cli/ -type f \( -name '*.jinja' -o -name '*.j2' -o -name '*.toml' -o -name '*.py' \) \
-  -exec sed -i 's/kctl-common/kctl-lib/g; s/kctl_common/kctl_lib/g' {} +
+  -exec sed -i 's/kctl-lib/kctl-lib/g; s/kctl_lib/kctl_lib/g' {} +
 ```
 
 - [ ] **Step 2: Update version floor in template pyproject.toml.jinja**
@@ -304,7 +304,7 @@ sed -i 's/kctl-lib>=0\.3\.0/kctl-lib>=0.4.0/' templates/kctl-cli/pyproject.toml.
 - [ ] **Step 3: Verify no remaining references**
 
 ```bash
-grep -r 'kctl-common\|kctl_common' templates/
+grep -r 'kctl-lib\|kctl_lib' templates/
 # Expected: no output
 ```
 
@@ -334,11 +334,11 @@ git commit -m "refactor: update copier template for kctl-lib rename"
 cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform
 
 # Replace in CLAUDE.md
-sed -i 's/kctl-common/kctl-lib/g; s/kctl_common/kctl_lib/g' CLAUDE.md
+sed -i 's/kctl-lib/kctl-lib/g; s/kctl_lib/kctl_lib/g' CLAUDE.md
 
 # Replace in docs/
 find docs/ -name '*.md' \
-  -exec sed -i 's/kctl-common/kctl-lib/g; s/kctl_common/kctl_lib/g' {} +
+  -exec sed -i 's/kctl-lib/kctl-lib/g; s/kctl_lib/kctl_lib/g' {} +
 ```
 
 - [ ] **Step 2: Update version references in CLAUDE.md**
@@ -353,7 +353,7 @@ sed -i 's/kctl-lib (v0\.3\.1/kctl-lib (v0.4.0/g; s/kctl-lib v0\.3\.1/kctl-lib v0
 - [ ] **Step 3: Verify no remaining references**
 
 ```bash
-grep -rn 'kctl-common\|kctl_common' CLAUDE.md docs/
+grep -rn 'kctl-lib\|kctl_lib' CLAUDE.md docs/
 # Expected: no output
 ```
 
@@ -361,7 +361,7 @@ grep -rn 'kctl-common\|kctl_common' CLAUDE.md docs/
 
 ```bash
 git add CLAUDE.md docs/
-git commit -m "docs: update all documentation for kctl-common → kctl-lib rename"
+git commit -m "docs: update all documentation for kctl-lib → kctl-lib rename"
 ```
 
 ---
@@ -369,14 +369,14 @@ git commit -m "docs: update all documentation for kctl-common → kctl-lib renam
 ### Task 7: Update memory files and global config references
 
 **Files:**
-- Modify: `~/.claude/rules/infrastructure.md` (mentions `kctl-common>=0.3.1`)
-- Modify: Memory files that reference `kctl-common`
+- Modify: `~/.claude/rules/infrastructure.md` (mentions `kctl-lib>=0.4.0`)
+- Modify: Memory files that reference `kctl-lib`
 
 - [ ] **Step 1: Update infrastructure.md**
 
 In `~/.claude/rules/infrastructure.md`, change:
 ```
-- All kctl-* CLIs depend on kctl-common>=0.3.1 from PyPI
+- All kctl-* CLIs depend on kctl-lib>=0.4.0 from PyPI
 ```
 To:
 ```
@@ -385,7 +385,7 @@ To:
 
 - [ ] **Step 2: Update memory files**
 
-Update any memory `.md` files under `.claude/projects/` that reference `kctl-common` to say `kctl-lib`.
+Update any memory `.md` files under `.claude/projects/` that reference `kctl-lib` to say `kctl-lib`.
 
 - [ ] **Step 3: Commit (infrastructure.md only — memory files aren't committed)**
 
@@ -404,10 +404,10 @@ No git commit needed for memory files. Infrastructure rules:
 cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform
 
 # Check all tracked files for leftover references
-grep -r 'kctl-common' --include='*.py' --include='*.toml' --include='*.yml' --include='*.yaml' --include='*.md' --include='*.jinja' . | grep -v '.git/' | grep -v 'node_modules/'
+grep -r 'kctl-lib' --include='*.py' --include='*.toml' --include='*.yml' --include='*.yaml' --include='*.md' --include='*.jinja' . | grep -v '.git/' | grep -v 'node_modules/'
 # Expected: no output (or only this plan file itself)
 
-grep -r 'kctl_common' --include='*.py' --include='*.toml' --include='*.yml' --include='*.yaml' --include='*.md' --include='*.jinja' . | grep -v '.git/' | grep -v 'node_modules/'
+grep -r 'kctl_lib' --include='*.py' --include='*.toml' --include='*.yml' --include='*.yaml' --include='*.md' --include='*.jinja' . | grep -v '.git/' | grep -v 'node_modules/'
 # Expected: no output
 ```
 
@@ -457,5 +457,5 @@ git commit -m "fix: post-rename cleanup and lint fixes"
 
 After merging, you'll need to:
 1. **Publish `kctl-lib` v0.4.0** to PyPI (the new package name)
-2. **Publish a final `kctl-common` v0.3.2** to PyPI with a deprecation notice pointing to `kctl-lib`
+2. **Publish a final `kctl-lib` v0.3.2** to PyPI with a deprecation notice pointing to `kctl-lib`
 3. Tag the release: `git tag v0.4.0 && git push --tags`

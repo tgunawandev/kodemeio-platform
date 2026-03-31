@@ -4,9 +4,9 @@
 
 **Goal:** Build kctl-sentry CLI with 10 command groups for daily error triage and release tracking.
 
-**Architecture:** Python CLI using kctl-common v0.3.1 (APIClient subclass for Sentry REST API). Built inside existing scaffolded kodemeio-sentry repo.
+**Architecture:** Python CLI using kctl-lib v0.4.0 (APIClient subclass for Sentry REST API). Built inside existing scaffolded kodemeio-sentry repo.
 
-**Tech Stack:** Python 3.12+, kctl-common>=0.3.1, Typer, httpx, Rich
+**Tech Stack:** Python 3.12+, kctl-lib>=0.4.0, Typer, httpx, Rich
 
 **Working directory:** `/home/tgunawan/project/00-new-projects/kodemeio-saas/kodemeio-sentry`
 
@@ -24,7 +24,7 @@
 | Create | `cli/src/kctl_sentry/core/client.py` | SentryClient(APIClient) |
 | Modify | `cli/src/kctl_sentry/core/config.py` | ServiceConfig with url, auth_token, organization, default_project |
 | Modify | `cli/src/kctl_sentry/core/callbacks.py` | AppContext with lazy client property |
-| Keep   | `cli/src/kctl_sentry/core/exceptions.py` | Re-export from kctl-common |
+| Keep   | `cli/src/kctl_sentry/core/exceptions.py` | Re-export from kctl-lib |
 | Keep   | `cli/src/kctl_sentry/core/plugins.py` | Plugin discovery |
 | Modify | `cli/src/kctl_sentry/commands/config_cmd.py` | Full config init/show/use/test |
 | Create | `cli/src/kctl_sentry/commands/health.py` | API connectivity check |
@@ -73,7 +73,7 @@ version = "0.1.0"
 description = "Sentry error tracking management"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "httpx>=0.28.0",
 ]
 
@@ -112,14 +112,14 @@ testpaths = ["tests"]
 Create `cli/src/kctl_sentry/core/client.py`:
 
 ```python
-"""Sentry API client — subclasses kctl-common APIClient."""
+"""Sentry API client — subclasses kctl-lib APIClient."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import AuthenticationError
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import AuthenticationError
 
 
 class SentryClient(APIClient):
@@ -205,7 +205,7 @@ from __future__ import annotations
 
 import os
 
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_DIR,
     CONFIG_FILE,
     get_all_services_in_profile,
@@ -214,11 +214,11 @@ from kctl_common.config import (
     remove_profile,
     set_default_profile,
 )
-from kctl_common.config import get_service_config as _get_service_config
-from kctl_common.config import (
+from kctl_lib.config import get_service_config as _get_service_config
+from kctl_lib.config import (
     resolve_active_profile_name as _resolve_active_profile_name,
 )
-from kctl_common.config import set_service_config as _set_service_config
+from kctl_lib.config import set_service_config as _set_service_config
 from pydantic import BaseModel
 
 __all__ = [
@@ -330,7 +330,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_sentry.core.client import SentryClient
 from kctl_sentry.core.config import resolve_connection
@@ -504,7 +504,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common import KctlError, handle_cli_error
+from kctl_lib import KctlError, handle_cli_error
 
 from kctl_sentry import __version__
 from kctl_sentry.commands.alerts import app as alerts_app
@@ -2150,7 +2150,7 @@ Create `cli/tests/test_client.py`:
 from __future__ import annotations
 
 import pytest
-from kctl_common.exceptions import AuthenticationError, ConfigError
+from kctl_lib.exceptions import AuthenticationError, ConfigError
 
 from kctl_sentry.core.client import SentryClient
 
@@ -2546,7 +2546,7 @@ uv run kctl-sentry --help         # CLI help
 
 ## Architecture
 
-`kctl-sentry` is a Typer CLI using `kctl-common>=0.3.1` (APIClient subclass for Sentry REST API).
+`kctl-sentry` is a Typer CLI using `kctl-lib>=0.4.0` (APIClient subclass for Sentry REST API).
 
 ### Key Paths
 

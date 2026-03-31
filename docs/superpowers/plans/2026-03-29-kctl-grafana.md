@@ -4,9 +4,9 @@
 
 **Goal:** Build kctl-grafana CLI with 12 command groups for daily Grafana monitoring operations.
 
-**Architecture:** Python CLI using kctl-common v0.3.1 (APIClient subclass for Grafana HTTP API). Created inside existing kodemeio-grafana repo as cli/ directory alongside docker-compose and scripts.
+**Architecture:** Python CLI using kctl-lib v0.4.0 (APIClient subclass for Grafana HTTP API). Created inside existing kodemeio-grafana repo as cli/ directory alongside docker-compose and scripts.
 
-**Tech Stack:** Python 3.12+, kctl-common>=0.3.1, Typer, httpx, Rich
+**Tech Stack:** Python 3.12+, kctl-lib>=0.4.0, Typer, httpx, Rich
 
 **Spec:** `docs/superpowers/specs/2026-03-29-kctl-service-clis-design.md` (Section 2)
 
@@ -466,7 +466,7 @@ def resolve_connection(
 - [ ] **Step 7: Create `cli/src/kctl_grafana/core/client.py`**
 
 ```python
-"""Grafana API client, subclassing kctl-common's APIClient.
+"""Grafana API client, subclassing kctl-lib's APIClient.
 
 Provides Grafana-specific auth (Bearer token), retry support,
 and health check functionality.
@@ -477,8 +477,8 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import ConfigError
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import ConfigError
 
 
 class GrafanaClient(APIClient):
@@ -809,7 +809,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common import KctlError, handle_cli_error
+from kctl_lib import KctlError, handle_cli_error
 
 from kctl_grafana import __version__
 from kctl_grafana.commands.alert import app as alert_app

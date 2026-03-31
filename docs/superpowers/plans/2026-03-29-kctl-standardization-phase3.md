@@ -1,14 +1,14 @@
-# Phase 3: kodemeio-saas — Migrate 3 CLIs to kctl-common
+# Phase 3: kodemeio-saas — Migrate 3 CLIs to kctl-lib
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace duplicated core/ modules in kodemeio-saas CLIs with kctl-common v0.3.0 imports. Standardize structure and add tests.
+**Goal:** Replace duplicated core/ modules in kodemeio-saas CLIs with kctl-lib v0.3.0 imports. Standardize structure and add tests.
 
 **Architecture:** Same re-export pattern as Phase 2. kctl-claude requires extra structural work due to divergent module naming.
 
-**Tech Stack:** Python 3.12+, kctl-common>=0.3.0, Typer, httpx, Rich, Pydantic 2
+**Tech Stack:** Python 3.12+, kctl-lib>=0.3.0, Typer, httpx, Rich, Pydantic 2
 
-**Prerequisite:** Phase 1 complete (kctl-common v0.3.0 published to PyPI)
+**Prerequisite:** Phase 1 complete (kctl-lib v0.3.0 published to PyPI)
 
 **Spec:** `docs/superpowers/specs/2026-03-29-kctl-standardization-design.md`
 
@@ -76,7 +76,7 @@ The client uses the `op` CLI subprocess (1Password CLI) rather than a direct HTT
 ```python
 """Exception hierarchy for kctl-1password."""
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     AuthenticationError,
     ConfigError,
     ConnectionError,
@@ -134,7 +134,7 @@ kctl-claude has no exceptions module. Create one:
 ```python
 """Exception hierarchy for kctl-claude."""
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     CommandError,
     ConfigError,
     ConnectionError,
@@ -177,7 +177,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from kctl_common.config import ConfigFile
+from kctl_lib.config import ConfigFile
 
 SERVICE_KEY = "claude"
 
@@ -220,7 +220,7 @@ from __future__ import annotations
 
 import typer
 
-from kctl_common.config import ConfigFile
+from kctl_lib.config import ConfigFile
 
 app = typer.Typer(help="Manage configuration profiles.")
 
@@ -375,8 +375,8 @@ For each of kctl-telegram, kctl-1password, kctl-claude:
 - [ ] `kctl-{name} --version` works
 - [ ] `kctl-{name} config --help` works
 - [ ] validate.yml CI workflow exists
-- [ ] core/ modules import from kctl-common
-- [ ] pyproject.toml has `kctl-common>=0.3.0`
+- [ ] core/ modules import from kctl-lib
+- [ ] pyproject.toml has `kctl-lib>=0.3.0`
 - [ ] Entry point is `cli:_run`
 - [ ] Version uses `__version__`
 

@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Update the 5 kodemeio-app CLIs that already use kctl-common to leverage the new APIClient/AsyncAPIClient base classes. Bump dependency to >=0.3.0.
+**Goal:** Update the 5 kodemeio-app CLIs that already use kctl-lib to leverage the new APIClient/AsyncAPIClient base classes. Bump dependency to >=0.3.0.
 
 **Architecture:** kctl-api and kctl-odoo have client.py and async_client.py marked for extraction — migrate these to subclass the new base classes. kctl-next, kctl-react, and kctl-claw only need a version bump.
 
-**Tech Stack:** Python 3.12+, kctl-common>=0.3.0
+**Tech Stack:** Python 3.12+, kctl-lib>=0.3.0
 
-**Prerequisite:** Phase 1 complete (kctl-common v0.3.0 published to PyPI)
+**Prerequisite:** Phase 1 complete (kctl-lib v0.3.0 published to PyPI)
 
 **Spec:** `docs/superpowers/specs/2026-03-29-kctl-standardization-design.md`
 
@@ -21,7 +21,7 @@
 
 ---
 
-## Task 1: Bump kctl-common in kctl-next, kctl-react, kctl-claw
+## Task 1: Bump kctl-lib in kctl-next, kctl-react, kctl-claw
 
 These 3 CLIs don't have httpx API clients — they only need a version bump.
 
@@ -30,7 +30,7 @@ These 3 CLIs don't have httpx API clients — they only need a version bump.
 
 - [ ] **Step 1: Update dependency version in each pyproject.toml**
 
-Change `kctl-common>=0.2.1` → `kctl-common>=0.3.0` in:
+Change `kctl-lib>=0.2.1` → `kctl-lib>=0.3.0` in:
 - `kodemeio-next/cli/pyproject.toml`
 - `kodemeio-react/cli/pyproject.toml`
 - `kodemeio-openclaw/cli/pyproject.toml`
@@ -43,14 +43,14 @@ cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-react/cli && uv 
 cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-openclaw/cli && uv sync --all-extras && uv run pytest tests/ -v --tb=short
 ```
 
-Expected: All tests pass — kctl-common v0.3.0 is backward compatible.
+Expected: All tests pass — kctl-lib v0.3.0 is backward compatible.
 
 - [ ] **Step 3: Commit in each repo**
 
 ```bash
 # In each repo:
 git add cli/pyproject.toml cli/uv.lock
-git commit -m "chore: bump kctl-common to >=0.3.0"
+git commit -m "chore: bump kctl-lib to >=0.3.0"
 ```
 
 ---
@@ -62,9 +62,9 @@ git commit -m "chore: bump kctl-common to >=0.3.0"
 - Modify: `kodemeio-fastapi/cli/src/kctl_api/core/async_client.py`
 - Modify: `kodemeio-fastapi/cli/pyproject.toml`
 
-- [ ] **Step 1: Bump kctl-common version**
+- [ ] **Step 1: Bump kctl-lib version**
 
-In `kodemeio-fastapi/cli/pyproject.toml`, change `kctl-common>=0.2.1` → `kctl-common>=0.3.0`.
+In `kodemeio-fastapi/cli/pyproject.toml`, change `kctl-lib>=0.2.1` → `kctl-lib>=0.3.0`.
 
 - [ ] **Step 2: Read current client.py and async_client.py**
 
@@ -78,14 +78,14 @@ Read both files fully. Identify:
 ```python
 """FastAPI platform API client.
 
-Subclasses APIClient from kctl-common.
+Subclasses APIClient from kctl-lib.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.api_client import APIClient
+from kctl_lib.api_client import APIClient
 
 
 class ApiClient(APIClient):
@@ -115,7 +115,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.async_api_client import AsyncAPIClient
+from kctl_lib.async_api_client import AsyncAPIClient
 
 
 class AsyncApiClient(AsyncAPIClient):
@@ -143,7 +143,7 @@ cd kodemeio-fastapi/cli && uv sync --all-extras && uv run pytest tests/ -v --tb=
 
 ```bash
 git add -A
-git commit -m "refactor(kctl-api): subclass kctl-common APIClient/AsyncAPIClient"
+git commit -m "refactor(kctl-api): subclass kctl-lib APIClient/AsyncAPIClient"
 ```
 
 ---
@@ -155,9 +155,9 @@ git commit -m "refactor(kctl-api): subclass kctl-common APIClient/AsyncAPIClient
 - Modify: `kodemeio-odoo/cli/src/kctl_odoo/core/async_client.py`
 - Modify: `kodemeio-odoo/cli/pyproject.toml`
 
-- [ ] **Step 1: Bump kctl-common version**
+- [ ] **Step 1: Bump kctl-lib version**
 
-Change `kctl-common>=0.2.1` → `kctl-common>=0.3.0`.
+Change `kctl-lib>=0.2.1` → `kctl-lib>=0.3.0`.
 
 - [ ] **Step 2: Read current client.py and async_client.py**
 
@@ -168,14 +168,14 @@ Read both files fully. Note: Odoo uses JSON-RPC, which may require custom `_requ
 ```python
 """Odoo JSON-RPC API client.
 
-Subclasses APIClient from kctl-common.
+Subclasses APIClient from kctl-lib.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.api_client import APIClient
+from kctl_lib.api_client import APIClient
 
 
 class OdooClient(APIClient):
@@ -208,14 +208,14 @@ cd kodemeio-odoo/cli && uv sync --all-extras && uv run pytest tests/ -v --tb=sho
 
 ```bash
 git add -A
-git commit -m "refactor(kctl-odoo): subclass kctl-common APIClient/AsyncAPIClient"
+git commit -m "refactor(kctl-odoo): subclass kctl-lib APIClient/AsyncAPIClient"
 ```
 
 ---
 
 ## Verification Checklist
 
-- [ ] All 5 CLIs depend on `kctl-common>=0.3.0`
+- [ ] All 5 CLIs depend on `kctl-lib>=0.3.0`
 - [ ] kctl-next, kctl-react, kctl-claw: tests pass after version bump
 - [ ] kctl-api: client.py and async_client.py subclass base classes
 - [ ] kctl-odoo: client.py and async_client.py subclass base classes (or documented exception)

@@ -4,9 +4,9 @@
 
 **Goal:** Build kctl-github CLI with 10 command groups for cross-repo management of 21 kodemeio-* repositories.
 
-**Architecture:** Python CLI using kctl-common v0.3.1. GitHubClient subclasses APIClient for REST API. Also uses `gh` CLI subprocess for some operations. Key value: aggregation across multiple repos.
+**Architecture:** Python CLI using kctl-lib v0.4.0. GitHubClient subclasses APIClient for REST API. Also uses `gh` CLI subprocess for some operations. Key value: aggregation across multiple repos.
 
-**Tech Stack:** Python 3.12+, kctl-common>=0.3.1, Typer, httpx, Rich, gh CLI
+**Tech Stack:** Python 3.12+, kctl-lib>=0.4.0, Typer, httpx, Rich, gh CLI
 
 **Spec:** `docs/superpowers/specs/2026-03-29-kctl-service-clis-design.md` (Section 4: kctl-github)
 
@@ -91,9 +91,9 @@ Update `init` function's `typer.prompt` calls in `config_cmd.py` accordingly (Ta
 Replace `cli/src/kctl_github/core/exceptions.py` with:
 
 ```python
-"""Exception hierarchy -- re-exported from kctl-common."""
+"""Exception hierarchy -- re-exported from kctl-lib."""
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     CommandError,
@@ -101,7 +101,7 @@ from kctl_common.exceptions import (
     KctlError,
     NotFoundError,
 )
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 __all__ = [
     "APIError",
@@ -125,8 +125,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.api_client import APIClient
-from kctl_common.runner import run
+from kctl_lib.api_client import APIClient
+from kctl_lib.runner import run
 
 
 class GitHubClient(APIClient):
@@ -261,7 +261,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_github.core.client import GitHubClient
 from kctl_github.core.config import (
@@ -1996,7 +1996,7 @@ Create `cli/tests/test_client.py`:
 from __future__ import annotations
 
 import pytest
-from kctl_common.exceptions import ConfigError
+from kctl_lib.exceptions import ConfigError
 
 from kctl_github.core.client import GitHubClient, _parse_next_link, gh_run
 
@@ -2349,7 +2349,7 @@ uv run mypy src/
 
 ## Architecture
 
-kctl-github uses kctl-common v0.3.1 (APIClient, config profiles, Output formatting).
+kctl-github uses kctl-lib v0.4.0 (APIClient, config profiles, Output formatting).
 
 - **GitHubClient(APIClient)** — REST API client for api.github.com
 - **gh_run()** — Subprocess helper for `gh` CLI operations
@@ -2380,7 +2380,7 @@ kctl-github uses kctl-common v0.3.1 (APIClient, config profiles, Output formatti
 ## Conventions
 
 - Python 3.12+, Typer + Rich + Pydantic 2
-- kctl-common for shared infrastructure
+- kctl-lib for shared infrastructure
 - Hatchling build, uv package manager
 - Ruff linting, mypy strict typing
 - Conventional commits
@@ -2426,7 +2426,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common import KctlError, handle_cli_error
+from kctl_lib import KctlError, handle_cli_error
 
 from kctl_github import __version__
 from kctl_github.commands.billing import app as billing_app

@@ -2,7 +2,7 @@
 
 ## CLI Ecosystem
 
-5 CLI tools sharing `kctl-common`:
+5 CLI tools sharing `kctl-lib`:
 
 | CLI | Repo | Target | Groups |
 |-----|------|--------|--------|
@@ -29,7 +29,7 @@ profiles:
 
 ## API Client Base Classes
 
-CLIs that interact with HTTP APIs subclass `APIClient` (sync) or `AsyncAPIClient` (async) from `kctl-common`. These base classes provide authentication, retry with exponential backoff, error mapping, and debug logging.
+CLIs that interact with HTTP APIs subclass `APIClient` (sync) or `AsyncAPIClient` (async) from `kctl-lib`. These base classes provide authentication, retry with exponential backoff, error mapping, and debug logging.
 
 ### Class Attributes
 
@@ -51,7 +51,7 @@ CLIs that interact with HTTP APIs subclass `APIClient` (sync) or `AsyncAPIClient
 ### Example Subclass
 
 ```python
-from kctl_common.api_client import APIClient
+from kctl_lib.api_client import APIClient
 
 class CloudflareClient(APIClient):
     BASE_URL = "https://api.cloudflare.com"
@@ -67,7 +67,7 @@ class CloudflareClient(APIClient):
 ## Dependency Flow
 
 ```
-kctl-common (PyPI)
+kctl-lib (PyPI)
   ├── kctl-next
   ├── kctl-odoo
   ├── kctl-react

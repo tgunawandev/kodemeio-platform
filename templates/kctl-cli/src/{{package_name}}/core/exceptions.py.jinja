@@ -1,6 +1,6 @@
-"""Exception hierarchy — re-exported from kctl-common."""
+"""Exception hierarchy — re-exported from kctl-lib."""
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     CommandError,
     ConfigError,
     KctlError,

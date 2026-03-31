@@ -6,7 +6,7 @@
 
 **Architecture:** No HTTP API — RustDesk community edition exposes no REST API. All operations go through `docker exec` (compose) and `sqlite3` queries inside the hbbs container. A `RustDeskExecutor` class wraps local or SSH-tunneled command execution. Profile config stores connection details (host, ssh_user, compose_file, etc.).
 
-**Tech Stack:** Python 3.12+, typer, rich, pydantic, pyyaml, kctl-common>=0.3.0
+**Tech Stack:** Python 3.12+, typer, rich, pydantic, pyyaml, kctl-lib>=0.3.0
 
 **Package location:** `packages/kctl-rustdesk/` inside the kodemeio-platform monorepo.
 
@@ -68,7 +68,7 @@ version = "0.1.0"
 description = "Kodemeio RustDesk CLI — manage RustDesk server infrastructure"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.0",
+    "kctl-lib>=0.3.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -119,8 +119,8 @@ from typing import Annotated
 
 import typer
 
-from kctl_common import handle_cli_error
-from kctl_common.exceptions import KctlError
+from kctl_lib import handle_cli_error
+from kctl_lib.exceptions import KctlError
 
 from kctl_rustdesk import __version__
 
@@ -216,7 +216,7 @@ import os
 
 from pydantic import BaseModel
 
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_FILE,
     get_default_profile,
     get_profile_names,
@@ -309,8 +309,8 @@ import json
 import shlex
 from io import StringIO
 
-from kctl_common.exceptions import CommandError, DockerError
-from kctl_common.runner import run, run_quiet
+from kctl_lib.exceptions import CommandError, DockerError
+from kctl_lib.runner import run, run_quiet
 
 from kctl_rustdesk.core.config import ServiceConfig
 
@@ -478,7 +478,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_rustdesk.core.config import resolve_connection
 from kctl_rustdesk.core.executor import RustDeskExecutor
@@ -578,7 +578,7 @@ from typing import Annotated
 
 import typer
 
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_FILE,
     get_default_profile,
     get_profile_names,
@@ -770,7 +770,7 @@ from typing import Annotated
 
 import typer
 
-from kctl_common.exceptions import CommandError
+from kctl_lib.exceptions import CommandError
 from kctl_rustdesk.core.callbacks import AppContext
 from kctl_rustdesk.core.executor import RustDeskExecutor
 
@@ -1908,8 +1908,8 @@ from typing import Annotated
 
 import typer
 
-from kctl_common import handle_cli_error
-from kctl_common.exceptions import KctlError
+from kctl_lib import handle_cli_error
+from kctl_lib.exceptions import KctlError
 
 from kctl_rustdesk import __version__
 from kctl_rustdesk.commands.audit import app as audit_app

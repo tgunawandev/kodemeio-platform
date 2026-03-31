@@ -1,14 +1,14 @@
-# Phase 2: kodemeio-core — Migrate 8 CLIs to kctl-common
+# Phase 2: kodemeio-core — Migrate 8 CLIs to kctl-lib
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace duplicated core/ modules in all 8 kodemeio-core CLIs with kctl-common v0.3.0 imports. Standardize CI/CD, code style, and add minimum tests.
+**Goal:** Replace duplicated core/ modules in all 8 kodemeio-core CLIs with kctl-lib v0.3.0 imports. Standardize CI/CD, code style, and add minimum tests.
 
-**Architecture:** Each CLI's `core/` directory keeps thin re-export files that import from kctl-common and add service-specific customizations (ServiceConfig, client subclass). Command modules update their imports to use the new core paths. No command behavior changes.
+**Architecture:** Each CLI's `core/` directory keeps thin re-export files that import from kctl-lib and add service-specific customizations (ServiceConfig, client subclass). Command modules update their imports to use the new core paths. No command behavior changes.
 
-**Tech Stack:** Python 3.12+, kctl-common>=0.3.0, Typer, httpx, Rich, Pydantic 2
+**Tech Stack:** Python 3.12+, kctl-lib>=0.3.0, Typer, httpx, Rich, Pydantic 2
 
-**Prerequisite:** Phase 1 complete (kctl-common v0.3.0 published to PyPI)
+**Prerequisite:** Phase 1 complete (kctl-lib v0.3.0 published to PyPI)
 
 **Spec:** `docs/superpowers/specs/2026-03-29-kctl-standardization-design.md`
 
@@ -37,14 +37,14 @@ Ordered by existing test coverage (most tested first = easiest to validate):
 
 Each CLI follows identical steps. The template below uses `{SERVICE}` as placeholder — substitute for each CLI.
 
-### Task N.1: Add kctl-common dependency and standardize pyproject.toml
+### Task N.1: Add kctl-lib dependency and standardize pyproject.toml
 
 **Files:**
 - Modify: `kodemeio-{service}/cli/pyproject.toml`
 
-- [ ] **Step 1: Add kctl-common to dependencies**
+- [ ] **Step 1: Add kctl-lib to dependencies**
 
-Add `"kctl-common>=0.3.0"` to the `[project] dependencies` list.
+Add `"kctl-lib>=0.3.0"` to the `[project] dependencies` list.
 
 - [ ] **Step 2: Standardize ruff and mypy config**
 
@@ -89,7 +89,7 @@ cd kodemeio-{service}/cli && uv sync --all-extras
 
 ```bash
 git add kodemeio-{service}/cli/pyproject.toml kodemeio-{service}/cli/uv.lock
-git commit -m "chore(kctl-{name}): add kctl-common>=0.3.0, standardize tooling"
+git commit -m "chore(kctl-{name}): add kctl-lib>=0.3.0, standardize tooling"
 ```
 
 ---
@@ -104,11 +104,11 @@ git commit -m "chore(kctl-{name}): add kctl-common>=0.3.0, standardize tooling"
 ```python
 """Exception hierarchy for kctl-{name}.
 
-Base exceptions re-exported from kctl-common.
+Base exceptions re-exported from kctl-lib.
 Service-specific exceptions defined below.
 """
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     ConfigError,
@@ -134,7 +134,7 @@ __all__ = [
 #     """Vault-specific operation error."""
 ```
 
-Preserve any existing service-specific exception classes (e.g., `TimeoutError` in kctl-dokploy, `VaultError` in kctl-1password) — just make them inherit from the kctl-common base classes.
+Preserve any existing service-specific exception classes (e.g., `TimeoutError` in kctl-dokploy, `VaultError` in kctl-1password) — just make them inherit from the kctl-lib base classes.
 
 - [ ] **Step 2: Update imports in all command files**
 
@@ -149,7 +149,7 @@ cd kodemeio-{service}/cli && uv run pytest tests/ -v --tb=short
 - [ ] **Step 4: Commit**
 
 ```bash
-git commit -am "refactor(kctl-{name}): use kctl-common exceptions"
+git commit -am "refactor(kctl-{name}): use kctl-lib exceptions"
 ```
 
 ---
@@ -164,10 +164,10 @@ git commit -am "refactor(kctl-{name}): use kctl-common exceptions"
 ```python
 """Output utilities for kctl-{name}.
 
-Re-exported from kctl-common.
+Re-exported from kctl-lib.
 """
 
-from kctl_common.output import Output
+from kctl_lib.output import Output
 
 __all__ = ["Output"]
 ```
@@ -180,7 +180,7 @@ All command files import `from kctl_{name}.core.output import Output` — this p
 
 ```bash
 cd kodemeio-{service}/cli && uv run pytest tests/ -v --tb=short
-git commit -am "refactor(kctl-{name}): use kctl-common Output"
+git commit -am "refactor(kctl-{name}): use kctl-lib Output"
 ```
 
 ---
@@ -195,14 +195,14 @@ git commit -am "refactor(kctl-{name}): use kctl-common Output"
 ```python
 """App context for kctl-{name}.
 
-Subclasses AppContextBase from kctl-common.
+Subclasses AppContextBase from kctl-lib.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_{name}.core.config import get_service_config, ServiceConfig
 
@@ -239,12 +239,12 @@ git commit -am "refactor(kctl-{name}): subclass AppContextBase for callbacks"
 **Files:**
 - Modify: `kodemeio-{service}/cli/src/kctl_{name}/core/config.py`
 
-- [ ] **Step 1: Replace with kctl-common ConfigFile + service-specific ServiceConfig**
+- [ ] **Step 1: Replace with kctl-lib ConfigFile + service-specific ServiceConfig**
 
 ```python
 """Configuration for kctl-{name}.
 
-Uses kctl-common's ConfigFile for profile management.
+Uses kctl-lib's ConfigFile for profile management.
 Defines service-specific ServiceConfig model.
 """
 
@@ -252,7 +252,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from kctl_common.config import ConfigFile, is_service_scoped
+from kctl_lib.config import ConfigFile, is_service_scoped
 
 SERVICE_KEY = "{service_key}"  # e.g. "dokploy", "hetzner", "cloudflare"
 
@@ -284,7 +284,7 @@ Search for existing config loading patterns and update to use the new `load_conf
 
 ```bash
 cd kodemeio-{service}/cli && uv run pytest tests/ -v --tb=short
-git commit -am "refactor(kctl-{name}): use kctl-common ConfigFile for config"
+git commit -am "refactor(kctl-{name}): use kctl-lib ConfigFile for config"
 ```
 
 ---
@@ -299,14 +299,14 @@ git commit -am "refactor(kctl-{name}): use kctl-common ConfigFile for config"
 ```python
 """API client for kctl-{name}.
 
-Subclasses APIClient from kctl-common.
+Subclasses APIClient from kctl-lib.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.api_client import APIClient
+from kctl_lib.api_client import APIClient
 
 
 class {Service}Client(APIClient):
@@ -358,7 +358,7 @@ All `commands/*.py` files that import from `core.client` should continue to work
 
 ```bash
 cd kodemeio-{service}/cli && uv run pytest tests/ -v --tb=short
-git commit -am "refactor(kctl-{name}): subclass kctl-common APIClient"
+git commit -am "refactor(kctl-{name}): subclass kctl-lib APIClient"
 ```
 
 ---
@@ -381,7 +381,7 @@ __version__ = "X.Y.Z"
 - [ ] **Step 2: Ensure cli.py has `_run()` wrapper with error handling**
 
 ```python
-from kctl_common import handle_cli_error, KctlError
+from kctl_lib import handle_cli_error, KctlError
 
 def _run() -> None:
     """Entry point with error handling."""
@@ -486,7 +486,7 @@ Only needed for: kctl-ak, kctl-gatus, kctl-mdm, kctl-waha.
 ```python
 """Shared test configuration for kctl-{name}."""
 
-from kctl_common.testing import mock_app_context, mock_output, temp_config  # noqa: F401
+from kctl_lib.testing import mock_app_context, mock_output, temp_config  # noqa: F401
 ```
 
 - [ ] **Step 2: Create smoke test**
@@ -537,7 +537,7 @@ git commit -am "test(kctl-{name}): add smoke tests"
 ### kctl-hz (Task 2.*)
 - Two API clients: `HetznerCloudClient` + `HetznerDnsClient` — create two subclasses
 - Has `resolve.py` and `utils.py` in core — keep as-is
-- Has plugin system — already compatible with kctl-common plugins
+- Has plugin system — already compatible with kctl-lib plugins
 
 ### kctl-pg (Task 3.*)
 - Uses psycopg + SSH tunnel, NOT httpx — **skip Task N.6 (client.py replacement)**
@@ -578,9 +578,9 @@ For each CLI:
 - [ ] `kctl-{name} --version` works
 - [ ] `kctl-{name} config --help` works
 - [ ] validate.yml CI workflow exists
-- [ ] core/exceptions.py imports from kctl-common
-- [ ] core/output.py imports from kctl-common
+- [ ] core/exceptions.py imports from kctl-lib
+- [ ] core/output.py imports from kctl-lib
 - [ ] core/callbacks.py subclasses AppContextBase
-- [ ] core/config.py uses ConfigFile from kctl-common
+- [ ] core/config.py uses ConfigFile from kctl-lib
 - [ ] core/client.py subclasses APIClient (except kctl-pg)
-- [ ] pyproject.toml has `kctl-common>=0.3.0` in dependencies
+- [ ] pyproject.toml has `kctl-lib>=0.3.0` in dependencies

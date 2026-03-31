@@ -6,7 +6,7 @@
 
 ## Context
 
-The kodemeio-saas repo contains 6 independent kctl-* CLI repos, each under `kodemeio-{service}/cli/`. These need to be consolidated into the kodemeio-platform monorepo alongside kctl-common and kctl-rustdesk.
+The kodemeio-saas repo contains 6 independent kctl-* CLI repos, each under `kodemeio-{service}/cli/`. These need to be consolidated into the kodemeio-platform monorepo alongside kctl-lib and kctl-rustdesk.
 
 ### Source CLIs (kodemeio-saas)
 
@@ -21,7 +21,7 @@ The kodemeio-saas repo contains 6 independent kctl-* CLI repos, each under `kode
 
 ### Target Structure (kodemeio-platform)
 
-Currently has: `packages/kctl-common/` (v0.3.1) and `packages/kctl-rustdesk/` (v0.1.0).
+Currently has: `packages/kctl-lib/` (v0.3.1) and `packages/kctl-rustdesk/` (v0.1.0).
 Workspace: `members = ["packages/*"]` — no config change needed.
 
 ## Architecture
@@ -30,7 +30,7 @@ Workspace: `members = ["packages/*"]` — no config change needed.
 
 ```
 kodemeio-platform/packages/
-├── kctl-common/        # existing shared library (v0.3.1)
+├── kctl-lib/        # existing shared library (v0.3.1)
 ├── kctl-rustdesk/      # existing example CLI (v0.1.0)
 ├── kctl-op/            # renamed from kctl-1password, refactored
 ├── kctl-github/        # direct copy
@@ -105,15 +105,15 @@ For kctl-github, kctl-linear, kctl-notion, kctl-sentry, kctl-telegram:
 
 1. Copy `cli/src/`, `cli/tests/`, `cli/pyproject.toml` into `packages/kctl-{service}/`
 2. Update `pyproject.toml`:
-   - Add `[tool.uv.sources]` for workspace kctl-common reference
-   - Verify `kctl-common >= 0.3.0` dependency
+   - Add `[tool.uv.sources]` for workspace kctl-lib reference
+   - Verify `kctl-lib >= 0.3.0` dependency
 3. No code changes needed
 
 ### pyproject.toml Update Pattern
 
 ```toml
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 ```
 
 ## What Stays in kodemeio-saas
@@ -130,7 +130,7 @@ During merge, verify each CLI conforms to the copier template conventions:
 - 6 global options: `--json`, `--quiet/-q`, `--format/-f`, `--no-header`, `--profile/-p`, `--version/-V`
 - 9 standard config subcommands: init, add, use, show, validate, remove, set, profiles, current
 - Error handling via `_run()` wrapper with `handle_cli_error()`
-- AppContext extends `AppContextBase` from kctl-common
+- AppContext extends `AppContextBase` from kctl-lib
 - Plugin discovery via entry points
 
 Fix deviations during the merge process.

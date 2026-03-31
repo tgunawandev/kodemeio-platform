@@ -1,8 +1,8 @@
-# kctl-* CLI Standardization — Full kctl-common Integration
+# kctl-* CLI Standardization — Full kctl-lib Integration
 
 **Date:** 2026-03-29
 **Scope:** All 16 kctl-* CLIs across kodemeio-platform, kodemeio-core, kodemeio-saas, kodemeio-app
-**Goal:** Replace duplicated core/ modules with kctl-common imports; standardize structure, CI/CD, tests, and code style
+**Goal:** Replace duplicated core/ modules with kctl-lib imports; standardize structure, CI/CD, tests, and code style
 
 ---
 
@@ -10,9 +10,9 @@
 
 ### 1.1 Repos and CLI Inventory
 
-| Repo | CLIs | Uses kctl-common | Test Coverage |
+| Repo | CLIs | Uses kctl-lib | Test Coverage |
 |------|------|------------------|---------------|
-| **kodemeio-platform** | kctl-common (shared lib) | N/A — IS the library | 187 tests |
+| **kodemeio-platform** | kctl-lib (shared lib) | N/A — IS the library | 187 tests |
 | **kodemeio-app** | kctl-next, kctl-react, kctl-api, kctl-odoo, kctl-claw | Yes (>=0.2.1) | Varies |
 | **kodemeio-core** | kctl-ak, kctl-cf, kctl-dokploy, kctl-gatus, kctl-mdm, kctl-hz, kctl-pg, kctl-waha | No | 0–33 test files |
 | **kodemeio-saas** | kctl-1password, kctl-claude, kctl-telegram | No | 0–9 test files |
@@ -20,7 +20,7 @@
 ### 1.2 Key Problems
 
 1. **Duplicated core modules** — 11 CLIs each maintain their own exceptions.py, output.py, callbacks.py, config.py, client.py. Same code, drifting implementations.
-2. **No shared API client** — Every httpx-based CLI duplicates constructor, CRUD methods, error mapping, auth headers. kctl-common lacks a base APIClient.
+2. **No shared API client** — Every httpx-based CLI duplicates constructor, CRUD methods, error mapping, auth headers. kctl-lib lacks a base APIClient.
 3. **Inconsistent structure** — Entry points (`cli:app` vs `cli:_run`), version constants (`VERSION` vs `__version__`), line-length (100 vs 120), ruff rules vary.
 4. **Missing CI/CD** — kctl-claude has no validation pipeline. Others lack test execution in CI.
 5. **Missing tests** — 5 of 8 kodemeio-core CLIs and 2 of 3 kodemeio-saas CLIs have zero tests.
@@ -33,7 +33,7 @@
 ### 2.1 Target Module Dependency
 
 ```
-kctl-common (v0.3.0)                   Each kctl-* CLI
+kctl-lib (v0.3.0)                   Each kctl-* CLI
 ┌─────────────────────────┐            ┌──────────────────────────┐
 │ exceptions.py           │◄───────────│ core/exceptions.py       │ re-export + add service-specific
 │ output.py               │◄───────────│ core/output.py           │ re-export only
@@ -59,7 +59,7 @@ kctl-common (v0.3.0)                   Each kctl-* CLI
 ### 2.2 New: APIClient Base Class Design
 
 ```python
-# kctl_common/api_client.py
+# kctl_lib/api_client.py
 
 class APIClient:
     """Base synchronous HTTP API client for kctl-* CLIs."""
@@ -145,8 +145,8 @@ Mirror of APIClient using `httpx.AsyncClient`. Same class attributes and method 
 | Entry point | `cli:_run` (wrapped with error handling) | kctl-ak, kctl-pg, kctl-1password, kctl-telegram use `cli:app` |
 | Version constant | `__version__` in `__init__.py` | kctl-1password uses `VERSION` |
 | Package layout | `cli/src/kctl_{name}/` with `core/` and `commands/` | All compliant |
-| Core modules | Re-export from kctl_common, service-specific additions only | 11 CLIs fully duplicate |
-| pyproject.toml | hatchling, kctl-common>=0.3.0, standardized dev deps | 11 CLIs missing kctl-common dep |
+| Core modules | Re-export from kctl_lib, service-specific additions only | 11 CLIs fully duplicate |
+| pyproject.toml | hatchling, kctl-lib>=0.3.0, standardized dev deps | 11 CLIs missing kctl-lib dep |
 
 ### 3.2 Code Style Standards
 
@@ -174,8 +174,8 @@ Every CLI gets a `validate.yml` workflow:
 | Location | `cli/tests/` |
 | Framework | pytest |
 | Minimum | smoke test (CLI loads, --help works) + core module tests |
-| Fixtures | Use `kctl_common.testing` (mock_output, mock_app_context, temp_config) |
-| conftest.py | Import shared fixtures from kctl_common.testing |
+| Fixtures | Use `kctl_lib.testing` (mock_output, mock_app_context, temp_config) |
+| conftest.py | Import shared fixtures from kctl_lib.testing |
 
 ### 3.5 Global Options (all CLIs)
 
@@ -196,9 +196,9 @@ All 9: init, add, use, show, validate, remove, set, profiles, current
 
 ## 4. Migration Plan
 
-### Phase 1: kctl-common v0.3.0 (kodemeio-platform)
+### Phase 1: kctl-lib v0.3.0 (kodemeio-platform)
 
-**Changes to kctl-common:**
+**Changes to kctl-lib:**
 - Add `api_client.py` — Base `APIClient` class
 - Add `async_api_client.py` — Base `AsyncAPIClient` class
 - Add tests for both new modules
@@ -223,9 +223,9 @@ Migrate in order of maturity (most tests first, easiest to validate):
 8. **kctl-waha** (0 tests — add smoke tests first)
 
 **Per-CLI migration checklist:**
-- [ ] Add `kctl-common>=0.3.0` to pyproject.toml dependencies
-- [ ] Replace `core/exceptions.py` — re-export from kctl_common + add service-specific
-- [ ] Replace `core/output.py` — re-export from kctl_common
+- [ ] Add `kctl-lib>=0.3.0` to pyproject.toml dependencies
+- [ ] Replace `core/exceptions.py` — re-export from kctl_lib + add service-specific
+- [ ] Replace `core/output.py` — re-export from kctl_lib
 - [ ] Replace `core/callbacks.py` — subclass AppContextBase
 - [ ] Replace `core/config.py` — use ConfigFile + define ServiceConfig
 - [ ] Replace `core/client.py` — subclass APIClient
@@ -236,7 +236,7 @@ Migrate in order of maturity (most tests first, easiest to validate):
 - [ ] Add/update `validate.yml` CI workflow
 - [ ] Add smoke tests if none exist
 - [ ] Verify all existing tests pass
-- [ ] Add `core/plugins.py` if missing (use kctl_common.plugins)
+- [ ] Add `core/plugins.py` if missing (use kctl_lib.plugins)
 
 ### Phase 3: kodemeio-saas (3 CLIs)
 
@@ -255,12 +255,12 @@ Same checklist as Phase 2, applied to:
 
 ### Phase 4: kodemeio-app (5 CLIs)
 
-Update existing kctl-common consumers:
+Update existing kctl-lib consumers:
 
 1. **kctl-api** — Migrate `core/client.py` and `core/async_client.py` to subclass new base classes
 2. **kctl-odoo** — Same as kctl-api
-3. **kctl-claw** — Bump kctl-common to >=0.3.0. Keep `core/gateway_client.py` and `core/docker_client.py` as-is (different patterns from httpx APIClient)
-4. **kctl-next** — Bump kctl-common to >=0.3.0, no other changes needed
+3. **kctl-claw** — Bump kctl-lib to >=0.3.0. Keep `core/gateway_client.py` and `core/docker_client.py` as-is (different patterns from httpx APIClient)
+4. **kctl-next** — Bump kctl-lib to >=0.3.0, no other changes needed
 5. **kctl-react** — Same as kctl-next
 
 ### Phase 5: Scaffold Placeholders (kodemeio-saas)
@@ -273,7 +273,7 @@ copier copy templates/kctl-cli/ kodemeio-notion/cli/   # kctl-notion
 copier copy templates/kctl-cli/ kodemeio-sentry/cli/   # kctl-sentry
 ```
 
-Each gets the standard structure with kctl-common>=0.3.0 from day one.
+Each gets the standard structure with kctl-lib>=0.3.0 from day one.
 
 ---
 
@@ -281,7 +281,7 @@ Each gets the standard structure with kctl-common>=0.3.0 from day one.
 
 | Risk | Mitigation |
 |------|------------|
-| Breaking kctl-common for existing consumers | Phase 1 is additive only — no changes to existing modules |
+| Breaking kctl-lib for existing consumers | Phase 1 is additive only — no changes to existing modules |
 | Import path changes break commands | Each CLI migration updates all imports atomically |
 | kctl-pg uses psycopg, not httpx | kctl-pg skips APIClient migration — keeps its own SSH tunnel client. Still migrates exceptions/output/callbacks/config |
 | kctl-claude has divergent structure | Explicit special handling documented in Phase 3 |
@@ -292,7 +292,7 @@ Each gets the standard structure with kctl-common>=0.3.0 from day one.
 
 ## 6. Success Criteria
 
-- [ ] All 16 CLIs depend on kctl-common>=0.3.0
+- [ ] All 16 CLIs depend on kctl-lib>=0.3.0
 - [ ] No duplicated exceptions.py, output.py, callbacks.py, config.py across CLIs
 - [ ] All API-backed CLIs subclass APIClient (except kctl-pg)
 - [ ] All CLIs have validate.yml CI with lint + format + type check + tests

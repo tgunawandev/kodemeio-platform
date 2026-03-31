@@ -1,12 +1,12 @@
-# Phase 1: kctl-common v0.3.0 — APIClient + AsyncAPIClient
+# Phase 1: kctl-lib v0.3.0 — APIClient + AsyncAPIClient
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add base `APIClient` and `AsyncAPIClient` classes to kctl-common so all kctl-* CLIs can subclass instead of duplicating httpx client code.
+**Goal:** Add base `APIClient` and `AsyncAPIClient` classes to kctl-lib so all kctl-* CLIs can subclass instead of duplicating httpx client code.
 
-**Architecture:** Two new modules (`api_client.py`, `async_api_client.py`) added to kctl-common alongside existing modules. Pure additions — no existing modules change. Each class provides configurable auth, CRUD methods, error mapping, optional retry with exponential backoff, and context manager support. CLIs subclass and override class attributes for service-specific behavior.
+**Architecture:** Two new modules (`api_client.py`, `async_api_client.py`) added to kctl-lib alongside existing modules. Pure additions — no existing modules change. Each class provides configurable auth, CRUD methods, error mapping, optional retry with exponential backoff, and context manager support. CLIs subclass and override class attributes for service-specific behavior.
 
-**Tech Stack:** Python 3.12+, httpx, kctl-common exceptions
+**Tech Stack:** Python 3.12+, httpx, kctl-lib exceptions
 
 **Spec:** `docs/superpowers/specs/2026-03-29-kctl-standardization-design.md`
 
@@ -18,28 +18,28 @@
 
 | Action | File | Responsibility |
 |--------|------|----------------|
-| Create | `packages/kctl-common/src/kctl_common/api_client.py` | Base synchronous APIClient |
-| Create | `packages/kctl-common/src/kctl_common/async_api_client.py` | Base async APIClient |
-| Create | `packages/kctl-common/tests/test_api_client.py` | Tests for APIClient |
-| Create | `packages/kctl-common/tests/test_async_api_client.py` | Tests for AsyncAPIClient |
-| Modify | `packages/kctl-common/src/kctl_common/__init__.py` | Add exports |
-| Modify | `packages/kctl-common/pyproject.toml` | Add httpx to core deps, bump to 0.3.0 |
+| Create | `packages/kctl-lib/src/kctl_lib/api_client.py` | Base synchronous APIClient |
+| Create | `packages/kctl-lib/src/kctl_lib/async_api_client.py` | Base async APIClient |
+| Create | `packages/kctl-lib/tests/test_api_client.py` | Tests for APIClient |
+| Create | `packages/kctl-lib/tests/test_async_api_client.py` | Tests for AsyncAPIClient |
+| Modify | `packages/kctl-lib/src/kctl_lib/__init__.py` | Add exports |
+| Modify | `packages/kctl-lib/pyproject.toml` | Add httpx to core deps, bump to 0.3.0 |
 
 ---
 
 ### Task 1: Add httpx to core dependencies and bump version
 
 **Files:**
-- Modify: `packages/kctl-common/pyproject.toml`
-- Modify: `packages/kctl-common/src/kctl_common/__init__.py`
+- Modify: `packages/kctl-lib/pyproject.toml`
+- Modify: `packages/kctl-lib/src/kctl_lib/__init__.py`
 
 - [ ] **Step 1: Update pyproject.toml — move httpx from optional to core, bump version**
 
-In `packages/kctl-common/pyproject.toml`, make these changes:
+In `packages/kctl-lib/pyproject.toml`, make these changes:
 
 ```toml
 [project]
-name = "kctl-common"
+name = "kctl-lib"
 version = "0.3.0"
 description = "Shared core library for kctl-* CLI tools"
 requires-python = ">=3.12"
@@ -67,12 +67,12 @@ dev = [
 Key changes:
 - `version` → `"0.3.0"`
 - `httpx>=0.28.0` moved from `monitor` optional to core `dependencies`
-- `monitor` optional kept empty (backward compat for `pip install kctl-common[monitor]`)
+- `monitor` optional kept empty (backward compat for `pip install kctl-lib[monitor]`)
 - `pytest-httpx>=0.35.0` added to dev deps for mocking httpx
 
 - [ ] **Step 2: Update __version__ in __init__.py**
 
-In `packages/kctl-common/src/kctl_common/__init__.py`, change:
+In `packages/kctl-lib/src/kctl_lib/__init__.py`, change:
 
 ```python
 __version__ = "0.3.0"
@@ -82,15 +82,15 @@ __version__ = "0.3.0"
 
 Run:
 ```bash
-cd packages/kctl-common && uv sync --all-extras && uv run pytest tests/ -v --tb=short
+cd packages/kctl-lib && uv sync --all-extras && uv run pytest tests/ -v --tb=short
 ```
 Expected: All 187 tests pass. No regressions from dependency changes.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add packages/kctl-common/pyproject.toml packages/kctl-common/src/kctl_common/__init__.py
-git commit -m "chore: bump kctl-common to 0.3.0, move httpx to core deps"
+git add packages/kctl-lib/pyproject.toml packages/kctl-lib/src/kctl_lib/__init__.py
+git commit -m "chore: bump kctl-lib to 0.3.0, move httpx to core deps"
 ```
 
 ---
@@ -98,11 +98,11 @@ git commit -m "chore: bump kctl-common to 0.3.0, move httpx to core deps"
 ### Task 2: Write failing tests for APIClient
 
 **Files:**
-- Create: `packages/kctl-common/tests/test_api_client.py`
+- Create: `packages/kctl-lib/tests/test_api_client.py`
 
 - [ ] **Step 1: Write the test file**
 
-Create `packages/kctl-common/tests/test_api_client.py`:
+Create `packages/kctl-lib/tests/test_api_client.py`:
 
 ```python
 """Tests for base APIClient."""
@@ -112,8 +112,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import (
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     ConfigError,
@@ -385,14 +385,14 @@ class TestDebugLogging:
 
 Run:
 ```bash
-cd packages/kctl-common && uv run pytest tests/test_api_client.py -v --tb=short 2>&1 | head -20
+cd packages/kctl-lib && uv run pytest tests/test_api_client.py -v --tb=short 2>&1 | head -20
 ```
-Expected: FAIL with `ModuleNotFoundError: No module named 'kctl_common.api_client'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'kctl_lib.api_client'`
 
 - [ ] **Step 3: Commit test file**
 
 ```bash
-git add packages/kctl-common/tests/test_api_client.py
+git add packages/kctl-lib/tests/test_api_client.py
 git commit -m "test: add failing tests for APIClient base class"
 ```
 
@@ -401,11 +401,11 @@ git commit -m "test: add failing tests for APIClient base class"
 ### Task 3: Implement APIClient
 
 **Files:**
-- Create: `packages/kctl-common/src/kctl_common/api_client.py`
+- Create: `packages/kctl-lib/src/kctl_lib/api_client.py`
 
 - [ ] **Step 1: Write the implementation**
 
-Create `packages/kctl-common/src/kctl_common/api_client.py`:
+Create `packages/kctl-lib/src/kctl_lib/api_client.py`:
 
 ```python
 """Base synchronous HTTP API client for kctl-* CLIs.
@@ -432,7 +432,7 @@ from typing import Any, Self
 
 import httpx
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     ConfigError,
@@ -628,7 +628,7 @@ class APIClient:
 
 Run:
 ```bash
-cd packages/kctl-common && uv run pytest tests/test_api_client.py -v --tb=short
+cd packages/kctl-lib && uv run pytest tests/test_api_client.py -v --tb=short
 ```
 Expected: All tests PASS.
 
@@ -636,14 +636,14 @@ Expected: All tests PASS.
 
 Run:
 ```bash
-cd packages/kctl-common && uv run ruff check src/kctl_common/api_client.py && uv run ruff format --check src/kctl_common/api_client.py && uv run mypy src/kctl_common/api_client.py
+cd packages/kctl-lib && uv run ruff check src/kctl_lib/api_client.py && uv run ruff format --check src/kctl_lib/api_client.py && uv run mypy src/kctl_lib/api_client.py
 ```
 Expected: No errors.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add packages/kctl-common/src/kctl_common/api_client.py packages/kctl-common/tests/test_api_client.py
+git add packages/kctl-lib/src/kctl_lib/api_client.py packages/kctl-lib/tests/test_api_client.py
 git commit -m "feat: add base APIClient class with retry and error mapping"
 ```
 
@@ -652,11 +652,11 @@ git commit -m "feat: add base APIClient class with retry and error mapping"
 ### Task 4: Write failing tests for AsyncAPIClient
 
 **Files:**
-- Create: `packages/kctl-common/tests/test_async_api_client.py`
+- Create: `packages/kctl-lib/tests/test_async_api_client.py`
 
 - [ ] **Step 1: Write the test file**
 
-Create `packages/kctl-common/tests/test_async_api_client.py`:
+Create `packages/kctl-lib/tests/test_async_api_client.py`:
 
 ```python
 """Tests for base AsyncAPIClient."""
@@ -666,8 +666,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from kctl_common.async_api_client import AsyncAPIClient
-from kctl_common.exceptions import (
+from kctl_lib.async_api_client import AsyncAPIClient
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     ConfigError,
@@ -783,14 +783,14 @@ class TestAsyncRetry:
 
 Run:
 ```bash
-cd packages/kctl-common && uv run pytest tests/test_async_api_client.py -v --tb=short 2>&1 | head -10
+cd packages/kctl-lib && uv run pytest tests/test_async_api_client.py -v --tb=short 2>&1 | head -10
 ```
-Expected: FAIL with `ModuleNotFoundError: No module named 'kctl_common.async_api_client'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'kctl_lib.async_api_client'`
 
 - [ ] **Step 3: Commit test file**
 
 ```bash
-git add packages/kctl-common/tests/test_async_api_client.py
+git add packages/kctl-lib/tests/test_async_api_client.py
 git commit -m "test: add failing tests for AsyncAPIClient base class"
 ```
 
@@ -799,11 +799,11 @@ git commit -m "test: add failing tests for AsyncAPIClient base class"
 ### Task 5: Implement AsyncAPIClient
 
 **Files:**
-- Create: `packages/kctl-common/src/kctl_common/async_api_client.py`
+- Create: `packages/kctl-lib/src/kctl_lib/async_api_client.py`
 
 - [ ] **Step 1: Write the implementation**
 
-Create `packages/kctl-common/src/kctl_common/async_api_client.py`:
+Create `packages/kctl-lib/src/kctl_lib/async_api_client.py`:
 
 ```python
 """Base asynchronous HTTP API client for kctl-* CLIs.
@@ -827,7 +827,7 @@ from typing import Any, Self
 
 import httpx
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     ConfigError,
@@ -1006,7 +1006,7 @@ class AsyncAPIClient:
 
 Run:
 ```bash
-cd packages/kctl-common && uv add --dev anyio pytest-anyio && uv run pytest tests/test_async_api_client.py -v --tb=short
+cd packages/kctl-lib && uv add --dev anyio pytest-anyio && uv run pytest tests/test_async_api_client.py -v --tb=short
 ```
 
 If `pytest-anyio` is not available, use `anyio` with pytest-httpx's built-in async support. The `@pytest.mark.anyio` marker should work with pytest-httpx >= 0.35.0 which bundles async test support.
@@ -1017,14 +1017,14 @@ Expected: All tests PASS.
 
 Run:
 ```bash
-cd packages/kctl-common && uv run ruff check src/kctl_common/async_api_client.py && uv run mypy src/kctl_common/async_api_client.py
+cd packages/kctl-lib && uv run ruff check src/kctl_lib/async_api_client.py && uv run mypy src/kctl_lib/async_api_client.py
 ```
 Expected: No errors.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add packages/kctl-common/src/kctl_common/async_api_client.py packages/kctl-common/tests/test_async_api_client.py
+git add packages/kctl-lib/src/kctl_lib/async_api_client.py packages/kctl-lib/tests/test_async_api_client.py
 git commit -m "feat: add base AsyncAPIClient class for async kctl-* CLIs"
 ```
 
@@ -1033,15 +1033,15 @@ git commit -m "feat: add base AsyncAPIClient class for async kctl-* CLIs"
 ### Task 6: Update __init__.py exports and run full test suite
 
 **Files:**
-- Modify: `packages/kctl-common/src/kctl_common/__init__.py`
+- Modify: `packages/kctl-lib/src/kctl_lib/__init__.py`
 
 - [ ] **Step 1: Add new exports to __init__.py**
 
-Add these imports and update `__all__` in `packages/kctl-common/src/kctl_common/__init__.py`:
+Add these imports and update `__all__` in `packages/kctl-lib/src/kctl_lib/__init__.py`:
 
 ```python
-from kctl_common.api_client import APIClient
-from kctl_common.async_api_client import AsyncAPIClient
+from kctl_lib.api_client import APIClient
+from kctl_lib.async_api_client import AsyncAPIClient
 ```
 
 Add to `__all__` list (alphabetical order):
@@ -1074,7 +1074,7 @@ __all__ = [
 
 Run:
 ```bash
-cd packages/kctl-common && uv run pytest tests/ -v --tb=short
+cd packages/kctl-lib && uv run pytest tests/ -v --tb=short
 ```
 Expected: All tests pass (187 existing + new api_client + async_api_client tests).
 
@@ -1082,15 +1082,15 @@ Expected: All tests pass (187 existing + new api_client + async_api_client tests
 
 Run:
 ```bash
-cd packages/kctl-common && uv run ruff check src/ tests/ && uv run ruff format --check src/ tests/ && uv run mypy src/
+cd packages/kctl-lib && uv run ruff check src/ tests/ && uv run ruff format --check src/ tests/ && uv run mypy src/
 ```
 Expected: No errors.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add packages/kctl-common/src/kctl_common/__init__.py
-git commit -m "feat: export APIClient and AsyncAPIClient from kctl-common public API"
+git add packages/kctl-lib/src/kctl_lib/__init__.py
+git commit -m "feat: export APIClient and AsyncAPIClient from kctl-lib public API"
 ```
 
 ---
@@ -1112,7 +1112,7 @@ Expected: Lock file regenerated with httpx as core dep.
 
 Run:
 ```bash
-cd packages/kctl-common && uv build
+cd packages/kctl-lib && uv build
 ```
 Expected: Wheel and sdist created in `dist/` with version 0.3.0.
 
@@ -1120,7 +1120,7 @@ Expected: Wheel and sdist created in `dist/` with version 0.3.0.
 
 ```bash
 git add uv.lock
-git commit -m "chore: update uv.lock for kctl-common v0.3.0"
+git commit -m "chore: update uv.lock for kctl-lib v0.3.0"
 ```
 
 ---
@@ -1134,4 +1134,4 @@ After all tasks complete:
 - [ ] `uv run ruff format --check src/ tests/` — properly formatted
 - [ ] `uv run mypy src/` — no type errors
 - [ ] `uv build` — builds successfully as v0.3.0
-- [ ] `python -c "from kctl_common import APIClient, AsyncAPIClient; print('OK')"` — exports work
+- [ ] `python -c "from kctl_lib import APIClient, AsyncAPIClient; print('OK')"` — exports work

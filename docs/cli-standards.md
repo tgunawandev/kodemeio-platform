@@ -27,7 +27,7 @@ Every CLI must implement: `init`, `add`, `use`, `show`, `validate`, `remove`, `s
 
 ## Client Pattern
 
-CLIs with HTTP APIs should subclass `APIClient` (or `AsyncAPIClient`) from `kctl-common`:
+CLIs with HTTP APIs should subclass `APIClient` (or `AsyncAPIClient`) from `kctl-lib`:
 
 - Set `AUTH_HEADER`, `AUTH_PREFIX`, `API_PREFIX` as class attributes to configure authentication and URL prefixing.
 - Override `_unwrap_response` for envelope APIs (e.g., Cloudflare wraps all responses in `{"result": ..., "success": ...}`).
@@ -46,8 +46,8 @@ Not all CLIs use HTTP-based clients:
 
 ## Error Handling
 
-Use `handle_cli_error()` from kctl-common in `_run()`.
+Use `handle_cli_error()` from kctl-lib in `_run()`.
 
 ## History
 
-Use `HistoryStore` from kctl-common. DB at `~/.local/share/kodemeio/{cli-name}/history.db`.
+Use `HistoryStore` from kctl-lib. DB at `~/.local/share/kodemeio/{cli-name}/history.db`.

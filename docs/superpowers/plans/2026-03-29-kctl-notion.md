@@ -4,9 +4,9 @@
 
 **Goal:** Build kctl-notion CLI with 7 command groups for wiki search, page management, and database querying.
 
-**Architecture:** Python CLI using kctl-common v0.3.1. NotionClient subclasses APIClient with Notion-Version header. Smallest of the 5 CLIs.
+**Architecture:** Python CLI using kctl-lib v0.4.0. NotionClient subclasses APIClient with Notion-Version header. Smallest of the 5 CLIs.
 
-**Tech Stack:** Python 3.12+, kctl-common>=0.3.1, Typer, httpx, Rich
+**Tech Stack:** Python 3.12+, kctl-lib>=0.4.0, Typer, httpx, Rich
 
 **Spec:** `docs/superpowers/specs/2026-03-29-kctl-service-clis-design.md` (Section 6)
 
@@ -67,7 +67,7 @@ version = "0.1.0"
 description = "Notion workspace management"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "httpx>=0.28.0",
 ]
 
@@ -81,7 +81,7 @@ dev = [
 ]
 ```
 
-Key change: `kctl-common>=0.3.1` (was 0.3.0), added `pytest-httpx>=0.35.0`.
+Key change: `kctl-lib>=0.4.0` (was 0.3.0), added `pytest-httpx>=0.35.0`.
 
 - [ ] **Step 2: Update ServiceConfig in config.py**
 
@@ -92,17 +92,17 @@ Replace the entire `cli/src/kctl_notion/core/config.py` with:
 
 from __future__ import annotations
 
-from kctl_common.config import (
+from kctl_lib.config import (
     get_all_services_in_profile,
     get_profile_names,
     remove_profile,
     set_default_profile,
 )
-from kctl_common.config import get_service_config as _get_service_config
-from kctl_common.config import (
+from kctl_lib.config import get_service_config as _get_service_config
+from kctl_lib.config import (
     resolve_active_profile_name as _resolve_active_profile_name,
 )
-from kctl_common.config import set_service_config as _set_service_config
+from kctl_lib.config import set_service_config as _set_service_config
 from pydantic import BaseModel
 
 __all__ = [
@@ -148,9 +148,9 @@ def resolve_active_profile_name(profile_name: str | None = None) -> str:
 Replace `cli/src/kctl_notion/core/exceptions.py` with:
 
 ```python
-"""Exception hierarchy -- re-exported from kctl-common."""
+"""Exception hierarchy -- re-exported from kctl-lib."""
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     CommandError,
@@ -158,7 +158,7 @@ from kctl_common.exceptions import (
     KctlError,
     NotFoundError,
 )
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 __all__ = [
     "APIError",
@@ -176,7 +176,7 @@ __all__ = [
 Create `cli/src/kctl_notion/core/client.py`:
 
 ```python
-"""Notion API client using kctl-common APIClient base.
+"""Notion API client using kctl-lib APIClient base.
 
 Notion API v1: REST endpoints with Bearer token auth.
 Requires Notion-Version header on all requests.
@@ -187,7 +187,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.api_client import APIClient
+from kctl_lib.api_client import APIClient
 
 
 class NotionClient(APIClient):
@@ -341,7 +341,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_notion.core.client import NotionClient
 from kctl_notion.core.config import (
@@ -731,7 +731,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common import KctlError, handle_cli_error
+from kctl_lib import KctlError, handle_cli_error
 
 from kctl_notion import __version__
 from kctl_notion.commands.config_cmd import app as config_app
@@ -1715,7 +1715,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common import KctlError, handle_cli_error
+from kctl_lib import KctlError, handle_cli_error
 
 from kctl_notion import __version__
 from kctl_notion.commands.blocks import app as blocks_app
@@ -2027,8 +2027,8 @@ from __future__ import annotations
 
 import pytest
 
-from kctl_common.exceptions import APIError, AuthenticationError, ConfigError
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.exceptions import APIError, AuthenticationError, ConfigError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 from kctl_notion.core.client import NotionClient
 
 
@@ -2600,7 +2600,7 @@ uv run kctl-notion --help         # CLI help
 
 ## Architecture
 
-kctl-notion is a CLI tool built on `kctl-common>=0.3.1` for managing Notion workspaces, databases, and pages via the Notion REST API v1.
+kctl-notion is a CLI tool built on `kctl-lib>=0.4.0` for managing Notion workspaces, databases, and pages via the Notion REST API v1.
 
 ### Key Paths
 
@@ -2619,7 +2619,7 @@ kctl-notion is a CLI tool built on `kctl-common>=0.3.1` for managing Notion work
 |--------|---------|
 | `core/client.py` | NotionClient(APIClient) -- search, pages, databases, blocks, users |
 | `core/config.py` | ServiceConfig (token), profile management |
-| `core/exceptions.py` | Re-exports from kctl-common |
+| `core/exceptions.py` | Re-exports from kctl-lib |
 | `core/callbacks.py` | AppContext with get_client() |
 | `core/plugins.py` | Plugin discovery |
 

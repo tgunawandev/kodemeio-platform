@@ -4,9 +4,9 @@
 
 **Goal:** Merge 6 kctl-* CLIs from kodemeio-saas into kodemeio-platform/packages/ as uv workspace members, renaming kctl-1password to kctl-op with refactored internals.
 
-**Architecture:** Copy 5 CLIs as-is into packages/, update pyproject.toml for workspace kctl-common source. Rename and refactor kctl-1password → kctl-op by absorbing the kodemeio_1password library into kctl_op/core/. Each CLI becomes a workspace member under `packages/*`.
+**Architecture:** Copy 5 CLIs as-is into packages/, update pyproject.toml for workspace kctl-lib source. Rename and refactor kctl-1password → kctl-op by absorbing the kodemeio_1password library into kctl_op/core/. Each CLI becomes a workspace member under `packages/*`.
 
-**Tech Stack:** Python 3.12+, uv workspace, Typer, kctl-common, Hatchling, Ruff, mypy
+**Tech Stack:** Python 3.12+, uv workspace, Typer, kctl-lib, Hatchling, Ruff, mypy
 
 ---
 
@@ -28,7 +28,7 @@ kodemeio-saas/
 ### Target (kodemeio-platform)
 ```
 kodemeio-platform/packages/
-├── kctl-common/     # existing, unchanged
+├── kctl-lib/     # existing, unchanged
 ├── kctl-rustdesk/   # existing, unchanged
 ├── kctl-github/     # new
 ├── kctl-linear/     # new
@@ -58,7 +58,7 @@ cp -r /home/tgunawan/project/00-new-projects/kodemeio-saas/kodemeio-github/cli/ 
 rm -rf /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform/packages/kctl-github/.venv
 ```
 
-- [ ] **Step 3: Update pyproject.toml to use workspace kctl-common**
+- [ ] **Step 3: Update pyproject.toml to use workspace kctl-lib**
 
 Replace the existing pyproject.toml with the workspace-aware version. The key change is adding `[tool.uv.sources]` and ensuring the dependency list matches the kctl-rustdesk reference pattern:
 
@@ -73,7 +73,7 @@ version = "0.1.0"
 description = "Kodemeio GitHub CLI — cross-repo GitHub management"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.0",
+    "kctl-lib>=0.3.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -85,7 +85,7 @@ dependencies = [
 kctl-github = "kctl_github.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [project.entry-points."kctl_github.plugins"]
 
@@ -163,7 +163,7 @@ cp -r /home/tgunawan/project/00-new-projects/kodemeio-saas/kodemeio-linear/cli/ 
 rm -rf /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform/packages/kctl-linear/.venv
 ```
 
-- [ ] **Step 3: Update pyproject.toml to use workspace kctl-common**
+- [ ] **Step 3: Update pyproject.toml to use workspace kctl-lib**
 
 ```toml
 [build-system]
@@ -176,7 +176,7 @@ version = "0.1.0"
 description = "Kodemeio Linear CLI — project and sprint tracking"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -188,7 +188,7 @@ dependencies = [
 kctl-linear = "kctl_linear.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [project.entry-points."kctl_linear.plugins"]
 
@@ -257,7 +257,7 @@ cp -r /home/tgunawan/project/00-new-projects/kodemeio-saas/kodemeio-notion/cli/ 
 rm -rf /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform/packages/kctl-notion/.venv
 ```
 
-- [ ] **Step 3: Update pyproject.toml to use workspace kctl-common**
+- [ ] **Step 3: Update pyproject.toml to use workspace kctl-lib**
 
 ```toml
 [build-system]
@@ -270,7 +270,7 @@ version = "0.1.0"
 description = "Kodemeio Notion CLI — wiki and database management"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -282,7 +282,7 @@ dependencies = [
 kctl-notion = "kctl_notion.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [project.entry-points."kctl_notion.plugins"]
 
@@ -347,7 +347,7 @@ cp -r /home/tgunawan/project/00-new-projects/kodemeio-saas/kodemeio-sentry/cli/ 
 rm -rf /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform/packages/kctl-sentry/.venv
 ```
 
-- [ ] **Step 3: Update pyproject.toml to use workspace kctl-common**
+- [ ] **Step 3: Update pyproject.toml to use workspace kctl-lib**
 
 ```toml
 [build-system]
@@ -360,7 +360,7 @@ version = "0.1.0"
 description = "Kodemeio Sentry CLI — error tracking management"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -372,7 +372,7 @@ dependencies = [
 kctl-sentry = "kctl_sentry.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [project.entry-points."kctl_sentry.plugins"]
 
@@ -439,7 +439,7 @@ cp -r /home/tgunawan/project/00-new-projects/kodemeio-saas/kodemeio-telegram/cli
 rm -rf /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform/packages/kctl-telegram/.venv
 ```
 
-- [ ] **Step 3: Update pyproject.toml to use workspace kctl-common**
+- [ ] **Step 3: Update pyproject.toml to use workspace kctl-lib**
 
 ```toml
 [build-system]
@@ -452,7 +452,7 @@ version = "0.1.0"
 description = "Kodemeio Telegram CLI — bot platform management"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.0",
+    "kctl-lib>=0.3.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -464,7 +464,7 @@ dependencies = [
 kctl-telegram = "kctl_telegram.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [project.entry-points."kctl_telegram.plugins"]
 
@@ -542,7 +542,7 @@ version = "0.1.0"
 description = "Kodemeio 1Password CLI — secret management and .env sync"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.0",
+    "kctl-lib>=0.3.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -554,7 +554,7 @@ dependencies = [
 kctl-op = "kctl_op.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [project.entry-points."kctl_op.plugins"]
 
@@ -910,7 +910,7 @@ cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform
 uv sync --all-extras
 ```
 
-Expected: All 8 workspace members resolve (kctl-common, kctl-rustdesk, kctl-github, kctl-linear, kctl-notion, kctl-sentry, kctl-telegram, kctl-op).
+Expected: All 8 workspace members resolve (kctl-lib, kctl-rustdesk, kctl-github, kctl-linear, kctl-notion, kctl-sentry, kctl-telegram, kctl-op).
 
 - [ ] **Step 2: Verify all CLI entry points**
 
@@ -937,10 +937,10 @@ done
 
 Expected: All tests pass for all 6 CLIs.
 
-- [ ] **Step 4: Run kctl-common tests (ensure no regression)**
+- [ ] **Step 4: Run kctl-lib tests (ensure no regression)**
 
 ```bash
-uv run --package kctl-common pytest packages/kctl-common/tests/ -v
+uv run --package kctl-lib pytest packages/kctl-lib/tests/ -v
 ```
 
 Expected: All 238 tests pass.
@@ -983,7 +983,7 @@ Add a new subsection:
 
 ```markdown
 ### kodemeio-platform workspace members
-- **kctl-common** — Shared CLI infrastructure (v0.3.1)
+- **kctl-lib** — Shared CLI infrastructure (v0.3.1)
 - **kctl-rustdesk** — RustDesk server management (9 groups)
 - **kctl-op** — 1Password secret management (9 groups) — *renamed from kctl-1password*
 - **kctl-github** — Cross-repo GitHub management (10 groups)

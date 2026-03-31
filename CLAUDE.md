@@ -1,18 +1,18 @@
 # CLAUDE.md - kodemeio-platform
 
-Shared CLI infrastructure: `kctl-common` Python package + copier template.
+Shared CLI infrastructure: `kctl-lib` Python package + copier template.
 
 ## Quick Commands
 
 ```bash
 # Development (full workspace)
 uv sync --all-extras --all-packages   # Install all packages + dev deps
-uv run pytest packages/kctl-common/tests/ -v  # kctl-common: 247 tests
+uv run pytest packages/kctl-lib/tests/ -v  # kctl-lib: 247 tests
 uv run pytest packages/kctl-op/tests/ -v      # kctl-op: 115 tests
 uv run ruff check packages/*/src/             # Lint all packages
 
 # Single package
-cd packages/kctl-common
+cd packages/kctl-lib
 uv sync --all-extras
 uv run pytest tests/ -v
 uv run mypy src/
@@ -24,12 +24,12 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 
 ## Architecture
 
-`kctl-common` is a shared Python package (PyPI: kctl-common v0.3.1) used by **21 CLI tools**, all consolidated into this single workspace.
+`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **21 CLI tools**, all consolidated into this single workspace.
 
 ### Workspace Members (21 packages)
 
 #### Shared Library
-- **kctl-common** — Shared CLI infrastructure (v0.3.1, published to PyPI)
+- **kctl-lib** — Shared CLI infrastructure (v0.3.1, published to PyPI)
 
 #### Infrastructure & Ops
 - **kctl-dokploy** — Dokploy deployment platform (37 groups)
@@ -57,13 +57,13 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 - **kctl-telegram** — Telegram bot platform (7 groups)
 - **kctl-notion** — Notion wiki/database management (7 groups)
 
-Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-common; exceptions are kctl-pg (psycopg/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-gatus and kctl-mdm (custom auth).
+Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-lib; exceptions are kctl-pg (psycopg/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-gatus and kctl-mdm (custom auth).
 
 ## Key Paths
 
 | Path | Description |
 |------|-------------|
-| `packages/kctl-common/` | Shared library (v0.3.1, PyPI, 247 tests) |
+| `packages/kctl-lib/` | Shared library (v0.3.1, PyPI, 247 tests) |
 | `packages/kctl-ak/` | Authentik SSO/identity CLI |
 | `packages/kctl-api/` | FastAPI platform CLI |
 | `packages/kctl-claude/` | Claude Code environment CLI |
@@ -90,7 +90,7 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, 
 | `.github/workflows/ci.yml` | CI: test + lint on push/PR |
 | `.github/workflows/publish.yml` | Auto-publish to PyPI on v* tag |
 
-## kctl-common Modules
+## kctl-lib Modules
 
 | Module | Purpose |
 |--------|---------|

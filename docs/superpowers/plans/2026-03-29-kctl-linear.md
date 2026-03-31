@@ -4,9 +4,9 @@
 
 **Goal:** Build kctl-linear CLI with 10 command groups for sprint tracking and issue management via Linear GraphQL API.
 
-**Architecture:** Python CLI using kctl-common v0.3.1 for config/output/exceptions. Custom LinearClient (NOT APIClient subclass) that wraps httpx for GraphQL queries. All API calls go through POST /graphql.
+**Architecture:** Python CLI using kctl-lib v0.4.0 for config/output/exceptions. Custom LinearClient (NOT APIClient subclass) that wraps httpx for GraphQL queries. All API calls go through POST /graphql.
 
-**Tech Stack:** Python 3.12+, kctl-common>=0.3.1, Typer, httpx, Rich
+**Tech Stack:** Python 3.12+, kctl-lib>=0.4.0, Typer, httpx, Rich
 
 **Spec:** `docs/superpowers/specs/2026-03-29-kctl-service-clis-design.md` (Section 5)
 
@@ -63,7 +63,7 @@ version = "0.1.0"
 description = "Linear project management"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "httpx>=0.28.0",
 ]
 
@@ -77,7 +77,7 @@ dev = [
 ]
 ```
 
-Key change: `kctl-common>=0.3.1` (was 0.3.0), add `pytest-httpx>=0.35.0`.
+Key change: `kctl-lib>=0.4.0` (was 0.3.0), add `pytest-httpx>=0.35.0`.
 
 - [ ] **Step 2: Update ServiceConfig for Linear API**
 
@@ -98,9 +98,9 @@ Remove the `url: str = ""` field entirely. Linear has a fixed endpoint.
 Replace `cli/src/kctl_linear/core/exceptions.py`:
 
 ```python
-"""Exception hierarchy — re-exported from kctl-common."""
+"""Exception hierarchy — re-exported from kctl-lib."""
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     CommandError,
@@ -673,7 +673,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_linear.core.client import LinearClient
 from kctl_linear.core.config import (
@@ -1991,7 +1991,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common import KctlError, handle_cli_error
+from kctl_lib import KctlError, handle_cli_error
 
 from kctl_linear import __version__
 from kctl_linear.commands.config_cmd import app as config_app
