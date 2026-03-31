@@ -1,3 +1,3 @@
-# kctl-cloudflare
+# kctl-cf
 
 Kodemeio Cloudflare CLI.

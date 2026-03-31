@@ -118,7 +118,7 @@ post_deploy:
 | Phase | Tool | Action | Idempotent |
 |-------|------|--------|-----------|
 | 1. Resolve | — | Read YAML, merge base+instance, interpolate variables | — |
-| 2. DNS | kctl-cloudflare | Create A record if not exists | Skip if exists |
+| 2. DNS | kctl-cf | Create A record if not exists | Skip if exists |
 | 3. Database | kctl-pg | Create role + database if not exists | Skip if exists |
 | 4. Registry | kctl-dokploy | Create GHCR registry if not exists | Skip if exists |
 | 5. Compose | kctl-dokploy | Create compose service + link GitHub repo | Update if changed |

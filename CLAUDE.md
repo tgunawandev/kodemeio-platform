@@ -33,9 +33,9 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 
 #### Infrastructure & Ops
 - **kctl-dokploy** — Dokploy deployment platform (37 groups)
-- **kctl-hetzner** — Hetzner Cloud infrastructure (24 groups)
+- **kctl-hz** — Hetzner Cloud infrastructure (24 groups)
 - **kctl-pg** — PostgreSQL administration (24 groups)
-- **kctl-cloudflare** — Cloudflare DNS/CDN/WAF (27 groups)
+- **kctl-cf** — Cloudflare DNS/CDN/WAF (27 groups)
 - **kctl-ak** — Authentik SSO/identity (24 groups)
 - **kctl-grafana** — Grafana monitoring platform (11 groups)
 - **kctl-gatus** — Gatus health monitoring (8 groups)
@@ -68,12 +68,12 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_common`, 
 | `packages/kctl-api/` | FastAPI platform CLI |
 | `packages/kctl-claude/` | Claude Code environment CLI |
 | `packages/kctl-claw/` | AI agent gateway CLI |
-| `packages/kctl-cloudflare/` | Cloudflare DNS/CDN/WAF CLI |
+| `packages/kctl-cf/` | Cloudflare DNS/CDN/WAF CLI |
 | `packages/kctl-dokploy/` | Dokploy deployment CLI |
 | `packages/kctl-gatus/` | Gatus health monitoring CLI |
 | `packages/kctl-github/` | GitHub cross-repo management CLI |
 | `packages/kctl-grafana/` | Grafana monitoring CLI |
-| `packages/kctl-hetzner/` | Hetzner Cloud infrastructure CLI |
+| `packages/kctl-hz/` | Hetzner Cloud infrastructure CLI |
 | `packages/kctl-linear/` | Linear project tracking CLI |
 | `packages/kctl-notion/` | Notion wiki management CLI |
 | `packages/kctl-odoo/` | Odoo 18 ERP management CLI |

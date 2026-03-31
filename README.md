@@ -55,9 +55,9 @@ Shared core library for all `kctl-*` CLI tools.
 | CLI | Repo | Target | Command Groups |
 |-----|------|--------|---------------|
 | kctl-dokploy | kodemeio-dokploy | Dokploy deployment platform | 37 |
-| kctl-hetzner | kodemeio-hetzner | Hetzner Cloud infrastructure | 24 |
+| kctl-hz | kodemeio-hetzner | Hetzner Cloud infrastructure | 24 |
 | kctl-pg | kodemeio-postgres | PostgreSQL administration | 24 |
-| kctl-cloudflare | kodemeio-cloudflare | Cloudflare DNS/CDN/WAF | 27 |
+| kctl-cf | kodemeio-cloudflare | Cloudflare DNS/CDN/WAF | 27 |
 | kctl-ak | kodemeio-authentik | Authentik SSO/identity | 24 |
 | kctl-gatus | kodemeio-gatus | Gatus health monitoring | 8 |
 | kctl-mdm | kodemeio-headwind | Headwind MDM device management | 12 |

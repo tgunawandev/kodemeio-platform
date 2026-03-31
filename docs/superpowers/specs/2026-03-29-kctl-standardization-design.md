@@ -14,7 +14,7 @@
 |------|------|------------------|---------------|
 | **kodemeio-platform** | kctl-common (shared lib) | N/A — IS the library | 187 tests |
 | **kodemeio-app** | kctl-next, kctl-react, kctl-api, kctl-odoo, kctl-claw | Yes (>=0.2.1) | Varies |
-| **kodemeio-core** | kctl-ak, kctl-cloudflare, kctl-dokploy, kctl-gatus, kctl-mdm, kctl-hetzner, kctl-pg, kctl-waha | No | 0–33 test files |
+| **kodemeio-core** | kctl-ak, kctl-cf, kctl-dokploy, kctl-gatus, kctl-mdm, kctl-hz, kctl-pg, kctl-waha | No | 0–33 test files |
 | **kodemeio-saas** | kctl-1password, kctl-claude, kctl-telegram | No | 0–9 test files |
 
 ### 1.2 Key Problems
@@ -119,7 +119,7 @@ class DokployClient(APIClient):
 ```
 
 ```python
-# kctl_cloudflare/core/client.py
+# kctl_cf/core/client.py
 class CloudflareClient(APIClient):
     BASE_URL = "https://api.cloudflare.com/client/v4"
 
@@ -214,9 +214,9 @@ All 9: init, add, use, show, validate, remove, set, profiles, current
 Migrate in order of maturity (most tests first, easiest to validate):
 
 1. **kctl-dokploy** (33 tests) — highest confidence
-2. **kctl-hetzner** (6 tests)
+2. **kctl-hz** (6 tests)
 3. **kctl-pg** (5 tests)
-4. **kctl-cloudflare** (3 tests)
+4. **kctl-cf** (3 tests)
 5. **kctl-ak** (0 tests — add smoke tests first)
 6. **kctl-gatus** (0 tests — add smoke tests first)
 7. **kctl-mdm** (0 tests — add smoke tests first)

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build `kctl-dokploy deploy apply` that reads YAML manifests (base + instance) and executes a 12-phase idempotent deployment across kctl-cloudflare, kctl-pg, kctl-dokploy, and kctl-odoo.
+**Goal:** Build `kctl-dokploy deploy apply` that reads YAML manifests (base + instance) and executes a 12-phase idempotent deployment across kctl-cf, kctl-pg, kctl-dokploy, and kctl-odoo.
 
 **Architecture:** Three new files — `manifest.py` (YAML parsing + merging), `deployer.py` (12-phase executor with subprocess calls to kctl-* CLIs), `deploy.py` (Typer command group). The deployer shells out to kctl-* CLIs rather than importing their internals, keeping the system decoupled and debuggable.
 
@@ -448,13 +448,13 @@ class TestDeployerKctl:
         deployer = Deployer(manifest=DeployManifest(), dry_run=False)
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="OK Connected\n", stderr="")
-            rc, out = deployer._run_kctl(["kctl-cloudflare", "config", "test"])
+            rc, out = deployer._run_kctl(["kctl-cf", "config", "test"])
             assert rc == 0
             assert "OK" in out
 
     def test_run_kctl_dry_run_skips(self) -> None:
         deployer = Deployer(manifest=DeployManifest(), dry_run=True)
-        rc, out = deployer._run_kctl(["kctl-cloudflare", "records", "create", "--zone", "test"])
+        rc, out = deployer._run_kctl(["kctl-cf", "records", "create", "--zone", "test"])
         assert rc == 0
         assert "dry-run" in out.lower()
 
@@ -557,7 +557,7 @@ class Deployer:
 
         # Check if record exists
         rc, out = self._run_kctl([
-            "kctl-cloudflare", "records", "list", "--zone", dns.zone,
+            "kctl-cf", "records", "list", "--zone", dns.zone,
         ])
         fqdn = f"{dns.name}.{dns.zone}"
         if fqdn in out:
@@ -566,7 +566,7 @@ class Deployer:
 
         # Create record
         rc, out = self._run_kctl([
-            "kctl-cloudflare", "records", "create",
+            "kctl-cf", "records", "create",
             "--zone", dns.zone, "--type", dns.type,
             "--name", dns.name, "--content", dns.content,
         ])

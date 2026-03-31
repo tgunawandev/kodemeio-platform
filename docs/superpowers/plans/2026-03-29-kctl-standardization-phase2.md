@@ -23,9 +23,9 @@ Ordered by existing test coverage (most tested first = easiest to validate):
 | # | CLI | Location | Tests | Client Auth Pattern |
 |---|-----|----------|-------|---------------------|
 | 1 | kctl-dokploy | kodemeio-dokploy/cli | 33 files | `x-api-key` raw, retry enabled |
-| 2 | kctl-hetzner | kodemeio-hetzner/cli | 6 files | `Authorization: Bearer`, + DNS: `Auth-API-Token` raw |
+| 2 | kctl-hz | kodemeio-hetzner/cli | 6 files | `Authorization: Bearer`, + DNS: `Auth-API-Token` raw |
 | 3 | kctl-pg | kodemeio-postgres/cli | 5 files | No httpx client (psycopg + SSH) |
-| 4 | kctl-cloudflare | kodemeio-cloudflare/cli | 3 files | `Authorization: Bearer`, response envelope unwrap |
+| 4 | kctl-cf | kodemeio-cloudflare/cli | 3 files | `Authorization: Bearer`, response envelope unwrap |
 | 5 | kctl-ak | kodemeio-authentik/cli | 0 files | `Authorization: Bearer` |
 | 6 | kctl-gatus | kodemeio-gatus/cli | 0 files | `Authorization: Bearer` |
 | 7 | kctl-mdm | kodemeio-headwind/cli | 0 files | `Authorization: Bearer` |
@@ -334,17 +334,17 @@ class {Service}Client(APIClient):
 | CLI | AUTH_HEADER | AUTH_PREFIX | API_PREFIX | BASE_URL | retry_enabled |
 |-----|-------------|-------------|------------|----------|---------------|
 | kctl-dokploy | `x-api-key` | `""` | `/api` | — | `True` |
-| kctl-hetzner (cloud) | `Authorization` | `Bearer` | `""` | `https://api.hetzner.cloud/v1` | `False` |
-| kctl-hetzner (dns) | `Auth-API-Token` | `""` | `""` | `https://dns.hetzner.com/api/v1` | `False` |
-| kctl-cloudflare | `Authorization` | `Bearer` | `""` | `https://api.cloudflare.com/client/v4` | `False` |
+| kctl-hz (cloud) | `Authorization` | `Bearer` | `""` | `https://api.hetzner.cloud/v1` | `False` |
+| kctl-hz (dns) | `Auth-API-Token` | `""` | `""` | `https://dns.hetzner.com/api/v1` | `False` |
+| kctl-cf | `Authorization` | `Bearer` | `""` | `https://api.cloudflare.com/client/v4` | `False` |
 | kctl-ak | `Authorization` | `Bearer` | `""` | — | `False` |
 | kctl-gatus | `Authorization` | `Bearer` | `""` | — | `False` |
 | kctl-mdm | `Authorization` | `Bearer` | `""` | — | `False` |
 | kctl-waha | `X-Api-Key` | `""` | `/api/v1` | — | `False` |
 
-For **kctl-cloudflare**, also override `_unwrap_response()` to extract from `{success, result}` envelope.
+For **kctl-cf**, also override `_unwrap_response()` to extract from `{success, result}` envelope.
 
-For **kctl-hetzner**, create two separate client classes: `HetznerCloudClient(APIClient)` and `HetznerDnsClient(APIClient)`.
+For **kctl-hz**, create two separate client classes: `HetznerCloudClient(APIClient)` and `HetznerDnsClient(APIClient)`.
 
 - [ ] **Step 2: Move service-specific methods**
 
@@ -534,7 +534,7 @@ git commit -am "test(kctl-{name}): add smoke tests"
 - Has `aliases.py` command module — keep as-is
 - Entry point already uses `cli:_run` pattern
 
-### kctl-hetzner (Task 2.*)
+### kctl-hz (Task 2.*)
 - Two API clients: `HetznerCloudClient` + `HetznerDnsClient` — create two subclasses
 - Has `resolve.py` and `utils.py` in core — keep as-is
 - Has plugin system — already compatible with kctl-common plugins
@@ -544,7 +544,7 @@ git commit -am "test(kctl-{name}): add smoke tests"
 - Still migrate exceptions, output, callbacks, config
 - Keep `core/client.py` as-is (psycopg-based)
 
-### kctl-cloudflare (Task 4.*)
+### kctl-cf (Task 4.*)
 - Override `_unwrap_response()` for `{success, result}` envelope
 - Hard-coded `BASE_URL = "https://api.cloudflare.com/client/v4"`
 - Has `utils.py` in core — keep as-is
