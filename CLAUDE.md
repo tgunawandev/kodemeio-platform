@@ -29,7 +29,7 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 ### Workspace Members (21 packages)
 
 #### Shared Library
-- **kctl-lib** — Shared CLI infrastructure (v0.3.1, published to PyPI)
+- **kctl-lib** — Shared CLI infrastructure (v0.4.0, published to PyPI)
 
 #### Infrastructure & Ops
 - **kctl-dokploy** — Dokploy deployment platform (37 groups)
