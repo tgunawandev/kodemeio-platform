@@ -111,7 +111,7 @@ Generates a fully functional CLI with:
 - All 9 standard config subcommands
 - Plugin system via entry points
 - AppContext subclass from kctl-lib
-- kctl-lib >= 0.3.1 dependency
+- kctl-lib >= 0.4.0 dependency
 
 ## Development
 

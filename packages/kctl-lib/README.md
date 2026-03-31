@@ -6,7 +6,7 @@ Shared core library for all kctl-* CLI tools. Published to PyPI as `kctl-lib`.
 
 ```bash
 # As a dependency (in pyproject.toml)
-dependencies = ["kctl-lib>=0.3.1"]
+dependencies = ["kctl-lib>=0.4.0"]
 
 # For development
 cd packages/kctl-lib
