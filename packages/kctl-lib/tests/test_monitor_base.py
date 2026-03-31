@@ -1,14 +1,14 @@
-"""Tests for kctl_common.monitor_base."""
+"""Tests for kctl_lib.monitor_base."""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from kctl_common.monitor_base import dns_check, health_check_url, ssl_check
+from kctl_lib.monitor_base import dns_check, health_check_url, ssl_check
 
 
 class TestHealthCheckUrl:
-    @patch("kctl_common.monitor_base.httpx")
+    @patch("kctl_lib.monitor_base.httpx")
     def test_healthy(self, mock_httpx: MagicMock) -> None:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -18,7 +18,7 @@ class TestHealthCheckUrl:
         result = health_check_url("https://example.com/health")
         assert result["status_code"] == 200 and result["healthy"] is True
 
-    @patch("kctl_common.monitor_base.httpx")
+    @patch("kctl_lib.monitor_base.httpx")
     def test_unhealthy(self, mock_httpx: MagicMock) -> None:
         mock_resp = MagicMock()
         mock_resp.status_code = 503
@@ -28,7 +28,7 @@ class TestHealthCheckUrl:
         result = health_check_url("https://example.com/health")
         assert result["healthy"] is False
 
-    @patch("kctl_common.monitor_base.httpx")
+    @patch("kctl_lib.monitor_base.httpx")
     def test_error(self, mock_httpx: MagicMock) -> None:
         mock_httpx.get.side_effect = Exception("refused")
         result = health_check_url("https://example.com/health")
@@ -36,7 +36,7 @@ class TestHealthCheckUrl:
 
 
 class TestDnsCheck:
-    @patch("kctl_common.monitor_base.socket")
+    @patch("kctl_lib.monitor_base.socket")
     def test_resolves(self, mock_socket: MagicMock) -> None:
         mock_socket.getaddrinfo.return_value = [(2, 1, 6, "", ("93.184.216.34", 443))]
         mock_socket.AF_UNSPEC = 0
@@ -44,7 +44,7 @@ class TestDnsCheck:
         result = dns_check("example.com")
         assert result["resolved"] is True and result["ip"] == "93.184.216.34"
 
-    @patch("kctl_common.monitor_base.socket")
+    @patch("kctl_lib.monitor_base.socket")
     def test_fails(self, mock_socket: MagicMock) -> None:
         mock_socket.getaddrinfo.side_effect = OSError("nope")
         mock_socket.AF_UNSPEC = 0

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kctl_common.runner import run_quiet
+from kctl_lib.runner import run_quiet
 
 
 def get_completion_script(app_name: str, shell: str = "zsh") -> str:

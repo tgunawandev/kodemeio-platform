@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.output import Output
+from kctl_lib.output import Output
 
 
 @dataclass

@@ -10,8 +10,8 @@ from typing import Any, Self
 
 import httpx
 
-from kctl_common.exceptions import APIError, AuthenticationError, ConfigError
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.exceptions import APIError, AuthenticationError, ConfigError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 
 class AsyncAPIClient:

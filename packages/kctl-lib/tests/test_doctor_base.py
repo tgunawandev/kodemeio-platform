@@ -1,9 +1,9 @@
-"""Tests for kctl_common.doctor_base."""
+"""Tests for kctl_lib.doctor_base."""
 
 from __future__ import annotations
 
-from kctl_common.doctor_base import CheckResult, DockerCheck, GitCheck, PythonVersionCheck, UvCheck, run_doctor
-from kctl_common.output import Output
+from kctl_lib.doctor_base import CheckResult, DockerCheck, GitCheck, PythonVersionCheck, UvCheck, run_doctor
+from kctl_lib.output import Output
 
 
 class FakePassCheck:

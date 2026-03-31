@@ -6,8 +6,8 @@ import sys
 from dataclasses import dataclass
 from typing import Protocol
 
-from kctl_common.output import Output
-from kctl_common.runner import run_quiet
+from kctl_lib.output import Output
+from kctl_lib.runner import run_quiet
 
 
 @dataclass

@@ -1,4 +1,4 @@
-"""Tests for kctl_common.api_client — APIClient base class."""
+"""Tests for kctl_lib.api_client — APIClient base class."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import APIError, AuthenticationError, ConfigError
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import APIError, AuthenticationError, ConfigError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 # ---------------------------------------------------------------------------
 # Test subclasses

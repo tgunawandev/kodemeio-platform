@@ -1,4 +1,4 @@
-"""Tests for kctl_common.docker."""
+"""Tests for kctl_lib.docker."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from kctl_common.docker import DockerManager
+from kctl_lib.docker import DockerManager
 
 
 @pytest.fixture()
@@ -50,7 +50,7 @@ class TestBaseCmd:
 
 class TestUp:
     def test_up_default_detached(self, manager: DockerManager, compose_file: Path) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.up()
             mock_run.assert_called_once()
             cmd = mock_run.call_args[0][0]
@@ -58,20 +58,20 @@ class TestUp:
             assert "-d" in cmd
 
     def test_up_with_services(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.up(services=["web", "db"])
             cmd = mock_run.call_args[0][0]
             assert "web" in cmd
             assert "db" in cmd
 
     def test_up_no_detach(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.up(detach=False)
             cmd = mock_run.call_args[0][0]
             assert "-d" not in cmd
 
     def test_up_uses_compose_parent_as_cwd(self, manager: DockerManager, compose_file: Path) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.up()
             kwargs = mock_run.call_args[1]
             assert kwargs.get("cwd") == compose_file.parent
@@ -79,14 +79,14 @@ class TestUp:
 
 class TestDown:
     def test_down_basic(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.down()
             cmd = mock_run.call_args[0][0]
             assert "down" in cmd
             assert "-v" not in cmd
 
     def test_down_with_volumes(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.down(volumes=True)
             cmd = mock_run.call_args[0][0]
             assert "-v" in cmd
@@ -98,7 +98,7 @@ class TestPs:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = json.dumps(container) + "\n"
-        with patch("kctl_common.docker.run_quiet", return_value=mock_result):
+        with patch("kctl_lib.docker.run_quiet", return_value=mock_result):
             result = manager.ps()
         assert isinstance(result, list)
         assert result[0] == container
@@ -109,7 +109,7 @@ class TestPs:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = stdout
-        with patch("kctl_common.docker.run_quiet", return_value=mock_result):
+        with patch("kctl_lib.docker.run_quiet", return_value=mock_result):
             result = manager.ps()
         assert len(result) == 2
         assert result[0]["Name"] == "web"
@@ -119,7 +119,7 @@ class TestPs:
         mock_result = MagicMock()
         mock_result.returncode = 1
         mock_result.stdout = ""
-        with patch("kctl_common.docker.run_quiet", return_value=mock_result):
+        with patch("kctl_lib.docker.run_quiet", return_value=mock_result):
             result = manager.ps()
         assert result == []
 
@@ -127,7 +127,7 @@ class TestPs:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "   "
-        with patch("kctl_common.docker.run_quiet", return_value=mock_result):
+        with patch("kctl_lib.docker.run_quiet", return_value=mock_result):
             result = manager.ps()
         assert result == []
 
@@ -135,20 +135,20 @@ class TestPs:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = '{"Name": "web"}\nnot-json\n{"Name": "db"}\n'
-        with patch("kctl_common.docker.run_quiet", return_value=mock_result):
+        with patch("kctl_lib.docker.run_quiet", return_value=mock_result):
             result = manager.ps()
         assert len(result) == 2
 
 
 class TestRestart:
     def test_restart_all(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.restart()
             cmd = mock_run.call_args[0][0]
             assert "restart" in cmd
 
     def test_restart_specific_service(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.restart(service="web")
             cmd = mock_run.call_args[0][0]
             assert "restart" in cmd
@@ -157,7 +157,7 @@ class TestRestart:
 
 class TestLogs:
     def test_logs_default(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.logs()
             cmd = mock_run.call_args[0][0]
             assert "logs" in cmd
@@ -165,19 +165,19 @@ class TestLogs:
             assert "100" in cmd
 
     def test_logs_with_service(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.logs(service="web")
             cmd = mock_run.call_args[0][0]
             assert "web" in cmd
 
     def test_logs_follow(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.logs(follow=True)
             cmd = mock_run.call_args[0][0]
             assert "-f" in cmd
 
     def test_logs_no_capture(self, manager: DockerManager) -> None:
-        with patch("kctl_common.docker.run") as mock_run:
+        with patch("kctl_lib.docker.run") as mock_run:
             manager.logs()
             kwargs = mock_run.call_args[1]
             assert kwargs.get("capture") is False
@@ -189,7 +189,7 @@ class TestImageSize:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = json.dumps(image) + "\n"
-        with patch("kctl_common.docker.run_quiet", return_value=mock_result):
+        with patch("kctl_lib.docker.run_quiet", return_value=mock_result):
             result = manager.image_size()
         assert isinstance(result, list)
         assert result[0] == image
@@ -198,7 +198,7 @@ class TestImageSize:
         mock_result = MagicMock()
         mock_result.returncode = 1
         mock_result.stdout = ""
-        with patch("kctl_common.docker.run_quiet", return_value=mock_result):
+        with patch("kctl_lib.docker.run_quiet", return_value=mock_result):
             result = manager.image_size()
         assert result == []
 
@@ -206,6 +206,6 @@ class TestImageSize:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = '{"Repository": "nginx"}\nbad-line\n'
-        with patch("kctl_common.docker.run_quiet", return_value=mock_result):
+        with patch("kctl_lib.docker.run_quiet", return_value=mock_result):
             result = manager.image_size()
         assert len(result) == 1

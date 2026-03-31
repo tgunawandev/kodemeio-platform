@@ -1,4 +1,4 @@
-"""Tests for kctl_common.completions."""
+"""Tests for kctl_lib.completions."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from kctl_common.completions import get_completion_script, install_completions
+from kctl_lib.completions import get_completion_script, install_completions
 
 
 def _make_result(stdout: str = "", returncode: int = 0) -> subprocess.CompletedProcess[str]:
@@ -19,7 +19,7 @@ def _make_result(stdout: str = "", returncode: int = 0) -> subprocess.CompletedP
 class TestGetCompletionScript:
     def test_zsh_success(self) -> None:
         expected_script = "#compdef kctl-next\n_kctl_next() { ... }\n"
-        with patch("kctl_common.completions.run_quiet", return_value=_make_result(expected_script)) as mock_rq:
+        with patch("kctl_lib.completions.run_quiet", return_value=_make_result(expected_script)) as mock_rq:
             result = get_completion_script("kctl-next", shell="zsh")
 
         assert result == expected_script
@@ -30,7 +30,7 @@ class TestGetCompletionScript:
 
     def test_bash_success(self) -> None:
         expected_script = "# bash completion for kctl-next\n_kctl_next() { ... }\n"
-        with patch("kctl_common.completions.run_quiet", return_value=_make_result(expected_script)) as mock_rq:
+        with patch("kctl_lib.completions.run_quiet", return_value=_make_result(expected_script)) as mock_rq:
             result = get_completion_script("kctl-next", shell="bash")
 
         assert result == expected_script
@@ -38,20 +38,20 @@ class TestGetCompletionScript:
         assert call_kwargs[1]["env"] == {"_KCTL_NEXT_COMPLETE": "complete_bash"}
 
     def test_failure_returns_empty(self) -> None:
-        with patch("kctl_common.completions.run_quiet", return_value=_make_result("", returncode=1)):
+        with patch("kctl_lib.completions.run_quiet", return_value=_make_result("", returncode=1)):
             result = get_completion_script("kctl-next", shell="zsh")
 
         assert result == ""
 
     def test_env_var_name_replaces_dash(self) -> None:
-        with patch("kctl_common.completions.run_quiet", return_value=_make_result("script")) as mock_rq:
+        with patch("kctl_lib.completions.run_quiet", return_value=_make_result("script")) as mock_rq:
             get_completion_script("my-cli-tool", shell="fish")
 
         env = mock_rq.call_args[1]["env"]
         assert "_MY_CLI_TOOL_COMPLETE" in env
 
     def test_default_shell_is_zsh(self) -> None:
-        with patch("kctl_common.completions.run_quiet", return_value=_make_result("script")) as mock_rq:
+        with patch("kctl_lib.completions.run_quiet", return_value=_make_result("script")) as mock_rq:
             get_completion_script("kctl-api")
 
         env = mock_rq.call_args[1]["env"]
@@ -65,8 +65,8 @@ class TestInstallCompletions:
         home.mkdir()
 
         with (
-            patch("kctl_common.completions.run_quiet", return_value=_make_result(script)),
-            patch("kctl_common.completions.Path.home", return_value=home),
+            patch("kctl_lib.completions.run_quiet", return_value=_make_result(script)),
+            patch("kctl_lib.completions.Path.home", return_value=home),
         ):
             target = install_completions("kctl-next", shell="zsh")
 
@@ -81,8 +81,8 @@ class TestInstallCompletions:
         home.mkdir()
 
         with (
-            patch("kctl_common.completions.run_quiet", return_value=_make_result(script)),
-            patch("kctl_common.completions.Path.home", return_value=home),
+            patch("kctl_lib.completions.run_quiet", return_value=_make_result(script)),
+            patch("kctl_lib.completions.Path.home", return_value=home),
         ):
             target = install_completions("kctl-next", shell="bash")
 
@@ -96,8 +96,8 @@ class TestInstallCompletions:
         home.mkdir()
 
         with (
-            patch("kctl_common.completions.run_quiet", return_value=_make_result(script)),
-            patch("kctl_common.completions.Path.home", return_value=home),
+            patch("kctl_lib.completions.run_quiet", return_value=_make_result(script)),
+            patch("kctl_lib.completions.Path.home", return_value=home),
         ):
             target = install_completions("kctl-next", shell="fish")
 
@@ -106,13 +106,13 @@ class TestInstallCompletions:
 
     def test_unknown_shell_returns_none(self) -> None:
         script = "some script\n"
-        with patch("kctl_common.completions.run_quiet", return_value=_make_result(script)):
+        with patch("kctl_lib.completions.run_quiet", return_value=_make_result(script)):
             result = install_completions("kctl-next", shell="tcsh")
 
         assert result is None
 
     def test_empty_script_returns_none(self) -> None:
-        with patch("kctl_common.completions.run_quiet", return_value=_make_result("", returncode=1)):
+        with patch("kctl_lib.completions.run_quiet", return_value=_make_result("", returncode=1)):
             result = install_completions("kctl-next", shell="zsh")
 
         assert result is None

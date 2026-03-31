@@ -5,7 +5,7 @@ subcommands, help text, parameters, and docstring examples. Generates a
 complete SKILL.md with auto-generated trigger patterns and staleness hash.
 
 Usage in each CLI:
-    from kctl_common.skill_generator import generate_skill
+    from kctl_lib.skill_generator import generate_skill
     generate_skill(app, "kctl-next", "next-admin", "Next.js monorepo management")
 
 Improvements v2:

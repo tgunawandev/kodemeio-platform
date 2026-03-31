@@ -1,6 +1,6 @@
 """Shared test fixtures and helpers for kctl-* CLI test suites.
 
-Install via: kctl-common[testing]
+Install via: kctl-lib[testing]
 """
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from typing import Any
 
 import yaml
 
-from kctl_common.callbacks import AppContextBase
-from kctl_common.output import Output
+from kctl_lib.callbacks import AppContextBase
+from kctl_lib.output import Output
 
 
 def mock_output(**overrides: Any) -> Output:

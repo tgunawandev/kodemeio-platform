@@ -1,10 +1,10 @@
-"""Tests for kctl_common.output."""
+"""Tests for kctl_lib.output."""
 
 from __future__ import annotations
 
 import json
 
-from kctl_common.output import Output
+from kctl_lib.output import Output
 
 
 class TestOutputInit:

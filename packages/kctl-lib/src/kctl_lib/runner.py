@@ -6,7 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from kctl_common.exceptions import CommandError
+from kctl_lib.exceptions import CommandError
 
 
 def run(

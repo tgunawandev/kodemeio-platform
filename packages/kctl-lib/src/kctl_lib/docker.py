@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from kctl_common.runner import run, run_quiet
+from kctl_lib.runner import run, run_quiet
 
 
 class DockerManager:

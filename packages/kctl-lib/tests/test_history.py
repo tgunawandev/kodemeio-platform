@@ -1,16 +1,16 @@
-"""Tests for kctl_common.history."""
+"""Tests for kctl_lib.history."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import patch
 
-from kctl_common.history import HistoryStore
+from kctl_lib.history import HistoryStore
 
 
 class TestHistoryStore:
     def _make_store(self, tmp_path: Path) -> HistoryStore:
-        with patch("kctl_common.history.DATA_BASE_DIR", tmp_path):
+        with patch("kctl_lib.history.DATA_BASE_DIR", tmp_path):
             store = HistoryStore("test-cli")
             store.ensure_schema(
                 [
@@ -25,7 +25,7 @@ class TestHistoryStore:
         return store
 
     def test_record_and_query(self, tmp_path: Path) -> None:
-        with patch("kctl_common.history.DATA_BASE_DIR", tmp_path):
+        with patch("kctl_lib.history.DATA_BASE_DIR", tmp_path):
             store = self._make_store(tmp_path)
             store.record("builds", app="portfolio", size=1024)
             rows = store.query("builds")
@@ -35,7 +35,7 @@ class TestHistoryStore:
             assert "timestamp" in rows[0]
 
     def test_query_limit(self, tmp_path: Path) -> None:
-        with patch("kctl_common.history.DATA_BASE_DIR", tmp_path):
+        with patch("kctl_lib.history.DATA_BASE_DIR", tmp_path):
             store = self._make_store(tmp_path)
             for i in range(5):
                 store.record("builds", app=f"app{i}", size=i * 100)
@@ -43,7 +43,7 @@ class TestHistoryStore:
             assert len(rows) == 3
 
     def test_query_with_filter(self, tmp_path: Path) -> None:
-        with patch("kctl_common.history.DATA_BASE_DIR", tmp_path):
+        with patch("kctl_lib.history.DATA_BASE_DIR", tmp_path):
             store = self._make_store(tmp_path)
             store.record("builds", app="a", size=100)
             store.record("builds", app="b", size=200)
@@ -52,21 +52,21 @@ class TestHistoryStore:
             assert rows[0]["app"] == "a"
 
     def test_clear_table(self, tmp_path: Path) -> None:
-        with patch("kctl_common.history.DATA_BASE_DIR", tmp_path):
+        with patch("kctl_lib.history.DATA_BASE_DIR", tmp_path):
             store = self._make_store(tmp_path)
             store.record("builds", app="x", size=1)
             store.clear("builds")
             assert store.query("builds") == []
 
     def test_clear_all(self, tmp_path: Path) -> None:
-        with patch("kctl_common.history.DATA_BASE_DIR", tmp_path):
+        with patch("kctl_lib.history.DATA_BASE_DIR", tmp_path):
             store = self._make_store(tmp_path)
             store.record("builds", app="x", size=1)
             store.clear()
             assert store.query("builds") == []
 
     def test_db_path(self, tmp_path: Path) -> None:
-        with patch("kctl_common.history.DATA_BASE_DIR", tmp_path):
+        with patch("kctl_lib.history.DATA_BASE_DIR", tmp_path):
             store = HistoryStore("my-cli")
             expected = tmp_path / "my-cli" / "history.db"
             assert store.db_path == expected

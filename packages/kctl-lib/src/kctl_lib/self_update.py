@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from kctl_common.runner import run, run_quiet
+from kctl_lib.runner import run, run_quiet
 
 
 def check_update(package_name: str, current_version: str) -> str | None:

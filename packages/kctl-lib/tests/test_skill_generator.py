@@ -1,4 +1,4 @@
-"""Tests for kctl_common.skill_generator."""
+"""Tests for kctl_lib.skill_generator."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from kctl_common.skill_generator import check_stale, generate_skill
+from kctl_lib.skill_generator import check_stale, generate_skill
 
 
 def _make_test_app() -> typer.Typer:

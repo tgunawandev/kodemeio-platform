@@ -1,10 +1,10 @@
-"""Tests for kctl_common.validate."""
+"""Tests for kctl_lib.validate."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from kctl_common.validate import Issue, dockerfile_lint, env_validate, json_lint, yaml_lint
+from kctl_lib.validate import Issue, dockerfile_lint, env_validate, json_lint, yaml_lint
 
 
 class TestIssueDataclass:

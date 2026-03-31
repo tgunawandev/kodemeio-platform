@@ -1,4 +1,4 @@
-"""Tests for kctl_common.plugins."""
+"""Tests for kctl_lib.plugins."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import typer
 
-from kctl_common.plugins import discover_and_load_plugins
+from kctl_lib.plugins import discover_and_load_plugins
 
 
 class TestKctlPluginProtocol:
@@ -24,7 +24,7 @@ class TestKctlPluginProtocol:
 class TestDiscoverAndLoad:
     def test_empty_when_no_plugins(self) -> None:
         app = typer.Typer()
-        with patch("kctl_common.plugins.importlib.metadata.entry_points", return_value=[]):
+        with patch("kctl_lib.plugins.importlib.metadata.entry_points", return_value=[]):
             loaded = discover_and_load_plugins(app, "kctl_test.plugins")
         assert loaded == []
 
@@ -40,7 +40,7 @@ class TestDiscoverAndLoad:
         ep = MagicMock()
         ep.name = "fake"
         ep.load.return_value = FakePlugin
-        with patch("kctl_common.plugins.importlib.metadata.entry_points", return_value=[ep]):
+        with patch("kctl_lib.plugins.importlib.metadata.entry_points", return_value=[ep]):
             loaded = discover_and_load_plugins(app, "kctl_test.plugins")
         assert loaded == ["fake"]
 
@@ -49,6 +49,6 @@ class TestDiscoverAndLoad:
         ep = MagicMock()
         ep.name = "broken"
         ep.load.side_effect = ImportError("missing dep")
-        with patch("kctl_common.plugins.importlib.metadata.entry_points", return_value=[ep]):
+        with patch("kctl_lib.plugins.importlib.metadata.entry_points", return_value=[ep]):
             loaded = discover_and_load_plugins(app, "kctl_test.plugins")
         assert loaded == []

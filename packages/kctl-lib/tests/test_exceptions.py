@@ -1,10 +1,10 @@
-"""Tests for kctl_common.exceptions."""
+"""Tests for kctl_lib.exceptions."""
 
 from __future__ import annotations
 
 import pytest
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AppNotFoundError,
     AuthenticationError,
@@ -15,7 +15,7 @@ from kctl_common.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     ConnectionError as KctlConnectionError,
 )
 

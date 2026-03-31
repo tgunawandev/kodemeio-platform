@@ -1,4 +1,4 @@
-"""kctl-common: shared core library for kctl-* CLI tools.
+"""kctl-lib: shared core library for kctl-* CLI tools.
 
 Public API:
     - exceptions: KctlError hierarchy
@@ -20,14 +20,14 @@ Public API:
     - async_api_client: Base AsyncAPIClient for async CLIs
 """
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
-from kctl_common.api_client import APIClient
-from kctl_common.async_api_client import AsyncAPIClient
-from kctl_common.callbacks import AppContextBase
-from kctl_common.docker import DockerManager
-from kctl_common.doctor_base import CheckResult, DoctorCheck, run_doctor
-from kctl_common.exceptions import (
+from kctl_lib.api_client import APIClient
+from kctl_lib.async_api_client import AsyncAPIClient
+from kctl_lib.callbacks import AppContextBase
+from kctl_lib.docker import DockerManager
+from kctl_lib.doctor_base import CheckResult, DoctorCheck, run_doctor
+from kctl_lib.exceptions import (
     APIError,
     AppNotFoundError,
     AuthenticationError,
@@ -39,8 +39,8 @@ from kctl_common.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from kctl_common.output import Output
-from kctl_common.validate import Issue
+from kctl_lib.output import Output
+from kctl_lib.validate import Issue
 
 __all__ = [
     "APIClient",

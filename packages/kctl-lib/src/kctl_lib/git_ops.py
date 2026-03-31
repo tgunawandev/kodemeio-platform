@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from kctl_common.runner import run, run_quiet
+from kctl_lib.runner import run, run_quiet
 
 
 def branch_status(cwd: Path | None = None) -> dict:  # type: ignore[type-arg]

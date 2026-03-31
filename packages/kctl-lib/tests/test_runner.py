@@ -1,11 +1,11 @@
-"""Tests for kctl_common.runner."""
+"""Tests for kctl_lib.runner."""
 
 from __future__ import annotations
 
 import pytest
 
-from kctl_common.exceptions import CommandError
-from kctl_common.runner import get_git_branch, get_git_sha, run, run_quiet
+from kctl_lib.exceptions import CommandError
+from kctl_lib.runner import get_git_branch, get_git_sha, run, run_quiet
 
 
 class TestRun:

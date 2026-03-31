@@ -1,11 +1,11 @@
-"""Tests for kctl_common.config."""
+"""Tests for kctl_lib.config."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from kctl_common.config import (
+from kctl_lib.config import (
     ConfigFile,
     expand_env,
     get_default_profile,
@@ -51,8 +51,8 @@ class TestConfigFile:
 class TestLoadSave:
     def test_roundtrip(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "config.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-        monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
         data = {"default_profile": "prod", "profiles": {"prod": {"next": {"project_root": "/p"}}}}
         save_raw_config(data)
         loaded = load_raw_config()
@@ -60,15 +60,15 @@ class TestLoadSave:
 
     def test_load_missing_file(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "nonexistent.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
         assert load_raw_config() == {}
 
 
 class TestServiceConfig:
     def test_get_scoped(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "config.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-        monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
         data = {"default_profile": "default", "profiles": {"default": {"next": {"project_root": "/my/path"}}}}
         save_raw_config(data)
         result = get_service_config("default", "next", ["project_root"])
@@ -76,8 +76,8 @@ class TestServiceConfig:
 
     def test_get_flat_fallback(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "config.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-        monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
         data = {"default_profile": "default", "profiles": {"default": {"project_root": "/flat/path"}}}
         save_raw_config(data)
         result = get_service_config("default", "next", ["project_root"])
@@ -85,8 +85,8 @@ class TestServiceConfig:
 
     def test_get_empty_profile(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "config.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-        monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
         data = {"default_profile": "default", "profiles": {}}
         save_raw_config(data)
         result = get_service_config("nonexistent", "next")
@@ -96,16 +96,16 @@ class TestServiceConfig:
 class TestSetServiceConfig:
     def test_set_creates_scoped(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "config.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-        monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
         set_service_config("default", "next", {"project_root": "/new/path"})
         result = get_service_config("default", "next", ["project_root"])
         assert result["project_root"] == "/new/path"
 
     def test_set_migrates_flat_to_scoped(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "config.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-        monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
         data = {"default_profile": "default", "profiles": {"default": {"project_root": "/old"}}}
         save_raw_config(data)
         set_service_config("default", "next", {"project_root": "/new"})
@@ -125,16 +125,16 @@ class TestResolveProfile:
 class TestProfileCRUD:
     def test_get_profile_names(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "config.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-        monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
         data = {"default_profile": "a", "profiles": {"a": {}, "b": {}}}
         save_raw_config(data)
         assert set(get_profile_names()) == {"a", "b"}
 
     def test_remove_profile(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "config.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-        monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
         data = {"default_profile": "a", "profiles": {"a": {}, "b": {}}}
         save_raw_config(data)
         remove_profile("a")
@@ -142,8 +142,8 @@ class TestProfileCRUD:
 
     def test_set_default_profile(self, tmp_path: Path, monkeypatch: Any) -> None:
         config_file = tmp_path / "config.yaml"
-        monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-        monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
         data = {"default_profile": "a", "profiles": {"a": {}, "b": {}}}
         save_raw_config(data)
         set_default_profile("b")
