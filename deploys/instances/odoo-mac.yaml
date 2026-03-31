@@ -8,7 +8,7 @@ instance:
 dns:
   zone: kodeme.io
   name: odoo-mac
-  content: 49.13.14.79
+  content: 49.13.116.191           # Dokploy server (kodeme-infra)
 
 domain:
   host: odoo-mac.kodeme.io
