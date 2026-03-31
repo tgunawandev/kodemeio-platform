@@ -223,7 +223,7 @@ class TestPhaseDns:
         manifest = _make_manifest(dns=DnsConfig(zone="example.com", name="app.example.com", content="1.2.3.4"))
         deployer = Deployer(manifest=manifest, dry_run=False)
 
-        # Text output from kctl-cloudflare records list containing the FQDN
+        # Text output from kctl-cf records list containing the FQDN
         text_output = "app.example.com  A  1.2.3.4  proxied"
         with patch("subprocess.run", return_value=_mock_proc(0, text_output)):
             deployer.phase_dns()

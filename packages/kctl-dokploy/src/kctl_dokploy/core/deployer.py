@@ -140,7 +140,7 @@ class Deployer:
             return
 
         fqdn = f"{dns.name}.{dns.zone}" if not dns.name.endswith(dns.zone) else dns.name
-        code, out = self._run_kctl(["kctl-cloudflare", "records", "list", "--zone", dns.zone])
+        code, out = self._run_kctl(["kctl-cf", "records", "list", "--zone", dns.zone])
         if code == 0 and fqdn in out:
             self._record_phase("dns", "skipped", f"Record {dns.name} already exists")
             return
@@ -148,7 +148,7 @@ class Deployer:
         # Create the record
         code, out = self._run_kctl(
             [
-                "kctl-cloudflare",
+                "kctl-cf",
                 "records",
                 "create",
                 "--zone",

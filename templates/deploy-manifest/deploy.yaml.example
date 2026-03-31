@@ -32,7 +32,7 @@ source:
   compose_path: ./docker-compose.prod.yml
 
 # ---------------------------------------------------------------------------
-# DNS Records (via kctl-cloudflare)
+# DNS Records (via kctl-cf)
 # ---------------------------------------------------------------------------
 dns:
   - zone: kodeme.io
