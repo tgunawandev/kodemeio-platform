@@ -85,8 +85,8 @@ class TestRegistryHash:
         content1 = generate_skill(app, "kctl-test", "test-admin", "Test")
         content2 = generate_skill(app, "kctl-test", "test-admin", "Test")
         # Extract hash from both
-        hash1 = [l for l in content1.splitlines() if "registry_hash:" in l][0]
-        hash2 = [l for l in content2.splitlines() if "registry_hash:" in l][0]
+        hash1 = [line for line in content1.splitlines() if "registry_hash:" in line][0]
+        hash2 = [line for line in content2.splitlines() if "registry_hash:" in line][0]
         assert hash1 == hash2
 
 
@@ -160,6 +160,6 @@ class TestDomainTriggers:
         app.add_typer(sub, name="items")
         content = generate_skill(app, "kctl-test", "test-admin", "Test")
         # Generic names like "list" and "get" should NOT be triggers
-        triggers_line = [l for l in content.splitlines() if "Triggers on:" in l][0]
+        triggers_line = [line for line in content.splitlines() if "Triggers on:" in line][0]
         assert '"list"' not in triggers_line
         assert '"get"' not in triggers_line
