@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import getpass
 import subprocess
 from typing import Annotated
 
@@ -9,6 +10,7 @@ import typer
 
 from kctl_cloudflare.core.callbacks import AppContext
 from kctl_cloudflare.core.config import get_service_config, resolve_active_profile_name
+from kctl_cloudflare.core.notify import notify_terraform
 
 app = typer.Typer(help="Run Terraform commands for Cloudflare infrastructure.")
 
@@ -53,26 +55,42 @@ def plan(ctx: typer.Context) -> None:
 def apply(
     ctx: typer.Context,
     auto_approve: Annotated[bool, typer.Option("--auto-approve", help="Skip interactive approval")] = False,
+    notify: Annotated[bool, typer.Option("--notify", "-n", help="Send webhook notification on completion")] = False,
 ) -> None:
     """Apply Terraform changes."""
     c: AppContext = ctx.obj
     args = ["apply"]
     if auto_approve:
         args.append("-auto-approve")
-    _run_terraform(c, args)
+    try:
+        _run_terraform(c, args)
+        if notify:
+            notify_terraform("apply", success=True, user=getpass.getuser())
+    except (typer.Exit, SystemExit):
+        if notify:
+            notify_terraform("apply", success=False, user=getpass.getuser())
+        raise
 
 
 @app.command()
 def destroy(
     ctx: typer.Context,
     auto_approve: Annotated[bool, typer.Option("--auto-approve", help="Skip interactive approval")] = False,
+    notify: Annotated[bool, typer.Option("--notify", "-n", help="Send webhook notification on completion")] = False,
 ) -> None:
     """Destroy Terraform-managed infrastructure."""
     c: AppContext = ctx.obj
     args = ["destroy"]
     if auto_approve:
         args.append("-auto-approve")
-    _run_terraform(c, args)
+    try:
+        _run_terraform(c, args)
+        if notify:
+            notify_terraform("destroy", success=True, user=getpass.getuser())
+    except (typer.Exit, SystemExit):
+        if notify:
+            notify_terraform("destroy", success=False, user=getpass.getuser())
+        raise
 
 
 @app.command()

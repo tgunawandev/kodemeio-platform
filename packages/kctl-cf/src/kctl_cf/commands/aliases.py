@@ -97,3 +97,11 @@ def register_aliases(app: typer.Typer) -> None:
     @app.command("tl", hidden=True, help="Alias: tunnels list")
     def tl(ctx: typer.Context) -> None:
         sys.exit(subprocess.call([*_get_base_cmd(ctx), "tunnels", "list"]))  # noqa: S603, S607
+
+    @app.command("st", hidden=True, help="Alias: status overview")
+    def st(ctx: typer.Context) -> None:
+        sys.exit(subprocess.call([*_get_base_cmd(ctx), "status", "overview"]))  # noqa: S603, S607
+
+    @app.command("bk", hidden=True, help="Alias: export backup")
+    def bk(ctx: typer.Context) -> None:
+        sys.exit(subprocess.call([*_get_base_cmd(ctx), "export", "backup"]))  # noqa: S603, S607

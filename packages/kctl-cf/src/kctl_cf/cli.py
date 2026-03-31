@@ -26,6 +26,7 @@ from kctl_cloudflare.commands.selftest import app as selftest_app
 from kctl_cloudflare.commands.spectrum import app as spectrum_app
 from kctl_cloudflare.commands.speed import app as speed_app
 from kctl_cloudflare.commands.ssl import app as ssl_app
+from kctl_cloudflare.commands.status import app as status_app
 from kctl_cloudflare.commands.terraform import app as terraform_app
 from kctl_cloudflare.commands.tunnels import app as tunnels_app
 from kctl_cloudflare.commands.waf import app as waf_app
@@ -98,6 +99,7 @@ app.add_typer(pages_app, name="pages")
 app.add_typer(redirects_app, name="redirects")
 app.add_typer(access_app, name="access")
 app.add_typer(speed_app, name="speed")
+app.add_typer(status_app, name="status")
 app.add_typer(analytics_app, name="analytics")
 app.add_typer(selftest_app, name="selftest")
 app.add_typer(argo_app, name="argo")

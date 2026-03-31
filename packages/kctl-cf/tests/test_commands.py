@@ -91,25 +91,44 @@ class TestRecords:
 
 
 class TestHealth:
-    def test_health_check_ok(self, mock_client: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def _setup_healthy_client(self, mock_client: MagicMock) -> None:
+        """Configure mock_client to pass all 6 health checks."""
         mock_client.check_health.return_value = {"status": "active"}
-        mock_client.get.return_value = [{"name": "kodeme.io"}]
+        mock_client.account_id = "test_account_id"
+
+        def _get_side_effect(path: str, **kwargs: object) -> object:
+            if path == "/zones":
+                return [{"id": "z1", "name": "kodeme.io", "status": "active"}]
+            if "/settings/ssl" in path:
+                return {"value": "full"}
+            if "/cfd_tunnel" in path:
+                return [{"name": "main", "status": "healthy", "connections": []}]
+            if "/accounts/" in path and "cfd_tunnel" not in path and "r2" not in path:
+                return {"name": "Test Account"}
+            return []
+
+        mock_client.get.side_effect = _get_side_effect
+
+    def test_health_check_ok(self, mock_client: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+        self._setup_healthy_client(mock_client)
         actx = _make_actx(json_mode=True, client=mock_client)
         actx.profile = None
         ctx = _make_ctx(actx)
 
         from kctl_cloudflare.commands.health import check
 
-        check(ctx, watch=False, interval=10)
+        check(ctx, watch=False, interval=10, notify=False)
 
         data = json.loads(capsys.readouterr().out)
         assert data["healthy"] is True
-        assert data["status"] == "active"
+        assert data["passed"] == data["total"]
 
     def test_health_check_fail(self, mock_client: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         from kctl_cloudflare.core.exceptions import ConnectionError as KctlConnectionError
 
         mock_client.check_health.side_effect = KctlConnectionError("https://api.cloudflare.com", None)
+        mock_client.account_id = ""
+        mock_client.get.return_value = []
         actx = _make_actx(json_mode=True, client=mock_client)
         actx.profile = None
         ctx = _make_ctx(actx)
@@ -117,7 +136,7 @@ class TestHealth:
         from kctl_cloudflare.commands.health import check
 
         with pytest.raises((SystemExit, click.exceptions.Exit)):
-            check(ctx, watch=False, interval=10)
+            check(ctx, watch=False, interval=10, notify=False)
 
         data = json.loads(capsys.readouterr().out)
         assert data["healthy"] is False
