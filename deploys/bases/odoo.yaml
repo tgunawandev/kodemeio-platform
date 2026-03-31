@@ -26,6 +26,11 @@ env_defaults:
   WITHOUT_DEMO: "True"
   PGHOST: "10.0.0.3"
   PGPORT: "5432"
+  ODOO_TAG: "latest"
+  ODOO_SERVER_WIDE_MODULES: "base,web"
+  ODOO_MANDATORY_BUNDLE: "oca-mandatory"
+  ODOO_MANDATORY_GROUPS: "core"
+  IR_ATTACHMENT_LOCATION: "file"
   TZ: "Asia/Jakarta"
 
 backup:

@@ -373,8 +373,16 @@ def install(
         out.success("All available modules are already installed.")
         return
 
-    out.info(f"Installing {len(install_ids)} modules from '{bundle.name}'...")
-    c.execute_kw("ir.module.module", "button_immediate_install", [install_ids])
+    out.info(f"Installing {len(install_ids)} modules from '{bundle.name}' (may take several minutes)...")
+    # Module install can take 5-10+ min — increase timeout
+    import httpx as _httpx
+
+    saved = c._client.timeout
+    c._client = _httpx.Client(headers=dict(c._client.headers), timeout=600.0, follow_redirects=True)
+    try:
+        c.execute_kw("ir.module.module", "button_immediate_install", [install_ids])
+    finally:
+        c._client = _httpx.Client(headers=dict(c._client.headers), timeout=saved, follow_redirects=True)
     out.success(f"Installed {len(install_ids)} modules: {', '.join(install_names)}")
 
     if actx.json_mode:
