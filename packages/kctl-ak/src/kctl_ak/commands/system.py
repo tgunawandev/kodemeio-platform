@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Annotated
 
 import typer
 
@@ -94,6 +95,132 @@ def license(ctx: typer.Context) -> None:
             ),
         ]
         c.output.detail("Enterprise License", sections, data_for_json=lic)
+
+
+@app.command()
+def impersonation(
+    ctx: typer.Context,
+    state: Annotated[str | None, typer.Argument(help="on or off (omit to show current)")] = None,
+) -> None:
+    """Toggle or show impersonation setting."""
+    c: AppContext = ctx.obj
+    current = c.client.get("admin/settings/")
+    if not isinstance(current, dict):
+        current = {}
+
+    if state is None:
+        val = current.get("impersonation", True)
+        label = "[green]enabled[/green]" if val else "[red]disabled[/red]"
+        c.output.detail(
+            "Impersonation",
+            [("Setting", [("Impersonation", label)])],
+            data_for_json={"impersonation": val},
+        )
+        return
+
+    new_val = state.lower() in ("on", "true", "1", "yes", "enable", "enabled")
+    current["impersonation"] = new_val
+    c.client.put("admin/settings/", data=current)
+    c.output.success(f"Impersonation {'enabled' if new_val else 'disabled'}")
+
+
+@app.command("user-changes")
+def user_changes(
+    ctx: typer.Context,
+    name: Annotated[str | None, typer.Option(help="Allow name changes: on/off")] = None,
+    email: Annotated[str | None, typer.Option(help="Allow email changes: on/off")] = None,
+    username: Annotated[str | None, typer.Option(help="Allow username changes: on/off")] = None,
+) -> None:
+    """Toggle user self-service field change settings."""
+    c: AppContext = ctx.obj
+    current = c.client.get("admin/settings/")
+    if not isinstance(current, dict):
+        current = {}
+
+    def parse_bool(v: str) -> bool:
+        return v.lower() in ("on", "true", "1", "yes")
+
+    fields_map = {
+        "allow_user_name_change": name,
+        "allow_user_email_change": email,
+        "allow_user_username_change": username,
+    }
+
+    changed = False
+    for key, val in fields_map.items():
+        if val is not None:
+            current[key] = parse_bool(val)
+            changed = True
+
+    if changed:
+        c.client.put("admin/settings/", data=current)
+        c.output.success("User self-service settings updated")
+    else:
+        # Show current values
+        kvs = [
+            ("Name changes", str(current.get("allow_user_name_change", True))),
+            ("Email changes", str(current.get("allow_user_email_change", True))),
+            ("Username changes", str(current.get("allow_user_username_change", True))),
+        ]
+        c.output.detail("User Self-Service", [("Settings", kvs)], data_for_json=current)
+
+
+@app.command("token-defaults")
+def token_defaults(
+    ctx: typer.Context,
+    duration: Annotated[str | None, typer.Option(help="Default token duration (e.g. 'days=30')")] = None,
+    length: Annotated[int | None, typer.Option(help="Default token key length")] = None,
+) -> None:
+    """Set or show default token parameters."""
+    c: AppContext = ctx.obj
+    current = c.client.get("admin/settings/")
+    if not isinstance(current, dict):
+        current = {}
+
+    changed = False
+    if duration is not None:
+        current["default_token_duration"] = duration
+        changed = True
+    if length is not None:
+        current["default_token_length"] = length
+        changed = True
+
+    if changed:
+        c.client.put("admin/settings/", data=current)
+        c.output.success("Token defaults updated")
+    else:
+        kvs = [
+            ("Duration", str(current.get("default_token_duration", "(server default)"))),
+            ("Length", str(current.get("default_token_length", "(server default)"))),
+        ]
+        c.output.detail("Token Defaults", [("Settings", kvs)], data_for_json=current)
+
+
+@app.command("event-retention")
+def event_retention(
+    ctx: typer.Context,
+    duration: Annotated[
+        str | None, typer.Argument(help="Retention duration (e.g. 'days=365'). Omit to show current.")
+    ] = None,
+) -> None:
+    """Set or show event retention duration."""
+    c: AppContext = ctx.obj
+    current = c.client.get("admin/settings/")
+    if not isinstance(current, dict):
+        current = {}
+
+    if duration is None:
+        val = current.get("event_retention", "(server default)")
+        c.output.detail(
+            "Event Retention",
+            [("Setting", [("Retention", str(val))])],
+            data_for_json={"event_retention": val},
+        )
+        return
+
+    current["event_retention"] = duration
+    c.client.put("admin/settings/", data=current)
+    c.output.success(f"Event retention set to: {duration}")
 
 
 @app.command()

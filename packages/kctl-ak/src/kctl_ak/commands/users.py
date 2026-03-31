@@ -729,27 +729,64 @@ def me(ctx: typer.Context) -> None:
     )
 
 
+def _check_groups_exist(client: object, groups: list[str]) -> tuple[list[str], list[str]]:
+    """Check which groups exist in Authentik. Returns (existing, missing)."""
+    from kctl_ak.core.client import AuthentikClient
+
+    assert isinstance(client, AuthentikClient)
+    all_groups = client.get_all("core/groups/")
+    existing_names = {g["name"] for g in all_groups}
+    existing = [g for g in groups if g in existing_names]
+    missing = [g for g in groups if g not in existing_names]
+    return existing, missing
+
+
 @app.command()
-def roles(ctx: typer.Context) -> None:
+def roles(
+    ctx: typer.Context,
+    verify: Annotated[bool, typer.Option("--verify", help="Check which groups actually exist in Authentik")] = False,
+) -> None:
     """List available provisioning roles."""
     c: AppContext = ctx.obj
     loader = RoleLoader()
     all_roles = loader.list_roles()
 
-    rows = [[r.name, r.description, ", ".join(r.groups)] for r in all_roles]
+    if verify:
+        all_groups: set[str] = set()
+        for r in all_roles:
+            all_groups.update(r.groups)
+        existing, missing = _check_groups_exist(c.client, sorted(all_groups))
 
-    c.output.table(
-        "Available Roles",
-        [("Name", "green"), ("Description", ""), ("Groups", "dim")],
-        rows,
-        data_for_json=[r.model_dump() for r in all_roles],
-    )
+        rows = [[r.name, r.description, ", ".join(r.groups)] for r in all_roles]
+        c.output.table(
+            "Available Roles",
+            [("Name", "green"), ("Description", ""), ("Groups", "dim")],
+            rows,
+            data_for_json=[r.model_dump() for r in all_roles],
+        )
+
+        if missing:
+            c.output.warn(f"{len(missing)} groups missing in Authentik:")
+            for g in missing:
+                c.output.text(f"  [red]- {g}[/red]")
+            c.output.info("Run 'kctl-ak groups sync --no-dry-run' to create missing groups")
+        else:
+            c.output.success(f"All {len(existing)} groups exist in Authentik")
+    else:
+        rows = [[r.name, r.description, ", ".join(r.groups)] for r in all_roles]
+        c.output.table(
+            "Available Roles",
+            [("Name", "green"), ("Description", ""), ("Groups", "dim")],
+            rows,
+            data_for_json=[r.model_dump() for r in all_roles],
+        )
 
 
 @app.command()
 def role(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Role name")],
+    verify: Annotated[bool, typer.Option("--verify", help="Check which groups actually exist in Authentik")] = False,
 ) -> None:
     """Show details for a specific role."""
     c: AppContext = ctx.obj
@@ -759,21 +796,28 @@ def role(
         c.output.error(f"Role not found: {name}")
         raise typer.Exit(1)
 
-    c.output.detail(
-        f"Role: {r.name}",
-        [
-            (
-                "Definition",
-                [
-                    ("Name", r.name),
-                    ("Description", r.description),
-                    ("File", r.file_path or "(unknown)"),
-                ],
-            ),
-            ("Groups", [(str(i + 1), g) for i, g in enumerate(r.groups)] if r.groups else [("(none)", "")]),
-        ],
-        data_for_json=r.model_dump(),
-    )
+    sections: list[tuple[str, list[tuple[str, str]]]] = [
+        (
+            "Definition",
+            [
+                ("Name", r.name),
+                ("Description", r.description),
+                ("File", r.file_path or "(unknown)"),
+            ],
+        ),
+    ]
+
+    if verify and r.groups:
+        existing, missing = _check_groups_exist(c.client, r.groups)
+        group_kvs: list[tuple[str, str]] = []
+        for g in r.groups:
+            status = "[green]exists[/green]" if g in existing else "[red]MISSING[/red]"
+            group_kvs.append((g, status))
+        sections.append(("Groups", group_kvs))
+    else:
+        sections.append(("Groups", [(str(i + 1), g) for i, g in enumerate(r.groups)] if r.groups else [("(none)", "")]))
+
+    c.output.detail(f"Role: {r.name}", sections, data_for_json=r.model_dump())
 
 
 @app.command()

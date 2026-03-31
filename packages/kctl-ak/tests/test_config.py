@@ -1,6 +1,5 @@
 """Tests for kctl-ak config module."""
 
-import pytest
 from kctl_ak.core.config import ServiceConfig, SmtpProfile
 
 

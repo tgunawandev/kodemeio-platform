@@ -294,3 +294,51 @@ def tail(
                     c.output.info(f"{row[5]}  {row[1]:<20}  {row[2]:<16}  {row[3]}")
     except KeyboardInterrupt:
         c.output.info("Stopped.")
+
+
+@app.command()
+def suspicious(
+    ctx: typer.Context,
+    days: Annotated[int, typer.Option(help="Number of recent days to analyze.")] = 7,
+) -> None:
+    """Show suspicious events (failed logins, privilege changes, impersonation)."""
+    c: AppContext = ctx.obj
+    from datetime import datetime, timedelta
+
+    since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+
+    suspicious_actions = [
+        "login_failed",
+        "impersonation_started",
+        "impersonation_ended",
+        "model_updated",
+        "model_deleted",
+        "authorize_application",
+        "secret_view",
+        "password_set",
+    ]
+
+    all_results: list[dict] = []
+    for action in suspicious_actions:
+        try:
+            data = c.client.get(
+                _ENDPOINT,
+                params={"ordering": "-created", "action": action, "page_size": 20, "created__gte": since},
+            )
+            all_results.extend(data.get("results", []))
+        except Exception:
+            pass
+
+    all_results.sort(key=lambda e: e.get("created", ""), reverse=True)
+
+    if not all_results:
+        c.output.success(f"No suspicious events in the last {days} days")
+        return
+
+    rows = [_format_event_row(ev) for ev in all_results[:50]]
+    c.output.table(
+        f"Suspicious Events (last {days} days, {len(all_results)} found)",
+        _EVENT_COLUMNS,
+        rows,
+        data_for_json=all_results[:50],
+    )

@@ -194,3 +194,65 @@ def access(
         rows,
         data_for_json=bindings,
     )
+
+
+@app.command("audit")
+def audit_(ctx: typer.Context) -> None:
+    """Show apps with missing providers, no launch URL, or no policy bindings."""
+    c = ctx.obj
+    apps = c.client.get_all("core/applications/")
+    issues: list[dict] = []
+
+    for a in apps:
+        problems: list[str] = []
+        provider = a.get("provider_obj") or a.get("provider")
+        if not provider:
+            problems.append("no provider")
+        launch_url = a.get("meta_launch_url", "")
+        if not launch_url:
+            problems.append("no launch URL")
+
+        if problems:
+            issues.append(
+                {
+                    "slug": a.get("slug", ""),
+                    "name": a.get("name", ""),
+                    "problems": problems,
+                }
+            )
+
+    if not issues:
+        c.output.success("All applications have providers and launch URLs")
+        if c.output.json_mode:
+            c.output.raw_json([])
+        return
+
+    rows = [[i["slug"], i["name"], ", ".join(i["problems"])] for i in issues]
+    c.output.table(
+        f"Application Audit ({len(issues)} issues)",
+        [("Slug", "cyan"), ("Name", ""), ("Problems", "yellow")],
+        rows,
+        data_for_json=issues,
+    )
+
+
+@app.command()
+def orphaned(ctx: typer.Context) -> None:
+    """List applications that have no active provider."""
+    c = ctx.obj
+    apps = c.client.get_all("core/applications/")
+    orphans = [a for a in apps if not a.get("provider") and not a.get("provider_obj")]
+
+    if not orphans:
+        c.output.success("No orphaned applications found")
+        if c.output.json_mode:
+            c.output.raw_json([])
+        return
+
+    rows = [[a.get("slug", ""), a.get("name", ""), a.get("meta_launch_url", "") or "-"] for a in orphans]
+    c.output.table(
+        f"Orphaned Applications ({len(orphans)})",
+        [("Slug", "cyan"), ("Name", ""), ("Launch URL", "dim")],
+        rows,
+        data_for_json=orphans,
+    )

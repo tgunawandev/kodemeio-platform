@@ -2,7 +2,7 @@
 name: authentik-admin
 description: >
   Authentik identity provider (auth.kodeme.io) administration via kctl-ak CLI. MUST use for ANY SSO, OAuth2, LDAP, SAML, or authentication infrastructure task. Triggers on: "kctl-ak", "authentik", "SSO", "OAuth provider", "LDAP", "SAML", "forward auth", "auth.kodeme.io", "create user authentik", "authentication", "identity provider", or ANY auth infrastructure question.
-version: 1.0.0
+version: 2.0.0
 allowed-tools:
   - Bash
   - Read
@@ -24,13 +24,9 @@ allowed-tools:
 
 ## CLI Tool: kctl-ak
 
-The CLI is installed in the project at `cli/` and available via the venv:
+Installed via uv workspace at `packages/kctl-ak/` in the kodemeio-platform repo.
 
 ```bash
-# Run from the kodemeio-authentik project root:
-cli/.venv/bin/kctl-ak <command>
-
-# Or if installed globally:
 kctl-ak <command>
 ```
 
@@ -39,38 +35,45 @@ Configuration is stored at `~/.config/kodemeio/config.yaml` with profiles.
 ### Global Options
 
 ```bash
-kctl-ak [--json] [--quiet] [--profile NAME] [--url URL] [--token TOKEN] <command>
+kctl-ak [--json] [--quiet/-q] [--profile/-p NAME] [--url URL] [--token TOKEN] [--version/-V] <command>
 ```
 
-### User Management
+---
+
+## Command Reference
+
+### users — User management and provisioning
 
 ```bash
-kctl-ak users list [--page N] [--active|--inactive]
+kctl-ak users list [--page N] [--page-size N] [--active] [--inactive]
 kctl-ak users get <id|username|email>
 kctl-ak users search <term>
-kctl-ak users create <email> [--name NAME] [--username NAME] [--password PASS] [--groups g1,g2]
+kctl-ak users create <email> [--name NAME] [--username NAME] [--password PASS] [--groups g1,g2] [--superuser]
 kctl-ak users update <identifier> <field> <value>
-kctl-ak users password <identifier> [password]
+kctl-ak users password <identifier> [new_password]
 kctl-ak users recovery <identifier>
 kctl-ak users activate <identifier>
 kctl-ak users deactivate <identifier>
 kctl-ak users delete <identifier> [--force]
 kctl-ak users groups <identifier>
-kctl-ak users invite <email> [--name NAME] [--groups g1,g2]
+kctl-ak users invite <email> [--name NAME] [--groups g1,g2] [--send-mail]
+kctl-ak users re-invite <identifier>
+kctl-ak users pending
+kctl-ak users bulk-invite <file.json> [--send-mail]
 kctl-ak users export [--format json|csv]
 kctl-ak users bulk-import <file.json>
 kctl-ak users me
 ```
 
-### Role-Based Provisioning
+### users — Role-Based Provisioning
 
 ```bash
-kctl-ak users roles                                    # List available roles
-kctl-ak users role <name>                              # Show role details
-kctl-ak users provision <email> <role> [role2...]      # Provision user with roles
+kctl-ak users roles [--verify]              # List available roles (--verify checks groups exist in Authentik)
+kctl-ak users role <name> [--verify]         # Show role details (--verify checks groups exist)
+kctl-ak users provision <email> <role> [role2...] [--name NAME] [--username NAME] [--send-mail]
 ```
 
-Roles are defined in `roles/*.yaml`. Each maps to a set of groups.
+Roles are defined in `roles/*.yaml`. Each maps to a set of Authentik groups.
 
 | Role | Description | Use Case |
 |---|---|---|
@@ -81,158 +84,248 @@ Roles are defined in `roles/*.yaml`. Each maps to a set of groups.
 | `devops` | DevOps engineer | Mattermost + Grafana admin + N8N |
 | `mattermost-user` | Chat only | Mattermost |
 
-### Group Management
+### groups — Group management and hierarchy
 
 ```bash
-kctl-ak groups list
+kctl-ak groups list [--page N]
 kctl-ak groups get <id|name>
-kctl-ak groups tree                                    # Visual hierarchy
+kctl-ak groups tree
 kctl-ak groups create <name> [--parent NAME] [--superuser]
+kctl-ak groups update <identifier> <field> <value>
+kctl-ak groups delete <identifier> [--force]
 kctl-ak groups add-user <group> <user>
 kctl-ak groups remove-user <group> <user>
 kctl-ak groups members <id|name>
-kctl-ak groups sync [--dry-run] [--file PATH]          # Sync from group-structure.yaml
+kctl-ak groups sync [--dry-run] [--no-dry-run] [--file PATH]    # Sync from group-structure.yaml
 kctl-ak groups export [--format json|yaml]
 ```
 
-### Application & Provider Management
+### apps — Application management
 
 ```bash
 kctl-ak apps list
 kctl-ak apps get <slug>
-kctl-ak apps create <name> <slug> [--provider ID] [--launch-url URL]
+kctl-ak apps create <name> <slug> [--provider ID] [--launch-url URL] [--description TEXT]
+kctl-ak apps update <slug> <field> <value>
+kctl-ak apps delete <slug> [--force]
 kctl-ak apps launch-urls
 kctl-ak apps access <slug>
+kctl-ak apps audit                           # Show apps with missing providers or no launch URL
+kctl-ak apps orphaned                        # List apps with no active provider
+```
 
+### providers — Provider management (OAuth2, LDAP, SAML, Proxy)
+
+```bash
 kctl-ak providers list [--type oauth2|ldap|saml|proxy]
-kctl-ak providers oauth2 list|get|create|credentials|delete
-kctl-ak providers ldap list|get|create|delete
-kctl-ak providers saml list|get|create|metadata|delete
-kctl-ak providers proxy list|get|create|delete
+
+# OAuth2 subcommands
+kctl-ak providers oauth2 list
+kctl-ak providers oauth2 get <id>
+kctl-ak providers oauth2 create <name> <redirect_uri> [--client-type confidential|public]
+kctl-ak providers oauth2 credentials <id>
+kctl-ak providers oauth2 delete <id> [--force]
+
+# LDAP subcommands
+kctl-ak providers ldap list
+kctl-ak providers ldap get <id>
+kctl-ak providers ldap create <name> [--base-dn DN] [--search-group GROUP]
+kctl-ak providers ldap delete <id> [--force]
+
+# SAML subcommands
+kctl-ak providers saml list
+kctl-ak providers saml get <id>
+kctl-ak providers saml create <name> <acs_url> [--audience AUDIENCE] [--issuer ISSUER]
+kctl-ak providers saml metadata <id>
+kctl-ak providers saml delete <id> [--force]
+
+# Proxy subcommands
+kctl-ak providers proxy list
+kctl-ak providers proxy get <id>
+kctl-ak providers proxy create <name> <external_host> [--internal-host URL] [--mode forward_single|forward_domain]
+kctl-ak providers proxy delete <id> [--force]
 ```
 
-### Quick Setup (Provider + App in one command)
-
-```bash
-kctl-ak setup oauth2 "ServiceName" "https://service.kodeme.io/callback"
-kctl-ak setup proxy "ServiceName" "https://service.kodeme.io"
-kctl-ak setup admin <username>
-kctl-ak setup recovery <username>
-kctl-ak setup status
-```
-
-### Monitoring & Health
-
-```bash
-kctl-ak health [--watch]
-kctl-ak dashboard [--compact] [--watch]
-kctl-ak maintenance status|version|tasks|outposts|workers|config|clean
-```
-
-### Audit & Security
-
-```bash
-kctl-ak audit list [--action TYPE] [--user IDENT]
-kctl-ak audit logins [--failed]
-kctl-ak audit stats [--days N]
-kctl-ak audit tail [--interval N]                      # Live tail
-
-kctl-ak sessions list [--user IDENT]
-kctl-ak sessions kill <session_id>
-kctl-ak sessions kill-user <user> [--force]
-kctl-ak sessions stats
-
-kctl-ak tokens list [--user IDENT]
-kctl-ak tokens create <identifier> <user> [--intent api]
-kctl-ak tokens view <identifier>                       # Show actual key
-kctl-ak tokens rotate <identifier>
-kctl-ak tokens expire-all <user> [--force]
-```
-
-### Flows & Blueprints
+### flows — Authentication flow management
 
 ```bash
 kctl-ak flows list [--designation TYPE]
 kctl-ak flows get <slug>
 kctl-ak flows bindings <slug>
+kctl-ak flows stages <slug>
 kctl-ak flows export <slug>
+kctl-ak flows execute <slug>
+```
 
+### audit — Event and audit log management
+
+```bash
+kctl-ak audit list [--page N] [--action TYPE] [--user IDENT] [--client-ip IP]
+kctl-ak audit logins [--failed]
+kctl-ak audit changes [--model TYPE]
+kctl-ak audit get <event_id>
+kctl-ak audit stats [--days N]
+kctl-ak audit export [--days N] [--format json|csv]
+kctl-ak audit tail [--interval N]
+kctl-ak audit suspicious                     # Show suspicious events (failed logins, privilege changes)
+```
+
+### sessions — Authenticated session management
+
+```bash
+kctl-ak sessions list [--user IDENT]
+kctl-ak sessions get <session_id>
+kctl-ak sessions kill <session_id>
+kctl-ak sessions kill-user <user> [--force]
+kctl-ak sessions stats
+kctl-ak sessions active
+```
+
+### tokens — API token management
+
+```bash
+kctl-ak tokens list [--user IDENT]
+kctl-ak tokens get <identifier>
+kctl-ak tokens create <identifier> <user> [--intent api|verify] [--expiring] [--description TEXT]
+kctl-ak tokens view <identifier>             # Show the actual token key
+kctl-ak tokens delete <identifier> [--force]
+kctl-ak tokens rotate <identifier>           # Delete + recreate with same settings, show new key
+kctl-ak tokens expire-all <user> [--force]   # Delete all tokens for a user
+```
+
+### blueprints — Blueprint management
+
+```bash
 kctl-ak blueprints instances
+kctl-ak blueprints get <id>
 kctl-ak blueprints apply <id>
 kctl-ak blueprints export <flow_slug>
 ```
 
-### Configuration
+### maintenance — System maintenance and administration
+
+```bash
+kctl-ak maintenance status
+kctl-ak maintenance version
+kctl-ak maintenance tasks
+kctl-ak maintenance run <task_id>
+kctl-ak maintenance cache-clear
+kctl-ak maintenance outposts
+kctl-ak maintenance workers
+kctl-ak maintenance config
+kctl-ak maintenance clean
+kctl-ak maintenance settings
+kctl-ak maintenance impersonation
+```
+
+### setup — Setup wizards
+
+```bash
+kctl-ak setup status
+kctl-ak setup oauth2 <name> <redirect_uri>
+kctl-ak setup proxy <name> <external_host>
+kctl-ak setup admin <username>
+kctl-ak setup recovery <username>
+kctl-ak setup app <name> <slug> [--provider-type TYPE]
+```
+
+### health — Health checks
+
+```bash
+kctl-ak health [--watch] [--interval N]
+```
+
+### dashboard — System overview
+
+```bash
+kctl-ak dashboard [--watch] [--interval N] [--compact]
+kctl-ak dashboard --security                 # Security-focused view (failed logins, token usage, policy denials)
+```
+
+### config — CLI configuration and profiles
 
 ```bash
 kctl-ak config init [--url URL] [--token TOKEN] [--name NAME]
+kctl-ak config add [--name NAME] [--url URL] [--token TOKEN]
+kctl-ak config use <profile>
+kctl-ak config remove <profile>
 kctl-ak config show
 kctl-ak config set <key> <value>
 kctl-ak config profiles
 kctl-ak config current
 kctl-ak config test
+kctl-ak config migrate
 ```
 
-### Policy Management
+### mail — Email operations via SMTP
+
+```bash
+kctl-ak mail test <to_email>
+kctl-ak mail send-recovery <identifier>
+kctl-ak mail send-welcome <identifier>
+kctl-ak mail send-password <identifier>
+kctl-ak mail recovery-link <identifier>
+```
+
+### policies — Policy management
 
 ```bash
 kctl-ak policies list [--type TYPE]
 kctl-ak policies get <id>
-kctl-ak policies create-expression <name> --expression "..." [--execution-logging]
-kctl-ak policies create-password <name> [--min-length N] [--symbol-charset CHARS]
-kctl-ak policies create-reputation <name> [--threshold N]
-kctl-ak policies test <id> --user <identifier>
-kctl-ak policies bindings <id>
+kctl-ak policies create <name> [--type expression|password|reputation] [--expression "..."]
+kctl-ak policies update <id> <field> <value>
 kctl-ak policies delete <id> [--force]
-kctl-ak policies cache-clear
+kctl-ak policies bindings
+kctl-ak policies bind <policy_id> --target <target_id> [--order N] [--negate] [--enabled]
+kctl-ak policies unbind <binding_id> [--force]
+kctl-ak policies test <id> --user <identifier>
 ```
 
-### Stage Management
+### stages — Stage management
 
 ```bash
 kctl-ak stages list [--type TYPE]
 kctl-ak stages get <id>
-kctl-ak stages create-identification <name> --user-fields username,email [--password-stage ID]
+kctl-ak stages create-prompt <name> [--fields FIELD1,FIELD2]
 kctl-ak stages create-password <name> [--backends BACKEND1,BACKEND2]
-kctl-ak stages create-authenticator-validate <name> [--device-classes totp,webauthn]
-kctl-ak stages create-authenticator-totp <name> [--digits 6] [--friendly-name NAME]
-kctl-ak stages create-authenticator-webauthn <name> [--resident-key-requirement discouraged]
-kctl-ak stages create-email <name> --template TEMPLATE [--host HOST] [--port PORT]
+kctl-ak stages create-identification <name> --user-fields username,email [--password-stage ID]
 kctl-ak stages create-consent <name> [--mode always_require|permanent|expiring]
+kctl-ak stages create-email <name> --template TEMPLATE [--host HOST] [--port PORT]
 kctl-ak stages create-user-login <name> [--session-duration DURATION]
-kctl-ak stages create-user-write <name> [--user-creation-mode never_create|create_when_required]
-kctl-ak stages create-deny <name>
-kctl-ak stages create-invitation <name> [--no-continue-without-invitation]
+kctl-ak stages create-user-logout <name>
+kctl-ak stages create-authenticator-validate <name> [--device-classes totp,webauthn]
+kctl-ak stages update <id> <field> <value>
 kctl-ak stages delete <id> [--force]
+kctl-ak stages prompts                       # List prompt field definitions
 ```
 
-### Property Mapping Management
+### property-mappings — Property mapping management
 
 ```bash
 kctl-ak property-mappings list [--type TYPE]
 kctl-ak property-mappings get <id>
 kctl-ak property-mappings create-scope <name> --scope-name SCOPE --expression "..."
-kctl-ak property-mappings create-ldap <name> --expression "..." --object-field FIELD
 kctl-ak property-mappings create-saml <name> --expression "..." --saml-name ATTR
-kctl-ak property-mappings test <id> --user <identifier> [--provider ID]
-kctl-ak property-mappings export <id>
+kctl-ak property-mappings create-ldap <name> --expression "..." --object-field FIELD
+kctl-ak property-mappings create-scim <name> --expression "..."
+kctl-ak property-mappings update <id> <field> <value>
 kctl-ak property-mappings delete <id> [--force]
-kctl-ak property-mappings used-by <id>
+kctl-ak property-mappings test <id> --user <identifier> [--provider ID]
 ```
 
-### Certificate Management
+### certificates — Certificate and key pair management
 
 ```bash
 kctl-ak certificates list
 kctl-ak certificates get <id>
+kctl-ak certificates create <name> --cert-file CERT [--key-file KEY]
 kctl-ak certificates generate <name> [--validity-days 365]
-kctl-ak certificates import <name> --cert-file CERT --key-file KEY
-kctl-ak certificates download <id> [--format pem|der]
 kctl-ak certificates delete <id> [--force]
+kctl-ak certificates view <id>               # Show parsed certificate details
 kctl-ak certificates used-by <id>
 ```
 
-### Outpost Management
+### outposts — Outpost instance management
 
 ```bash
 kctl-ak outposts list
@@ -241,12 +334,12 @@ kctl-ak outposts create <name> --type proxy|ldap|radius [--providers ID1,ID2]
 kctl-ak outposts update <id> [--name NAME] [--providers ID1,ID2]
 kctl-ak outposts delete <id> [--force]
 kctl-ak outposts health <id>
-kctl-ak outposts deploy <id>
-kctl-ak outposts service-connections list
-kctl-ak outposts service-connections create <name> --url URL [--tls-verify] [--local]
+kctl-ak outposts connections                 # List service connections
+kctl-ak outposts create-connection <name> --url URL [--tls-verify] [--local]
+kctl-ak outposts delete-connection <id> [--force]
 ```
 
-### Brand Management
+### brands — Brand/tenant management
 
 ```bash
 kctl-ak brands list
@@ -257,28 +350,34 @@ kctl-ak brands delete <id> [--force]
 kctl-ak brands current
 ```
 
-### Notification Management
+### notifications — Notification management
 
 ```bash
 kctl-ak notifications list [--unread]
-kctl-ak notifications get <id>
-kctl-ak notifications mark-read <id>
-kctl-ak notifications mark-all-read
-kctl-ak notifications rules list
-kctl-ak notifications rules create <name> --group ID --transports ID1,ID2 --severity notice|warning|alert
-kctl-ak notifications transports list
-kctl-ak notifications transports create <name> --mode webhook|email|slack [--webhook-url URL]
-kctl-ak notifications transports test <id>
+kctl-ak notifications rules                  # List notification rules
+kctl-ak notifications create-rule <name> --group ID --transports ID1,ID2 --severity notice|warning|alert
+kctl-ak notifications update-rule <id> [--name NAME] [--severity SEVERITY]
+kctl-ak notifications delete-rule <id> [--force]
+kctl-ak notifications transports             # List notification transports
+kctl-ak notifications create-transport <name> --mode webhook|email|slack [--webhook-url URL]
+kctl-ak notifications delete-transport <id> [--force]
+kctl-ak notifications mark-read <id|--all>
 ```
 
-### System Administration
+### system — System settings and administration
 
 ```bash
-kctl-ak system info
-kctl-ak system tasks
-kctl-ak system runners
-kctl-ak system license
+kctl-ak system settings                      # Show all system settings
+kctl-ak system update-setting --key KEY --value VALUE
+kctl-ak system license                       # Show enterprise license info
+kctl-ak system version                       # Show server version
+kctl-ak system impersonation [on|off]        # Toggle/show impersonation setting
+kctl-ak system user-changes [--name on|off] [--email on|off] [--username on|off]
+kctl-ak system token-defaults [--duration DURATION] [--length N]
+kctl-ak system event-retention [DURATION]    # Set/show event retention
 ```
+
+---
 
 ## Provider Decision Tree
 
@@ -368,7 +467,7 @@ Key endpoints:
 - `core/authenticated_sessions/` -- Session management
 - `core/tokens/` -- Token CRUD + `{id}/view_key/`
 - `managed/blueprints/` -- Blueprint instances
-- `admin/system/` -- System info
+- `admin/settings/` -- System settings (GET/PUT)
 - `admin/version/` -- Version info
 - `outposts/instances/` -- Outpost management
 - `policies/all/` -- Policy management
@@ -402,3 +501,13 @@ Key endpoints:
 1. `kctl-ak providers oauth2 get <id>` -- check token validity
 2. `kctl-ak tokens list --user <user>` -- check user tokens
 3. `kctl-ak audit logins --failed` -- check for auth failures
+
+### Apps without SSO providers
+1. `kctl-ak apps audit` -- find apps missing providers
+2. `kctl-ak apps orphaned` -- list apps with no provider
+3. `kctl-ak setup oauth2 "AppName" "callback_url"` -- create provider + app binding
+
+### Missing groups for role provisioning
+1. `kctl-ak users roles --verify` -- check all roles' groups exist
+2. `kctl-ak groups sync --dry-run` -- preview group creation from structure file
+3. `kctl-ak groups sync --no-dry-run` -- create missing groups
