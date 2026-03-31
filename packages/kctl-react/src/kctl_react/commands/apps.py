@@ -22,7 +22,7 @@ app = typer.Typer(help="App inventory, status, and health checks.")
 
 @app.command("list")
 def list_(ctx: typer.Context) -> None:
-    """List all 11 apps with ports and package names."""
+    """List all apps with ports and package names."""
     actx: AppContext = ctx.obj
     out = actx.output
 
