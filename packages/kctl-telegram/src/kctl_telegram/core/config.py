@@ -1,13 +1,13 @@
 """Profile management and configuration for kctl-telegram.
 
-Uses kctl-common config framework with SERVICE_KEY = "telegram".
+Uses kctl-lib config framework with SERVICE_KEY = "telegram".
 """
 
 from __future__ import annotations
 
 import os
 
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_DIR,
     CONFIG_FILE,
     get_all_services_in_profile,
@@ -19,8 +19,8 @@ from kctl_common.config import (
     save_raw_config,
     set_default_profile,
 )
-from kctl_common.config import get_service_config as _get_service_config
-from kctl_common.config import set_service_config as _set_service_config
+from kctl_lib.config import get_service_config as _get_service_config
+from kctl_lib.config import set_service_config as _set_service_config
 from pydantic import BaseModel
 
 SERVICE_KEY = "telegram"

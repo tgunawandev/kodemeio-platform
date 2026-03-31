@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from kctl_common.exceptions import CommandError
+from kctl_lib.exceptions import CommandError
 
 from kctl_claude.core.runner import run_script
 

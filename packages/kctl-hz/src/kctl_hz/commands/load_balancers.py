@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from kctl_hetzner.core.callbacks import AppContext
-from kctl_hetzner.core.utils import parse_labels
+from kctl_hz.core.callbacks import AppContext
+from kctl_hz.core.utils import parse_labels
 
 app = typer.Typer(help="Manage Hetzner Cloud load balancers.")
 

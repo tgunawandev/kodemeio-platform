@@ -1,4 +1,4 @@
-"""GlitchTip API client — subclasses kctl-common APIClient.
+"""GlitchTip API client — subclasses kctl-lib APIClient.
 
 GlitchTip uses Sentry-compatible REST API at /api/0/.
 Auth: Token <token> from GlitchTip UI.
@@ -9,8 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import AuthenticationError, ConfigError
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import AuthenticationError, ConfigError
 
 
 class GlitchTipClient(APIClient):

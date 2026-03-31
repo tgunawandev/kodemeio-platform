@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_notion.core.client import NotionClient
 from kctl_notion.core.config import (

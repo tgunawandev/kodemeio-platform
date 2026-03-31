@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from kctl_common.config import ConfigFile, is_service_scoped
+from kctl_lib.config import ConfigFile, is_service_scoped
 from pydantic import BaseModel
 
 CONFIG_DIR = Path.home() / ".config" / "kodemeio"

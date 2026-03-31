@@ -1,12 +1,12 @@
 """Custom exception hierarchy for kctl-claw.
 
-Thin re-exports from kctl-common where compatible.
+Thin re-exports from kctl-lib where compatible.
 Claw-specific exceptions (GatewayError, NotFoundError) are kept locally.
 """
 
 from __future__ import annotations
 
-from kctl_common.exceptions import ConfigError, DockerError, KctlError, ValidationError
+from kctl_lib.exceptions import ConfigError, DockerError, KctlError, ValidationError
 
 __all__ = [
     "ConfigError",

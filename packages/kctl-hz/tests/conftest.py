@@ -1,4 +1,4 @@
-"""Shared test fixtures for kctl-hetzner tests."""
+"""Shared test fixtures for kctl-hz tests."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from kctl_hetzner.core.callbacks import AppContext
+from kctl_hz.core.callbacks import AppContext
 
 
 @pytest.fixture

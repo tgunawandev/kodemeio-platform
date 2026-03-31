@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_react.core.config import resolve_project_root
 from kctl_react.core.discovery import discover_apps, discover_packages, get_app_dir as _get_app_dir
@@ -65,6 +65,6 @@ class AppContext(AppContextBase):
     def validate_app(self, app_name: str) -> None:
         """Validate app name against discovered apps."""
         if app_name not in self.apps:
-            from kctl_common.exceptions import AppNotFoundError
+            from kctl_lib.exceptions import AppNotFoundError
 
             raise AppNotFoundError(app_name, self.app_names)

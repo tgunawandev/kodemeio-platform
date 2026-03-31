@@ -1,4 +1,4 @@
-"""kctl-claude doctor — scored diagnostics using kctl-common doctor_base."""
+"""kctl-claude doctor — scored diagnostics using kctl-lib doctor_base."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 import typer
-from kctl_common.doctor_base import (
+from kctl_lib.doctor_base import (
     CheckResult,
     DockerCheck,
     GitCheck,
@@ -14,7 +14,7 @@ from kctl_common.doctor_base import (
     UvCheck,
     run_doctor,
 )
-from kctl_common.runner import run_quiet
+from kctl_lib.runner import run_quiet
 
 from kctl_claude.core.callbacks import AppContext
 

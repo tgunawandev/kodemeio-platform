@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 import typer
 
 if TYPE_CHECKING:
-    from kctl_hetzner.core.client import HetznerCloudClient, HetznerDnsClient
-    from kctl_hetzner.core.output import Output
+    from kctl_hz.core.client import HetznerCloudClient, HetznerDnsClient
+    from kctl_hz.core.output import Output
 
 
 def resolve_resource(
@@ -35,7 +35,7 @@ def resolve_resource(
     display = label or key.rstrip("s").title()
 
     if identifier.isdigit():
-        from kctl_hetzner.core.exceptions import APIError
+        from kctl_hz.core.exceptions import APIError
 
         try:
             data = client.get(f"/{endpoint}/{identifier}")

@@ -79,7 +79,7 @@ class TestMonitoringResources:
         mock_client.get.side_effect = Exception("API error")
         result = runner.invoke(app, ["--json", "monitoring", "resources"])
         assert result.exit_code == 0
-        # Empty dict data_for_json produces no JSON output (kctl-common behavior)
+        # Empty dict data_for_json produces no JSON output (kctl-lib behavior)
         if result.output.strip():
             data = json.loads(result.output)
             assert isinstance(data, dict)

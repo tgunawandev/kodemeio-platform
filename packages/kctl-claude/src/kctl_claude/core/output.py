@@ -1,6 +1,6 @@
 """Rich output helpers for kctl-claude.
 
-Re-exports kctl-common Output with backward-compatible aliases
+Re-exports kctl-lib Output with backward-compatible aliases
 for the method names used throughout kctl-claude commands.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.output import Output as _BaseOutput
+from kctl_lib.output import Output as _BaseOutput
 
 
 class Output(_BaseOutput):

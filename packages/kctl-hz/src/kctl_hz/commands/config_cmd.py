@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common.exceptions import KctlError
+from kctl_lib.exceptions import KctlError
 
-from kctl_hetzner.core.callbacks import AppContext
-from kctl_hetzner.core.config import (
+from kctl_hz.core.callbacks import AppContext
+from kctl_hz.core.config import (
     CONFIG_FILE,
     SERVICE_KEY,
     ServiceConfig,

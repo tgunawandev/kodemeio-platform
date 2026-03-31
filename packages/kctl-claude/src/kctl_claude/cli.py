@@ -61,7 +61,7 @@ def main(
 
     # Record command in history (non-blocking, best-effort)
     try:
-        from kctl_common.history import HistoryStore
+        from kctl_lib.history import HistoryStore
 
         store = HistoryStore("kctl-claude")
         store.ensure_schema(
@@ -89,7 +89,7 @@ def completions(
     install: Annotated[bool, typer.Option("--install", help="Install completions")] = False,
 ) -> None:
     """Generate or install shell completions."""
-    from kctl_common.completions import get_completion_script, install_completions
+    from kctl_lib.completions import get_completion_script, install_completions
 
     if install:
         path = install_completions("kctl-claude", shell)
@@ -109,8 +109,8 @@ def update_cmd(ctx: typer.Context) -> None:
     actx: AppContext = ctx.obj
     out = actx.output
 
-    from kctl_common.self_update import check_update
-    from kctl_common.self_update import update as do_update
+    from kctl_lib.self_update import check_update
+    from kctl_lib.self_update import update as do_update
 
     latest = check_update("kctl-claude", __version__)
     if latest:

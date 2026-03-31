@@ -1,6 +1,6 @@
 """Shared application context for kctl-op.
 
-Subclasses AppContextBase from kctl-common, adding 1Password-specific
+Subclasses AppContextBase from kctl-lib, adding 1Password-specific
 fields: vault override, token override, lazy client and service config.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_op.core.client import OnePasswordClient
 from kctl_op.core.config import ServiceConfig, resolve_config

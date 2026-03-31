@@ -28,7 +28,7 @@ def generate(
     """
     actx: AppContext = ctx.obj
     out = actx.output
-    from kctl_common.skill_generator import check_stale, generate_skill
+    from kctl_lib.skill_generator import check_stale, generate_skill
 
     from kctl_odoo.cli import app as cli_app
 

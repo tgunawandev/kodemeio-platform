@@ -24,7 +24,7 @@ class TestRun:
         mock_result.stdout = "hello\n"
         mock_result.stderr = ""
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result):
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result):
             result = run(["echo", "hello"])
 
         assert result.returncode == 0
@@ -38,7 +38,7 @@ class TestRun:
         mock_result.stderr = "something went wrong"
 
         with (
-            patch("kctl_common.runner.subprocess.run", return_value=mock_result),
+            patch("kctl_lib.runner.subprocess.run", return_value=mock_result),
             pytest.raises(CommandError) as exc_info,
         ):
             run(["failing", "command"])
@@ -53,7 +53,7 @@ class TestRun:
         mock_result.stdout = ""
         mock_result.stderr = "error"
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result):
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result):
             result = run(["cmd"], check=False)
 
         assert result.returncode == 2
@@ -62,7 +62,7 @@ class TestRun:
         """run() raises CommandError with -1 returncode on timeout."""
         with (
             patch(
-                "kctl_common.runner.subprocess.run",
+                "kctl_lib.runner.subprocess.run",
                 side_effect=subprocess.TimeoutExpired(["sleep", "100"], 5),
             ),
             pytest.raises(CommandError) as exc_info,
@@ -76,7 +76,7 @@ class TestRun:
         """run() raises CommandError when the executable does not exist."""
         with (
             patch(
-                "kctl_common.runner.subprocess.run",
+                "kctl_lib.runner.subprocess.run",
                 side_effect=FileNotFoundError("No such file"),
             ),
             pytest.raises(CommandError) as exc_info,
@@ -93,7 +93,7 @@ class TestRun:
         mock_result.stdout = ""
         mock_result.stderr = ""
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result) as mock_sp:
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result) as mock_sp:
             run(["ls"], cwd=tmp_path)
 
         _, call_kwargs = mock_sp.call_args
@@ -106,7 +106,7 @@ class TestRun:
         mock_result.stdout = None
         mock_result.stderr = None
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result) as mock_sp:
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result) as mock_sp:
             run(["cmd"], capture=False)
 
         _, call_kwargs = mock_sp.call_args
@@ -126,7 +126,7 @@ class TestRunQuiet:
         mock_result.stdout = ""
         mock_result.stderr = "error"
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result):
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result):
             result = run_quiet(["cmd_that_fails"])
 
         assert result.returncode == 1
@@ -144,7 +144,7 @@ class TestGetGitSha:
         mock_result.returncode = 0
         mock_result.stdout = "abc1234\n"
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result):
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result):
             sha = get_git_sha()
 
         assert sha == "abc1234"
@@ -155,7 +155,7 @@ class TestGetGitSha:
         mock_result.returncode = 128
         mock_result.stdout = ""
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result):
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result):
             sha = get_git_sha()
 
         assert sha == ""
@@ -166,7 +166,7 @@ class TestGetGitSha:
         mock_result.returncode = 0
         mock_result.stdout = "deadbeef\n"
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result) as mock_sp:
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result) as mock_sp:
             get_git_sha()
 
         cmd_called = mock_sp.call_args[0][0]
@@ -180,7 +180,7 @@ class TestGetGitBranch:
         mock_result.returncode = 0
         mock_result.stdout = "18.0\n"
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result):
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result):
             branch = get_git_branch()
 
         assert branch == "18.0"
@@ -191,7 +191,7 @@ class TestGetGitBranch:
         mock_result.returncode = 128
         mock_result.stdout = ""
 
-        with patch("kctl_common.runner.subprocess.run", return_value=mock_result):
+        with patch("kctl_lib.runner.subprocess.run", return_value=mock_result):
             branch = get_git_branch()
 
         assert branch == ""

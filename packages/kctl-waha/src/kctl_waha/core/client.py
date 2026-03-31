@@ -1,13 +1,13 @@
-"""WAHA and Bridge API clients — uses kctl-common base classes and exceptions."""
+"""WAHA and Bridge API clients — uses kctl-lib base classes and exceptions."""
 
 from __future__ import annotations
 
 from typing import Any
 
 import httpx
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import APIError, AuthenticationError
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import APIError, AuthenticationError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 
 class WahaClient(APIClient):
@@ -22,7 +22,7 @@ class WahaClient(APIClient):
 
     def __init__(self, base_url: str, api_key: str, timeout: float = 30.0) -> None:
         if not base_url:
-            from kctl_common.exceptions import ConfigError
+            from kctl_lib.exceptions import ConfigError
 
             raise ConfigError("No API URL configured. Run: kctl-waha config init")
         if not api_key:

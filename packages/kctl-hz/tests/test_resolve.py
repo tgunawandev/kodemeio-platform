@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 import typer
 
-from kctl_hetzner.core.resolve import (
+from kctl_hz.core.resolve import (
     resolve_dns_zone_id,
     resolve_firewall,
     resolve_load_balancer,

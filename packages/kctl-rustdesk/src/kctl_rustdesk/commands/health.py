@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 
-from kctl_common.exceptions import CommandError
+from kctl_lib.exceptions import CommandError
 from kctl_rustdesk.core.callbacks import AppContext
 from kctl_rustdesk.core.executor import RustDeskExecutor
 

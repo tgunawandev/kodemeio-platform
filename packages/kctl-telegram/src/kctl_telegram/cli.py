@@ -75,7 +75,7 @@ def _run() -> None:
     try:
         app()
     except KctlError as e:
-        from kctl_common import handle_cli_error
+        from kctl_lib import handle_cli_error
 
         handle_cli_error(e)
 

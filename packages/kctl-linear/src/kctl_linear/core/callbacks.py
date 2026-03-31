@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_linear.core.client import LinearClient
 from kctl_linear.core.config import (

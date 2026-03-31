@@ -1,9 +1,9 @@
-"""Exception hierarchy — re-exported from kctl-common, with Odoo-specific additions."""
+"""Exception hierarchy — re-exported from kctl-lib, with Odoo-specific additions."""
 
 from __future__ import annotations
 
 import httpx
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     AuthenticationError,
     CommandError,
     ConfigError,

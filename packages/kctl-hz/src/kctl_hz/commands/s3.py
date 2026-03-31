@@ -12,7 +12,7 @@ from typing import Annotated
 
 import typer
 
-from kctl_hetzner.core.callbacks import AppContext
+from kctl_hz.core.callbacks import AppContext
 
 app = typer.Typer(help="Manage Hetzner S3-compatible object storage.")
 
@@ -38,7 +38,7 @@ def _get_profile() -> str | None:
 
 def _require_creds() -> tuple[str, str, str, str]:
     """Resolve S3 credentials from profile config (with env var overrides) or abort."""
-    from kctl_hetzner.core.config import resolve_s3_connection
+    from kctl_hz.core.config import resolve_s3_connection
 
     access_key, secret_key, endpoint, region = resolve_s3_connection(_get_profile())
     if not access_key or not secret_key:

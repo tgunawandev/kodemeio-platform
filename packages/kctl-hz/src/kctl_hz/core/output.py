@@ -1,10 +1,10 @@
-"""Output handler for kctl-hetzner.
+"""Output handler for kctl-hz.
 
-Re-exports from kctl-common.
+Re-exports from kctl-lib.
 """
 
 from __future__ import annotations
 
-from kctl_common.output import Output
+from kctl_lib.output import Output
 
 __all__ = ["Output"]

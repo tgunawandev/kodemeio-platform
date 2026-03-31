@@ -4,7 +4,7 @@ Mirror of :class:`kctl_odoo.core.client.OdooClient` with ``async`` methods
 and :class:`httpx.AsyncClient` under the hood.
 
 Note: This client uses JSON-RPC 2.0 protocol (not REST), so it does NOT
-subclass kctl_common.api_client.APIClient which is REST-oriented.
+subclass kctl_lib.api_client.APIClient which is REST-oriented.
 """
 
 from __future__ import annotations

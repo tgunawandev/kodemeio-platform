@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from kctl_common.config import (
+from kctl_lib.config import (
     get_all_services_in_profile,
     get_profile_names,
     remove_profile,
     set_default_profile,
 )
-from kctl_common.config import get_service_config as _get_service_config
-from kctl_common.config import (
+from kctl_lib.config import get_service_config as _get_service_config
+from kctl_lib.config import (
     resolve_active_profile_name as _resolve_active_profile_name,
 )
-from kctl_common.config import set_service_config as _set_service_config
+from kctl_lib.config import set_service_config as _set_service_config
 from pydantic import BaseModel
 
 __all__ = [

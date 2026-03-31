@@ -6,9 +6,9 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-from kctl_common.config import ConfigFile, expand_env, is_service_scoped
+from kctl_lib.config import ConfigFile, expand_env, is_service_scoped
 
-from kctl_hetzner.core.config import (
+from kctl_hz.core.config import (
     ServiceConfig,
     get_service_config,
     load_config,
@@ -54,7 +54,7 @@ class TestExpandEnv:
 
     def test_expand_missing_env_var(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            # kctl-common's expand_env keeps the ${VAR} reference when missing
+            # kctl-lib's expand_env keeps the ${VAR} reference when missing
             result = expand_env("${MISSING_VAR}")
             assert result == "${MISSING_VAR}"
 
@@ -79,13 +79,13 @@ class TestResolveActiveProfileName:
         assert resolve_active_profile_name("staging") == "staging"
 
     def test_env_var_profile(self) -> None:
-        with patch.dict(os.environ, {"KCTL_HETZNER_PROFILE": "production"}):
+        with patch.dict(os.environ, {"KCTL_HZ_PROFILE": "production"}):
             assert resolve_active_profile_name(None) == "production"
 
     def test_default_profile(self) -> None:
         with (
             patch.dict(os.environ, {}, clear=True),
-            patch("kctl_common.config.get_default_profile", return_value="my-default"),
+            patch("kctl_lib.config.get_default_profile", return_value="my-default"),
         ):
             assert resolve_active_profile_name(None) == "my-default"
 
@@ -96,7 +96,7 @@ class TestResolveConnection:
     def test_env_override(self) -> None:
         with (
             patch.dict(os.environ, {"HCLOUD_TOKEN": "env-cloud", "HETZNER_DNS_TOKEN": "env-dns"}),
-            patch("kctl_hetzner.core.config.get_service_config", return_value=ServiceConfig()),
+            patch("kctl_hz.core.config.get_service_config", return_value=ServiceConfig()),
         ):
             token, dns = resolve_connection()
             assert token == "env-cloud"
@@ -105,7 +105,7 @@ class TestResolveConnection:
     def test_cli_override_wins(self) -> None:
         with (
             patch.dict(os.environ, {"HCLOUD_TOKEN": "env-cloud"}),
-            patch("kctl_hetzner.core.config.get_service_config", return_value=ServiceConfig()),
+            patch("kctl_hz.core.config.get_service_config", return_value=ServiceConfig()),
         ):
             token, dns = resolve_connection(token_override="cli-token", dns_token_override="cli-dns")
             assert token == "cli-token"
@@ -113,8 +113,8 @@ class TestResolveConnection:
 
     def test_kctl_env_override(self) -> None:
         with (
-            patch.dict(os.environ, {"KCTL_HETZNER_TOKEN": "kctl-cloud", "KCTL_HETZNER_DNS_TOKEN": "kctl-dns"}),
-            patch("kctl_hetzner.core.config.get_service_config", return_value=ServiceConfig()),
+            patch.dict(os.environ, {"KCTL_HZ_TOKEN": "kctl-cloud", "KCTL_HZ_DNS_TOKEN": "kctl-dns"}),
+            patch("kctl_hz.core.config.get_service_config", return_value=ServiceConfig()),
         ):
             token, dns = resolve_connection()
             assert token == "kctl-cloud"
@@ -131,8 +131,8 @@ class TestLoadSaveConfig:
             "profiles": {"test": {"hetzner": {"token": "abc"}}},
         }
         with (
-            patch("kctl_common.config.CONFIG_FILE", config_file),
-            patch("kctl_common.config.CONFIG_DIR", tmp_path),
+            patch("kctl_lib.config.CONFIG_FILE", config_file),
+            patch("kctl_lib.config.CONFIG_DIR", tmp_path),
         ):
             save_raw_config(data)
             cfg = load_config()
@@ -141,7 +141,7 @@ class TestLoadSaveConfig:
 
     def test_load_missing_file(self, tmp_path: Path) -> None:
         config_file = tmp_path / "nonexistent.yaml"
-        with patch("kctl_common.config.CONFIG_FILE", config_file):
+        with patch("kctl_lib.config.CONFIG_FILE", config_file):
             cfg = load_config()
             assert cfg.default_profile == "default"
             assert cfg.profiles == {}
@@ -152,7 +152,7 @@ class TestGetServiceConfig:
 
     def test_scoped_profile(self) -> None:
         with patch(
-            "kctl_common.config.load_config",
+            "kctl_lib.config.load_config",
             return_value=ConfigFile(
                 default_profile="prod",
                 profiles={"prod": {"hetzner": {"token": "hcloud-token", "dns_token": "dns-token"}}},
@@ -164,7 +164,7 @@ class TestGetServiceConfig:
 
     def test_flat_profile(self) -> None:
         with patch(
-            "kctl_common.config.load_config",
+            "kctl_lib.config.load_config",
             return_value=ConfigFile(
                 default_profile="prod",
                 profiles={"prod": {"token": "hcloud-token"}},
@@ -175,7 +175,7 @@ class TestGetServiceConfig:
 
     def test_missing_profile(self) -> None:
         with patch(
-            "kctl_common.config.load_config",
+            "kctl_lib.config.load_config",
             return_value=ConfigFile(),
         ):
             svc = get_service_config("nonexistent")

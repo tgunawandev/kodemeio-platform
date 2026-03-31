@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typer
-from kctl_common.exceptions import CommandError
+from kctl_lib.exceptions import CommandError
 
 from kctl_claude.core.callbacks import AppContext
 from kctl_claude.core.runner import run_script

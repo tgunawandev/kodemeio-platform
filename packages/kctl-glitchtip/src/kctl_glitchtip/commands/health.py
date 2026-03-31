@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 
 import typer
-from kctl_common.exceptions import KctlError
+from kctl_lib.exceptions import KctlError
 
 from kctl_glitchtip.core.callbacks import AppContext
 

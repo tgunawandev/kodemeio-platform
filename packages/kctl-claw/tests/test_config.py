@@ -30,8 +30,8 @@ def test_service_config_defaults():
 
 def test_save_and_load_config(tmp_path, monkeypatch):
     config_file = tmp_path / "config.yaml"
-    monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
-    monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
+    monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+    monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
 
     save_raw_config(
         {
@@ -69,7 +69,7 @@ def test_get_service_config(tmp_path, monkeypatch):
             }
         )
     )
-    monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
+    monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
 
     cfg = get_service_config("default")
     assert cfg.project_root == "/my/project"

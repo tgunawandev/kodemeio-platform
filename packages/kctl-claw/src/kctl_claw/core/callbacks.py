@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_claw.core.config import resolve_active_profile, resolve_project_root
 from kctl_claw.core.config_manager import ConfigManager

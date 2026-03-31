@@ -66,8 +66,8 @@ def test_config_init(project_root, tmp_path, monkeypatch):
     # Redirect the config dir so we don't overwrite real config
     fake_config_dir = tmp_path / "fake-config-dir"
     fake_config_dir.mkdir()
-    monkeypatch.setattr("kctl_common.config.CONFIG_DIR", fake_config_dir)
-    monkeypatch.setattr("kctl_common.config.CONFIG_FILE", fake_config_dir / "config.yaml")
+    monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", fake_config_dir)
+    monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", fake_config_dir / "config.yaml")
 
     result = runner.invoke(
         app,

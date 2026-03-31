@@ -1,11 +1,11 @@
-"""Sentry API client — subclasses kctl-common APIClient."""
+"""Sentry API client — subclasses kctl-lib APIClient."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import AuthenticationError
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import AuthenticationError
 
 
 class SentryClient(APIClient):

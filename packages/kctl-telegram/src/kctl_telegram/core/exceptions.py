@@ -1,11 +1,11 @@
 """Exception hierarchy for kctl-telegram.
 
-Re-exports from kctl-common with service-specific aliases.
+Re-exports from kctl-lib with service-specific aliases.
 """
 
 from __future__ import annotations
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     CommandError,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from kctl_common.exceptions import APIError, AuthenticationError, ConfigError
+from kctl_lib.exceptions import APIError, AuthenticationError, ConfigError
 
 from kctl_notion.core.client import NotionClient
 

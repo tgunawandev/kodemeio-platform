@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from kctl_common.exceptions import CommandError
+from kctl_lib.exceptions import CommandError
 
 
 def run_script(

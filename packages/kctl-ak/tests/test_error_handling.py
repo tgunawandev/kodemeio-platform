@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from kctl_common.exceptions import APIError, ConfigError
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.exceptions import APIError, ConfigError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 from kctl_ak.core.client import AuthentikClient
 from kctl_ak.core.exceptions import NotFoundError
@@ -17,7 +17,7 @@ class TestAPIErrors:
         assert "Not found" in str(err)
 
     def test_api_error_is_kctl_error(self) -> None:
-        from kctl_common.exceptions import KctlError
+        from kctl_lib.exceptions import KctlError
 
         err = APIError(status_code=500, detail="Internal error")
         assert isinstance(err, KctlError)

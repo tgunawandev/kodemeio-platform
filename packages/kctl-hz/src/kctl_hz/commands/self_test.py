@@ -9,7 +9,7 @@ from typing import Annotated
 
 import typer
 
-from kctl_hetzner.core.callbacks import AppContext
+from kctl_hz.core.callbacks import AppContext
 
 app = typer.Typer(help="CLI self-test and smoke test.", invoke_without_command=True)
 
@@ -67,7 +67,7 @@ def _run_smoke(
     json_mode: bool,
 ) -> dict:
     """Run a single smoke-test command and return the result dict."""
-    cmd: list[str] = ["kctl-hetzner"]
+    cmd: list[str] = ["kctl-hz"]
     if profile:
         cmd.extend(["-p", profile])
     if json_mode:
@@ -147,15 +147,15 @@ def self_test(
 ) -> None:
     """Run one read-only command from each command group and report PASS/FAIL/SKIP.
 
-    Exercises every kctl-hetzner command group with a lightweight, read-only
+    Exercises every kctl-hz command group with a lightweight, read-only
     operation to verify connectivity and basic functionality.
 
     Examples:
-        kctl-hetzner self-test
-        kctl-hetzner self-test --verbose
-        kctl-hetzner self-test --group health,servers,volumes
-        kctl-hetzner --profile staging self-test
-        kctl-hetzner self-test --json
+        kctl-hz self-test
+        kctl-hz self-test --verbose
+        kctl-hz self-test --group health,servers,volumes
+        kctl-hz --profile staging self-test
+        kctl-hz self-test --json
     """
     if ctx.invoked_subcommand is not None:
         return

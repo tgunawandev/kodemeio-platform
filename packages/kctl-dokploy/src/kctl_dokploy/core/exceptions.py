@@ -1,11 +1,11 @@
 """Exception hierarchy for kctl-dokploy.
 
-Re-exports from kctl-common with service-specific additions.
+Re-exports from kctl-lib with service-specific additions.
 """
 
 from __future__ import annotations
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     ConfigError,
@@ -30,7 +30,7 @@ __all__ = [
 ]
 
 
-# Service-specific exceptions, inheriting from kctl-common bases
+# Service-specific exceptions, inheriting from kctl-lib bases
 
 
 class TimeoutError(ConnectionError):

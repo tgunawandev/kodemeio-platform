@@ -1,12 +1,12 @@
-"""Cloudflare API client — subclasses kctl-common APIClient."""
+"""Cloudflare API client — subclasses kctl-lib APIClient."""
 
 from __future__ import annotations
 
 from typing import Any
 
 import httpx
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import APIError, AuthenticationError, NotFoundError
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import APIError, AuthenticationError, NotFoundError
 
 
 class CloudflareClient(APIClient):

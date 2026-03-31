@@ -1,13 +1,13 @@
 """Typer global callback and shared context for kctl-telegram.
 
-Subclasses AppContextBase from kctl-common with Telegram-specific fields.
+Subclasses AppContextBase from kctl-lib with Telegram-specific fields.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_telegram.core.client import TelegramClient
 from kctl_telegram.core.config import resolve_connection

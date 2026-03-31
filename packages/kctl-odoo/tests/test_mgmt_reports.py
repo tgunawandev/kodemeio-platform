@@ -10,7 +10,7 @@ def _make_actx(client=None):
     actx = MagicMock(spec=AppContext)
     actx.json_mode = False
     actx.client = client or MagicMock()
-    from kctl_common import Output
+    from kctl_lib import Output
 
     actx.output = Output(json_mode=False)
     return actx

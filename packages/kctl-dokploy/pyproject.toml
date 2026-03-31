@@ -8,7 +8,7 @@ version = "0.3.0"
 description = "Kodemeio Dokploy CLI — manage Dokploy deployment platform"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -31,7 +31,7 @@ kctl-dokploy = "kctl_dokploy.cli:_run"
 [project.entry-points."kctl_dokploy.plugins"]
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kctl_dokploy"]

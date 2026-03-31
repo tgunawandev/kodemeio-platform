@@ -22,9 +22,9 @@ from kctl_dokploy.core.config import (
 def tmp_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create a temporary config file and point the module to it."""
     config_file = tmp_path / "config.yaml"
-    # Patch at kctl_common.config level since that's where the actual logic lives
-    monkeypatch.setattr("kctl_common.config.CONFIG_DIR", tmp_path)
-    monkeypatch.setattr("kctl_common.config.CONFIG_FILE", config_file)
+    # Patch at kctl_lib.config level since that's where the actual logic lives
+    monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
+    monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
     return config_file
 
 
@@ -86,7 +86,7 @@ class TestExpandKey:
 
     def test_returns_original_for_missing_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("NONEXISTENT_VAR", raising=False)
-        # kctl-common's expand_env keeps the ${VAR} reference if not found
+        # kctl-lib's expand_env keeps the ${VAR} reference if not found
         result = _expand_key("${NONEXISTENT_VAR}")
         assert result in ("", "${NONEXISTENT_VAR}")
 

@@ -1,6 +1,6 @@
 """Profile management and configuration resolution for kctl-pg.
 
-Delegates generic config operations to kctl-common. Keeps PostgreSQL-specific
+Delegates generic config operations to kctl-lib. Keeps PostgreSQL-specific
 ServiceConfig model and resolve_connection() logic local.
 
 Config format:
@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import os
 
-# Re-export generic config utilities from kctl-common
-from kctl_common.config import (
+# Re-export generic config utilities from kctl-lib
+from kctl_lib.config import (
     CONFIG_DIR,
     CONFIG_FILE,
     ConfigFile,
@@ -38,9 +38,9 @@ from kctl_common.config import (
     save_raw_config,
     set_default_profile,
 )
-from kctl_common.config import get_service_config as _get_service_config_raw
-from kctl_common.config import resolve_active_profile_name as _resolve_active_profile_name
-from kctl_common.config import set_service_config as _set_service_config_raw
+from kctl_lib.config import get_service_config as _get_service_config_raw
+from kctl_lib.config import resolve_active_profile_name as _resolve_active_profile_name
+from kctl_lib.config import set_service_config as _set_service_config_raw
 from pydantic import BaseModel
 
 # This CLI's service key.

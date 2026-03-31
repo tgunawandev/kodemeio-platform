@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from kctl_hetzner.core.callbacks import AppContext
+from kctl_hz.core.callbacks import AppContext
 
 app = typer.Typer(help="Infrastructure dashboard.")
 

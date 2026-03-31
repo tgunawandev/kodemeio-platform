@@ -1,7 +1,7 @@
 """Profile management and configuration resolution for kctl-api.
 
 ServiceConfig and resolve_connection() are API-specific and kept here.
-Profile framework functions delegate to kctl-common.config; low-level I/O
+Profile framework functions delegate to kctl-lib.config; low-level I/O
 (load_raw_config, save_raw_config) are kept locally so that the module-level
 CONFIG_FILE / CONFIG_DIR names can be patched in tests.
 
@@ -26,9 +26,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import kctl_common.config as _common
+import kctl_lib.config as _common
 import yaml
-from kctl_common.config import (
+from kctl_lib.config import (
     ConfigFile,
     get_all_services_in_profile,
     get_default_profile,
@@ -36,7 +36,7 @@ from kctl_common.config import (
     remove_profile,
     set_default_profile,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     is_service_scoped as _is_service_scoped,
 )
 from pydantic import BaseModel
@@ -118,7 +118,7 @@ def load_config() -> ConfigFile:
 
 
 # ---------------------------------------------------------------------------
-# Profile framework — delegates to kctl-common where possible.
+# Profile framework — delegates to kctl-lib where possible.
 # ---------------------------------------------------------------------------
 
 

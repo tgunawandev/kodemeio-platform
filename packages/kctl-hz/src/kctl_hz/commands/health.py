@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import typer
-from kctl_common.exceptions import KctlError
+from kctl_lib.exceptions import KctlError
 
-from kctl_hetzner.core.callbacks import AppContext
-from kctl_hetzner.core.config import resolve_active_profile_name
+from kctl_hz.core.callbacks import AppContext
+from kctl_hz.core.config import resolve_active_profile_name
 
 app = typer.Typer(help="Health checks.")
 

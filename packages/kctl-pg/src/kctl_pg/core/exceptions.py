@@ -1,18 +1,18 @@
 """Exception hierarchy for kctl-pg.
 
-Re-exports common exceptions from kctl-common, plus DB-specific ones.
+Re-exports common exceptions from kctl-lib, plus DB-specific ones.
 """
 
 from __future__ import annotations
 
-# Re-export shared exceptions from kctl-common
-from kctl_common.exceptions import (
+# Re-export shared exceptions from kctl-lib
+from kctl_lib.exceptions import (
     AuthenticationError,
     ConfigError,
     KctlError,
     NotFoundError,
 )
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 __all__ = [
     "AuthenticationError",

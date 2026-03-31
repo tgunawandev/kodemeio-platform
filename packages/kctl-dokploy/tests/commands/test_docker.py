@@ -108,7 +108,7 @@ class TestDockerStats:
         mock_client.get.return_value = {}
         result = runner.invoke(app, ["--json", "docker", "stats"])
         assert result.exit_code == 0
-        # Empty dict data_for_json produces no JSON output (kctl-common behavior)
+        # Empty dict data_for_json produces no JSON output (kctl-lib behavior)
         if result.output.strip():
             data = json.loads(result.output)
             assert isinstance(data, dict)

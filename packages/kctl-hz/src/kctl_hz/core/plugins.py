@@ -1,12 +1,12 @@
 """Plugin discovery and loading via entry points.
 
-Third-party packages can register kctl-hetzner plugins by declaring an entry
-point in the ``kctl_hetzner.plugins`` group.  Each entry point must resolve to a
+Third-party packages can register kctl-hz plugins by declaring an entry
+point in the ``kctl_hz.plugins`` group.  Each entry point must resolve to a
 class that implements :class:`KctlPlugin`.
 
 Example ``pyproject.toml`` snippet for a plugin package::
 
-    [project.entry-points."kctl_hetzner.plugins"]
+    [project.entry-points."kctl_hz.plugins"]
     my_plugin = "my_package.plugin:MyPlugin"
 """
 
@@ -20,11 +20,11 @@ import typer
 
 logger = logging.getLogger(__name__)
 
-ENTRY_POINT_GROUP = "kctl_hetzner.plugins"
+ENTRY_POINT_GROUP = "kctl_hz.plugins"
 
 
 class KctlPlugin(Protocol):
-    """Interface that kctl-hetzner plugins must implement."""
+    """Interface that kctl-hz plugins must implement."""
 
     name: str
 

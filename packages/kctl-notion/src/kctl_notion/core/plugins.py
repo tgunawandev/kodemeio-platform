@@ -1,7 +1,7 @@
 """Plugin discovery for kctl-notion."""
 
-from kctl_common.plugins import KctlPlugin
-from kctl_common.plugins import discover_and_load_plugins as _discover
+from kctl_lib.plugins import KctlPlugin
+from kctl_lib.plugins import discover_and_load_plugins as _discover
 
 __all__ = ["KctlPlugin", "discover_and_load_plugins"]
 

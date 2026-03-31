@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from kctl_hetzner.core.utils import (
+from kctl_hz.core.utils import (
     action_status_color,
     format_labels,
     human_size,

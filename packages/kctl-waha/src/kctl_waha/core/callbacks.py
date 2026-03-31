@@ -1,6 +1,6 @@
 """Typer global callback and shared context for kctl-waha.
 
-Subclasses AppContextBase from kctl-common, adding WAHA-specific
+Subclasses AppContextBase from kctl-lib, adding WAHA-specific
 client resolution with X-Api-Key auth and bridge sidecar.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_waha.core.client import BridgeClient, WahaClient
 from kctl_waha.core.config import resolve_bridge_url, resolve_connection

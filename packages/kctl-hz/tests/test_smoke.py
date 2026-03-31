@@ -41,8 +41,8 @@ _skip_no_token = pytest.mark.skipif(
 
 
 def _run(cmd: str, json_mode: bool = True, timeout: int = 30) -> tuple:
-    """Run kctl-hetzner and return (data, returncode)."""
-    args = ["kctl-hetzner", "-p", PROFILE]
+    """Run kctl-hz and return (data, returncode)."""
+    args = ["kctl-hz", "-p", PROFILE]
     if json_mode:
         args.append("--json")
     args.extend(cmd.split())

@@ -1,21 +1,21 @@
 """Exception hierarchy for kctl-op.
 
-Re-exports base exceptions from kctl-common. Keeps VaultError, OpCliError,
+Re-exports base exceptions from kctl-lib. Keeps VaultError, OpCliError,
 and ConnectionError as service-specific to preserve client.py compatibility.
 """
 
 from __future__ import annotations
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     AuthenticationError as AuthenticationError,
 )
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     ConfigError as ConfigError,
 )
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     KctlError as KctlError,
 )
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     NotFoundError as NotFoundError,
 )
 

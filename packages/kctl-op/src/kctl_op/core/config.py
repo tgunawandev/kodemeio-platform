@@ -1,6 +1,6 @@
 """Profile-based configuration for kctl-op.
 
-Uses kctl-common's shared config framework at ~/.config/kodemeio/config.yaml
+Uses kctl-lib's shared config framework at ~/.config/kodemeio/config.yaml
 with SERVICE_KEY = "op" for service-scoped profile isolation.
 """
 
@@ -8,38 +8,38 @@ from __future__ import annotations
 
 import os
 
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_FILE as CONFIG_FILE,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     expand_env,
     resolve_active_profile_name,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     get_all_services_in_profile as get_all_services_in_profile,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     get_default_profile as get_default_profile,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     get_profile_names as get_profile_names,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     get_service_config as _get_service_config_raw,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     load_raw_config as load_raw_config,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     remove_profile as remove_profile,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     save_raw_config as save_raw_config,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     set_default_profile as set_default_profile,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     set_service_config as _set_service_config_raw,
 )
 from pydantic import BaseModel

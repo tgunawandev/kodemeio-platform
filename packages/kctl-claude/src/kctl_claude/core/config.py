@@ -1,6 +1,6 @@
 """Configuration for kctl-claude."""
 
-from kctl_common.config import get_service_config, load_config
+from kctl_lib.config import get_service_config, load_config
 from pydantic import BaseModel
 
 SERVICE_KEY = "claude"

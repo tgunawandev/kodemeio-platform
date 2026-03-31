@@ -3,7 +3,7 @@
 Mirror of :class:`kctl_api.core.client.ApiClient` with ``async`` methods
 and :class:`httpx.AsyncClient` under the hood.
 
-Subclasses :class:`kctl_common.async_api_client.AsyncAPIClient` and keeps
+Subclasses :class:`kctl_lib.async_api_client.AsyncAPIClient` and keeps
 dual-auth (JWT + API key) as a service-specific override.
 """
 
@@ -13,9 +13,9 @@ import asyncio
 from typing import Any
 
 import httpx
-from kctl_common.async_api_client import AsyncAPIClient
-from kctl_common.exceptions import AuthenticationError
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.async_api_client import AsyncAPIClient
+from kctl_lib.exceptions import AuthenticationError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 from kctl_api.core.exceptions import APIError
 
@@ -23,7 +23,7 @@ from kctl_api.core.exceptions import APIError
 class AsyncApiClient(AsyncAPIClient):
     """Asynchronous httpx client for Kodemeio REST APIs.
 
-    Extends the kctl-common async base with dual-auth support (JWT bearer
+    Extends the kctl-lib async base with dual-auth support (JWT bearer
     token **or** API key via ``X-API-Key`` header) and service-specific helpers.
     """
 
@@ -90,7 +90,7 @@ class AsyncApiClient(AsyncAPIClient):
         except AuthenticationError:
             raise
         except Exception as exc:
-            from kctl_common.exceptions import APIError as BaseAPIError
+            from kctl_lib.exceptions import APIError as BaseAPIError
 
             if isinstance(exc, BaseAPIError):
                 raise APIError(detail=exc.detail) from exc

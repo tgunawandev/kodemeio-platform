@@ -11,7 +11,7 @@ import json
 
 import pytest
 import yaml
-from kctl_common.output import Output
+from kctl_lib.output import Output
 
 # ---------------------------------------------------------------------------
 # JSON mode

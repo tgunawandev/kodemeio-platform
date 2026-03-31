@@ -1,11 +1,11 @@
-"""Plugin discovery — delegates to kctl-common with kctl-odoo entry point group."""
+"""Plugin discovery — delegates to kctl-lib with kctl-odoo entry point group."""
 
 from __future__ import annotations
 
 import importlib.metadata
 import logging
 
-from kctl_common.plugins import KctlPlugin
+from kctl_lib.plugins import KctlPlugin
 
 __all__ = ["KctlPlugin", "discover_and_load_plugins"]
 

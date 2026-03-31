@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from kctl_common.exceptions import AuthenticationError
+from kctl_lib.exceptions import AuthenticationError
 
 from kctl_sentry.core.client import SentryClient
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common import KctlError, handle_cli_error
+from kctl_lib import KctlError, handle_cli_error
 
 from kctl_grafana import __version__
 from kctl_grafana.commands.alert import app as alert_app

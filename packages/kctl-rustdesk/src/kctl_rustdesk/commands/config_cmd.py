@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_FILE,
     get_default_profile,
     get_profile_names,

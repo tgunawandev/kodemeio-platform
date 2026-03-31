@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common import KctlError, handle_cli_error
+from kctl_lib import KctlError, handle_cli_error
 
 from kctl_claw import __version__
 from kctl_claw.commands.agents import app as agents_app

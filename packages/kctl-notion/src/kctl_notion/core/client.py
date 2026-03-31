@@ -1,4 +1,4 @@
-"""Notion API client using kctl-common APIClient base.
+"""Notion API client using kctl-lib APIClient base.
 
 Notion API v1: REST endpoints with Bearer token auth.
 Requires Notion-Version header on all requests.
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.api_client import APIClient
+from kctl_lib.api_client import APIClient
 
 
 class NotionClient(APIClient):

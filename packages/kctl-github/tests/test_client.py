@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from kctl_common.exceptions import ConfigError
+from kctl_lib.exceptions import ConfigError
 
 from kctl_github.core.client import GitHubClient, _parse_next_link
 

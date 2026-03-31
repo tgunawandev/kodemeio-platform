@@ -21,7 +21,7 @@ def generate(
     """Auto-generate SKILL.md from CLI command registry."""
     actx: AppContext = ctx.obj
     out = actx.output
-    from kctl_common.skill_generator import generate_skill
+    from kctl_lib.skill_generator import generate_skill
 
     from kctl_claw.cli import app as cli_app
 

@@ -1,4 +1,4 @@
-"""Build history tracking — SQLite-backed via kctl-common HistoryStore.
+"""Build history tracking — SQLite-backed via kctl-lib HistoryStore.
 
 Provides backward-compatible API: load_history(), save_snapshot(), get_latest_snapshot().
 On first use, migrates any existing .kctl-react/sizes.json to SQLite.
@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from kctl_common.history import HistoryStore
+from kctl_lib.history import HistoryStore
 
 _SCHEMA = [
     """CREATE TABLE IF NOT EXISTS builds (

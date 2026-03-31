@@ -1,8 +1,8 @@
-"""Exception hierarchy for kctl-gatus — re-exports from kctl-common."""
+"""Exception hierarchy for kctl-gatus — re-exports from kctl-lib."""
 
 from __future__ import annotations
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     ConfigError,

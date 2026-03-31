@@ -1,5 +1,5 @@
-"""Output handler — re-exported from kctl-common."""
+"""Output handler — re-exported from kctl-lib."""
 
-from kctl_common.output import Output
+from kctl_lib.output import Output
 
 __all__ = ["Output"]

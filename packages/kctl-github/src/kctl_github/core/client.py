@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from kctl_common.api_client import APIClient
-from kctl_common.runner import run
+from kctl_lib.api_client import APIClient
+from kctl_lib.runner import run
 
 
 class GitHubClient(APIClient):

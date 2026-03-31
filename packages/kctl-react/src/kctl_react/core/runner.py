@@ -1,11 +1,11 @@
-"""Shell command runner — delegates to kctl-common, adds pnpm/turbo helpers."""
+"""Shell command runner — delegates to kctl-lib, adds pnpm/turbo helpers."""
 
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
 
-from kctl_common.runner import get_git_branch, get_git_sha, run, run_quiet
+from kctl_lib.runner import get_git_branch, get_git_sha, run, run_quiet
 
 __all__ = ["get_git_branch", "get_git_sha", "run", "run_quiet", "run_pnpm", "run_turbo"]
 

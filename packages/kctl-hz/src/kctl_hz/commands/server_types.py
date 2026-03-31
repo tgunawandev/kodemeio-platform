@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from kctl_hetzner.core.callbacks import AppContext
+from kctl_hz.core.callbacks import AppContext
 
 app = typer.Typer(help="Browse Hetzner Cloud server types.")
 

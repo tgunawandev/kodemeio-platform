@@ -1,7 +1,7 @@
 """Tests for kctl-waha client module."""
 
 import pytest
-from kctl_common.exceptions import ConfigError, AuthenticationError
+from kctl_lib.exceptions import ConfigError, AuthenticationError
 from kctl_waha.core.client import WahaClient, BridgeClient
 
 

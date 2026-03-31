@@ -20,7 +20,7 @@ import sys
 
 import typer
 
-from kctl_hetzner.core.callbacks import AppContext
+from kctl_hz.core.callbacks import AppContext
 
 
 def register_aliases(app: typer.Typer) -> None:
@@ -28,7 +28,7 @@ def register_aliases(app: typer.Typer) -> None:
 
     def _get_base_cmd(ctx: typer.Context) -> list[str]:
         """Build base command with inherited global options."""
-        cmd = ["kctl-hetzner"]
+        cmd = ["kctl-hz"]
         actx: AppContext = ctx.obj
         if actx.profile:
             cmd.extend(["-p", actx.profile])

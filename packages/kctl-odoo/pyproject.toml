@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: System :: Systems Administration",
 ]
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "httpx>=0.28.0",
     "openpyxl>=3.1.5",
 ]
@@ -40,7 +40,7 @@ dev = [
 kctl-odoo = "kctl_odoo.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kctl_odoo"]

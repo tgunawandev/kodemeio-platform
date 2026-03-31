@@ -20,7 +20,7 @@ from kctl_op.commands.status import app as status_app
 from kctl_op.commands.sync_cmd import pull_app, push_app
 from kctl_op.commands.vault import app as vault_app
 from kctl_op.core.callbacks import AppContext
-from kctl_common import handle_cli_error
+from kctl_lib import handle_cli_error
 from kctl_op.core.exceptions import (
     KctlError,
 )

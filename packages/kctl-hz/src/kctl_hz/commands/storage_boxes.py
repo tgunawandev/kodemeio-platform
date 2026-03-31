@@ -12,8 +12,8 @@ from typing import Annotated
 import httpx
 import typer
 
-from kctl_hetzner.core.callbacks import AppContext
-from kctl_hetzner.core.utils import human_size
+from kctl_hz.core.callbacks import AppContext
+from kctl_hz.core.utils import human_size
 
 app = typer.Typer(help="Manage Hetzner Storage Boxes (Robot API).")
 

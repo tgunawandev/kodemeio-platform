@@ -1,4 +1,4 @@
-"""Exception hierarchy for kctl-api — thin re-exports from kctl-common.
+"""Exception hierarchy for kctl-api — thin re-exports from kctl-lib.
 
 APIError is kept locally because it wraps httpx.Response.
 """
@@ -6,7 +6,7 @@ APIError is kept locally because it wraps httpx.Response.
 from __future__ import annotations
 
 import httpx
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     AuthenticationError,
     ConfigError,
     ConnectionError,

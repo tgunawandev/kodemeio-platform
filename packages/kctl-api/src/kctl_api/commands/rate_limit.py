@@ -15,7 +15,7 @@ from kctl_api.core.callbacks import AppContext
 
 app = typer.Typer(name="rate-limit", help="Rate limit — tiers, test, status, simulate.", no_args_is_help=True)
 
-# Default tier config matches kctl-common RateTier + DEFAULT_TIERS
+# Default tier config matches kctl-lib RateTier + DEFAULT_TIERS
 _DEFAULT_TIERS: dict[str, int] = {
     "free": 30,
     "user": 100,

@@ -1,13 +1,13 @@
 """Profile management and configuration resolution for kctl-dokploy.
 
-Delegates to kctl-common's config framework with Dokploy-specific settings.
+Delegates to kctl-lib's config framework with Dokploy-specific settings.
 """
 
 from __future__ import annotations
 
 import os
 
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_DIR,
     CONFIG_FILE,
     ConfigFile,
@@ -22,11 +22,11 @@ from kctl_common.config import (
     save_raw_config,
     set_default_profile,
 )
-from kctl_common.config import get_service_config as _get_service_config
-from kctl_common.config import (
+from kctl_lib.config import get_service_config as _get_service_config
+from kctl_lib.config import (
     resolve_active_profile_name as _resolve_active_profile_name,
 )
-from kctl_common.config import set_service_config as _set_service_config
+from kctl_lib.config import set_service_config as _set_service_config
 from pydantic import BaseModel
 
 # This CLI's service key within a profile

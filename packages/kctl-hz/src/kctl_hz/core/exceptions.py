@@ -1,11 +1,11 @@
-"""Exception hierarchy for kctl-hetzner.
+"""Exception hierarchy for kctl-hz.
 
-Re-exports from kctl-common with Hetzner-specific aliases.
+Re-exports from kctl-lib with Hetzner-specific aliases.
 """
 
 from __future__ import annotations
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     ConfigError,

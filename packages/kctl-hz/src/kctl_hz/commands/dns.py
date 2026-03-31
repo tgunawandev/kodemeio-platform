@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from kctl_hetzner.core.callbacks import AppContext
-from kctl_hetzner.core.resolve import resolve_dns_zone_id
+from kctl_hz.core.callbacks import AppContext
+from kctl_hz.core.resolve import resolve_dns_zone_id
 
 app = typer.Typer(help="Manage Hetzner DNS zones and records.")
 

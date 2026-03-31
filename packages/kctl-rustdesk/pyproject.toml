@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Kodemeio RustDesk CLI — manage RustDesk server infrastructure"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -28,7 +28,7 @@ dev = [
 kctl-rustdesk = "kctl_rustdesk.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [project.entry-points."kctl_rustdesk.plugins"]
 

@@ -1,7 +1,7 @@
 """Tests for kctl-ak client module."""
 
 import pytest
-from kctl_common.exceptions import ConfigError
+from kctl_lib.exceptions import ConfigError
 from kctl_ak.core.client import AuthentikClient
 
 

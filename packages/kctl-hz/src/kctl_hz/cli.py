@@ -1,49 +1,49 @@
-"""Main CLI entry point for kctl-hetzner."""
+"""Main CLI entry point for kctl-hz."""
 
 from __future__ import annotations
 
 from typing import Annotated
 
 import typer
-from kctl_common import handle_cli_error
-from kctl_common.exceptions import KctlError
+from kctl_lib import handle_cli_error
+from kctl_lib.exceptions import KctlError
 
-from kctl_hetzner import __version__
-from kctl_hetzner.commands.aliases import register_aliases
-from kctl_hetzner.commands.config_cmd import app as config_app
-from kctl_hetzner.commands.costs import app as costs_app
-from kctl_hetzner.commands.dns import app as dns_app
-from kctl_hetzner.commands.firewalls import app as firewalls_app
-from kctl_hetzner.commands.health import app as health_app
-from kctl_hetzner.commands.images import app as images_app
-from kctl_hetzner.commands.ips import app as ips_app
-from kctl_hetzner.commands.labels import app as labels_app
-from kctl_hetzner.commands.load_balancers import app as load_balancers_app
-from kctl_hetzner.commands.locations import app as locations_app
-from kctl_hetzner.commands.networks import app as networks_app
-from kctl_hetzner.commands.placement_groups import app as placement_groups_app
-from kctl_hetzner.commands.rdns import app as rdns_app
-from kctl_hetzner.commands.s3 import app as s3_app
-from kctl_hetzner.commands.self_test import app as self_test_app
-from kctl_hetzner.commands.server_types import app as server_types_app
-from kctl_hetzner.commands.servers import app as servers_app
-from kctl_hetzner.commands.snapshots import app as snapshots_app
-from kctl_hetzner.commands.ssh_keys import app as ssh_keys_app
-from kctl_hetzner.commands.status import app as status_app
-from kctl_hetzner.commands.storage_boxes import app as storage_boxes_app
-from kctl_hetzner.commands.volumes import app as volumes_app
-from kctl_hetzner.core.callbacks import AppContext
-from kctl_hetzner.core.plugins import discover_and_load_plugins
+from kctl_hz import __version__
+from kctl_hz.commands.aliases import register_aliases
+from kctl_hz.commands.config_cmd import app as config_app
+from kctl_hz.commands.costs import app as costs_app
+from kctl_hz.commands.dns import app as dns_app
+from kctl_hz.commands.firewalls import app as firewalls_app
+from kctl_hz.commands.health import app as health_app
+from kctl_hz.commands.images import app as images_app
+from kctl_hz.commands.ips import app as ips_app
+from kctl_hz.commands.labels import app as labels_app
+from kctl_hz.commands.load_balancers import app as load_balancers_app
+from kctl_hz.commands.locations import app as locations_app
+from kctl_hz.commands.networks import app as networks_app
+from kctl_hz.commands.placement_groups import app as placement_groups_app
+from kctl_hz.commands.rdns import app as rdns_app
+from kctl_hz.commands.s3 import app as s3_app
+from kctl_hz.commands.self_test import app as self_test_app
+from kctl_hz.commands.server_types import app as server_types_app
+from kctl_hz.commands.servers import app as servers_app
+from kctl_hz.commands.snapshots import app as snapshots_app
+from kctl_hz.commands.ssh_keys import app as ssh_keys_app
+from kctl_hz.commands.status import app as status_app
+from kctl_hz.commands.storage_boxes import app as storage_boxes_app
+from kctl_hz.commands.volumes import app as volumes_app
+from kctl_hz.core.callbacks import AppContext
+from kctl_hz.core.plugins import discover_and_load_plugins
 
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"kctl-hetzner {__version__}")
+        typer.echo(f"kctl-hz {__version__}")
         raise typer.Exit()
 
 
 app = typer.Typer(
-    name="kctl-hetzner",
+    name="kctl-hz",
     help="Kodemeio Hetzner CLI - manage cloud servers, volumes, firewalls, DNS.",
     no_args_is_help=True,
     rich_markup_mode="rich",

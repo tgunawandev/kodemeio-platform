@@ -3,7 +3,7 @@
 Synchronous client for api-main and ai-main endpoints.
 Supports JWT bearer token and API key authentication.
 
-Subclasses :class:`kctl_common.api_client.APIClient` and keeps dual-auth
+Subclasses :class:`kctl_lib.api_client.APIClient` and keeps dual-auth
 (JWT + API key) as a service-specific override of ``_build_auth_header``.
 """
 
@@ -12,9 +12,9 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import AuthenticationError
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import AuthenticationError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 from kctl_api.core.exceptions import APIError
 
@@ -22,7 +22,7 @@ from kctl_api.core.exceptions import APIError
 class ApiClient(APIClient):
     """Synchronous httpx client for Kodemeio REST APIs.
 
-    Extends the kctl-common base with dual-auth support (JWT bearer token
+    Extends the kctl-lib base with dual-auth support (JWT bearer token
     **or** API key via ``X-API-Key`` header) and service-specific helpers
     such as ``login``, ``refresh``, ``upload``, and ``stream_sse``.
     """
@@ -92,8 +92,8 @@ class ApiClient(APIClient):
         except AuthenticationError:
             raise
         except Exception as exc:
-            # Re-raise kctl-common APIError as the local response-aware variant
-            from kctl_common.exceptions import APIError as BaseAPIError
+            # Re-raise kctl-lib APIError as the local response-aware variant
+            from kctl_lib.exceptions import APIError as BaseAPIError
 
             if isinstance(exc, BaseAPIError):
                 raise APIError(detail=exc.detail) from exc

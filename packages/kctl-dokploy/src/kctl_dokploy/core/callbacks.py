@@ -1,13 +1,13 @@
 """Typer global callback and shared context for kctl-dokploy.
 
-Subclasses AppContextBase from kctl-common with Dokploy-specific fields.
+Subclasses AppContextBase from kctl-lib with Dokploy-specific fields.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_dokploy.core.client import DokployClient
 from kctl_dokploy.core.config import resolve_connection

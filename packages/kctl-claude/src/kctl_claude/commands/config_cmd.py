@@ -10,7 +10,7 @@ import os
 from typing import Annotated
 
 import typer
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_FILE,
     get_all_services_in_profile,
     get_default_profile,

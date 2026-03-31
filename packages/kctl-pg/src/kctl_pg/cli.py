@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common import handle_cli_error
+from kctl_lib import handle_cli_error
 
 from kctl_pg import __version__
 from kctl_pg.commands.activity import app as activity_app

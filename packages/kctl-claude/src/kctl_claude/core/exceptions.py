@@ -1,6 +1,6 @@
 """Exception hierarchy for kctl-claude."""
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     CommandError,
     ConfigError,
     ConnectionError,

@@ -1,8 +1,8 @@
-"""Config management — delegates to kctl-common with react-specific ServiceConfig.
+"""Config management — delegates to kctl-lib with react-specific ServiceConfig.
 
 Core I/O (load_raw_config / save_raw_config) uses module-level CONFIG_DIR /
 CONFIG_FILE so that tests can monkeypatch those names.  is_service_scoped and
-ConfigFile are re-used from kctl_common; all file-touching functions are local.
+ConfigFile are re-used from kctl_lib; all file-touching functions are local.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from kctl_common.config import ConfigFile, is_service_scoped
+from kctl_lib.config import ConfigFile, is_service_scoped
 from pydantic import BaseModel
 
 SERVICE_KEY = "react"

@@ -1,13 +1,13 @@
 """Profile management and configuration resolution for Hetzner.
 
-Uses kctl-common config framework with Hetzner-specific service config.
+Uses kctl-lib config framework with Hetzner-specific service config.
 """
 
 from __future__ import annotations
 
 import os
 
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_DIR,
     CONFIG_FILE,
     ConfigFile,
@@ -21,19 +21,19 @@ from kctl_common.config import (
     save_raw_config,
     set_default_profile,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     get_service_config as _get_service_config,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     resolve_active_profile_name as _resolve_active_profile_name,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     set_service_config as _set_service_config,
 )
 from pydantic import BaseModel
 
 SERVICE_KEY = "hetzner"
-ENV_PREFIX = "KCTL_HETZNER"
+ENV_PREFIX = "KCTL_HZ"
 
 
 class ServiceConfig(BaseModel):
@@ -67,7 +67,7 @@ def set_service_config(profile_name: str, svc_config: ServiceConfig) -> None:
 
 
 def resolve_active_profile_name(profile_name: str | None = None) -> str:
-    """Resolve active profile: explicit > KCTL_HETZNER_PROFILE > default."""
+    """Resolve active profile: explicit > KCTL_HZ_PROFILE > default."""
     return _resolve_active_profile_name(profile_name, ENV_PREFIX)
 
 
@@ -83,7 +83,7 @@ def resolve_connection(
     pname = resolve_active_profile_name(profile_name)
     svc = get_service_config(pname)
     if svc.token:
-        token = svc.token  # already env-expanded by kctl-common
+        token = svc.token  # already env-expanded by kctl-lib
     if svc.dns_token:
         dns_token = svc.dns_token
 
@@ -92,9 +92,9 @@ def resolve_connection(
     if env_dns := os.environ.get("HETZNER_DNS_TOKEN"):
         dns_token = env_dns
 
-    if env_token := os.environ.get("KCTL_HETZNER_TOKEN"):
+    if env_token := os.environ.get("KCTL_HZ_TOKEN"):
         token = env_token
-    if env_dns := os.environ.get("KCTL_HETZNER_DNS_TOKEN"):
+    if env_dns := os.environ.get("KCTL_HZ_DNS_TOKEN"):
         dns_token = env_dns
 
     if token_override:

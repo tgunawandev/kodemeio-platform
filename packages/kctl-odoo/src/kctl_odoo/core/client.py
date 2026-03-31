@@ -7,7 +7,7 @@ Odoo JSON-RPC API:
 - service="db" → database management
 
 Note: This client uses JSON-RPC 2.0 protocol (not REST), so it does NOT
-subclass kctl_common.api_client.APIClient which is REST-oriented.
+subclass kctl_lib.api_client.APIClient which is REST-oriented.
 """
 
 from __future__ import annotations

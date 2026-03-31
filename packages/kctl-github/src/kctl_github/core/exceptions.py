@@ -1,6 +1,6 @@
-"""Exception hierarchy -- re-exported from kctl-common."""
+"""Exception hierarchy -- re-exported from kctl-lib."""
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     CommandError,
@@ -8,7 +8,7 @@ from kctl_common.exceptions import (
     KctlError,
     NotFoundError,
 )
-from kctl_common.exceptions import ConnectionError as KctlConnectionError
+from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 __all__ = [
     "APIError",

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common.docker import DockerManager
+from kctl_lib.docker import DockerManager
 
 from kctl_react.core.callbacks import AppContext
 

@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kctl-hetzner"
+name = "kctl-hz"
 version = "0.2.0"
 description = "Kodemeio Hetzner CLI — manage Hetzner Cloud infrastructure"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -27,15 +27,15 @@ dev = [
 ]
 
 [project.scripts]
-kctl-hetzner = "kctl_hetzner.cli:_run"
+kctl-hz = "kctl_hz.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
-[project.entry-points."kctl_hetzner.plugins"]
+[project.entry-points."kctl_hz.plugins"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/kctl_hetzner"]
+packages = ["src/kctl_hz"]
 
 [tool.ruff]
 target-version = "py312"

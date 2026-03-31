@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import click
 import pytest
 import typer
-from kctl_common import Output
+from kctl_lib import Output
 
 from kctl_odoo.core.callbacks import AppContext
 

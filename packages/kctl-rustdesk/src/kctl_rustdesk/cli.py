@@ -6,8 +6,8 @@ from typing import Annotated
 
 import typer
 
-from kctl_common import handle_cli_error
-from kctl_common.exceptions import KctlError
+from kctl_lib import handle_cli_error
+from kctl_lib.exceptions import KctlError
 
 from kctl_rustdesk import __version__
 from kctl_rustdesk.commands.audit import app as audit_app

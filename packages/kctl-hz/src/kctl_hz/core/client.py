@@ -1,10 +1,10 @@
-"""Hetzner Cloud + DNS API clients built on kctl-common APIClient."""
+"""Hetzner Cloud + DNS API clients built on kctl-lib APIClient."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from kctl_common.api_client import APIClient
+from kctl_lib.api_client import APIClient
 
 
 class HetznerCloudClient(APIClient):
@@ -16,9 +16,9 @@ class HetznerCloudClient(APIClient):
 
     def __init__(self, credential: str = "", timeout: float = 30.0, **kwargs: Any) -> None:
         if not credential:
-            from kctl_common.exceptions import ConfigError
+            from kctl_lib.exceptions import ConfigError
 
-            raise ConfigError("No Cloud API token configured. Run: kctl-hetzner config init")
+            raise ConfigError("No Cloud API token configured. Run: kctl-hz config init")
         super().__init__(credential=credential, timeout=timeout, **kwargs)
 
     def get_all(self, endpoint: str, key: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -49,7 +49,7 @@ class HetznerDnsClient(APIClient):
 
     def __init__(self, credential: str = "", timeout: float = 30.0, **kwargs: Any) -> None:
         if not credential:
-            from kctl_common.exceptions import ConfigError
+            from kctl_lib.exceptions import ConfigError
 
-            raise ConfigError("No DNS API token configured. Run: kctl-hetzner config init")
+            raise ConfigError("No DNS API token configured. Run: kctl-hz config init")
         super().__init__(credential=credential, timeout=timeout, **kwargs)

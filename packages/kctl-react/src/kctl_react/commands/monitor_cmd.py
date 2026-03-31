@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_common.monitor_base import health_check_url, ssl_check
+from kctl_lib.monitor_base import health_check_url, ssl_check
 
 from kctl_react.core.callbacks import AppContext
 

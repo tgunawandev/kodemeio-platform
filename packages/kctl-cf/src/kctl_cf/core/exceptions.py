@@ -1,6 +1,6 @@
-"""Exception hierarchy for kctl-cf — re-exported from kctl-common."""
+"""Exception hierarchy for kctl-cf — re-exported from kctl-lib."""
 
-from kctl_common.exceptions import (
+from kctl_lib.exceptions import (
     APIError,
     AuthenticationError,
     CommandError,

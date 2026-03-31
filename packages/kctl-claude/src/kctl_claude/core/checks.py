@@ -132,7 +132,7 @@ def _tools_info() -> dict:
         "kctl-1password",
         "kctl-dokploy",
         "kctl-cloudflare",
-        "kctl-hetzner",
+        "kctl-hz",
     ]
     kctl_installed = sum(1 for t in kctl_names if shutil.which(t))
     kctl_config = (Path.home() / ".config" / "kodemeio" / "config.yaml").is_file()

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Kodemeio Linear CLI — project and sprint tracking"
 requires-python = ">=3.12"
 dependencies = [
-    "kctl-common>=0.3.1",
+    "kctl-lib>=0.4.0",
     "typer>=0.15.0",
     "rich>=13.9.0",
     "pydantic>=2.10.0",
@@ -29,7 +29,7 @@ dev = [
 kctl-linear = "kctl_linear.cli:_run"
 
 [tool.uv.sources]
-kctl-common = { workspace = true }
+kctl-lib = { workspace = true }
 
 [project.entry-points."kctl_linear.plugins"]
 

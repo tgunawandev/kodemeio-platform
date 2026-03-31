@@ -1,6 +1,6 @@
 """Profile management and configuration resolution.
 
-Profile framework delegated to kctl-common. ServiceConfig and
+Profile framework delegated to kctl-lib. ServiceConfig and
 resolve_project_root are claw-specific and kept locally.
 
 Config format:
@@ -19,7 +19,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from kctl_common.config import (
+from kctl_lib.config import (
     CONFIG_DIR,
     CONFIG_FILE,
     get_default_profile,
@@ -30,10 +30,10 @@ from kctl_common.config import (
     save_raw_config,
     set_default_profile,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     get_service_config as _get_service_config,
 )
-from kctl_common.config import (
+from kctl_lib.config import (
     set_service_config as _set_service_config,
 )
 from pydantic import BaseModel

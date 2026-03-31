@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from pytest_httpx import HTTPXMock
 
-from kctl_hetzner.core.client import HetznerCloudClient, HetznerDnsClient
-from kctl_hetzner.core.exceptions import APIError, ConfigError
+from kctl_hz.core.client import HetznerCloudClient, HetznerDnsClient
+from kctl_hz.core.exceptions import APIError, ConfigError
 
 
 class TestCloudClient:
@@ -31,7 +31,7 @@ class TestCloudClient:
             status_code=401,
         )
         client = HetznerCloudClient(credential="bad-token")
-        from kctl_common.exceptions import AuthenticationError
+        from kctl_lib.exceptions import AuthenticationError
 
         with pytest.raises(AuthenticationError):
             client.get("/servers")
@@ -42,7 +42,7 @@ class TestCloudClient:
             status_code=403,
         )
         client = HetznerCloudClient(credential="limited-token")
-        from kctl_common.exceptions import AuthenticationError
+        from kctl_lib.exceptions import AuthenticationError
 
         with pytest.raises(AuthenticationError):
             client.get("/servers")
@@ -150,7 +150,7 @@ class TestDnsClient:
             status_code=401,
         )
         client = HetznerDnsClient(credential="bad-token")
-        from kctl_common.exceptions import AuthenticationError
+        from kctl_lib.exceptions import AuthenticationError
 
         with pytest.raises(AuthenticationError):
             client.put("/records/r1", json={})
@@ -161,7 +161,7 @@ class TestDnsClient:
             status_code=401,
         )
         client = HetznerDnsClient(credential="bad-token")
-        from kctl_common.exceptions import AuthenticationError
+        from kctl_lib.exceptions import AuthenticationError
 
         with pytest.raises(AuthenticationError):
             client.get("/zones")

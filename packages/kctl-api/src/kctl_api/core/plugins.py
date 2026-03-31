@@ -1,4 +1,4 @@
-"""Plugin discovery for kctl-api — thin wrapper over kctl-common.
+"""Plugin discovery for kctl-api — thin wrapper over kctl-lib.
 
 Third-party packages register kctl-api plugins via the ``kctl_api.plugins``
 entry point group.  Each entry point must resolve to a class implementing
@@ -13,8 +13,8 @@ Example ``pyproject.toml`` snippet for a plugin package::
 from __future__ import annotations
 
 import typer
-from kctl_common.plugins import KctlPlugin
-from kctl_common.plugins import discover_and_load_plugins as _discover
+from kctl_lib.plugins import KctlPlugin
+from kctl_lib.plugins import discover_and_load_plugins as _discover
 
 __all__ = ["ENTRY_POINT_GROUP", "KctlPlugin", "discover_and_load_plugins"]
 

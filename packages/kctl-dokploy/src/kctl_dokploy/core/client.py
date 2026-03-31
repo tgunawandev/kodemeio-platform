@@ -1,4 +1,4 @@
-"""Dokploy API client, subclassing kctl-common's APIClient.
+"""Dokploy API client, subclassing kctl-lib's APIClient.
 
 Provides Dokploy-specific auth (x-api-key header), retry support,
 and health check functionality.
@@ -9,8 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-from kctl_common.api_client import APIClient
-from kctl_common.exceptions import ConfigError
+from kctl_lib.api_client import APIClient
+from kctl_lib.exceptions import ConfigError
 
 
 class DokployClient(APIClient):

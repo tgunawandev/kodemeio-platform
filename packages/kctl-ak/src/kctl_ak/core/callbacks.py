@@ -1,6 +1,6 @@
 """Typer global callback and shared context for kctl-ak.
 
-Subclasses AppContextBase from kctl-common, adding Authentik-specific
+Subclasses AppContextBase from kctl-lib, adding Authentik-specific
 client resolution.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from kctl_common.callbacks import AppContextBase
+from kctl_lib.callbacks import AppContextBase
 
 from kctl_ak.core.client import AuthentikClient
 from kctl_ak.core.config import resolve_connection
