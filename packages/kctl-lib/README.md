@@ -1,15 +1,15 @@
-# kctl-common
+# kctl-lib
 
-Shared core library for all kctl-* CLI tools. Published to PyPI as `kctl-common`.
+Shared core library for all kctl-* CLI tools. Published to PyPI as `kctl-lib`.
 
 ## Installation
 
 ```bash
 # As a dependency (in pyproject.toml)
-dependencies = ["kctl-common>=0.3.1"]
+dependencies = ["kctl-lib>=0.3.1"]
 
 # For development
-cd packages/kctl-common
+cd packages/kctl-lib
 uv sync --all-extras
 ```
 

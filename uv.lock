@@ -6,16 +6,16 @@ requires-python = ">=3.12"
 members = [
     "kctl-ak",
     "kctl-api",
+    "kctl-cf",
     "kctl-claude",
     "kctl-claw",
-    "kctl-cloudflare",
-    "kctl-common",
     "kctl-dokploy",
     "kctl-gatus",
     "kctl-github",
     "kctl-glitchtip",
     "kctl-grafana",
-    "kctl-hetzner",
+    "kctl-hz",
+    "kctl-lib",
     "kctl-linear",
     "kctl-notion",
     "kctl-odoo",
@@ -515,7 +515,7 @@ version = "0.1.0"
 source = { editable = "packages/kctl-ak" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -534,7 +534,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -553,7 +553,7 @@ version = "0.1.0"
 source = { editable = "packages/kctl-api" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
 ]
 
 [package.optional-dependencies]
@@ -584,7 +584,7 @@ requires-dist = [
     { name = "asyncpg", marker = "extra == 'db'", specifier = ">=0.30.0" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "kctl-api", extras = ["db", "redis"], marker = "extra == 'all'" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
@@ -598,12 +598,52 @@ requires-dist = [
 provides-extras = ["db", "redis", "all", "dev"]
 
 [[package]]
+name = "kctl-cf"
+version = "0.2.0"
+source = { editable = "packages/kctl-cf" }
+dependencies = [
+    { name = "httpx" },
+    { name = "kctl-lib" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-httpx" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich", specifier = ">=13.9.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "typer", specifier = ">=0.15.0" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "kctl-claude"
 version = "0.1.0"
 source = { editable = "packages/kctl-claude" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -622,7 +662,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -642,7 +682,7 @@ source = { editable = "packages/kctl-claw" }
 dependencies = [
     { name = "croniter" },
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -663,7 +703,7 @@ dev = [
 requires-dist = [
     { name = "croniter", specifier = ">=6.0.0" },
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -678,12 +718,194 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [[package]]
-name = "kctl-cloudflare"
-version = "0.2.0"
-source = { editable = "packages/kctl-cloudflare" }
+name = "kctl-dokploy"
+version = "0.3.0"
+source = { editable = "packages/kctl-dokploy" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-httpx" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich", specifier = ">=13.9.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "typer", specifier = ">=0.15.0" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "kctl-gatus"
+version = "0.1.0"
+source = { editable = "packages/kctl-gatus" }
+dependencies = [
+    { name = "httpx" },
+    { name = "kctl-lib" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-httpx" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich", specifier = ">=13.9.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "typer", specifier = ">=0.15.0" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "kctl-github"
+version = "0.1.0"
+source = { editable = "packages/kctl-github" }
+dependencies = [
+    { name = "httpx" },
+    { name = "kctl-lib" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-httpx" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich", specifier = ">=13.9.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "typer", specifier = ">=0.15.0" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "kctl-glitchtip"
+version = "0.1.0"
+source = { editable = "packages/kctl-glitchtip" }
+dependencies = [
+    { name = "httpx" },
+    { name = "kctl-lib" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-httpx" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "kctl-grafana"
+version = "0.1.0"
+source = { editable = "packages/kctl-grafana" }
+dependencies = [
+    { name = "httpx" },
+    { name = "kctl-lib" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-httpx" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich", specifier = ">=13.9.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "typer", specifier = ">=0.15.0" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "kctl-hz"
+version = "0.2.0"
+source = { editable = "packages/kctl-hz" }
+dependencies = [
+    { name = "httpx" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -703,7 +925,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -718,9 +940,9 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [[package]]
-name = "kctl-common"
-version = "0.3.1"
-source = { editable = "packages/kctl-common" }
+name = "kctl-lib"
+version = "0.4.0"
+source = { editable = "packages/kctl-lib" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
@@ -774,234 +996,12 @@ dev = [
 ]
 
 [[package]]
-name = "kctl-dokploy"
-version = "0.3.0"
-source = { editable = "packages/kctl-dokploy" }
-dependencies = [
-    { name = "httpx" },
-    { name = "kctl-common" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "rich" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-httpx" },
-    { name = "ruff" },
-    { name = "types-pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
-    { name = "pydantic", specifier = ">=2.10.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "rich", specifier = ">=13.9.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
-    { name = "typer", specifier = ">=0.15.0" },
-    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "kctl-gatus"
-version = "0.1.0"
-source = { editable = "packages/kctl-gatus" }
-dependencies = [
-    { name = "httpx" },
-    { name = "kctl-common" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "rich" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-httpx" },
-    { name = "ruff" },
-    { name = "types-pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
-    { name = "pydantic", specifier = ">=2.10.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "rich", specifier = ">=13.9.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
-    { name = "typer", specifier = ">=0.15.0" },
-    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "kctl-github"
-version = "0.1.0"
-source = { editable = "packages/kctl-github" }
-dependencies = [
-    { name = "httpx" },
-    { name = "kctl-common" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "rich" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-httpx" },
-    { name = "ruff" },
-    { name = "types-pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
-    { name = "pydantic", specifier = ">=2.10.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "rich", specifier = ">=13.9.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
-    { name = "typer", specifier = ">=0.15.0" },
-    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "kctl-glitchtip"
-version = "0.1.0"
-source = { editable = "packages/kctl-glitchtip" }
-dependencies = [
-    { name = "httpx" },
-    { name = "kctl-common" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-httpx" },
-    { name = "ruff" },
-    { name = "types-pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
-    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "kctl-grafana"
-version = "0.1.0"
-source = { editable = "packages/kctl-grafana" }
-dependencies = [
-    { name = "httpx" },
-    { name = "kctl-common" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "rich" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-httpx" },
-    { name = "ruff" },
-    { name = "types-pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
-    { name = "pydantic", specifier = ">=2.10.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "rich", specifier = ">=13.9.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
-    { name = "typer", specifier = ">=0.15.0" },
-    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "kctl-hetzner"
-version = "0.2.0"
-source = { editable = "packages/kctl-hetzner" }
-dependencies = [
-    { name = "httpx" },
-    { name = "kctl-common" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "rich" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-httpx" },
-    { name = "ruff" },
-    { name = "types-pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
-    { name = "pydantic", specifier = ">=2.10.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "rich", specifier = ">=13.9.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
-    { name = "typer", specifier = ">=0.15.0" },
-    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "kctl-linear"
 version = "0.1.0"
 source = { editable = "packages/kctl-linear" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -1020,7 +1020,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -1039,7 +1039,7 @@ version = "0.1.0"
 source = { editable = "packages/kctl-notion" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -1058,7 +1058,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -1077,7 +1077,7 @@ version = "0.2.0"
 source = { editable = "packages/kctl-odoo" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "openpyxl" },
 ]
 
@@ -1094,7 +1094,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -1110,7 +1110,7 @@ name = "kctl-op"
 version = "0.1.0"
 source = { editable = "packages/kctl-op" }
 dependencies = [
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
@@ -1129,7 +1129,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -1148,7 +1148,7 @@ name = "kctl-pg"
 version = "0.2.0"
 source = { editable = "packages/kctl-pg" }
 dependencies = [
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "paramiko" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -1168,7 +1168,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "paramiko", specifier = ">=3.4.0,<4.0.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" },
@@ -1189,7 +1189,7 @@ version = "0.1.0"
 source = { editable = "packages/kctl-react" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -1208,7 +1208,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -1226,7 +1226,7 @@ name = "kctl-rustdesk"
 version = "0.1.0"
 source = { editable = "packages/kctl-rustdesk" }
 dependencies = [
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -1244,7 +1244,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -1263,7 +1263,7 @@ version = "0.1.0"
 source = { editable = "packages/kctl-sentry" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -1282,7 +1282,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -1301,7 +1301,7 @@ version = "0.1.0"
 source = { editable = "packages/kctl-telegram" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -1320,7 +1320,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
@@ -1339,7 +1339,7 @@ version = "0.1.0"
 source = { editable = "packages/kctl-waha" }
 dependencies = [
     { name = "httpx" },
-    { name = "kctl-common" },
+    { name = "kctl-lib" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
@@ -1358,7 +1358,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "kctl-common", editable = "packages/kctl-common" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },

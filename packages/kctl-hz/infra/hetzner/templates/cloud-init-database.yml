@@ -1,0 +1,112 @@
+#cloud-config
+# =============================================================================
+# Database server cloud-init (PostgreSQL + Redis)
+# =============================================================================
+
+timezone: ${timezone}
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - htop
+  - iotop
+  - tmux
+  - jq
+  - unzip
+  - fail2ban
+  - ufw
+  - net-tools
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - apt-transport-https
+
+swap:
+  filename: /swapfile
+  size: ${swap_size_mb}M
+  maxsize: ${swap_size_mb}M
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-kodemeio.conf
+    content: |
+      Port ${ssh_port}
+      PermitRootLogin prohibit-password
+      PasswordAuthentication no
+      PubkeyAuthentication yes
+      X11Forwarding no
+      MaxAuthTries 3
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+
+  # Optimized for database workloads
+  - path: /etc/sysctl.d/99-kodemeio-db.conf
+    content: |
+      # Network
+      net.core.somaxconn = 65535
+      net.ipv4.tcp_tw_reuse = 1
+      net.ipv4.ip_local_port_range = 1024 65535
+
+      # Memory - optimized for database
+      vm.swappiness = 1
+      vm.overcommit_memory = 2
+      vm.overcommit_ratio = 80
+      vm.dirty_ratio = 15
+      vm.dirty_background_ratio = 5
+
+      # Huge pages (for PostgreSQL shared_buffers)
+      vm.nr_hugepages = 0
+
+      # File descriptors
+      fs.file-max = 2097152
+      fs.inotify.max_user_watches = 524288
+
+  - path: /etc/security/limits.d/99-kodemeio.conf
+    content: |
+      * soft nofile 65536
+      * hard nofile 65536
+      * soft nproc 65536
+      * hard nproc 65536
+
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "50m",
+          "max-file": "3"
+        },
+        "storage-driver": "overlay2",
+        "live-restore": true
+      }
+
+runcmd:
+  - sysctl --system
+
+  # UFW - only allow from private network + SSH
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow ${ssh_port}/tcp comment 'SSH'
+  - ufw allow from 10.0.0.0/16 to any port 5432 comment 'PostgreSQL private'
+  - ufw allow from 10.0.0.0/16 to any port 6432 comment 'PgBouncer private'
+  - ufw allow from 10.0.0.0/16 to any port 6379 comment 'Redis private'
+  - ufw --force enable
+
+  # Fail2ban
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+
+  # Timezone
+  - timedatectl set-timezone ${timezone}
+
+  # Install Docker
+  - curl -fsSL https://get.docker.com | sh
+
+  # Unattended upgrades
+  - apt-get install -y unattended-upgrades
+  - dpkg-reconfigure -plow unattended-upgrades
+
+final_message: "Kodemeio database server ready after $UPTIME seconds"

@@ -89,5 +89,5 @@ uv run mypy src/
 ## Dependencies
 
 - Python >= 3.12
-- `kctl-common >= 0.3.1` (shared CLI infrastructure)
+- `kctl-lib >= 0.3.1` (shared CLI infrastructure)
 - Typer + Rich + Pydantic 2 + httpx

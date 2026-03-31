@@ -4,37 +4,37 @@ Shared infrastructure for the Kodemeio CLI ecosystem.
 
 ## Packages
 
-### kctl-common
+### kctl-lib
 
 Shared core library for all `kctl-*` CLI tools.
 
-[![PyPI](https://img.shields.io/pypi/v/kctl-common)](https://pypi.org/project/kctl-common/)
-[![Python](https://img.shields.io/pypi/pyversions/kctl-common)](https://pypi.org/project/kctl-common/)
+[![PyPI](https://img.shields.io/pypi/v/kctl-lib)](https://pypi.org/project/kctl-lib/)
+[![Python](https://img.shields.io/pypi/pyversions/kctl-lib)](https://pypi.org/project/kctl-lib/)
 
-**Install:** `pip install kctl-common` or `uv add kctl-common`
+**Install:** `pip install kctl-lib` or `uv add kctl-lib`
 
 **Modules (17 total):**
 
 | Module | Purpose |
 |--------|---------|
-| `kctl_common.exceptions` | 9-class exception hierarchy (KctlError, ConfigError, APIError, etc.) |
-| `kctl_common.output` | Multi-format output handler (pretty/json/csv/yaml) |
-| `kctl_common.config` | Profile management (`~/.config/kodemeio/config.yaml`) |
-| `kctl_common.callbacks` | `AppContextBase` — abstract Typer context with lazy Output |
-| `kctl_common.api_client` | `APIClient` — sync HTTP base client with retry, auth header, error mapping |
-| `kctl_common.async_api_client` | `AsyncAPIClient` — async HTTP base client (mirror of APIClient) |
-| `kctl_common.runner` | Shell command runner + git helpers |
-| `kctl_common.plugins` | Plugin discovery via Python entry points |
-| `kctl_common.history` | SQLite-based history tracking |
-| `kctl_common.testing` | Shared test fixtures (mock_output, temp_config) |
-| `kctl_common.docker` | `DockerManager` — Docker Compose wrapper (up/down/ps/logs/restart/exec) |
-| `kctl_common.validate` | YAML/JSON/env/Dockerfile linting with `Issue` dataclass |
-| `kctl_common.git_ops` | Git workflow helpers — branch_status, pr_create, changelog_generate |
-| `kctl_common.completions` | Shell completion generation + install (zsh/bash/fish) |
-| `kctl_common.self_update` | PyPI version check + uv tool upgrade |
-| `kctl_common.doctor_base` | `DoctorCheck` protocol + `run_doctor()` + 4 built-in checks |
-| `kctl_common.monitor_base` | `health_check_url()`, `ssl_check()`, `dns_check()` |
-| `kctl_common.skill_generator` | Typer app introspection → SKILL.md auto-generation |
+| `kctl_lib.exceptions` | 9-class exception hierarchy (KctlError, ConfigError, APIError, etc.) |
+| `kctl_lib.output` | Multi-format output handler (pretty/json/csv/yaml) |
+| `kctl_lib.config` | Profile management (`~/.config/kodemeio/config.yaml`) |
+| `kctl_lib.callbacks` | `AppContextBase` — abstract Typer context with lazy Output |
+| `kctl_lib.api_client` | `APIClient` — sync HTTP base client with retry, auth header, error mapping |
+| `kctl_lib.async_api_client` | `AsyncAPIClient` — async HTTP base client (mirror of APIClient) |
+| `kctl_lib.runner` | Shell command runner + git helpers |
+| `kctl_lib.plugins` | Plugin discovery via Python entry points |
+| `kctl_lib.history` | SQLite-based history tracking |
+| `kctl_lib.testing` | Shared test fixtures (mock_output, temp_config) |
+| `kctl_lib.docker` | `DockerManager` — Docker Compose wrapper (up/down/ps/logs/restart/exec) |
+| `kctl_lib.validate` | YAML/JSON/env/Dockerfile linting with `Issue` dataclass |
+| `kctl_lib.git_ops` | Git workflow helpers — branch_status, pr_create, changelog_generate |
+| `kctl_lib.completions` | Shell completion generation + install (zsh/bash/fish) |
+| `kctl_lib.self_update` | PyPI version check + uv tool upgrade |
+| `kctl_lib.doctor_base` | `DoctorCheck` protocol + `run_doctor()` + 4 built-in checks |
+| `kctl_lib.monitor_base` | `health_check_url()`, `ssl_check()`, `dns_check()` |
+| `kctl_lib.skill_generator` | Typer app introspection → SKILL.md auto-generation |
 
 **Used by:** 21 kctl-* CLI tools across kodemeio-app, kodemeio-core, and kodemeio-saas
 
@@ -78,10 +78,10 @@ Shared core library for all `kctl-*` CLI tools.
 
 ## APIClient Base Class
 
-CLIs with HTTP APIs subclass `APIClient` from kctl-common:
+CLIs with HTTP APIs subclass `APIClient` from kctl-lib:
 
 ```python
-from kctl_common.api_client import APIClient
+from kctl_lib.api_client import APIClient
 
 class MyServiceClient(APIClient):
     AUTH_HEADER = "Authorization"   # or "X-Api-Key", "Auth-API-Token"
@@ -110,16 +110,16 @@ Generates a fully functional CLI with:
 - All 6 standard global options (`--json`, `--quiet`, `--format`, `--no-header`, `--profile`, `--version`)
 - All 9 standard config subcommands
 - Plugin system via entry points
-- AppContext subclass from kctl-common
-- kctl-common >= 0.3.1 dependency
+- AppContext subclass from kctl-lib
+- kctl-lib >= 0.3.1 dependency
 
 ## Development
 
 ```bash
 uv sync --all-extras
-uv run pytest packages/kctl-common/tests/ -v    # 238 tests
-uv run ruff check packages/kctl-common/src/
-uv run mypy packages/kctl-common/src/
+uv run pytest packages/kctl-lib/tests/ -v    # 238 tests
+uv run ruff check packages/kctl-lib/src/
+uv run mypy packages/kctl-lib/src/
 ```
 
 ## Publishing
@@ -127,7 +127,7 @@ uv run mypy packages/kctl-common/src/
 Automatic via GitHub Actions on version tag push:
 
 ```bash
-# 1. Bump version in packages/kctl-common/pyproject.toml + __init__.py
+# 1. Bump version in packages/kctl-lib/pyproject.toml + __init__.py
 # 2. Commit and tag
 git tag v0.3.1
 git push origin main --tags
