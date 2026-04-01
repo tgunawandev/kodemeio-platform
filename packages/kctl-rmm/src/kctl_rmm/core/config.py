@@ -39,6 +39,7 @@ __all__ = [
     "resolve_active_profile_name",
     "resolve_connection",
     "resolve_mesh_url",
+    "resolve_rustdesk_url",
     "set_default_profile",
     "set_service_config",
 ]
@@ -54,6 +55,7 @@ class ServiceConfig(BaseModel):
     url: str = ""
     api_key: str = ""
     mesh_url: str = ""
+    rustdesk_url: str = ""
 
 
 def get_service_config(profile_name: str) -> ServiceConfig:
@@ -113,3 +115,10 @@ def resolve_mesh_url(profile_name: str | None = None) -> str:
     pname = resolve_active_profile_name(profile_name)
     svc = get_service_config(pname)
     return svc.mesh_url or ""
+
+
+def resolve_rustdesk_url(profile_name: str | None = None) -> str:
+    """Resolve RustDesk server URL from profile config."""
+    pname = resolve_active_profile_name(profile_name)
+    svc = get_service_config(pname)
+    return svc.rustdesk_url or ""
