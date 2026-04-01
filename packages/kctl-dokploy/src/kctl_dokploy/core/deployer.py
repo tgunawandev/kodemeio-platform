@@ -508,7 +508,7 @@ class Deployer:
     # ------------------------------------------------------------------
 
     def phase_deploy(self) -> None:
-        """Trigger a redeploy of the compose service."""
+        """Trigger a redeploy and wait for Dokploy to finish (fail-fast on error)."""
         if not self._compose_id:
             if self.dry_run:
                 self._record_phase("deploy", "would-updated", "[dry-run] Would redeploy")
@@ -516,18 +516,46 @@ class Deployer:
                 self._record_phase("deploy", "failed", "No compose_id set — cannot redeploy")
             return
 
-        code, out = self._run_kctl(["kctl-dokploy", "compose", "redeploy", "--", self._compose_id])
-        if code == 0:
-            self._record_phase("deploy", self._action("updated"), self._msg(f"Redeploy compose {self._compose_id}"))
-        else:
-            self._record_phase("deploy", "failed", f"Redeploy failed: {out}")
+        code, out = self._run_kctl(["kctl-dokploy", "compose", "redeploy", self._compose_id])
+        if code != 0:
+            self._record_phase("deploy", "failed", f"Redeploy trigger failed: {out}")
+            return
+
+        # Poll Dokploy deployment status — fail fast if deployment errors
+        deadline = time.monotonic() + self.manifest.healthcheck.timeout
+        while time.monotonic() < deadline:
+            deploys = self._run_kctl_json(
+                ["kctl-dokploy", "deployments", "list", "--compose", self._compose_id, "--limit", "1"]
+            )
+            if isinstance(deploys, list) and deploys:
+                status = deploys[0].get("status", "")
+                if status == "done":
+                    self._record_phase("deploy", "updated", f"Deployment completed for {self._compose_id}")
+                    return
+                if status == "error":
+                    title = deploys[0].get("title", "")[:80]
+                    self._record_phase("deploy", "failed", f"Deployment error: {title}")
+                    return
+                # status is "running" or "queued" — keep waiting
+            time.sleep(10)
+
+        self._record_phase("deploy", "failed", f"Deployment timed out after {self.manifest.healthcheck.timeout}s")
 
     # ------------------------------------------------------------------
     # Phase 8 — Verify (healthcheck)
     # ------------------------------------------------------------------
 
     def phase_verify(self) -> None:
-        """Poll the healthcheck URL until it responds or times out."""
+        """Poll the healthcheck URL until it responds or times out.
+
+        Fail-fast: if the previous deploy phase already failed, skip.
+        Also checks Dokploy deployment status during polling to detect errors early.
+        """
+        # Skip if deploy phase already failed
+        if any(r.phase == "deploy" and r.action == "failed" for r in self.results):
+            self._record_phase("verify", "skipped", "Deploy phase failed — skipping healthcheck")
+            return
+
         if self.dry_run:
             domain = self.manifest.domain
             host = domain.host or "localhost"
@@ -539,14 +567,15 @@ class Deployer:
 
         host = domain.host or "localhost"
         scheme = "https" if domain.https else "http"
-        url = f"{scheme}://{host}:{hc.port}{hc.path}"
+        # Use standard HTTPS port (no :8069 in URL — Traefik handles routing)
+        url = f"{scheme}://{host}{hc.path}"
 
         deadline = time.monotonic() + hc.timeout
         last_error: str = ""
 
         while time.monotonic() < deadline:
             try:
-                resp = httpx.get(url, timeout=5.0)
+                resp = httpx.get(url, timeout=5.0, follow_redirects=True)
                 if resp.status_code == hc.expected_status:
                     self._record_phase("verify", "updated", f"Healthcheck passed: {url} → {resp.status_code}")
                     return
