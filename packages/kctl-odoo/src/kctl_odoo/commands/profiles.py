@@ -20,6 +20,13 @@ from kctl_odoo.core.callbacks import AppContext
 app = typer.Typer(help="Manage deployment profiles (bundle sets for different company types).")
 
 
+def _deprecation_warning(old: str, new: str) -> None:
+    typer.echo(
+        f"Warning: 'kctl-odoo config profiles {old}' is deprecated. Use 'kctl-odoo bundles {new}' instead.",
+        err=True,
+    )
+
+
 def _resolve_install_dir(dir_path: str | None) -> Path:
     p = Path(dir_path) if dir_path else get_default_install_dir()
     if not p.is_dir():
@@ -49,6 +56,7 @@ def list_(
     dir_path: Annotated[str | None, typer.Option("--dir", help="Install directory path")] = None,
 ) -> None:
     """List all available deployment profiles."""
+    _deprecation_warning("list", "list-profiles")
     actx: AppContext = ctx.obj
     out = actx.output
     install_dir = _resolve_install_dir(dir_path)
@@ -101,6 +109,7 @@ def show(
     dir_path: Annotated[str | None, typer.Option("--dir", help="Install directory path")] = None,
 ) -> None:
     """Show profile details: bundles, resolved modules."""
+    _deprecation_warning("show", "show-profile")
     actx: AppContext = ctx.obj
     out = actx.output
     install_dir = _resolve_install_dir(dir_path)
@@ -140,6 +149,7 @@ def status(
     dir_path: Annotated[str | None, typer.Option("--dir", help="Install directory path")] = None,
 ) -> None:
     """Compare all profile modules against the remote Odoo instance."""
+    _deprecation_warning("status", "profile-status")
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
@@ -203,6 +213,7 @@ def install(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be installed")] = False,
 ) -> None:
     """Install all missing profile modules on the remote Odoo instance."""
+    _deprecation_warning("install", "profile-install")
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
@@ -279,6 +290,7 @@ def validate(
     dir_path: Annotated[str | None, typer.Option("--dir", help="Install directory path")] = None,
 ) -> None:
     """Validate all profiles: check that referenced bundles exist and resolve correctly."""
+    _deprecation_warning("validate", "profile-validate")
     actx: AppContext = ctx.obj
     out = actx.output
     install_dir = _resolve_install_dir(dir_path)

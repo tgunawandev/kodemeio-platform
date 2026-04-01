@@ -1198,3 +1198,257 @@ def find_module(
         rows,
         json_data,
     )
+
+
+# ============================================================================
+# Profile status / install / validate commands
+# ============================================================================
+
+
+@app.command("profile-status")
+def profile_status(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Profile name")],
+    dir_path: Annotated[str | None, typer.Option("--dir", help="Install directory path")] = None,
+) -> None:
+    """Compare all profile modules against the remote Odoo instance."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    install_dir = _resolve_install_dir(dir_path)
+    path = _find_profile(install_dir, name)
+    profile = load_profile(path)
+
+    expected = resolve_profile_modules(profile, install_dir)
+    if not expected:
+        out.info("No modules resolved from profile.")
+        return
+
+    # Query installed modules
+    installed = c.search_read(
+        "ir.module.module",
+        domain=[("name", "in", expected), ("state", "=", "installed")],
+        fields=["name"],
+    )
+    installed_names = {m["name"] for m in installed}
+
+    missing = [m for m in expected if m not in installed_names]
+    installed_list = [m for m in expected if m in installed_names]
+
+    sections = [
+        (
+            "Summary",
+            [
+                ("Profile", profile.name),
+                ("Expected", str(len(expected))),
+                ("Installed", f"[green]{len(installed_list)}[/green]"),
+                ("Missing", f"[red]{len(missing)}[/red]" if missing else "[green]0[/green]"),
+                (
+                    "Compliance",
+                    "[green]100%[/green]"
+                    if not missing
+                    else f"[yellow]{len(installed_list) * 100 // len(expected)}%[/yellow]",
+                ),
+            ],
+        ),
+    ]
+    if missing:
+        sections.append(("Missing Modules", [(m, "[red]not installed[/red]") for m in missing]))
+
+    json_obj = {
+        "profile": profile.name,
+        "expected": len(expected),
+        "installed": len(installed_list),
+        "missing_count": len(missing),
+        "missing_modules": missing,
+        "compliance_pct": round(len(installed_list) * 100 / len(expected), 1) if expected else 100,
+    }
+
+    out.detail(f"Profile Status: {profile.name}", sections, json_obj)
+
+
+@app.command("profile-install")
+def profile_install(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Profile name")],
+    dir_path: Annotated[str | None, typer.Option("--dir", help="Install directory path")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be installed")] = False,
+) -> None:
+    """Install all missing profile modules on the remote Odoo instance."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    install_dir = _resolve_install_dir(dir_path)
+    path = _find_profile(install_dir, name)
+    profile = load_profile(path)
+
+    expected = resolve_profile_modules(profile, install_dir)
+    if not expected:
+        out.info("No modules resolved from profile.")
+        return
+
+    # Find missing
+    installed = c.search_read(
+        "ir.module.module",
+        domain=[("name", "in", expected), ("state", "=", "installed")],
+        fields=["name"],
+    )
+    installed_names = {m["name"] for m in installed}
+    missing = [m for m in expected if m not in installed_names]
+
+    if not missing:
+        out.success(f"All {len(expected)} modules from profile '{profile.name}' are already installed.")
+        if actx.json_mode:
+            out.raw_json({"installed": len(expected), "missing": 0})
+        return
+
+    if dry_run:
+        out.info(f"Would install {len(missing)} modules for profile '{profile.name}':")
+        for m in missing:
+            out.text(f"  - {m}")
+        if actx.json_mode:
+            out.raw_json({"dry_run": True, "modules": missing})
+        return
+
+    # Find installable modules
+    to_install = c.search_read(
+        "ir.module.module",
+        domain=[("name", "in", missing)],
+        fields=["id", "name", "state"],
+    )
+
+    found_names = {m["name"] for m in to_install}
+    not_found = [m for m in missing if m not in found_names]
+    if not_found:
+        out.warn(
+            f"{len(not_found)} modules not found in Odoo:"
+            f" {', '.join(not_found[:10])}{'...' if len(not_found) > 10 else ''}"
+        )
+        out.info("Run 'kctl-odoo maintenance update-list' to refresh the module list.")
+
+    install_ids = [m["id"] for m in to_install if m["state"] != "installed"]
+    install_names = sorted(m["name"] for m in to_install if m["state"] != "installed")
+    if not install_ids:
+        out.success("All available modules are already installed.")
+        return
+
+    out.info(f"Installing {len(install_ids)} modules for profile '{profile.name}' (may take several minutes)...")
+    # Module install can take 5-10+ min for large profiles — increase timeout
+    import httpx as _httpx
+
+    saved = c._client.timeout
+    c._client = _httpx.Client(headers=dict(c._client.headers), timeout=600.0, follow_redirects=True)
+    try:
+        c.execute_kw("ir.module.module", "button_immediate_install", [install_ids])
+    finally:
+        c._client = _httpx.Client(headers=dict(c._client.headers), timeout=saved, follow_redirects=True)
+    out.success(f"Installed {len(install_ids)} modules for profile '{profile.name}'.")
+
+    if actx.json_mode:
+        out.raw_json(
+            {
+                "installed": len(install_ids),
+                "modules": install_names,
+                "not_found": not_found,
+            }
+        )
+
+
+@app.command("profile-validate")
+def profile_validate(
+    ctx: typer.Context,
+    dir_path: Annotated[str | None, typer.Option("--dir", help="Install directory path")] = None,
+) -> None:
+    """Validate all profiles: check bundles exist, resolve correctly, extends references valid."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    install_dir = _resolve_install_dir(dir_path)
+
+    profiles = discover_profiles(install_dir)
+    if not profiles:
+        out.info("No profiles found.")
+        return
+
+    # Local imports to avoid circular imports
+    from kctl_odoo.core.bundles import _find_bundle_file, _find_profile_file, _parse_bundle_entry
+
+    rows = []
+    json_data = []
+    errors = 0
+
+    for p in profiles:
+        profile_name = p.name.removeprefix("profile-")
+        issues: list[str] = []
+
+        # Check extends reference
+        if p.extends:
+            parent = _find_profile_file(install_dir, p.extends)
+            if not parent:
+                issues.append(f"extends '{p.extends}' not found")
+
+        # Check each bundle reference exists
+        for entry in p.bundles:
+            bundle_name, _groups = _parse_bundle_entry(entry)
+            if _find_bundle_file(install_dir, bundle_name) is None:
+                issues.append(f"bundle '{bundle_name}' not found")
+
+        # Try to resolve
+        try:
+            modules = resolve_profile_modules(p, install_dir)
+            mod_count = len(modules)
+        except Exception as e:
+            issues.append(f"resolution failed: {e}")
+            mod_count = 0
+
+        if mod_count == 0 and not p.extends:
+            issues.append("resolves to 0 modules")
+
+        if issues:
+            errors += len(issues)
+            status_str = f"[red]{len(issues)} issues[/red]"
+        else:
+            status_str = "[green]OK[/green]"
+
+        rows.append(
+            [
+                profile_name,
+                str(len(p.bundles)),
+                str(mod_count),
+                p.extends or "-",
+                status_str,
+                "; ".join(issues) if issues else "-",
+            ]
+        )
+        json_data.append(
+            {
+                "name": profile_name,
+                "bundles": len(p.bundles),
+                "modules": mod_count,
+                "extends": p.extends or None,
+                "valid": len(issues) == 0,
+                "issues": issues,
+            }
+        )
+
+    title = f"Profile Validation ({len(profiles)} profiles)"
+    if errors:
+        title += f" - [red]{errors} issues[/red]"
+    else:
+        title += " - [green]all valid[/green]"
+
+    out.table(
+        title,
+        [
+            ("Profile", "cyan"),
+            ("Bundles", ""),
+            ("Modules", ""),
+            ("Extends", "dim"),
+            ("Status", ""),
+            ("Issues", "dim"),
+        ],
+        rows,
+        json_data,
+    )
+
+    if errors:
+        raise typer.Exit(1)
