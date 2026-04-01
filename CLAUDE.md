@@ -63,7 +63,7 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, kee
 
 | Path | Description |
 |------|-------------|
-| `packages/kctl-lib/` | Shared library (v0.3.1, PyPI, 247 tests) |
+| `packages/kctl-lib/` | Shared library (v0.4.0, PyPI, 247 tests) |
 | `packages/kctl-ak/` | Authentik SSO/identity CLI |
 | `packages/kctl-api/` | FastAPI platform CLI |
 | `packages/kctl-claude/` | Claude Code environment CLI |
@@ -84,11 +84,70 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, kee
 | `packages/kctl-sentry/` | Sentry error tracking CLI |
 | `packages/kctl-telegram/` | Telegram bot platform CLI |
 | `packages/kctl-waha/` | WhatsApp HTTP API CLI |
+| `deploys/bases/` | Deployment base templates (odoo, react-pwa, infra) |
+| `deploys/instances/` | Instance manifests (odoo-prod, odoo-mac, react-*-mac) |
 | `templates/kctl-cli/` | Copier template for new CLIs |
 | `docs/cli-standards.md` | CLI naming and option standards |
 | `docs/architecture.md` | Platform architecture |
 | `.github/workflows/ci.yml` | CI: test + lint on push/PR |
 | `.github/workflows/publish.yml` | Auto-publish to PyPI on v* tag |
+
+## Deployment System
+
+Declarative YAML-based deployment via `kctl-dokploy deploy`. Manifests live in `deploys/`.
+
+### Structure
+
+```
+deploys/
+├── bases/           # Reusable base templates
+│   ├── odoo.yaml    # Odoo 18 base (compose, env, healthcheck, backup, schedules)
+│   ├── react-pwa.yaml  # React PWA base (GitHub source, Authentik OIDC)
+│   └── infra.yaml   # Infrastructure services base
+└── instances/       # Per-instance manifests (extend a base)
+    ├── odoo-prod.yaml       # kodemeio_prod → odoo.kodeme.io
+    ├── odoo-mac.yaml        # odoo_full_mac → odoo-mac.kodeme.io
+    └── react-*-mac.yaml     # 11 React PWA apps for MAC customer
+```
+
+### Deploy Commands
+
+```bash
+# Full pipeline: DNS → DB → Compose → Env → Domain → Deploy → Verify → Backup → Post
+kctl-dokploy deploy apply -f deploys/instances/odoo-mac.yaml
+
+# Staged deployment (for troubleshooting)
+kctl-dokploy deploy setup -f <manifest>   # Stage 1: DNS + DB + Compose + Env + Domain
+kctl-dokploy deploy run -f <manifest>     # Stage 2: Deploy + Verify healthcheck
+kctl-dokploy deploy post -f <manifest>    # Stage 3: Backup + Schedules + Post-deploy
+
+# Preview / status
+kctl-dokploy deploy status -f <manifest>  # Dry-run all phases
+kctl-dokploy deploy apply -f <manifest> --dry-run
+
+# Batch deploy all instances
+kctl-dokploy deploy apply-all -d deploys/instances/
+```
+
+### 12-Phase Pipeline
+
+| # | Phase | CLI Used | Description |
+|---|-------|----------|-------------|
+| 1 | DNS | kctl-cf | Create/verify DNS record |
+| 2 | Database | kctl-pg | Create database + user |
+| 3 | Registry | kctl-dokploy | Ensure container registry access |
+| 4 | Compose | kctl-dokploy | Create/update compose service |
+| 5 | Environment | kctl-dokploy | Push env vars from manifest |
+| 6 | Domain | kctl-dokploy | Configure Traefik domain routing |
+| 7 | Deploy | kctl-dokploy | Trigger redeploy |
+| 8 | Verify | kctl-dokploy | Wait for healthcheck pass |
+| 9 | Backup | kctl-dokploy | Configure backup destination + schedule |
+| 10 | Schedules | kctl-dokploy | Setup cron jobs (vacuum, session cleanup) |
+| 11 | Post-deploy | kctl-odoo | Install Odoo bundles/profiles |
+
+### Odoo Prod Compose
+
+Source: `kodemeio-odoo` repo → `compose/odoo.prod.yml` (4 containers: init → web + cron + gevent)
 
 ## kctl-lib Modules
 

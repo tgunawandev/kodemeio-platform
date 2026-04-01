@@ -113,6 +113,39 @@ Generates a fully functional CLI with:
 - AppContext subclass from kctl-lib
 - kctl-lib >= 0.4.0 dependency
 
+## Deployment System
+
+Declarative YAML-based deployment via `kctl-dokploy deploy`. Instance manifests extend base templates.
+
+```
+deploys/
+├── bases/              # Reusable base templates
+│   ├── odoo.yaml       # Odoo 18 (compose, env, healthcheck, backup, schedules)
+│   ├── react-pwa.yaml  # React PWA (GitHub source, Authentik OIDC)
+│   └── infra.yaml      # Infrastructure services
+└── instances/          # Per-instance manifests
+    ├── odoo-prod.yaml  # kodemeio_prod → odoo.kodeme.io
+    ├── odoo-mac.yaml   # odoo_full_mac → odoo-mac.kodeme.io
+    └── react-*-mac.yaml  # 11 React PWA apps for MAC customer
+```
+
+### Deploy Commands
+
+```bash
+kctl-dokploy deploy apply -f deploys/instances/odoo-mac.yaml      # Full 12-phase pipeline
+kctl-dokploy deploy setup -f <manifest>                            # Stage 1: DNS + DB + Compose + Env + Domain
+kctl-dokploy deploy run -f <manifest>                              # Stage 2: Deploy + Verify
+kctl-dokploy deploy post -f <manifest>                             # Stage 3: Backup + Schedules + Post-deploy
+kctl-dokploy deploy status -f <manifest>                           # Dry-run preview
+kctl-dokploy deploy apply-all -d deploys/instances/                # Batch all instances
+```
+
+### 12-Phase Pipeline
+
+DNS → Database → Registry → Compose → Environment → Domain → Deploy → Verify → Backup → Schedules → Post-deploy
+
+Uses: kctl-cf (DNS), kctl-pg (DB), kctl-dokploy (compose/env/domain/deploy), kctl-odoo (post-deploy bundles)
+
 ## Development
 
 ```bash
@@ -129,7 +162,7 @@ Automatic via GitHub Actions on version tag push:
 ```bash
 # 1. Bump version in packages/kctl-lib/pyproject.toml + __init__.py
 # 2. Commit and tag
-git tag v0.3.1
+git tag v0.4.0
 git push origin main --tags
 # → CI tests → auto-publish to PyPI
 ```

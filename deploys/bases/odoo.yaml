@@ -6,7 +6,7 @@ source:
   owner: tgunawandev
   repo: kodemeio-odoo
   branch: "18.0"
-  compose_path: ./docker-compose.prod.yml
+  compose_path: ./compose/odoo.prod.yml
 
 server: kodeme-service
 project: kodemeio-service
