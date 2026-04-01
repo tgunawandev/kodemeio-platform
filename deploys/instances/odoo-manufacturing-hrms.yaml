@@ -8,7 +8,7 @@ instance:
 dns:
   zone: kodeme.io
   name: odoo-mfg-hr
-  content: 49.13.116.191           # kodeme-infra (Dokploy server)
+  content: 49.13.14.79             # kodeme-service (16GB RAM)
 
 domain:
   host: odoo-mfg-hr.kodeme.io
