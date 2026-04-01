@@ -1,0 +1,32 @@
+kind: instance
+extends: ../bases/odoo.yaml
+
+instance:
+  name: kodemeio-odoo-mfg-hr
+  description: "Manufacturing + HRMS — Full manufacturing ops + HR/payroll on single DB"
+
+dns:
+  zone: kodeme.io
+  name: odoo-mfg-hr
+  content: 49.13.14.79
+
+domain:
+  host: odoo-mfg-hr.kodeme.io
+  port: 8069
+  service: odoo
+  https: true
+
+database:
+  name: odoo_manufacturing_hrms
+  user: odoo
+
+env_overrides:
+  PGDATABASE: odoo_manufacturing_hrms
+  PGUSER: odoo
+  ODOO_DB_FILTER: "^odoo_manufacturing_hrms$"
+  DOMAIN: odoo-mfg-hr.kodeme.io
+  ODOO_WORKERS: "6"
+  ODOO_MAX_CRON_THREADS: "2"
+
+post_deploy:
+  odoo_profile: profile-manufacturing-hrms

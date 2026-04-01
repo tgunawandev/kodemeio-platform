@@ -1,0 +1,32 @@
+kind: instance
+extends: ../bases/odoo.yaml
+
+instance:
+  name: kodemeio-odoo-retail
+  description: "Retail — Multi-location shops, POS, WMS, marketplace integrations"
+
+dns:
+  zone: kodeme.io
+  name: odoo-retail
+  content: 49.13.14.79
+
+domain:
+  host: odoo-retail.kodeme.io
+  port: 8069
+  service: odoo
+  https: true
+
+database:
+  name: odoo_retail
+  user: odoo
+
+env_file: ../env/odoo/.env.prod.retail
+
+env_overrides:
+  PGDATABASE: odoo_retail
+  PGUSER: odoo
+  ODOO_DB_FILTER: "^odoo_retail$"
+  DOMAIN: odoo-retail.kodeme.io
+
+post_deploy:
+  odoo_profile: profile-retail

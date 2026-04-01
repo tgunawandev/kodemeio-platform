@@ -124,6 +124,7 @@ class DeployManifest(BaseModel):
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     healthcheck: HealthcheckConfig = Field(default_factory=HealthcheckConfig)
 
+    env_file: str | None = None
     env_defaults: dict[str, str] = Field(default_factory=dict)
     env_overrides: dict[str, str] = Field(default_factory=dict)
     source_overrides: dict[str, Any] = Field(default_factory=dict)
@@ -176,6 +177,7 @@ def merge_manifests(base: DeployManifest, instance: DeployManifest) -> DeployMan
     - Scalar top-level fields: instance wins if non-default.
     - Sub-models (source, dns, domain, database, healthcheck): instance wins
       field-by-field for non-default values.
+    - ``env_file``: instance wins if set; base used otherwise.
     - ``env_defaults``: kept from base.
     - ``env_overrides``: instance overrides merged on top of base.
     - ``source_overrides``: applied to the resolved source fields.
@@ -218,6 +220,9 @@ def merge_manifests(base: DeployManifest, instance: DeployManifest) -> DeployMan
     if instance.source_overrides:
         source_merged.update(instance.source_overrides)
 
+    # -- Env file: instance wins --
+    env_file = instance.env_file or base.env_file
+
     # -- Env: defaults from base, overrides merged --
     env_defaults = dict(base.env_defaults)
     env_overrides = {**base.env_overrides, **instance.env_overrides}
@@ -240,6 +245,7 @@ def merge_manifests(base: DeployManifest, instance: DeployManifest) -> DeployMan
         domain=DomainConfig(**domain_merged),
         database=DatabaseConfig(**database_merged),
         healthcheck=HealthcheckConfig(**healthcheck_merged),
+        env_file=env_file,
         env_defaults=env_defaults,
         env_overrides=env_overrides,
         source_overrides={},
@@ -299,6 +305,33 @@ def interpolate(manifest: DeployManifest) -> DeployManifest:
 
 
 # ---------------------------------------------------------------------------
+# Env file loading
+# ---------------------------------------------------------------------------
+
+
+def load_env_file(path: Path) -> dict[str, str]:
+    """Parse a dotenv-style file into a ``{key: value}`` dict.
+
+    Ignores blank lines and ``#`` comments. Values may optionally be quoted.
+    """
+    env: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        # Strip surrounding quotes if present
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        env[key] = value
+    return env
+
+
+# ---------------------------------------------------------------------------
 # Full pipeline
 # ---------------------------------------------------------------------------
 
@@ -321,10 +354,16 @@ def load_and_resolve(instance_path: Path) -> DeployManifest:
     instance = load_manifest(instance_path)
 
     if not instance.extends:
-        return interpolate(instance)
+        resolved = interpolate(instance)
+    else:
+        base_path = instance_path.parent / instance.extends
+        base = load_manifest(base_path.resolve())
+        merged = merge_manifests(base, instance)
+        resolved = interpolate(merged)
 
-    base_path = instance_path.parent / instance.extends
-    base = load_manifest(base_path.resolve())
+    # Resolve env_file path relative to the instance manifest directory
+    if resolved.env_file:
+        env_path = (instance_path.parent / resolved.env_file).resolve()
+        resolved = resolved.model_copy(update={"env_file": str(env_path)})
 
-    merged = merge_manifests(base, instance)
-    return interpolate(merged)
+    return resolved

@@ -17,7 +17,7 @@ from typing import Any
 
 import httpx
 
-from kctl_dokploy.core.manifest import DeployManifest
+from kctl_dokploy.core.manifest import DeployManifest, load_env_file
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -350,12 +350,39 @@ class Deployer:
     # ------------------------------------------------------------------
 
     def phase_environment(self) -> None:
-        """Push merged env_defaults to the compose service."""
+        """Push merged environment variables to the compose service.
+
+        Merge priority (lowest to highest):
+        1. ``env_file`` — loaded from dotenv file if specified
+        2. ``env_defaults`` — base manifest defaults
+        3. ``env_overrides`` — instance-specific overrides
+        4. Auto-injected ``ODOO_DEPLOY_PROFILE`` from ``post_deploy.odoo_profile``
+        """
         if not self._compose_id:
             self._record_phase("environment", "skipped", "No compose_id set — skipping env push")
             return
 
-        env = {**self.manifest.env_defaults, **self.manifest.env_overrides}
+        # Layer 1: env_file (lowest priority)
+        env: dict[str, str] = {}
+        if self.manifest.env_file:
+            from pathlib import Path
+
+            env_path = Path(self.manifest.env_file)
+            if env_path.exists():
+                env.update(load_env_file(env_path))
+            else:
+                self._record_phase("environment", "failed", f"Env file not found: {self.manifest.env_file}")
+                return
+
+        # Layer 2 + 3: defaults and overrides
+        env.update(self.manifest.env_defaults)
+        env.update(self.manifest.env_overrides)
+
+        # Layer 4: auto-sync ODOO_DEPLOY_PROFILE from post_deploy.odoo_profile
+        if self.manifest.post_deploy.odoo_profile:
+            profile = self.manifest.post_deploy.odoo_profile.removeprefix("profile-")
+            env["ODOO_DEPLOY_PROFILE"] = profile
+
         if not env:
             self._record_phase("environment", "skipped", "No environment variables to push")
             return
@@ -580,6 +607,34 @@ class Deployer:
     # Phase 11 — Post-deploy
     # ------------------------------------------------------------------
 
+    def phase_validate(self) -> None:
+        """Validate manifest before deployment (Phase 0).
+
+        Checks:
+        - If ``odoo_profile`` is set, verify the profile exists via kctl-odoo.
+        - If ``env_file`` is set, verify the file exists on disk.
+        """
+        errors: list[str] = []
+
+        # Validate odoo_profile exists
+        if self.manifest.post_deploy.odoo_profile:
+            profile = self.manifest.post_deploy.odoo_profile
+            code, out = self._run_kctl(["kctl-odoo", "bundles", "show-profile", profile.removeprefix("profile-")])
+            if code != 0:
+                errors.append(f"Odoo profile '{profile}' not found or failed to resolve")
+
+        # Validate env_file exists
+        if self.manifest.env_file:
+            from pathlib import Path
+
+            if not Path(self.manifest.env_file).exists():
+                errors.append(f"Env file not found: {self.manifest.env_file}")
+
+        if errors:
+            self._record_phase("validate", "failed", "; ".join(errors))
+        else:
+            self._record_phase("validate", "ok", "Manifest validation passed")
+
     def phase_post_deploy(self) -> None:
         """Run post-deployment actions (e.g. Odoo bundle install)."""
         pd = self.manifest.post_deploy
@@ -587,7 +642,9 @@ class Deployer:
             self._record_phase("post_deploy", "skipped", "No post-deploy actions configured")
             return
 
-        code, out = self._run_kctl(["kctl-odoo", "bundles", "install", "--profile", pd.odoo_profile])
+        code, out = self._run_kctl(
+            ["kctl-odoo", "bundles", "profile-install", pd.odoo_profile.removeprefix("profile-")]
+        )
         if code == 0:
             self._record_phase(
                 "post_deploy", self._action("updated"), self._msg(f"Install Odoo bundles via profile {pd.odoo_profile}")
@@ -600,7 +657,16 @@ class Deployer:
     # ------------------------------------------------------------------
 
     def run_all(self) -> list[PhaseResult]:
-        """Execute all 12 phases in order and return the accumulated results."""
+        """Execute all 13 phases in order and return the accumulated results.
+
+        Phase 0 (validate) runs first and fails fast on invalid manifests.
+        """
+        self.phase_validate()
+
+        # Abort if validation failed
+        if self.results and self.results[-1].action == "failed":
+            return self.results
+
         self.phase_dns()
         self.phase_database()
         self.phase_registry()

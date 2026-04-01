@@ -1,0 +1,32 @@
+kind: instance
+extends: ../bases/odoo.yaml
+
+instance:
+  name: kodemeio-odoo-trading
+  description: "Trading — Import/export, multi-currency, landed costs, compliance"
+
+dns:
+  zone: kodeme.io
+  name: odoo-trading
+  content: 49.13.14.79
+
+domain:
+  host: odoo-trading.kodeme.io
+  port: 8069
+  service: odoo
+  https: true
+
+database:
+  name: odoo_trading
+  user: odoo
+
+env_file: ../env/odoo/.env.prod.trading
+
+env_overrides:
+  PGDATABASE: odoo_trading
+  PGUSER: odoo
+  ODOO_DB_FILTER: "^odoo_trading$"
+  DOMAIN: odoo-trading.kodeme.io
+
+post_deploy:
+  odoo_profile: profile-trading

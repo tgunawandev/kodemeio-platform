@@ -18,6 +18,14 @@ healthcheck:
   timeout: 120
   interval: 10
 
+# Resource recommendations by profile:
+#   foundation/hrms:                    ODOO_WORKERS=2, 1 CPU, 2G memory
+#   trading:                            ODOO_WORKERS=4, 2 CPU, 4G memory
+#   distribution/manufacturing/retail:  ODOO_WORKERS=4, 2 CPU, 4G memory
+#   *-hrms (combined):                  ODOO_WORKERS=6, 3 CPU, 6G memory
+#   full:                               ODOO_WORKERS=6, 4 CPU, 8G memory
+# Override via env_overrides in instance manifests or env_file.
+
 env_defaults:
   RUNNING_ENV: production
   ODOO_WORKERS: "4"
