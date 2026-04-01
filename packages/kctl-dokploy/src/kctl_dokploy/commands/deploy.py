@@ -190,11 +190,12 @@ def apply(
     deployer.phase_environment()
     deployer.phase_domain()
 
-    # Check setup failures before proceeding
-    setup_failed = any(r.action == "failed" for r in deployer.results)
-    if setup_failed and not dry_run:
+    # Check critical setup failures before proceeding (compose/env/domain are blockers)
+    critical_phases = {"compose", "environment", "domain"}
+    critical_failed = any(r.action == "failed" and r.phase in critical_phases for r in deployer.results)
+    if critical_failed and not dry_run:
         _print_summary(c, f"Setup Failed: {manifest.instance.name}", deployer.results)
-        c.output.error("Setup failed — stopping before deploy. Fix errors and re-run.")
+        c.output.error("Critical setup phase failed — stopping before deploy.")
         sys.exit(1)
 
     # Stage 2: Deploy

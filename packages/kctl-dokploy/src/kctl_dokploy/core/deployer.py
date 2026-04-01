@@ -128,6 +128,15 @@ class Deployer:
         """Prefix message with '[dry-run]' in dry-run mode."""
         return f"[dry-run] {message}" if self.dry_run else message
 
+    def _find_github_id(self) -> str:
+        """Discover the Dokploy GitHub provider ID from configured git providers."""
+        providers: list | dict = self._run_kctl_json(["kctl-dokploy", "git", "list"])
+        if isinstance(providers, list):
+            for p in providers:
+                if p.get("providerType") == "github" or p.get("gitProviderType") == "github":
+                    return p.get("gitProviderId", "") or p.get("id", "")
+        return ""
+
     def _disable_auto_deploy(self) -> None:
         """Disable autoDeploy on the compose service via direct API call."""
         if not self._compose_id or self.dry_run:
@@ -155,7 +164,7 @@ class Deployer:
     # ------------------------------------------------------------------
 
     def phase_dns(self) -> None:
-        """Ensure the DNS A/CNAME record exists in Cloudflare."""
+        """Ensure the DNS A/CNAME record exists in Cloudflare (idempotent)."""
         dns = self.manifest.dns
         if not dns.zone or not dns.name:
             self._record_phase("dns", "skipped", "No DNS config specified")
@@ -188,7 +197,11 @@ class Deployer:
                 "dns", self._action("created"), self._msg(f"Create {dns.type} record {dns.name} → {dns.content}")
             )
         else:
-            self._record_phase("dns", "failed", f"Failed to create DNS record: {out}")
+            # Idempotent: if creation fails because record already exists, treat as success
+            if "already exists" in out.lower() or "duplicate" in out.lower():
+                self._record_phase("dns", "skipped", f"Record {dns.name} already exists")
+            else:
+                self._record_phase("dns", "failed", f"Failed to create DNS record: {out}")
 
     # ------------------------------------------------------------------
     # Phase 2 — Database
@@ -345,26 +358,28 @@ class Deployer:
 
         if new_compose_id:
             self._compose_id = new_compose_id
-            # Update with GitHub source using --id flag
-            self._run_kctl(
-                [
-                    "kctl-dokploy",
-                    "compose",
-                    "update",
-                    "--id",
-                    self._compose_id,
-                    "--source-type",
-                    "github",
-                    "--owner",
-                    src.owner,
-                    "--repo",
-                    src.repo,
-                    "--branch",
-                    src.branch,
-                    "--compose-path",
-                    src.compose_path,
-                ]
-            )
+            # Discover githubId from git providers for linking GitHub source
+            github_id = self._find_github_id()
+            update_args = [
+                "kctl-dokploy",
+                "compose",
+                "update",
+                "--id",
+                self._compose_id,
+                "--source-type",
+                "github",
+                "--owner",
+                src.owner,
+                "--repo",
+                src.repo,
+                "--branch",
+                src.branch,
+                "--compose-path",
+                src.compose_path,
+            ]
+            if github_id:
+                update_args += ["--github-id", github_id]
+            self._run_kctl(update_args)
             # Bug fix #3: Disable autoDeploy to prevent premature deployments
             self._disable_auto_deploy()
             self._record_phase(
