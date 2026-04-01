@@ -10,7 +10,7 @@ server: kodeme-infra
 dns:
   zone: kodeme.io
   name: odoo-full-mac
-  content: 49.13.116.191           # Dokploy server (kodeme-infra)
+  content: 49.13.14.79             # kodeme-service (16GB RAM)
 
 domain:
   host: odoo-full-mac.kodeme.io
