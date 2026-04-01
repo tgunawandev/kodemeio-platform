@@ -129,12 +129,19 @@ class Deployer:
         return f"[dry-run] {message}" if self.dry_run else message
 
     def _find_github_id(self) -> str:
-        """Discover the Dokploy GitHub provider ID from configured git providers."""
+        """Discover the Dokploy GitHub app ID from configured git providers.
+
+        The compose API needs ``github.githubId`` (the GitHub App installation ID),
+        NOT ``gitProviderId`` (the Dokploy provider record ID).
+        """
         providers: list | dict = self._run_kctl_json(["kctl-dokploy", "git", "list"])
         if isinstance(providers, list):
             for p in providers:
-                if p.get("providerType") == "github" or p.get("gitProviderType") == "github":
-                    return p.get("gitProviderId", "") or p.get("id", "")
+                if p.get("providerType") == "github":
+                    # The githubId is nested under the github sub-object
+                    github = p.get("github", {})
+                    if isinstance(github, dict):
+                        return github.get("githubId", "")
         return ""
 
     def _disable_auto_deploy(self) -> None:
