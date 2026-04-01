@@ -12,3 +12,4 @@ build/
 .env.prod
 .env.prod.*
 !.env.prod.*.example
+.playwright-mcp/
