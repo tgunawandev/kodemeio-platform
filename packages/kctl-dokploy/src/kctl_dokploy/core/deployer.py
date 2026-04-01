@@ -178,10 +178,13 @@ class Deployer:
             return
 
         fqdn = f"{dns.name}.{dns.zone}" if not dns.name.endswith(dns.zone) else dns.name
-        code, out = self._run_kctl(["kctl-cf", "records", "list", "--zone", dns.zone])
-        if code == 0 and fqdn in out:
-            self._record_phase("dns", "skipped", f"Record {dns.name} already exists")
-            return
+        # Use JSON output for reliable matching (text output truncates long names)
+        existing_records = self._run_kctl_json(["kctl-cf", "records", "list", "--zone", dns.zone])
+        if isinstance(existing_records, list):
+            for rec in existing_records:
+                if rec.get("name") == fqdn or rec.get("name", "").startswith(dns.name):
+                    self._record_phase("dns", "skipped", f"Record {dns.name} already exists")
+                    return
 
         # Create the record
         code, out = self._run_kctl(
