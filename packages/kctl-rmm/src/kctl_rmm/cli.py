@@ -20,6 +20,7 @@ from kctl_rmm.commands.linux import app as linux_app
 from kctl_rmm.commands.maintenance import app as maintenance_app
 from kctl_rmm.commands.patches import app as patches_app
 from kctl_rmm.commands.remote import app as remote_app
+from kctl_rmm.commands.rustdesk import app as rustdesk_app
 from kctl_rmm.commands.scripts import app as scripts_app
 from kctl_rmm.commands.services import app as services_app
 from kctl_rmm.commands.software import app as software_app
@@ -88,6 +89,7 @@ app.add_typer(config_app, name="config")
 app.add_typer(checks_app, name="checks")
 app.add_typer(winupdates_app, name="winupdates")
 app.add_typer(linux_app, name="linux")
+app.add_typer(rustdesk_app, name="rustdesk")
 
 
 def _run() -> None:
