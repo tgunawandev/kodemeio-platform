@@ -242,13 +242,13 @@ class Deployer:
         existing_users = self._run_kctl_json(["kctl-pg", "users", "list"])
         user_names = {u.get("rolname", "") for u in (existing_users if isinstance(existing_users, list) else [])}
         if db.user not in user_names:
-            code, out = self._run_kctl(["kctl-pg", "users", "create", "--name", db.user])
-            if code != 0:
+            code, out = self._run_kctl(["kctl-pg", "users", "create", db.user])
+            if code != 0 and "already exists" not in out:
                 self._record_phase("database", "failed", f"Failed to create role {db.user}: {out}")
                 return
 
-        # Create database
-        code, out = self._run_kctl(["kctl-pg", "db", "create", "--name", db.name, "--owner", db.user])
+        # Create database (positional NAME, --owner flag)
+        code, out = self._run_kctl(["kctl-pg", "db", "create", db.name, "--owner", db.user])
         if code == 0:
             self._record_phase("database", "created", f"Created database {db.name} (owner={db.user})")
         elif "already exists" in out:

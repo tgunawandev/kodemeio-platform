@@ -26,8 +26,8 @@ healthcheck:
   path: /web/health
   port: 8069
   expected_status: 200
-  timeout: 120
-  interval: 10
+  timeout: 900
+  interval: 15
 
 # Resource recommendations by profile:
 #   foundation/hrms:                    ODOO_WORKERS=2, 1 CPU, 2G memory
