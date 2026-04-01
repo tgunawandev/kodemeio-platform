@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from kctl_odoo.core.callbacks import AppContext
+from kctl_odoo.core.snapshots import (
+    ModuleSnapshot,
+    SnapshotEntry,
+    SnapshotMetadata,
+    diff_snapshots,
+    load_snapshot,
+    save_snapshot,
+)
 from kctl_odoo.core.utils import module_state_color
 
 app = typer.Typer(help="Manage Odoo modules.")
@@ -251,3 +261,439 @@ def scan(ctx: typer.Context) -> None:
     out.info("Scanning for new modules...")
     c.execute_kw("ir.module.module", "update_list", [])
     out.success("Module list updated")
+
+
+# ---------------------------------------------------------------------------
+# Helper: build dep maps
+# ---------------------------------------------------------------------------
+
+
+def _build_dep_maps(
+    c: object,
+) -> tuple[dict[str, str], dict[str, list[str]], dict[str, list[str]]]:
+    """Return (id_to_name, dep_map, rdep_map) from Odoo.
+
+    - ``id_to_name``: module id → technical name
+    - ``dep_map``: module_name → list of dependency names
+    - ``rdep_map``: dep_name → list of modules that depend on it
+    """
+    # id→name mapping
+    mods = c.search_read(  # type: ignore[union-attr]
+        "ir.module.module",
+        domain=[],
+        fields=["id", "name"],
+        limit=0,
+        order="name",
+    )
+    id_to_name: dict[str, str] = {str(m["id"]): m["name"] for m in mods}
+
+    # dependency records
+    deps = c.search_read(  # type: ignore[union-attr]
+        "ir.module.module.dependency",
+        domain=[],
+        fields=["module_id", "name"],
+        limit=0,
+    )
+
+    dep_map: dict[str, list[str]] = {}
+    rdep_map: dict[str, list[str]] = {}
+
+    for d in deps:
+        mid = d.get("module_id")
+        if isinstance(mid, list):
+            mid = mid[0]
+        parent_name = id_to_name.get(str(mid), str(mid))
+        dep_name = d.get("name", "")
+
+        dep_map.setdefault(parent_name, [])
+        if dep_name not in dep_map[parent_name]:
+            dep_map[parent_name].append(dep_name)
+
+        rdep_map.setdefault(dep_name, [])
+        if parent_name not in rdep_map[dep_name]:
+            rdep_map[dep_name].append(parent_name)
+
+    return id_to_name, dep_map, rdep_map
+
+
+def _collect_transitive_deps(
+    name: str,
+    dep_map: dict[str, list[str]],
+    max_depth: int,
+    current_depth: int = 0,
+    visited: set[str] | None = None,
+) -> list[str]:
+    """Recursively collect transitive dependency names."""
+    if visited is None:
+        visited = set()
+    if name in visited:
+        return []
+    visited.add(name)
+
+    result: list[str] = []
+    for dep in dep_map.get(name, []):
+        if dep not in visited:
+            result.append(dep)
+            if max_depth == 0 or current_depth < max_depth - 1:
+                result.extend(_collect_transitive_deps(dep, dep_map, max_depth, current_depth + 1, visited))
+    return result
+
+
+def _print_dep_tree(
+    name: str,
+    dep_map: dict[str, list[str]],
+    out: object,
+    indent: int = 0,
+    visited: set[str] | None = None,
+    max_depth: int = 0,
+) -> None:
+    """Print an indented dependency tree to output."""
+    if visited is None:
+        visited = set()
+    if max_depth > 0 and indent >= max_depth:
+        return
+
+    children = dep_map.get(name, [])
+    for child in sorted(children):
+        prefix = "  " * indent + ("└─ " if indent > 0 else "")
+        out.info(f"{prefix}{child}")  # type: ignore[union-attr]
+        if child not in visited:
+            visited.add(child)
+            _print_dep_tree(child, dep_map, out, indent + 1, visited, max_depth)
+
+
+# ---------------------------------------------------------------------------
+# deps
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def deps(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Module technical name")],
+    depth: Annotated[int, typer.Option("--depth", "-d", help="Max depth (0 = all)")] = 0,
+) -> None:
+    """Show module install dependency tree.
+
+    Examples:
+        kctl-odoo modules deps sale_management
+        kctl-odoo modules deps sale_management --depth 2
+        kctl-odoo modules deps sale_management --json
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    _id_to_name, dep_map, _rdep_map = _build_dep_maps(c)
+
+    if actx.json_mode:
+        all_deps = _collect_transitive_deps(name, dep_map, max_depth=depth)
+        out.raw_json({"module": name, "depth": depth, "dependencies": sorted(set(all_deps))})
+        return
+
+    direct = dep_map.get(name, [])
+    if not direct:
+        out.info(f"No dependencies found for: {name}")
+        return
+
+    out.info(f"Dependencies of [bold]{name}[/bold] (depth={depth or 'all'}):")
+    _print_dep_tree(name, dep_map, out, indent=0, max_depth=depth)
+
+
+# ---------------------------------------------------------------------------
+# rdeps
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def rdeps(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Module technical name")],
+    depth: Annotated[int, typer.Option("--depth", "-d", help="Max depth (0 = all, default: 1)")] = 1,
+) -> None:
+    """Show reverse dependencies (modules that depend on this one).
+
+    Examples:
+        kctl-odoo modules rdeps base_management
+        kctl-odoo modules rdeps base_management --depth 0
+        kctl-odoo modules rdeps base_management --json
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    _id_to_name, _dep_map, rdep_map = _build_dep_maps(c)
+
+    # Collect reverse deps (with depth control)
+    def _collect_rdeps(n: str, remaining: int, seen: set[str]) -> list[str]:
+        result: list[str] = []
+        for mod in rdep_map.get(n, []):
+            if mod not in seen:
+                seen.add(mod)
+                result.append(mod)
+                if remaining != 1:  # 0=unlimited, >1 means go deeper
+                    result.extend(_collect_rdeps(mod, max(0, remaining - 1), seen))
+        return result
+
+    seen: set[str] = {name}
+    all_rdeps = _collect_rdeps(name, depth, seen)
+
+    if actx.json_mode:
+        out.raw_json({"module": name, "depth": depth, "reverse_dependencies": sorted(set(all_rdeps))})
+        return
+
+    if not all_rdeps:
+        out.info(f"No reverse dependencies found for: {name}")
+        return
+
+    rows = [[m] for m in sorted(set(all_rdeps))]
+    out.table(
+        f"Reverse dependencies of '{name}' ({len(rows)})",
+        [("Module", "")],
+        rows,
+        data_for_json=sorted(set(all_rdeps)),
+    )
+
+
+# ---------------------------------------------------------------------------
+# snapshot
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def snapshot(
+    ctx: typer.Context,
+    output: Annotated[str | None, typer.Option("--output", "-o", help="Output file path")] = None,
+    state: Annotated[str, typer.Option("--state", "-s", help="Module state filter: installed or all")] = "installed",
+) -> None:
+    """Export current module state to a JSON snapshot file.
+
+    Examples:
+        kctl-odoo modules snapshot
+        kctl-odoo modules snapshot --output /tmp/snap.json
+        kctl-odoo modules snapshot --state all
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    domain: list = []
+    if state == "installed":
+        domain.append(("state", "=", "installed"))
+
+    mods = c.search_read(
+        "ir.module.module",
+        domain=domain,
+        fields=["name", "installed_version", "state", "author", "category_id"],
+        limit=0,
+        order="name",
+    )
+
+    entries: list[SnapshotEntry] = []
+    for m in mods:
+        cat = m.get("category_id")
+        category = cat[1] if isinstance(cat, list) and len(cat) >= 2 else ""
+        entries.append(
+            SnapshotEntry(
+                name=m["name"],
+                version=m.get("installed_version") or "",
+                state=m.get("state") or "installed",
+                author=m.get("author") or "",
+                category=category,
+            )
+        )
+
+    date_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    database = c.database
+    profile = actx.profile or ""
+
+    snap = ModuleSnapshot(
+        metadata=SnapshotMetadata(
+            database=database,
+            profile=profile,
+        ),
+        modules=entries,
+    )
+
+    if output:
+        dest = Path(output)
+    else:
+        dest = Path(f"snapshot-{database}-{date_str}.json")
+
+    save_snapshot(snap, dest)
+    out.success(f"Snapshot saved: {dest} ({len(entries)} modules)")
+
+    if actx.json_mode:
+        out.raw_json({"file": str(dest), "modules": len(entries), "database": database})
+
+
+# ---------------------------------------------------------------------------
+# diff-snapshots
+# ---------------------------------------------------------------------------
+
+
+@app.command("diff-snapshots")
+def diff_snapshots_cmd(
+    ctx: typer.Context,
+    file_a: Annotated[str, typer.Argument(help="Path to snapshot file A (baseline)")],
+    file_b: Annotated[str, typer.Argument(help="Path to snapshot file B (comparison)")],
+) -> None:
+    """Compare two snapshot JSON files.
+
+    Examples:
+        kctl-odoo modules diff-snapshots snap-prod.json snap-staging.json
+        kctl-odoo modules diff-snapshots snap-prod.json snap-staging.json --json
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    path_a = Path(file_a)
+    path_b = Path(file_b)
+
+    snap_a = load_snapshot(path_a)
+    snap_b = load_snapshot(path_b)
+
+    diff = diff_snapshots(snap_a, snap_b)
+
+    if actx.json_mode:
+        out.raw_json(
+            {
+                "source_a": diff.source_a or file_a,
+                "source_b": diff.source_b or file_b,
+                "added": diff.added,
+                "removed": diff.removed,
+                "version_changed": [
+                    {"module": n, "version_a": va, "version_b": vb} for n, va, vb in diff.version_changed
+                ],
+                "state_changed": [{"module": n, "state_a": sa, "state_b": sb} for n, sa, sb in diff.state_changed],
+            }
+        )
+        return
+
+    total = len(diff.added) + len(diff.removed) + len(diff.version_changed) + len(diff.state_changed)
+    sections = [
+        (
+            "Summary",
+            [
+                ("File A", file_a),
+                ("File B", file_b),
+                ("Source A", diff.source_a or "-"),
+                ("Source B", diff.source_b or "-"),
+                ("Added", str(len(diff.added))),
+                ("Removed", str(len(diff.removed))),
+                ("Version Changed", str(len(diff.version_changed))),
+                ("State Changed", str(len(diff.state_changed))),
+                ("Total Changes", str(total)),
+            ],
+        ),
+    ]
+
+    if diff.added:
+        sections.append(("Added (in B, not in A)", [(m, "") for m in diff.added]))
+
+    if diff.removed:
+        sections.append(("Removed (in A, not in B)", [(m, "") for m in diff.removed]))
+
+    if diff.version_changed:
+        sections.append(
+            (
+                "Version Changed",
+                [(f"{n}", f"{va} → {vb}") for n, va, vb in diff.version_changed],
+            )
+        )
+
+    if diff.state_changed:
+        sections.append(
+            (
+                "State Changed",
+                [(f"{n}", f"{sa} → {sb}") for n, sa, sb in diff.state_changed],
+            )
+        )
+
+    out.detail("Snapshot Diff", sections)
+
+
+# ---------------------------------------------------------------------------
+# diff-live
+# ---------------------------------------------------------------------------
+
+
+@app.command("diff-live")
+def diff_live(
+    ctx: typer.Context,
+    profile_a: Annotated[str, typer.Argument(help="Profile name for instance A")],
+    profile_b: Annotated[str, typer.Argument(help="Profile name for instance B")],
+) -> None:
+    """Compare installed modules between two kctl-odoo connection profiles.
+
+    Examples:
+        kctl-odoo modules diff-live production staging
+        kctl-odoo modules diff-live production staging --json
+    """
+    from kctl_odoo.core.client import OdooClient
+    from kctl_odoo.core.config import resolve_connection
+
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    def _get_installed(profile_name: str) -> tuple[str, set[str]]:
+        url, database, username, api_key = resolve_connection(profile_name=profile_name)
+        client = OdooClient(base_url=url, database=database, username=username, api_key=api_key)
+        try:
+            mods = client.search_read(
+                "ir.module.module",
+                domain=[("state", "=", "installed")],
+                fields=["name"],
+                limit=0,
+                order="name",
+            )
+            return database, {m["name"] for m in mods}
+        finally:
+            client.close()
+
+    out.info(f"Connecting to profile '{profile_a}'...")
+    db_a, mods_a = _get_installed(profile_a)
+
+    out.info(f"Connecting to profile '{profile_b}'...")
+    db_b, mods_b = _get_installed(profile_b)
+
+    only_a = sorted(mods_a - mods_b)
+    only_b = sorted(mods_b - mods_a)
+    common = len(mods_a & mods_b)
+
+    if actx.json_mode:
+        out.raw_json(
+            {
+                "profile_a": profile_a,
+                "profile_b": profile_b,
+                "database_a": db_a,
+                "database_b": db_b,
+                "only_in_a": only_a,
+                "only_in_b": only_b,
+                "common_count": common,
+            }
+        )
+        return
+
+    sections = [
+        (
+            "Summary",
+            [
+                ("Profile A", f"{profile_a} ({db_a})"),
+                ("Profile B", f"{profile_b} ({db_b})"),
+                ("Installed in A", str(len(mods_a))),
+                ("Installed in B", str(len(mods_b))),
+                ("Common", str(common)),
+                ("Only in A", str(len(only_a))),
+                ("Only in B", str(len(only_b))),
+            ],
+        ),
+    ]
+
+    if only_a:
+        sections.append((f"Only in A ({profile_a})", [(m, "") for m in only_a]))
+
+    if only_b:
+        sections.append((f"Only in B ({profile_b})", [(m, "") for m in only_b]))
+
+    out.detail("Live Module Diff", sections)
