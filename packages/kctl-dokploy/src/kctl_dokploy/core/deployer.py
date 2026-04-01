@@ -217,63 +217,10 @@ class Deployer:
     # Phase 2 — Database
     # ------------------------------------------------------------------
 
-    def _find_pg_container(self) -> str:
-        """Find the running kodemeio-postgres container name."""
-        containers = self._run_kctl_json(["kctl-dokploy", "docker", "containers"])
-        if isinstance(containers, list):
-            for c in containers:
-                name = c.get("Names", c.get("name", ""))
-                if isinstance(name, list):
-                    name = name[0] if name else ""
-                name = name.lstrip("/")
-                if "postgres" in name and "exporter" not in name and "bouncer" not in name:
-                    state = c.get("State", c.get("state", ""))
-                    if state == "running":
-                        return name
-        return ""
-
-    def _pg_superuser_exec(self, pg_container: str, sql: str) -> tuple[int, str]:
-        """Run SQL as postgres superuser via docker exec on the PG container.
-
-        Uses kctl-dokploy docker restart's underlying mechanism — but since
-        Dokploy doesn't have a docker exec API, we use subprocess directly
-        with the server IP from the Dokploy servers list.
-        """
-        # Find server IP from Dokploy
-        servers = self._run_kctl_json(["kctl-dokploy", "servers", "list"])
-        server_ip = ""
-        if isinstance(servers, list):
-            for s in servers:
-                if s.get("name", "") == "kodeme-service" or s.get("ipAddress", "") == "49.13.14.79":
-                    server_ip = s.get("ipAddress", "")
-                    break
-        if not server_ip:
-            # Fallback: try Dokploy server itself (serverId=None means local)
-            server_ip = "localhost"
-
-        cmd = [
-            "ssh",
-            "-o",
-            "ConnectTimeout=5",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "BatchMode=yes",
-            f"root@{server_ip}",
-            f"docker exec {pg_container} psql -U postgres -tAc {sql!r}",
-        ]
-        if server_ip == "localhost":
-            cmd = ["docker", "exec", pg_container, "psql", "-U", "postgres", "-tAc", sql]
-
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        return proc.returncode, (proc.stdout.strip() or proc.stderr.strip())
-
     def phase_database(self) -> None:
         """Ensure the PostgreSQL role and database exist (idempotent).
 
-        Uses the kodemeio-postgres container with ``postgres`` superuser
-        to CREATE DATABASE/ROLE since the app role lacks CREATEDB permission.
-        Falls back to kctl-pg if the postgres container is not found.
+        Uses ``kctl-pg`` which connects via SSH tunnel to the database server.
         """
         db = self.manifest.database
         if not db.name or not db.user:
@@ -284,26 +231,28 @@ class Deployer:
             self._record_phase("database", "would-created", f"[dry-run] Provision role={db.user}, db={db.name}")
             return
 
-        pg_container = self._find_pg_container()
-        if not pg_container:
-            self._record_phase("database", "failed", "Cannot find running postgres container")
-            return
-
-        # Check if database already exists
-        code, out = self._pg_superuser_exec(pg_container, f"SELECT 1 FROM pg_database WHERE datname = '{db.name}'")
-        if code == 0 and "1" in out:
+        # Check if database already exists via kctl-pg
+        existing_dbs = self._run_kctl_json(["kctl-pg", "db", "list"])
+        db_names = {d.get("datname", "") for d in (existing_dbs if isinstance(existing_dbs, list) else [])}
+        if db.name in db_names:
             self._record_phase("database", "skipped", f"Database {db.name} already exists")
             return
 
-        # Ensure role exists
-        code, out = self._pg_superuser_exec(pg_container, f"SELECT 1 FROM pg_roles WHERE rolname = '{db.user}'")
-        if code != 0 or "1" not in out:
-            self._pg_superuser_exec(pg_container, f"CREATE ROLE {db.user} LOGIN")
+        # Check if role exists
+        existing_users = self._run_kctl_json(["kctl-pg", "users", "list"])
+        user_names = {u.get("rolname", "") for u in (existing_users if isinstance(existing_users, list) else [])}
+        if db.user not in user_names:
+            code, out = self._run_kctl(["kctl-pg", "users", "create", "--name", db.user])
+            if code != 0:
+                self._record_phase("database", "failed", f"Failed to create role {db.user}: {out}")
+                return
 
         # Create database
-        code, out = self._pg_superuser_exec(pg_container, f"CREATE DATABASE {db.name} OWNER {db.user}")
-        if code == 0 or "already exists" in out:
+        code, out = self._run_kctl(["kctl-pg", "db", "create", "--name", db.name, "--owner", db.user])
+        if code == 0:
             self._record_phase("database", "created", f"Created database {db.name} (owner={db.user})")
+        elif "already exists" in out:
+            self._record_phase("database", "skipped", f"Database {db.name} already exists")
         else:
             self._record_phase("database", "failed", f"Failed to create database: {out}")
 
