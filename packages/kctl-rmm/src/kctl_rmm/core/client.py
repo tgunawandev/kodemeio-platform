@@ -25,8 +25,6 @@ class RMMClient(APIClient):
     ):
         if not base_url:
             raise ConfigError("No API URL configured. Run: kctl-rmm config init")
-        if not api_key:
-            raise ConfigError("No API key configured. Run: kctl-rmm config init")
 
         # Ensure trailing slash is handled consistently
         base_url = base_url.rstrip("/")
@@ -46,25 +44,8 @@ class RMMClient(APIClient):
             url += "/"
         return url
 
-    def get(self, endpoint: str, **kwargs: Any) -> Any:
-        url = self._ensure_trailing_slash(endpoint)
-        return super().get(url, **kwargs)
-
-    def post(self, endpoint: str, **kwargs: Any) -> Any:
-        url = self._ensure_trailing_slash(endpoint)
-        return super().post(url, **kwargs)
-
-    def patch(self, endpoint: str, **kwargs: Any) -> Any:
-        url = self._ensure_trailing_slash(endpoint)
-        return super().patch(url, **kwargs)
-
-    def put(self, endpoint: str, **kwargs: Any) -> Any:
-        url = self._ensure_trailing_slash(endpoint)
-        return super().put(url, **kwargs)
-
-    def delete(self, endpoint: str, **kwargs: Any) -> Any:
-        url = self._ensure_trailing_slash(endpoint)
-        return super().delete(url, **kwargs)
+    def _request(self, method: str, endpoint: str, **kwargs: Any) -> httpx.Response:
+        return super()._request(method, self._ensure_trailing_slash(endpoint), **kwargs)
 
     def check_health(self) -> tuple[int, dict]:
         """Check API root endpoint (no auth needed)."""
@@ -75,7 +56,7 @@ class RMMClient(APIClient):
             except Exception:
                 body = {}
             return r.status_code, body
-        except httpx.HTTPError:
+        except Exception:
             return 0, {}
 
     def check_auth(self) -> tuple[bool, str]:
