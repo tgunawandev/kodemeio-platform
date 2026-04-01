@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-
 from kctl_lib import ConfigError
 from kctl_lib.api_client import APIClient
 

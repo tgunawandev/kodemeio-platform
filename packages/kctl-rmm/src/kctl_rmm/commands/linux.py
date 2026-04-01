@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import subprocess
-import sys
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -83,12 +82,12 @@ def install(
     auth_key: Annotated[
         str, typer.Option("--auth-key", help="TRMM install auth key (from Agents > Install Agent)")
     ] = "",
-    client_name: Annotated[Optional[str], typer.Option("--client", help="Client name (partial match)")] = None,
-    site_name: Annotated[Optional[str], typer.Option("--site", help="Site name (partial match)")] = None,
-    client_id: Annotated[Optional[int], typer.Option("--client-id", help="Client ID (skip lookup)")] = None,
-    site_id: Annotated[Optional[int], typer.Option("--site-id", help="Site ID (skip lookup)")] = None,
+    client_name: Annotated[str | None, typer.Option("--client", help="Client name (partial match)")] = None,
+    site_name: Annotated[str | None, typer.Option("--site", help="Site name (partial match)")] = None,
+    client_id: Annotated[int | None, typer.Option("--client-id", help="Client ID (skip lookup)")] = None,
+    site_id: Annotated[int | None, typer.Option("--site-id", help="Site ID (skip lookup)")] = None,
     agent_type: Annotated[str, typer.Option("--type", help="Agent type: server or workstation")] = "server",
-    ssh_host: Annotated[Optional[str], typer.Option("--ssh", help="Deploy via SSH to this host (user@host)")] = None,
+    ssh_host: Annotated[str | None, typer.Option("--ssh", help="Deploy via SSH to this host (user@host)")] = None,
     ssh_port: Annotated[int, typer.Option("--ssh-port", help="SSH port")] = 22,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print command without executing")] = False,
 ) -> None:
@@ -179,7 +178,7 @@ def install(
 @app.command()
 def update(
     ctx: typer.Context,
-    ssh_host: Annotated[Optional[str], typer.Option("--ssh", help="Run via SSH on this host (user@host)")] = None,
+    ssh_host: Annotated[str | None, typer.Option("--ssh", help="Run via SSH on this host (user@host)")] = None,
     ssh_port: Annotated[int, typer.Option("--ssh-port", help="SSH port")] = 22,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print command without executing")] = False,
 ) -> None:
@@ -223,7 +222,7 @@ def uninstall(
     ctx: typer.Context,
     mesh_fqdn: Annotated[str, typer.Option("--mesh-fqdn", help="MeshCentral FQDN (e.g. mesh.kodeme.io)")] = "",
     mesh_id: Annotated[str, typer.Option("--mesh-id", help="MeshCentral device group mesh ID")] = "",
-    ssh_host: Annotated[Optional[str], typer.Option("--ssh", help="Run via SSH on this host (user@host)")] = None,
+    ssh_host: Annotated[str | None, typer.Option("--ssh", help="Run via SSH on this host (user@host)")] = None,
     ssh_port: Annotated[int, typer.Option("--ssh-port", help="SSH port")] = 22,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print command without executing")] = False,
 ) -> None:

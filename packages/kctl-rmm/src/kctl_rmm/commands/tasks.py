@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -14,7 +14,7 @@ app = typer.Typer(help="Manage automated tasks.")
 @app.command("list")
 def list_(
     ctx: typer.Context,
-    agent: Annotated[Optional[str], typer.Option("--agent", "-a", help="Filter by agent ID")] = None,
+    agent: Annotated[str | None, typer.Option("--agent", "-a", help="Filter by agent ID")] = None,
 ) -> None:
     """List automated tasks."""
     c: AppContext = ctx.obj

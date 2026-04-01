@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import os
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
-
 from kctl_lib import KctlError
 from kctl_lib.config import (
     CONFIG_FILE,
@@ -58,10 +57,10 @@ def _test_connection(url: str, api_key: str) -> tuple[bool, str]:
 @app.command()
 def init(
     ctx: typer.Context,
-    url: Annotated[Optional[str], typer.Option("--url", help="Tactical RMM API URL.")] = None,
-    api_key: Annotated[Optional[str], typer.Option("--api-key", help="X-API-KEY value.")] = None,
-    mesh_url: Annotated[Optional[str], typer.Option("--mesh-url", help="MeshCentral URL.")] = None,
-    name: Annotated[Optional[str], typer.Option("--name", "-n", help="Profile name.")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="Tactical RMM API URL.")] = None,
+    api_key: Annotated[str | None, typer.Option("--api-key", help="X-API-KEY value.")] = None,
+    mesh_url: Annotated[str | None, typer.Option("--mesh-url", help="MeshCentral URL.")] = None,
+    name: Annotated[str | None, typer.Option("--name", "-n", help="Profile name.")] = None,
 ) -> None:
     """Initialize CLI configuration (interactive if no flags given)."""
     actx: AppContext = ctx.obj
@@ -100,9 +99,9 @@ def init(
 def add(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Profile name (e.g. production, staging)")],
-    url: Annotated[Optional[str], typer.Option("--url", help="Tactical RMM API URL.")] = None,
-    api_key: Annotated[Optional[str], typer.Option("--api-key", help="X-API-KEY value.")] = None,
-    mesh_url: Annotated[Optional[str], typer.Option("--mesh-url", help="MeshCentral URL.")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="Tactical RMM API URL.")] = None,
+    api_key: Annotated[str | None, typer.Option("--api-key", help="X-API-KEY value.")] = None,
+    mesh_url: Annotated[str | None, typer.Option("--mesh-url", help="MeshCentral URL.")] = None,
     set_default: Annotated[bool, typer.Option("--default", help="Set as default profile.")] = False,
 ) -> None:
     """Add or update a profile's RMM connection."""
@@ -123,9 +122,10 @@ def add(
             raise typer.Exit(code=1)
 
     existing = get_service_config(name)
-    if existing.url:
-        if not typer.confirm(f"Profile '{name}' already has {SERVICE_KEY} config ({existing.url}). Overwrite?"):
-            raise typer.Exit(0)
+    if existing.url and not typer.confirm(
+        f"Profile '{name}' already has {SERVICE_KEY} config ({existing.url}). Overwrite?"
+    ):
+        raise typer.Exit(0)
 
     svc = ServiceConfig(url=api_url, api_key=key, mesh_url=mesh)
     set_service_config(name, svc)
@@ -279,9 +279,7 @@ def set_(
     ctx: typer.Context,
     key: Annotated[str, typer.Argument(help="Config key (e.g. url, api_key, mesh_url, or default_profile)")],
     value: Annotated[str, typer.Argument(help="Value to set")],
-    profile_arg: Annotated[
-        Optional[str], typer.Option("--profile-name", help="Target profile (default: active)")
-    ] = None,
+    profile_arg: Annotated[str | None, typer.Option("--profile-name", help="Target profile (default: active)")] = None,
 ) -> None:
     """Set a configuration value for the current service."""
     actx: AppContext = ctx.obj

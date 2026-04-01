@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -69,7 +69,7 @@ def get(
 @app.command()
 def sites(
     ctx: typer.Context,
-    client_filter: Annotated[Optional[str], typer.Option("--client", help="Filter by client name")] = None,
+    client_filter: Annotated[str | None, typer.Option("--client", help="Filter by client name")] = None,
 ) -> None:
     """List all sites."""
     c: AppContext = ctx.obj

@@ -2,32 +2,30 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
-
 from kctl_lib import KctlError, handle_cli_error
 
 from kctl_rmm import __version__
-from kctl_rmm.core.callbacks import AppContext
-
 from kctl_rmm.commands.agents import app as agents_app
-from kctl_rmm.commands.scripts import app as scripts_app
-from kctl_rmm.commands.clients import app as clients_app
-from kctl_rmm.commands.software import app as software_app
-from kctl_rmm.commands.patches import app as patches_app
 from kctl_rmm.commands.alerts import app as alerts_app
-from kctl_rmm.commands.tasks import app as tasks_app
-from kctl_rmm.commands.services import app as services_app
-from kctl_rmm.commands.drivers import app as drivers_app
-from kctl_rmm.commands.remote import app as remote_app
-from kctl_rmm.commands.health import app as health_app
-from kctl_rmm.commands.dashboard import app as dashboard_app
-from kctl_rmm.commands.maintenance import app as maintenance_app
-from kctl_rmm.commands.config_cmd import app as config_app
 from kctl_rmm.commands.checks import app as checks_app
-from kctl_rmm.commands.winupdates import app as winupdates_app
+from kctl_rmm.commands.clients import app as clients_app
+from kctl_rmm.commands.config_cmd import app as config_app
+from kctl_rmm.commands.dashboard import app as dashboard_app
+from kctl_rmm.commands.drivers import app as drivers_app
+from kctl_rmm.commands.health import app as health_app
 from kctl_rmm.commands.linux import app as linux_app
+from kctl_rmm.commands.maintenance import app as maintenance_app
+from kctl_rmm.commands.patches import app as patches_app
+from kctl_rmm.commands.remote import app as remote_app
+from kctl_rmm.commands.scripts import app as scripts_app
+from kctl_rmm.commands.services import app as services_app
+from kctl_rmm.commands.software import app as software_app
+from kctl_rmm.commands.tasks import app as tasks_app
+from kctl_rmm.commands.winupdates import app as winupdates_app
+from kctl_rmm.core.callbacks import AppContext
 
 
 def version_callback(value: bool) -> None:
@@ -52,9 +50,9 @@ def main(
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Suppress info messages")] = False,
     output_format: Annotated[str, typer.Option("--format", help="Output format: pretty, json, csv, yaml")] = "pretty",
     no_header: Annotated[bool, typer.Option("--no-header", help="Omit table headers")] = False,
-    profile: Annotated[Optional[str], typer.Option("--profile", "-p", help="Config profile name")] = None,
-    url: Annotated[Optional[str], typer.Option("--url", help="API URL override")] = None,
-    api_key: Annotated[Optional[str], typer.Option("--api-key", help="X-API-KEY override")] = None,
+    profile: Annotated[str | None, typer.Option("--profile", "-p", help="Config profile name")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="API URL override")] = None,
+    api_key: Annotated[str | None, typer.Option("--api-key", help="X-API-KEY override")] = None,
     version: Annotated[
         bool, typer.Option("--version", "-V", callback=version_callback, is_eager=True, help="Show version")
     ] = False,
@@ -101,7 +99,7 @@ def _run() -> None:
     except SystemExit:
         raise
     except KeyboardInterrupt:
-        raise typer.Exit(130)
+        raise typer.Exit(130) from None
 
 
 if __name__ == "__main__":

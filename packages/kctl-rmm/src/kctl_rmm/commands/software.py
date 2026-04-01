@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -20,16 +20,24 @@ def list_(
     c: AppContext = ctx.obj
     data = c.client.get(f"/software/{agent_id}/")
 
-    software = data if isinstance(data, list) else data.get("software", data.get("results", [])) if isinstance(data, dict) else []
+    software = (
+        data
+        if isinstance(data, list)
+        else data.get("software", data.get("results", []))
+        if isinstance(data, dict)
+        else []
+    )
 
     rows: list[list[str]] = []
     for s in software:
-        rows.append([
-            s.get("name", ""),
-            s.get("version", ""),
-            s.get("publisher", s.get("vendor", "")),
-            s.get("install_date", ""),
-        ])
+        rows.append(
+            [
+                s.get("name", ""),
+                s.get("version", ""),
+                s.get("publisher", s.get("vendor", "")),
+                s.get("install_date", ""),
+            ]
+        )
 
     c.output.table(
         f"Installed Software ({len(software)})",
@@ -43,14 +51,20 @@ def list_(
 def search(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Software name to search")],
-    agent_id: Annotated[Optional[str], typer.Option("--agent", "-a", help="Limit to specific agent")] = None,
+    agent_id: Annotated[str | None, typer.Option("--agent", "-a", help="Limit to specific agent")] = None,
 ) -> None:
     """Search for software across agents."""
     c: AppContext = ctx.obj
 
     if agent_id:
         data = c.client.get(f"/software/{agent_id}/")
-        software = data if isinstance(data, list) else data.get("software", data.get("results", [])) if isinstance(data, dict) else []
+        software = (
+            data
+            if isinstance(data, list)
+            else data.get("software", data.get("results", []))
+            if isinstance(data, dict)
+            else []
+        )
         matches = [s for s in software if name.lower() in s.get("name", "").lower()]
 
         rows: list[list[str]] = []
@@ -66,7 +80,13 @@ def search(
     else:
         # Get all agents, then search each
         agents_data = c.client.get("/agents/", params={"detail": "false"})
-        agents = agents_data if isinstance(agents_data, list) else agents_data.get("results", []) if isinstance(agents_data, dict) else []
+        agents = (
+            agents_data
+            if isinstance(agents_data, list)
+            else agents_data.get("results", [])
+            if isinstance(agents_data, dict)
+            else []
+        )
 
         rows = []
         all_matches: list[dict] = []
@@ -74,7 +94,13 @@ def search(
             aid = a.get("agent_id", "")
             try:
                 data = c.client.get(f"/software/{aid}/")
-                software = data if isinstance(data, list) else data.get("software", data.get("results", [])) if isinstance(data, dict) else []
+                software = (
+                    data
+                    if isinstance(data, list)
+                    else data.get("software", data.get("results", []))
+                    if isinstance(data, dict)
+                    else []
+                )
                 for s in software:
                     if name.lower() in s.get("name", "").lower():
                         rows.append([aid, a.get("hostname", ""), s.get("name", ""), s.get("version", "")])

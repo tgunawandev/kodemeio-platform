@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -30,8 +30,8 @@ def _agent_status(agent: dict) -> str:
 def list_(
     ctx: typer.Context,
     detail: Annotated[bool, typer.Option("--detail", help="Full agent details")] = False,
-    client: Annotated[Optional[str], typer.Option("--client", help="Filter by client name")] = None,
-    site: Annotated[Optional[str], typer.Option("--site", help="Filter by site name")] = None,
+    client: Annotated[str | None, typer.Option("--client", help="Filter by client name")] = None,
+    site: Annotated[str | None, typer.Option("--site", help="Filter by site name")] = None,
 ) -> None:
     """List all agents."""
     c: AppContext = ctx.obj
@@ -47,14 +47,16 @@ def list_(
     rows: list[list[str]] = []
     for a in agents:
         status = _agent_status(a)
-        rows.append([
-            a.get("agent_id", ""),
-            a.get("hostname", ""),
-            a.get("client_name", ""),
-            a.get("site_name", ""),
-            a.get("operating_system", a.get("plat", "")),
-            _status_icon(status),
-        ])
+        rows.append(
+            [
+                a.get("agent_id", ""),
+                a.get("hostname", ""),
+                a.get("client_name", ""),
+                a.get("site_name", ""),
+                a.get("operating_system", a.get("plat", "")),
+                _status_icon(status),
+            ]
+        )
 
     c.output.table(
         f"Agents ({len(agents)})",
@@ -79,17 +81,20 @@ def get(
 
     status = _agent_status(agent)
     sections: list[tuple[str, list[tuple[str, str]]]] = [
-        ("Agent Info", [
-            ("Agent ID", agent.get("agent_id", "")),
-            ("Hostname", agent.get("hostname", "")),
-            ("Client", agent.get("client_name", "")),
-            ("Site", agent.get("site_name", "")),
-            ("Status", _status_icon(status)),
-            ("OS", agent.get("operating_system", "")),
-            ("Version", agent.get("version", "")),
-            ("Public IP", agent.get("public_ip", "")),
-            ("Last Seen", agent.get("last_seen", "")),
-        ]),
+        (
+            "Agent Info",
+            [
+                ("Agent ID", agent.get("agent_id", "")),
+                ("Hostname", agent.get("hostname", "")),
+                ("Client", agent.get("client_name", "")),
+                ("Site", agent.get("site_name", "")),
+                ("Status", _status_icon(status)),
+                ("OS", agent.get("operating_system", "")),
+                ("Version", agent.get("version", "")),
+                ("Public IP", agent.get("public_ip", "")),
+                ("Last Seen", agent.get("last_seen", "")),
+            ],
+        ),
     ]
 
     # Hardware info if available
@@ -117,10 +122,7 @@ def ping(
     c: AppContext = ctx.obj
     result = c.client.get(f"/agents/{agent_id}/ping/")
 
-    if isinstance(result, dict):
-        status = result.get("status", result.get("name", "unknown"))
-    else:
-        status = str(result)
+    status = result.get("status", result.get("name", "unknown")) if isinstance(result, dict) else str(result)
 
     if "online" in str(status).lower() or status == "pong":
         c.output.success(f"Agent {agent_id} is reachable: {status}")
@@ -138,9 +140,8 @@ def reboot(
     """Reboot a remote machine."""
     c: AppContext = ctx.obj
 
-    if not force:
-        if not typer.confirm(f"Reboot agent {agent_id}?"):
-            raise typer.Exit(0)
+    if not force and not typer.confirm(f"Reboot agent {agent_id}?"):
+        raise typer.Exit(0)
 
     c.client.post(f"/agents/{agent_id}/reboot/")
     c.output.success(f"Reboot command sent to {agent_id}")
@@ -168,13 +169,15 @@ def offline(ctx: typer.Context) -> None:
 
     rows: list[list[str]] = []
     for a in offline_agents:
-        rows.append([
-            a.get("agent_id", ""),
-            a.get("hostname", ""),
-            a.get("client_name", ""),
-            a.get("site_name", ""),
-            a.get("last_seen", ""),
-        ])
+        rows.append(
+            [
+                a.get("agent_id", ""),
+                a.get("hostname", ""),
+                a.get("client_name", ""),
+                a.get("site_name", ""),
+                a.get("last_seen", ""),
+            ]
+        )
 
     c.output.table(
         f"Offline Agents ({len(offline_agents)})",
@@ -213,20 +216,32 @@ def summary(ctx: typer.Context) -> None:
     rows: list[list[str]] = []
     for key, counts in sorted(clients.items()):
         total = counts["online"] + counts["offline"]
-        rows.append([
-            key,
-            str(total),
-            f"[green]{counts['online']}[/green]",
-            f"[red]{counts['offline']}[/red]" if counts["offline"] else "0",
-        ])
+        rows.append(
+            [
+                key,
+                str(total),
+                f"[green]{counts['online']}[/green]",
+                f"[red]{counts['offline']}[/red]" if counts["offline"] else "0",
+            ]
+        )
 
-    rows.append(["[bold]TOTAL[/bold]", f"[bold]{len(agents)}[/bold]",
-                  f"[bold green]{total_online}[/bold green]",
-                  f"[bold red]{total_offline}[/bold red]" if total_offline else "[bold]0[/bold]"])
+    rows.append(
+        [
+            "[bold]TOTAL[/bold]",
+            f"[bold]{len(agents)}[/bold]",
+            f"[bold green]{total_online}[/bold green]",
+            f"[bold red]{total_offline}[/bold red]" if total_offline else "[bold]0[/bold]",
+        ]
+    )
 
     c.output.table(
         "Agent Summary",
         [("Client / Site", "cyan"), ("Total", ""), ("Online", "green"), ("Offline", "red")],
         rows,
-        data_for_json={"total": len(agents), "online": total_online, "offline": total_offline, "by_client_site": clients},
+        data_for_json={
+            "total": len(agents),
+            "online": total_online,
+            "offline": total_offline,
+            "by_client_site": clients,
+        },
     )

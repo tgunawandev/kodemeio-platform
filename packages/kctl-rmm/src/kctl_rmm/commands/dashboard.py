@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import time
+from typing import Annotated
 
 import typer
-from typing import Annotated
 
 from kctl_rmm.core.callbacks import AppContext
 

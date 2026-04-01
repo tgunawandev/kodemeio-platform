@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -76,9 +76,9 @@ def get(
 def run(
     ctx: typer.Context,
     script_id: Annotated[int, typer.Argument(help="Script ID")],
-    agent: Annotated[Optional[str], typer.Option("--agent", "-a", help="Agent ID")] = None,
+    agent: Annotated[str | None, typer.Option("--agent", "-a", help="Agent ID")] = None,
     all_agents: Annotated[bool, typer.Option("--all", help="Run on all agents")] = False,
-    client_filter: Annotated[Optional[str], typer.Option("--client", help="Run on all agents in client")] = None,
+    client_filter: Annotated[str | None, typer.Option("--client", help="Run on all agents in client")] = None,
     timeout: Annotated[int, typer.Option("--timeout", "-t", help="Script timeout in seconds")] = 120,
 ) -> None:
     """Run a script on agent(s). Uses fire-and-forget mode."""
@@ -127,7 +127,7 @@ def run(
 @app.command()
 def history(
     ctx: typer.Context,
-    agent: Annotated[Optional[str], typer.Option("--agent", "-a", help="Filter by agent ID")] = None,
+    agent: Annotated[str | None, typer.Option("--agent", "-a", help="Filter by agent ID")] = None,
 ) -> None:
     """View script execution history."""
     c: AppContext = ctx.obj
@@ -164,7 +164,7 @@ def create(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Script name")],
     shell: Annotated[str, typer.Option("--shell", "-s", help="Shell type: bash, powershell, python")] = "powershell",
-    file: Annotated[Optional[Path], typer.Option("--file", "-f", help="Script file path")] = None,
+    file: Annotated[Path | None, typer.Option("--file", "-f", help="Script file path")] = None,
     description: Annotated[str, typer.Option("--description", "-d", help="Script description")] = "",
     timeout: Annotated[int, typer.Option("--timeout", "-t", help="Default timeout")] = 120,
 ) -> None:

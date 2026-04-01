@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -73,7 +73,7 @@ def scan(
 def install(
     ctx: typer.Context,
     agent_id: Annotated[str, typer.Argument(help="Agent ID")],
-    kb: Annotated[Optional[list[str]], typer.Option("--kb", help="KB article ID(s) to install")] = None,
+    kb: Annotated[list[str] | None, typer.Option("--kb", help="KB article ID(s) to install")] = None,
     all_updates: Annotated[bool, typer.Option("--all", help="Install all available updates")] = False,
     reboot: Annotated[bool, typer.Option("--reboot/--no-reboot", help="Allow reboot after install")] = False,
 ) -> None:

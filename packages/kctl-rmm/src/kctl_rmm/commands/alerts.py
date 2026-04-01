@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -14,7 +14,7 @@ app = typer.Typer(help="Manage alerts.")
 @app.command("list")
 def list_(
     ctx: typer.Context,
-    severity: Annotated[Optional[str], typer.Option("--severity", "-s", help="Filter: info, warning, error")] = None,
+    severity: Annotated[str | None, typer.Option("--severity", "-s", help="Filter: info, warning, error")] = None,
 ) -> None:
     """List active alerts."""
     c: AppContext = ctx.obj
@@ -34,14 +34,20 @@ def list_(
             sev_display = f"[yellow]{sev}[/yellow]"
         else:
             sev_display = sev
-        rows.append([
-            str(a.get("id", "")),
-            a.get("agent", {}).get("hostname", a.get("agent_id", "")) if isinstance(a.get("agent"), dict) else str(a.get("agent", "")),
-            a.get("alert_type", ""),
-            sev_display,
-            a.get("message", "")[:60],
-            a.get("alert_time", a.get("created", "")),
-        ])
+        rows.append(
+            [
+                str(a.get("id", "")),
+                (
+                    a.get("agent", {}).get("hostname", a.get("agent_id", ""))
+                    if isinstance(a.get("agent"), dict)
+                    else str(a.get("agent", ""))
+                ),
+                a.get("alert_type", ""),
+                sev_display,
+                a.get("message", "")[:60],
+                a.get("alert_time", a.get("created", "")),
+            ]
+        )
 
     c.output.table(
         f"Alerts ({len(alerts)})",

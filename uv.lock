@@ -22,6 +22,7 @@ members = [
     "kctl-op",
     "kctl-pg",
     "kctl-react",
+    "kctl-rmm",
     "kctl-rustdesk",
     "kctl-sentry",
     "kctl-telegram",
@@ -1187,6 +1188,44 @@ provides-extras = ["dev"]
 name = "kctl-react"
 version = "0.1.0"
 source = { editable = "packages/kctl-react" }
+dependencies = [
+    { name = "httpx" },
+    { name = "kctl-lib" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-httpx" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "kctl-lib", editable = "packages/kctl-lib" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.35.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich", specifier = ">=13.9.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "typer", specifier = ">=0.15.0" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "kctl-rmm"
+version = "0.2.0"
+source = { editable = "packages/kctl-rmm" }
 dependencies = [
     { name = "httpx" },
     { name = "kctl-lib" },

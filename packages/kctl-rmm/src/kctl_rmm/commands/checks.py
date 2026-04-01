@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -14,15 +14,12 @@ app = typer.Typer(help="Manage automated checks.")
 @app.command("list")
 def list_(
     ctx: typer.Context,
-    agent: Annotated[Optional[str], typer.Option("--agent", help="Filter by agent ID")] = None,
+    agent: Annotated[str | None, typer.Option("--agent", help="Filter by agent ID")] = None,
 ) -> None:
     """List automated checks."""
     c: AppContext = ctx.obj
 
-    if agent:
-        data = c.client.get(f"/checks/{agent}/")
-    else:
-        data = c.client.get("/checks/")
+    data = c.client.get(f"/checks/{agent}/") if agent else c.client.get("/checks/")
 
     checks = data if isinstance(data, list) else data.get("results", []) if isinstance(data, dict) else []
 
@@ -70,7 +67,7 @@ def create(
     ],
     name: Annotated[str, typer.Option("--name", help="Check description/name")] = "",
     threshold: Annotated[
-        Optional[int], typer.Option("--threshold", help="Threshold value (percent for disk/cpu/mem)")
+        int | None, typer.Option("--threshold", help="Threshold value (percent for disk/cpu/mem)")
     ] = None,
     alert_severity: Annotated[str, typer.Option("--severity", help="Alert severity: info, warning, error")] = "warning",
 ) -> None:
@@ -91,9 +88,7 @@ def create(
     if check_type == "diskspace":
         payload.setdefault("threshold", 25)
         payload.setdefault("disk", "C:")
-    elif check_type == "cpuload":
-        payload.setdefault("threshold", 85)
-    elif check_type == "memory":
+    elif check_type == "cpuload" or check_type == "memory":
         payload.setdefault("threshold", 85)
 
     result = c.client.post("/checks/", data=payload)
@@ -118,9 +113,8 @@ def delete(
     """Delete an automated check."""
     c: AppContext = ctx.obj
 
-    if not force:
-        if not typer.confirm(f"Delete check {check_id}?"):
-            raise typer.Exit(0)
+    if not force and not typer.confirm(f"Delete check {check_id}?"):
+        raise typer.Exit(0)
 
     c.client.delete(f"/checks/{check_id}/")
     c.output.success(f"Check {check_id} deleted")

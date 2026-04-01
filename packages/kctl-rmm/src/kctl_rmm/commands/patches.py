@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -57,7 +57,7 @@ def install(
     ctx: typer.Context,
     agent_id: Annotated[str, typer.Argument(help="Agent ID")],
     all_patches: Annotated[bool, typer.Option("--all", help="Install all pending patches")] = False,
-    kb: Annotated[Optional[str], typer.Option("--kb", help="Specific KB article ID")] = None,
+    kb: Annotated[str | None, typer.Option("--kb", help="Specific KB article ID")] = None,
 ) -> None:
     """Install patches on an agent."""
     c: AppContext = ctx.obj
