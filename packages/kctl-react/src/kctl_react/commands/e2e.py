@@ -22,6 +22,10 @@ def test(
     ui: Annotated[bool, typer.Option("--ui", help="Open Playwright UI mode.")] = False,
     shared_only: Annotated[bool, typer.Option("--shared", help="Run only shared tests.")] = False,
     debug: Annotated[bool, typer.Option("--debug", help="Run with Playwright debug mode.")] = False,
+    screenshots: Annotated[
+        bool, typer.Option("--screenshots", help="Capture screenshots + video for every test.")
+    ] = False,
+    mobile: Annotated[bool, typer.Option("--mobile", help="Run with mobile viewport (iPhone 14).")] = False,
 ) -> None:
     """Run Playwright E2E tests.
 
@@ -32,6 +36,9 @@ def test(
       kctl-react e2e test sfa          # Run SFA tests (shared + app-specific)
       kctl-react e2e test sfa --headed # Run SFA tests with visible browser
       kctl-react e2e test sfa --shared # Run only shared tests for SFA
+      kctl-react e2e test hrm --screenshots  # Run with screenshots + video
+      kctl-react e2e test hrm --mobile       # Run with mobile viewport
+      kctl-react e2e test hrm --mobile --screenshots  # Mobile + screenshots
       kctl-react e2e test --ui         # Open Playwright UI mode
     """
     actx: AppContext = ctx.obj
@@ -48,8 +55,16 @@ def test(
 
     cmd = ["npx", "playwright", "test"]
 
-    if app_name:
-        cmd.extend(["--project", app_name])
+    # Build project name: "hrm" or "hrm-mobile"
+    project_name = app_name
+    if app_name and mobile:
+        project_name = f"{app_name}-mobile"
+    elif mobile and not app_name:
+        out.error("--mobile requires an app name (e.g. kctl-react e2e test hrm --mobile)")
+        raise typer.Exit(1) from None
+
+    if project_name:
+        cmd.extend(["--project", project_name])
 
     if headed:
         cmd.append("--headed")
@@ -60,9 +75,16 @@ def test(
     if shared_only:
         cmd.append("tests/shared/")
 
-    env: dict[str, str] | None = {"E2E_APPS": app_name} if app_name else None
+    env: dict[str, str] = {}
+    if app_name:
+        env["E2E_APPS"] = app_name
+    if screenshots:
+        env["E2E_SCREENSHOTS"] = "on"
 
-    out.info(f"Running E2E tests{f' for {app_name}' if app_name else ' (all apps)'}...")
+    viewport = "mobile" if mobile else "desktop"
+    out.info(
+        f"Running E2E tests{f' for {app_name}' if app_name else ' (all apps)'} [{viewport}]{'  (screenshots)' if screenshots else ''}..."
+    )
 
     try:
         import os
@@ -72,6 +94,12 @@ def test(
         proc.wait()
         if proc.returncode == 0:
             out.success("E2E tests passed")
+            if screenshots:
+                results_dir = e2e_dir / "test-results"
+                if results_dir.is_dir():
+                    pngs = list(results_dir.rglob("*.png"))
+                    videos = list(results_dir.rglob("*.webm"))
+                    out.info(f"Screenshots: {len(pngs)} file(s), Videos: {len(videos)} file(s) in e2e/test-results/")
         else:
             out.error("E2E tests failed")
             raise typer.Exit(1)
