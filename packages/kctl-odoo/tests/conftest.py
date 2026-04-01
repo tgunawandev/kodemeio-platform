@@ -41,6 +41,36 @@ def install_dir() -> Path:
 
 
 @pytest.fixture
+def repo_root() -> Path:
+    """Path to the Odoo repository root (has both install/ and src/).
+
+    Resolution order:
+    1. ``KCTL_ODOO_REPO`` env var
+    2. Walk up from this file looking for dir with install/ and src/
+    3. Skip if not found
+    """
+    # 1. Env var
+    repo = os.environ.get("KCTL_ODOO_REPO")
+    if repo:
+        path = Path(repo)
+        if path.is_dir():
+            return path
+
+    # 2. Walk up from test file
+    cur = Path(__file__).resolve().parent
+    for _ in range(10):
+        if (cur / "install").is_dir() and (cur / "src").is_dir():
+            return cur
+        parent = cur.parent
+        if parent == cur:
+            break
+        cur = parent
+
+    pytest.skip("repo root (install/ + src/) not found -- set KCTL_ODOO_REPO env var")
+    return Path()  # unreachable
+
+
+@pytest.fixture
 def mock_client() -> MagicMock:
     """A mocked OdooClient that returns predictable data.
 
