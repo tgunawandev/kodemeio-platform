@@ -126,7 +126,7 @@ def delete(
     c: AppContext = ctx.obj
     if not force:
         typer.confirm(f"Remove domain '{domain_id}'?", abort=True)
-    result = c.client.delete("/domain.delete", json={"domainId": domain_id})
+    result = c.client.post("/domain.delete", json={"domainId": domain_id})
     c.output.success(f"Domain '{domain_id}' removed")
     if c.json_mode:
         c.output.raw_json(result)
@@ -142,11 +142,27 @@ def update(
     cert_type: Annotated[str | None, typer.Option("--cert", help="Certificate type")] = None,
     service_name: Annotated[str | None, typer.Option("--service", help="Docker Compose service name")] = None,
 ) -> None:
-    """Update a domain configuration."""
+    """Update a domain configuration.
+
+    Fetches the current domain first, then merges your changes.
+    The Dokploy API requires 'host' on every update — this command
+    handles that automatically by reading the existing domain.
+    """
     c: AppContext = ctx.obj
-    payload: dict = {"domainId": domain_id}
-    if host is not None:
-        payload["host"] = host
+    if all(v is None for v in [host, port, https, cert_type, service_name]):
+        c.output.error("No update options provided.")
+        raise typer.Exit(1)
+
+    # Fetch current domain to get required fields (host is always required)
+    current = c.client.get("/domain.one", params={"domainId": domain_id})
+    if not isinstance(current, dict):
+        c.output.error(f"Domain '{domain_id}' not found")
+        raise typer.Exit(1)
+
+    payload: dict = {
+        "domainId": domain_id,
+        "host": host if host is not None else current.get("host", ""),
+    }
     if port is not None:
         payload["port"] = port
     if https is not None:
@@ -155,9 +171,7 @@ def update(
         payload["certificateType"] = cert_type
     if service_name is not None:
         payload["serviceName"] = service_name
-    if len(payload) == 1:
-        c.output.error("No update options provided.")
-        raise typer.Exit(1)
+
     result = c.client.post("/domain.update", json=payload)
     c.output.success(f"Domain '{domain_id}' updated")
     if c.json_mode:
