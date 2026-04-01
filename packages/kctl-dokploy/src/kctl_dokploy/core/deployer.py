@@ -440,8 +440,7 @@ class Deployer:
             tmp.write(env_content)
             tmp_path = tmp.name
 
-        # Bug fix #1: env push takes positional args (compose_id, file), not --file flag
-        # Use -- separator in case compose_id starts with dash
+        # env push: options before --, positional args (compose_id, file) after --
         code, out = self._run_kctl(["kctl-dokploy", "env", "push", "--force", "--", self._compose_id, tmp_path])
         if code == 0:
             self._record_phase("environment", "updated", f"Pushed {len(env)} env vars to {self._compose_id}")
@@ -475,13 +474,11 @@ class Deployer:
 
         https_flag = "--https" if domain.https else "--no-https"
         # Bug fix #2: include --service and --cert flags for proper Dokploy routing
-        # Use -- separator in case compose_id starts with dash
+        # Options before --, positional compose_id after --
         create_args = [
             "kctl-dokploy",
             "domains",
             "create",
-            "--",
-            self._compose_id,
             "--host",
             domain.host,
             "--port",
@@ -492,6 +489,7 @@ class Deployer:
         ]
         if domain.service:
             create_args += ["--service", domain.service]
+        create_args += ["--", self._compose_id]
         code, out = self._run_kctl(create_args)
         if code == 0:
             self._record_phase(
