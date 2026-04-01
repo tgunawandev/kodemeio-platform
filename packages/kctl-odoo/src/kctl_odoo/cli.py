@@ -20,6 +20,7 @@ from kctl_odoo.commands.auto_maintain_cmd import app as auto_maintain_app
 from kctl_odoo.commands.automation_cmd import app as automation_app
 from kctl_odoo.commands.backup import app as backup_app
 from kctl_odoo.commands.budget_cmd import app as budget_app
+from kctl_odoo.commands.addons_cmd import app as addons_app
 from kctl_odoo.commands.bundles import app as bundles_app
 from kctl_odoo.commands.cleanup import app as cleanup_app
 from kctl_odoo.commands.companies import app as companies_app
@@ -242,6 +243,7 @@ _P_INSTANCE = "Instance Management"
 app.add_typer(local_app, name="local", rich_help_panel=_P_INSTANCE)
 app.add_typer(modules_app, name="modules", rich_help_panel=_P_INSTANCE)
 app.add_typer(bundles_app, name="bundles", rich_help_panel=_P_INSTANCE)
+app.add_typer(addons_app, name="addons", rich_help_panel=_P_INSTANCE)
 app.add_typer(tenants_app, name="tenants", rich_help_panel=_P_INSTANCE)
 app.add_typer(setup_app, name="setup", rich_help_panel=_P_INSTANCE)
 app.add_typer(pipeline_app, name="pipeline", rich_help_panel=_P_INSTANCE)
