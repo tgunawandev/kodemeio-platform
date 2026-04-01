@@ -172,6 +172,45 @@ def report(ctx: typer.Context) -> None:
 
 
 @app.command()
+def discover(
+    ctx: typer.Context,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview without writing.")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON.")] = False,
+) -> None:
+    """Auto-discover app configs and regenerate e2e/app-registry.ts.
+
+    Scans apps/spa/*/src/ for ports, token keys, routes, and nav items.
+    Run this after adding new pages, routes, or nav items.
+
+    Examples:
+      kctl-react e2e discover            # Regenerate registry
+      kctl-react e2e discover --dry-run  # Preview changes
+      kctl-react e2e discover --json     # Output as JSON
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    root = actx.project_root
+
+    script = root / "e2e" / "scripts" / "discover.mjs"
+    if not script.exists():
+        out.error("e2e/scripts/discover.mjs not found")
+        raise typer.Exit(1) from None
+
+    cmd = ["node", str(script)]
+    if dry_run:
+        cmd.append("--dry-run")
+    if json_output:
+        cmd.append("--json")
+
+    out.info("Discovering app configs from source files...")
+    try:
+        run(cmd, cwd=root, capture=False, timeout=30)
+    except Exception as e:
+        out.error(f"Discovery failed: {e}")
+        raise typer.Exit(1) from None
+
+
+@app.command()
 def install(ctx: typer.Context) -> None:
     """Install Playwright browsers (chromium).
 
