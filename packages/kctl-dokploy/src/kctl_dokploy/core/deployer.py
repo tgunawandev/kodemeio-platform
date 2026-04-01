@@ -128,6 +128,28 @@ class Deployer:
         """Prefix message with '[dry-run]' in dry-run mode."""
         return f"[dry-run] {message}" if self.dry_run else message
 
+    def _disable_auto_deploy(self) -> None:
+        """Disable autoDeploy on the compose service via direct API call."""
+        if not self._compose_id or self.dry_run:
+            return
+        try:
+            from kctl_dokploy.core.callbacks import AppContext
+            from kctl_dokploy.core.client import DokployClient
+            from kctl_lib.config import load_config
+
+            cfg = load_config()
+            profile = cfg.get("default_profile", "kodemeio")
+            profiles = cfg.get("profiles", {})
+            p = profiles.get(profile, {})
+            dokploy_cfg = p.get("dokploy", {})
+            url = dokploy_cfg.get("url", "")
+            key = dokploy_cfg.get("api_key", "")
+            if url and key:
+                client = DokployClient(base_url=url, credential=key)
+                client.post("/compose.update", json={"composeId": self._compose_id, "autoDeploy": False})
+        except Exception:
+            pass  # Best-effort; autoDeploy can be disabled manually
+
     # ------------------------------------------------------------------
     # Phase 1 — DNS
     # ------------------------------------------------------------------
@@ -296,8 +318,15 @@ class Deployer:
                 self._record_phase("compose", "updated", f"Updated compose {instance_name} (id={self._compose_id})")
                 return
 
-        # Create new compose using positional environment_id
-        create_args = ["kctl-dokploy", "compose", "create", default_environment_id, "--name", instance_name]
+        # Create new compose — positional arg is environment_id (or project_id for older API)
+        create_args = [
+            "kctl-dokploy",
+            "compose",
+            "create",
+            default_environment_id or project_data.get("projectId", ""),
+            "--name",
+            instance_name,
+        ]
         code, out = self._run_kctl(create_args)
 
         # Parse the returned compose ID from text output
@@ -336,6 +365,8 @@ class Deployer:
                     src.compose_path,
                 ]
             )
+            # Bug fix #3: Disable autoDeploy to prevent premature deployments
+            self._disable_auto_deploy()
             self._record_phase(
                 "compose", self._action("created"), self._msg(f"Create compose {instance_name} (id={self._compose_id})")
             )
@@ -393,7 +424,8 @@ class Deployer:
             tmp.write(env_content)
             tmp_path = tmp.name
 
-        code, out = self._run_kctl(["kctl-dokploy", "env", "push", "--", self._compose_id, "--file", tmp_path])
+        # Bug fix #1: env push takes positional args (compose_id, file), not --file flag
+        code, out = self._run_kctl(["kctl-dokploy", "env", "push", self._compose_id, tmp_path, "--force"])
         if code == 0:
             self._record_phase("environment", "updated", f"Pushed {len(env)} env vars to {self._compose_id}")
         else:
@@ -425,22 +457,23 @@ class Deployer:
             return
 
         https_flag = "--https" if domain.https else "--no-https"
-        code, out = self._run_kctl(
-            [
-                "kctl-dokploy",
-                "domains",
-                "create",
-                "--",
-                self._compose_id,
-                "--host",
-                domain.host,
-                "--port",
-                str(domain.port),
-                "--service",
-                domain.service,
-                https_flag,
-            ]
-        )
+        # Bug fix #2: include --service and --cert flags for proper Dokploy routing
+        create_args = [
+            "kctl-dokploy",
+            "domains",
+            "create",
+            self._compose_id,
+            "--host",
+            domain.host,
+            "--port",
+            str(domain.port),
+            https_flag,
+            "--cert",
+            domain.cert,
+        ]
+        if domain.service:
+            create_args += ["--service", domain.service]
+        code, out = self._run_kctl(create_args)
         if code == 0:
             self._record_phase(
                 "domain", self._action("created"), self._msg(f"Create domain {domain.host}:{domain.port}")

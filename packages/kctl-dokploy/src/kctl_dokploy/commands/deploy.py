@@ -259,6 +259,7 @@ def apply_all(
         deployer.phase_environment()
         deployer.phase_domain()
         deployer.phase_deploy()
+        deployer.phase_verify()
         deployer.phase_backup()
         deployer.phase_schedules()
         deployer.phase_post_deploy()
