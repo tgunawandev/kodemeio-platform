@@ -128,6 +128,15 @@ class Deployer:
         """Prefix message with '[dry-run]' in dry-run mode."""
         return f"[dry-run] {message}" if self.dry_run else message
 
+    def _resolve_server_id(self, server_name: str) -> str:
+        """Resolve a server name (e.g. 'kodeme-service') to its Dokploy server ID."""
+        servers = self._run_kctl_json(["kctl-dokploy", "servers", "list"])
+        if isinstance(servers, list):
+            for s in servers:
+                if s.get("name", "") == server_name or s.get("serverName", "") == server_name:
+                    return s.get("serverId", "")
+        return ""
+
     def _find_github_id(self) -> str:
         """Discover the Dokploy GitHub app ID from configured git providers.
 
@@ -341,6 +350,12 @@ class Deployer:
             "--name",
             instance_name,
         ]
+        # Deploy on specific server if manifest specifies one
+        server_name = self.manifest.server
+        if server_name:
+            server_id = self._resolve_server_id(server_name)
+            if server_id:
+                create_args += ["--server", server_id]
         code, out = self._run_kctl(create_args)
 
         # Parse the returned compose ID from text output
