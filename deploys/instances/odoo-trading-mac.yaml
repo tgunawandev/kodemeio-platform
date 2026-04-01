@@ -8,7 +8,7 @@ instance:
 dns:
   zone: kodeme.io
   name: odoo-trading-mac
-  content: 49.13.14.79             # kodeme-service (16GB RAM)
+  content: 49.13.116.191           # kodeme-infra (Dokploy server)
 
 domain:
   host: odoo-trading-mac.kodeme.io
