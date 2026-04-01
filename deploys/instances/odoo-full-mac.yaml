@@ -2,18 +2,18 @@ kind: instance
 extends: ../bases/odoo.yaml
 
 instance:
-  name: kodemeio-odoo-mac
-  description: "MAC Customer — Full Odoo ERP"
+  name: odoo-full-mac
+  description: "MAC Customer — Full Odoo ERP (all 13 PWA apps)"
 
 server: kodeme-infra
 
 dns:
   zone: kodeme.io
-  name: odoo-mac
+  name: odoo-full-mac
   content: 49.13.116.191           # Dokploy server (kodeme-infra)
 
 domain:
-  host: odoo-mac.kodeme.io
+  host: odoo-full-mac.kodeme.io
   port: 8069
   service: odoo-web
   https: true
@@ -23,6 +23,14 @@ database:
   user: odoo
 
 env_file: ../env/odoo/.env.prod.mac
+
+env_overrides:
+  PGDATABASE: odoo_full_mac
+  PGUSER: odoo
+  ODOO_DB_FILTER: "^odoo_full_mac$"
+  DOMAIN: odoo-full-mac.kodeme.io
+  ODOO_WORKERS: "6"
+  ODOO_MAX_CRON_THREADS: "2"
 
 post_deploy:
   odoo_profile: profile-full

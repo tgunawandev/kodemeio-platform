@@ -2,8 +2,8 @@ kind: instance
 extends: ../bases/odoo.yaml
 
 instance:
-  name: kodemeio-odoo-prod
-  description: "Kodemeio Production ERP — Distribution"
+  name: odoo-distribution-kodemeio
+  description: "Kodemeio Production ERP — Distribution (SFA, LFA, WMS, DMS, Shop, BI)"
 
 dns:
   zone: kodeme.io
@@ -19,6 +19,8 @@ domain:
 database:
   name: kodemeio_prod
   user: odoo
+
+env_file: ../env/odoo/.env.prod.distribution
 
 env_overrides:
   PGDATABASE: kodemeio_prod

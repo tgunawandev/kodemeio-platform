@@ -1,3 +1,14 @@
+# Naming convention for instances:
+#   File:     odoo-{profile}-{customer}.yaml
+#   Instance: odoo-{profile}-{customer}
+#   Database: odoo_{profile}_{customer}
+#   Domain:   odoo-{profile}-{customer}.kodeme.io
+#
+# Examples:
+#   odoo-distribution-kodemeio  → odoo_distribution_kodemeio  → odoo.kodeme.io
+#   odoo-full-mac               → odoo_full_mac               → odoo-full-mac.kodeme.io
+#   odoo-trading-abcfood        → odoo_trading_abcfood        → odoo-trading-abcfood.kodeme.io
+
 kind: base
 type: odoo
 
