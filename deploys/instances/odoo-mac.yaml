@@ -5,6 +5,8 @@ instance:
   name: kodemeio-odoo-mac
   description: "MAC Customer — Full Odoo ERP"
 
+server: kodeme-infra
+
 dns:
   zone: kodeme.io
   name: odoo-mac
@@ -13,20 +15,14 @@ dns:
 domain:
   host: odoo-mac.kodeme.io
   port: 8069
-  service: odoo
+  service: odoo-web
   https: true
 
 database:
   name: odoo_full_mac
   user: odoo
 
-env_overrides:
-  PGDATABASE: odoo_full_mac
-  PGUSER: odoo
-  ODOO_DB_FILTER: "^odoo_full_mac$"
-  DOMAIN: odoo-mac.kodeme.io
-  ODOO_INSTALL_BUNDLE: profile-full
-  TENANT: mac
+env_file: ../env/odoo/.env.prod.mac
 
 post_deploy:
   odoo_profile: profile-full
