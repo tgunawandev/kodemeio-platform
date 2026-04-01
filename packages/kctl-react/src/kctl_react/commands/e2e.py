@@ -95,11 +95,13 @@ def test(
         if proc.returncode == 0:
             out.success("E2E tests passed")
             if screenshots:
-                results_dir = e2e_dir / "test-results"
+                results_dir = root / "docs" / "screenshots" / "e2e"
                 if results_dir.is_dir():
                     pngs = list(results_dir.rglob("*.png"))
                     videos = list(results_dir.rglob("*.webm"))
-                    out.info(f"Screenshots: {len(pngs)} file(s), Videos: {len(videos)} file(s) in e2e/test-results/")
+                    out.info(
+                        f"Screenshots: {len(pngs)} file(s), Videos: {len(videos)} file(s) in docs/screenshots/e2e/"
+                    )
         else:
             out.error("E2E tests failed")
             raise typer.Exit(1)
