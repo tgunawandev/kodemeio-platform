@@ -337,7 +337,7 @@ class Deployer:
             "kctl-dokploy",
             "compose",
             "create",
-            default_environment_id or project_data.get("projectId", ""),
+            default_environment_id or (project_data or {}).get("projectId", ""),
             "--name",
             instance_name,
         ]
