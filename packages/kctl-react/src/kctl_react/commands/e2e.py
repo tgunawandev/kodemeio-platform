@@ -22,10 +22,12 @@ def test(
     ui: Annotated[bool, typer.Option("--ui", help="Open Playwright UI mode.")] = False,
     shared_only: Annotated[bool, typer.Option("--shared", help="Run only shared tests.")] = False,
     debug: Annotated[bool, typer.Option("--debug", help="Run with Playwright debug mode.")] = False,
-    screenshots: Annotated[
-        bool, typer.Option("--screenshots", help="Capture screenshots + video for every test.")
-    ] = False,
+    screenshots: Annotated[bool, typer.Option("--screenshots", help="Capture screenshots for every test.")] = False,
+    video: Annotated[bool, typer.Option("--video", help="Record video for every test.")] = False,
     mobile: Annotated[bool, typer.Option("--mobile", help="Run with mobile viewport (iPhone 14).")] = False,
+    grep: Annotated[str | None, typer.Option("--grep", "-g", help="Filter tests by title pattern.")] = None,
+    api_only: Annotated[bool, typer.Option("--api", help="Run only API CRUD tests.")] = False,
+    pages_only: Annotated[bool, typer.Option("--pages", help="Run only page screenshot tests.")] = False,
 ) -> None:
     """Run Playwright E2E tests.
 
@@ -36,9 +38,13 @@ def test(
       kctl-react e2e test sfa          # Run SFA tests (shared + app-specific)
       kctl-react e2e test sfa --headed # Run SFA tests with visible browser
       kctl-react e2e test sfa --shared # Run only shared tests for SFA
-      kctl-react e2e test hrm --screenshots  # Run with screenshots + video
+      kctl-react e2e test hrm --screenshots  # Run with screenshots
+      kctl-react e2e test hrm --video        # Run with video recording
       kctl-react e2e test hrm --mobile       # Run with mobile viewport
       kctl-react e2e test hrm --mobile --screenshots  # Mobile + screenshots
+      kctl-react e2e test hrm --api          # Run only API CRUD tests
+      kctl-react e2e test hrm --pages        # Run only page screenshot tests
+      kctl-react e2e test hrm --grep "Leave" # Run tests matching "Leave"
       kctl-react e2e test --ui         # Open Playwright UI mode
     """
     actx: AppContext = ctx.obj
@@ -54,6 +60,19 @@ def test(
         raise typer.Exit(1) from None
 
     cmd = ["npx", "playwright", "test"]
+
+    # File filter must come before --project
+    if api_only and app_name:
+        cmd.append(f"tests/apps/{app_name}/api-crud.spec.ts")
+    elif pages_only and app_name:
+        app_pages = e2e_dir / "tests" / "apps" / app_name / "all-pages.spec.ts"
+        if app_pages.exists():
+            cmd.append(f"tests/apps/{app_name}/all-pages.spec.ts")
+        else:
+            # Use generic factory (auto-generates from app-registry)
+            cmd.append("factories/all-pages.factory.ts")
+    elif shared_only:
+        cmd.append("tests/shared/")
 
     # Build project name: "hrm" or "hrm-mobile"
     project_name = app_name
@@ -72,19 +91,31 @@ def test(
         cmd.append("--ui")
     if debug:
         cmd.append("--debug")
-    if shared_only:
-        cmd.append("tests/shared/")
+    if grep:
+        cmd.extend(["--grep", grep])
 
     env: dict[str, str] = {}
     if app_name:
         env["E2E_APPS"] = app_name
     if screenshots:
         env["E2E_SCREENSHOTS"] = "on"
+    if video:
+        env["E2E_VIDEO"] = "on"
 
     viewport = "mobile" if mobile else "desktop"
-    out.info(
-        f"Running E2E tests{f' for {app_name}' if app_name else ' (all apps)'} [{viewport}]{'  (screenshots)' if screenshots else ''}..."
-    )
+    flags = []
+    if screenshots:
+        flags.append("screenshots")
+    if video:
+        flags.append("video")
+    if api_only:
+        flags.append("API only")
+    if pages_only:
+        flags.append("pages only")
+    if grep:
+        flags.append(f'grep="{grep}"')
+    flags_str = f"  ({', '.join(flags)})" if flags else ""
+    out.info(f"Running E2E tests{f' for {app_name}' if app_name else ' (all apps)'} [{viewport}]{flags_str}...")
 
     try:
         import os
@@ -94,14 +125,17 @@ def test(
         proc.wait()
         if proc.returncode == 0:
             out.success("E2E tests passed")
-            if screenshots:
-                results_dir = root / "docs" / "screenshots" / "e2e"
+            if screenshots or video:
+                results_dir = root / "e2e" / "screenshots"
                 if results_dir.is_dir():
-                    pngs = list(results_dir.rglob("*.png"))
-                    videos = list(results_dir.rglob("*.webm"))
-                    out.info(
-                        f"Screenshots: {len(pngs)} file(s), Videos: {len(videos)} file(s) in docs/screenshots/e2e/"
-                    )
+                    parts = []
+                    if screenshots:
+                        pngs = list(results_dir.rglob("*.png"))
+                        parts.append(f"Screenshots: {len(pngs)} file(s)")
+                    if video:
+                        videos = list(results_dir.rglob("*.webm"))
+                        parts.append(f"Videos: {len(videos)} file(s)")
+                    out.info(f"{', '.join(parts)} in e2e/screenshots/")
         else:
             out.error("E2E tests failed")
             raise typer.Exit(1)
