@@ -8,6 +8,7 @@ import typer
 
 from kctl_dokploy.core.callbacks import AppContext
 from kctl_dokploy.core.config import resolve_active_profile_name
+from kctl_dokploy.core.helpers import collect_all_services
 from kctl_dokploy.core.utils import status_icon
 
 app = typer.Typer(help="Setup and pre-flight checks.")
@@ -216,29 +217,12 @@ def _run_security_checks(c: AppContext, projects: list[dict]) -> list[Check]:
             )
         )
 
-    # 2. No HTTP-only domains
+    # 2. No HTTP-only domains (use shared helper to iterate environments)
+    data = collect_all_services(c.client)
     http_only_domains: list[str] = []
-    for p in projects:
-        for comp in p.get("compose", []):
-            cid = comp.get("composeId", "")
-            try:
-                detail = c.client.get("/compose.one", params={"composeId": cid})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                for d in detail.get("domains", []):
-                    if not d.get("https", True):
-                        http_only_domains.append(d.get("host", "unknown"))
-        for app_item in p.get("applications", []):
-            aid = app_item.get("applicationId", "")
-            try:
-                detail = c.client.get("/application.one", params={"applicationId": aid})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                for d in detail.get("domains", []):
-                    if not d.get("https", True):
-                        http_only_domains.append(d.get("host", "unknown"))
+    for d in data["domains"]:
+        if not d.get("https", True):
+            http_only_domains.append(d.get("host", "unknown"))
 
     if http_only_domains:
         hosts = ", ".join(http_only_domains[:5])
@@ -306,12 +290,16 @@ def _run_data_checks(c: AppContext, projects: list[dict]) -> list[Check]:
     db_types = ("postgres", "redis", "mysql", "mariadb", "mongo")
     db_count = 0
     for p in projects:
-        for comp in p.get("compose", []):
-            comp_name = comp.get("name", "").lower()
-            if any(db in comp_name for db in db_types):
-                db_count += 1
-        for db_key in ("postgres", "redis", "mysql", "mariadb", "mongo"):
-            db_count += len(p.get(db_key, []))
+        # Check environments first, fallback to project root
+        envs = p.get("environments", [])
+        sources = envs if envs else [p]
+        for env in sources:
+            for comp in env.get("compose", []):
+                comp_name = comp.get("name", "").lower()
+                if any(db in comp_name for db in db_types):
+                    db_count += 1
+            for db_key in ("postgres", "redis", "mysql", "mariadb", "mongo"):
+                db_count += len(env.get(db_key, []))
 
     if db_count > 0:
         checks.append(
@@ -491,22 +479,20 @@ def _run_service_checks(c: AppContext, projects: list[dict]) -> list[Check]:
     """Run service-related pre-flight checks."""
     checks: list[Check] = []
 
-    all_compose: list[dict] = []
-    all_apps: list[dict] = []
-    all_domains: list[dict] = []
+    data = collect_all_services(c.client)
+    all_compose = data["composes"]
+    all_apps = data["applications"]
+    all_domains = data["domains"]
     error_services: list[str] = []
 
-    for p in projects:
-        for comp in p.get("compose", []):
-            all_compose.append(comp)
-            status = comp.get("composeStatus", comp.get("status", "")).lower()
-            if status == "error":
-                error_services.append(comp.get("name", comp.get("composeId", "unknown")))
-        for app_item in p.get("applications", []):
-            all_apps.append(app_item)
-            status = app_item.get("applicationStatus", app_item.get("status", "")).lower()
-            if status == "error":
-                error_services.append(app_item.get("name", app_item.get("applicationId", "unknown")))
+    for comp in all_compose:
+        status = comp.get("composeStatus", comp.get("status", "")).lower()
+        if status == "error":
+            error_services.append(comp.get("name", comp.get("composeId", "unknown")))
+    for app_item in all_apps:
+        status = app_item.get("applicationStatus", app_item.get("status", "")).lower()
+        if status == "error":
+            error_services.append(app_item.get("name", app_item.get("applicationId", "unknown")))
 
     total_services = len(all_compose) + len(all_apps)
 
@@ -564,24 +550,6 @@ def _run_service_checks(c: AppContext, projects: list[dict]) -> list[Check]:
         )
 
     # 3. Domains configured
-    for p in projects:
-        for comp in p.get("compose", []):
-            cid = comp.get("composeId", "")
-            try:
-                detail = c.client.get("/compose.one", params={"composeId": cid})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                all_domains.extend(detail.get("domains", []))
-        for app_item in p.get("applications", []):
-            aid = app_item.get("applicationId", "")
-            try:
-                detail = c.client.get("/application.one", params={"applicationId": aid})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                all_domains.extend(detail.get("domains", []))
-
     if all_domains:
         checks.append(
             Check(
@@ -722,8 +690,16 @@ def wizard(ctx: typer.Context) -> None:
         out.success(f"{len(projects)} project(s) found:")
         for p in projects[:10]:
             name = p.get("name", "unknown")
-            compose_count = len(p.get("compose", []))
-            app_count = len(p.get("applications", []))
+            compose_count = 0
+            app_count = 0
+            envs = p.get("environments", [])
+            if envs:
+                for env in envs:
+                    compose_count += len(env.get("compose", []))
+                    app_count += len(env.get("applications", []))
+            else:
+                compose_count = len(p.get("compose", []))
+                app_count = len(p.get("applications", []))
             out.text(f"  {status_icon('running')} {name} ({compose_count} compose, {app_count} apps)")
     else:
         out.warn("No projects found.")

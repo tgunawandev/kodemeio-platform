@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import typer
 
 from kctl_dokploy.core.callbacks import AppContext
+from kctl_dokploy.core.helpers import collect_all_services
 from kctl_dokploy.core.utils import fmt_timestamp
 
 app = typer.Typer(help="Security audit and compliance checks.")
@@ -112,47 +113,24 @@ def security(ctx: typer.Context) -> None:
                 }
             )
 
+    # --- Collect all services via shared helper ---
+    data = collect_all_services(c.client)
+
+    # --- Autodeploy enabled ---
+    for comp in data["composes"]:
+        if comp.get("autoDeploy"):
+            findings.append(
+                {
+                    "category": "Deploy",
+                    "severity": "high",
+                    "issue": f"Autodeploy enabled on '{comp.get('name', '?')}'",
+                    "resource": comp.get("name", ""),
+                    "fix_command": f"kctl-dokploy compose update --id {comp.get('composeId', '')} --no-auto-deploy",
+                }
+            )
+
     # --- HTTP-only domains ---
-    try:
-        projects = c.client.get("/project.all")
-        if not isinstance(projects, list):
-            projects = []
-    except Exception:
-        projects = []
-
-    all_domains: list[dict] = []
-    services_without_domains: list[str] = []
-
-    for p in projects:
-        for comp in p.get("compose", []):
-            comp_name = comp.get("name", "unknown")
-            try:
-                detail = c.client.get("/compose.one", params={"composeId": comp.get("composeId", "")})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                comp_domains = detail.get("domains", [])
-                if not comp_domains:
-                    services_without_domains.append(comp_name)
-                for d in comp_domains if isinstance(comp_domains, list) else []:
-                    d["_service"] = comp_name
-                    all_domains.append(d)
-
-        for app_item in p.get("applications", []):
-            app_name = app_item.get("name", "unknown")
-            try:
-                detail = c.client.get("/application.one", params={"applicationId": app_item.get("applicationId", "")})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                app_domains = detail.get("domains", [])
-                if not app_domains:
-                    services_without_domains.append(app_name)
-                for d in app_domains if isinstance(app_domains, list) else []:
-                    d["_service"] = app_name
-                    all_domains.append(d)
-
-    for d in all_domains:
+    for d in data["domains"]:
         if not d.get("https"):
             findings.append(
                 {
@@ -160,20 +138,50 @@ def security(ctx: typer.Context) -> None:
                     "severity": "high",
                     "issue": f"Domain '{d.get('host', '')}' does not have HTTPS enabled",
                     "resource": d.get("_service", ""),
-                    "fix_command": f"kctl domain update {d.get('domainId', '')} --https",
+                    "fix_command": f"kctl-dokploy domains update {d.get('domainId', '')} --https",
                 }
             )
 
-    for svc in services_without_domains:
-        findings.append(
-            {
-                "category": "Exposure",
-                "severity": "info",
-                "issue": f"Service '{svc}' has no domains configured",
-                "resource": svc,
-                "fix_command": "kctl domain create <compose-id> --host <hostname>",
-            }
-        )
+    # --- Compose without backup ---
+    for comp in data["composes"]:
+        if not comp.get("backups"):
+            findings.append(
+                {
+                    "category": "Backup",
+                    "severity": "warning",
+                    "issue": f"No backup configured for '{comp.get('name', '?')}'",
+                    "resource": comp.get("name", ""),
+                    "fix_command": f"kctl-dokploy backups create --compose {comp.get('composeId', '')}",
+                }
+            )
+
+    # --- Wrong domainType ---
+    for d in data["domains"]:
+        if d.get("domainType") == "application":
+            findings.append(
+                {
+                    "category": "Domain",
+                    "severity": "high",
+                    "issue": f"Wrong domainType on '{d.get('host', '?')}'",
+                    "resource": d.get("_service", ""),
+                    "fix_command": "Recreate domain with domainType=compose",
+                }
+            )
+
+    # --- Services without domains ---
+    services_with_domains = {d.get("_service", "") for d in data["domains"]}
+    for comp in data["composes"]:
+        comp_name = comp.get("name", "")
+        if comp_name and comp_name not in services_with_domains:
+            findings.append(
+                {
+                    "category": "Exposure",
+                    "severity": "info",
+                    "issue": f"Service '{comp_name}' has no domains configured",
+                    "resource": comp_name,
+                    "fix_command": "kctl-dokploy domains create <compose-id> --host <hostname>",
+                }
+            )
 
     # --- Admin user count ---
     try:
@@ -282,6 +290,34 @@ def ssl(ctx: typer.Context) -> None:
         rows,
         data_for_json=json_data,
     )
+
+    # --- Domain HTTPS status from all services ---
+    data = collect_all_services(c.client)
+    domain_rows: list[list[str]] = []
+    domain_json: list[dict] = []
+    for d in data["domains"]:
+        host = d.get("host", "")
+        has_https = d.get("https", False)
+        cert_type = d.get("certificateType", "none")
+        service = d.get("_service", "")
+        https_display = "[green]yes[/green]" if has_https else "[red]no[/red]"
+        domain_rows.append([host, https_display, cert_type, service])
+        domain_json.append(
+            {
+                "host": host,
+                "https": has_https,
+                "certificateType": cert_type,
+                "service": service,
+            }
+        )
+
+    if domain_rows:
+        c.output.table(
+            f"Domain HTTPS Status ({len(domain_rows)} domains)",
+            [("Host", "cyan"), ("HTTPS", ""), ("Cert Type", ""), ("Service", "green")],
+            domain_rows,
+            data_for_json=domain_json,
+        )
 
 
 @app.command()

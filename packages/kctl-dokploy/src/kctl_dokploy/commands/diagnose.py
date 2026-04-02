@@ -17,6 +17,7 @@ from rich.table import Table
 
 from kctl_dokploy.core.callbacks import AppContext
 from kctl_dokploy.core.client import DokployClient
+from kctl_dokploy.core.helpers import collect_all_services
 from kctl_dokploy.core.output import Output
 from kctl_dokploy.core.utils import fmt_duration
 
@@ -180,33 +181,30 @@ def _check_service_health(client: DokployClient) -> SectionResult:
     findings: list[Finding] = []
 
     try:
-        projects = client.get("/project.all")
-        if not isinstance(projects, list):
-            projects = []
+        data = collect_all_services(client)
 
         total = 0
         running = 0
         error_services: list[str] = []
 
-        for p in projects:
-            project_name = p.get("name", "unknown")
-            for env in p.get("environments", [p]):
-                for svc in env.get("compose", []):
-                    total += 1
-                    status = svc.get("composeStatus", svc.get("status", "unknown")).lower()
-                    if status in ("done", "running", "active"):
-                        running += 1
-                    elif status in ("error", "failed"):
-                        svc_name = svc.get("name", svc.get("composeId", "?"))
-                        error_services.append(f"{project_name}/{svc_name}")
-                for svc in env.get("applications", []):
-                    total += 1
-                    status = svc.get("applicationStatus", svc.get("status", "unknown")).lower()
-                    if status in ("done", "running", "active"):
-                        running += 1
-                    elif status in ("error", "failed"):
-                        svc_name = svc.get("name", svc.get("applicationId", "?"))
-                        error_services.append(f"{project_name}/{svc_name}")
+        for svc in data["composes"]:
+            total += 1
+            project_name = svc.get("_project", "unknown")
+            status = svc.get("composeStatus", svc.get("status", "unknown")).lower()
+            if status in ("done", "running", "active"):
+                running += 1
+            elif status in ("error", "failed"):
+                svc_name = svc.get("name", svc.get("composeId", "?"))
+                error_services.append(f"{project_name}/{svc_name}")
+        for svc in data["applications"]:
+            total += 1
+            project_name = svc.get("_project", "unknown")
+            status = svc.get("applicationStatus", svc.get("status", "unknown")).lower()
+            if status in ("done", "running", "active"):
+                running += 1
+            elif status in ("error", "failed"):
+                svc_name = svc.get("name", svc.get("applicationId", "?"))
+                error_services.append(f"{project_name}/{svc_name}")
 
         if total == 0:
             findings.append(
@@ -275,9 +273,19 @@ def _check_deployment_success(client: DokployClient) -> SectionResult:
     findings: list[Finding] = []
 
     try:
-        deployments = client.get("/deployment.all")
-        if not isinstance(deployments, list):
-            deployments = []
+        # Collect deployments per compose service (no global /deployment.all endpoint)
+        data = collect_all_services(client)
+        deployments: list[dict] = []
+        for comp in data["composes"]:
+            cid = comp.get("composeId", "")
+            if not cid:
+                continue
+            try:
+                comp_deployments = client.get("/deployment.allByCompose", params={"composeId": cid})
+                if isinstance(comp_deployments, list):
+                    deployments.extend(comp_deployments)
+            except Exception:
+                pass
 
         # Consider last 50 deployments
         deployments = sorted(
@@ -520,15 +528,18 @@ def _check_backup_coverage(client: DokployClient) -> SectionResult:
     db_types = ("postgres", "redis", "mysql", "mariadb", "mongo")
 
     try:
-        projects = client.get("/project.all")
-        if not isinstance(projects, list):
-            projects = []
+        raw_projects = client.get("/project.all")
+        if not isinstance(raw_projects, list):
+            raw_projects = []
 
-        # Collect all databases
+        # Collect all databases across environments
         databases: list[dict[str, str]] = []
-        for p in projects:
+        for p in raw_projects:
             project_name = p.get("name", "unknown")
-            for env in p.get("environments", [p]):
+            envs = p.get("environments", [])
+            # Check environments first, then fallback to project root
+            sources = envs if envs else [p]
+            for env in sources:
                 for db_type in db_types:
                     for db in env.get(db_type, []):
                         db_id_field = f"{db_type}Id"

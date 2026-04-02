@@ -10,6 +10,7 @@ from typing import Annotated
 import typer
 
 from kctl_dokploy.core.callbacks import AppContext
+from kctl_dokploy.core.helpers import collect_all_services
 
 app = typer.Typer(help="Maintenance, integrity checks, and cleanup.")
 
@@ -84,74 +85,66 @@ def _collect_all_projects(c: AppContext) -> list[dict]:
 
 def _check_orphaned_compose(
     projects: list[dict],
+    composes: list[dict],
 ) -> list[IntegrityFinding]:
     """Find compose services not linked to a valid project."""
     findings: list[IntegrityFinding] = []
-    for p in projects:
-        project_name = p.get("name", "unknown")
-        project_id = p.get("projectId", "")
-        if not project_id:
-            for comp in p.get("compose", []):
-                findings.append(
-                    IntegrityFinding(
-                        category="Orphaned compose",
-                        name=comp.get("name", "unknown"),
-                        resource_id=comp.get("composeId", ""),
-                        issue=f"Compose service in project '{project_name}' with missing projectId",
-                        severity="warning",
-                    )
+    # Check for projects with missing projectId
+    missing_project_ids = {p.get("name", "unknown") for p in projects if not p.get("projectId", "")}
+    for comp in composes:
+        project_name = comp.get("_project", "unknown")
+        if project_name in missing_project_ids:
+            findings.append(
+                IntegrityFinding(
+                    category="Orphaned compose",
+                    name=comp.get("name", "unknown"),
+                    resource_id=comp.get("composeId", ""),
+                    issue=f"Compose service in project '{project_name}' with missing projectId",
+                    severity="warning",
                 )
+            )
     return findings
 
 
 def _check_services_without_domains(
-    c: AppContext,
-    projects: list[dict],
+    composes: list[dict],
+    applications: list[dict],
 ) -> list[IntegrityFinding]:
     """Find compose services and applications with zero domains."""
     findings: list[IntegrityFinding] = []
-    for p in projects:
-        project_name = p.get("name", "unknown")
-        for comp in p.get("compose", []):
-            cid = comp.get("composeId", "")
-            comp_name = comp.get("name", "unknown")
-            try:
-                detail = c.client.get("/compose.one", params={"composeId": cid})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                domains = detail.get("domains", [])
-                if not domains:
-                    findings.append(
-                        IntegrityFinding(
-                            category="No domains",
-                            name=f"{project_name}/{comp_name}",
-                            resource_id=cid,
-                            issue="Compose service has no domains configured",
-                            severity="info",
-                            fix_command=f"kctl-dokploy domains create {cid} --host <hostname>",
-                        )
-                    )
-        for app_item in p.get("applications", []):
-            aid = app_item.get("applicationId", "")
-            app_name = app_item.get("name", "unknown")
-            try:
-                detail = c.client.get("/application.one", params={"applicationId": aid})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                domains = detail.get("domains", [])
-                if not domains:
-                    findings.append(
-                        IntegrityFinding(
-                            category="No domains",
-                            name=f"{project_name}/{app_name}",
-                            resource_id=aid,
-                            issue="Application has no domains configured",
-                            severity="info",
-                            fix_command=f"kctl-dokploy domains create {aid} --host <hostname>",
-                        )
-                    )
+    for comp in composes:
+        project_name = comp.get("_project", "unknown")
+        cid = comp.get("composeId", "")
+        comp_name = comp.get("name", "unknown")
+        # domains are enriched by collect_all_services
+        domains = comp.get("domains", [])
+        if not domains:
+            findings.append(
+                IntegrityFinding(
+                    category="No domains",
+                    name=f"{project_name}/{comp_name}",
+                    resource_id=cid,
+                    issue="Compose service has no domains configured",
+                    severity="info",
+                    fix_command=f"kctl-dokploy domains create {cid} --host <hostname>",
+                )
+            )
+    for app_item in applications:
+        project_name = app_item.get("_project", "unknown")
+        aid = app_item.get("applicationId", "")
+        app_name = app_item.get("name", "unknown")
+        domains = app_item.get("domains", [])
+        if not domains:
+            findings.append(
+                IntegrityFinding(
+                    category="No domains",
+                    name=f"{project_name}/{app_name}",
+                    resource_id=aid,
+                    issue="Application has no domains configured",
+                    severity="info",
+                    fix_command=f"kctl-dokploy domains create {aid} --host <hostname>",
+                )
+            )
     return findings
 
 
@@ -203,83 +196,91 @@ def _check_stale_deployments(
 
 def _check_databases_without_backups(
     c: AppContext,
-    projects: list[dict],
+    composes: list[dict],
+    raw_projects: list[dict],
 ) -> list[IntegrityFinding]:
     """Find database services without backup schedules."""
     findings: list[IntegrityFinding] = []
     db_types = ("postgres", "redis", "mysql", "mariadb", "mongo")
 
-    # Collect backup compose IDs for cross-reference
-    backup_compose_ids: set[str] = set()
-    # backup.all is not available globally; skip cross-reference
+    # Check compose services whose name contains a DB type
+    for comp in composes:
+        project_name = comp.get("_project", "unknown")
+        comp_name = comp.get("name", "").lower()
+        cid = comp.get("composeId", "")
+        # backups are enriched by collect_all_services
+        has_backup = bool(comp.get("backups"))
+        if any(db in comp_name for db in db_types) and not has_backup:
+            findings.append(
+                IntegrityFinding(
+                    category="No backup",
+                    name=f"{project_name}/{comp.get('name', 'unknown')}",
+                    resource_id=cid,
+                    issue="Database service has no backup schedule",
+                    severity="warning",
+                    fix_command=f"kctl-dokploy backups trigger {cid}",
+                )
+            )
 
-    for p in projects:
+    # Check native DB resources across environments
+    for p in raw_projects:
         project_name = p.get("name", "unknown")
-        for comp in p.get("compose", []):
-            comp_name = comp.get("name", "").lower()
-            cid = comp.get("composeId", "")
-            if any(db in comp_name for db in db_types) and cid not in backup_compose_ids:
-                findings.append(
-                    IntegrityFinding(
-                        category="No backup",
-                        name=f"{project_name}/{comp.get('name', 'unknown')}",
-                        resource_id=cid,
-                        issue="Database service has no backup schedule",
-                        severity="warning",
-                        fix_command=f"kctl-dokploy backups trigger {cid}",
+        envs = p.get("environments", [])
+        sources = envs if envs else [p]
+        for env in sources:
+            for db_key in db_types:
+                for db_item in env.get(db_key, []):
+                    db_id = db_item.get(f"{db_key}Id", db_item.get("databaseId", ""))
+                    db_name = db_item.get("name", db_key)
+                    findings.append(
+                        IntegrityFinding(
+                            category="No backup",
+                            name=f"{project_name}/{db_name}",
+                            resource_id=db_id,
+                            issue=f"Native {db_key} database - verify backup is configured",
+                            severity="info",
+                        )
                     )
-                )
-        # Check native DB resources
-        for db_key in db_types:
-            for db_item in p.get(db_key, []):
-                db_id = db_item.get(f"{db_key}Id", db_item.get("databaseId", ""))
-                db_name = db_item.get("name", db_key)
-                findings.append(
-                    IntegrityFinding(
-                        category="No backup",
-                        name=f"{project_name}/{db_name}",
-                        resource_id=db_id,
-                        issue=f"Native {db_key} database - verify backup is configured",
-                        severity="info",
-                    )
-                )
 
     return findings
 
 
-def _check_unreachable_services(projects: list[dict]) -> list[IntegrityFinding]:
+def _check_unreachable_services(
+    composes: list[dict],
+    applications: list[dict],
+) -> list[IntegrityFinding]:
     """Find services in error state."""
     findings: list[IntegrityFinding] = []
-    for p in projects:
-        project_name = p.get("name", "unknown")
-        for comp in p.get("compose", []):
-            status = comp.get("composeStatus", comp.get("status", "")).lower()
-            if status == "error":
-                cid = comp.get("composeId", "")
-                findings.append(
-                    IntegrityFinding(
-                        category="Unreachable",
-                        name=f"{project_name}/{comp.get('name', 'unknown')}",
-                        resource_id=cid,
-                        issue="Compose service is in error state",
-                        severity="critical",
-                        fix_command=f"kctl-dokploy deployments redeploy {cid}",
-                    )
+    for comp in composes:
+        project_name = comp.get("_project", "unknown")
+        status = comp.get("composeStatus", comp.get("status", "")).lower()
+        if status == "error":
+            cid = comp.get("composeId", "")
+            findings.append(
+                IntegrityFinding(
+                    category="Unreachable",
+                    name=f"{project_name}/{comp.get('name', 'unknown')}",
+                    resource_id=cid,
+                    issue="Compose service is in error state",
+                    severity="critical",
+                    fix_command=f"kctl-dokploy deployments redeploy {cid}",
                 )
-        for app_item in p.get("applications", []):
-            status = app_item.get("applicationStatus", app_item.get("status", "")).lower()
-            if status == "error":
-                aid = app_item.get("applicationId", "")
-                findings.append(
-                    IntegrityFinding(
-                        category="Unreachable",
-                        name=f"{project_name}/{app_item.get('name', 'unknown')}",
-                        resource_id=aid,
-                        issue="Application is in error state",
-                        severity="critical",
-                        fix_command=f"kctl-dokploy deployments redeploy {aid}",
-                    )
+            )
+    for app_item in applications:
+        project_name = app_item.get("_project", "unknown")
+        status = app_item.get("applicationStatus", app_item.get("status", "")).lower()
+        if status == "error":
+            aid = app_item.get("applicationId", "")
+            findings.append(
+                IntegrityFinding(
+                    category="Unreachable",
+                    name=f"{project_name}/{app_item.get('name', 'unknown')}",
+                    resource_id=aid,
+                    issue="Application is in error state",
+                    severity="critical",
+                    fix_command=f"kctl-dokploy deployments redeploy {aid}",
                 )
+            )
     return findings
 
 
@@ -295,16 +296,18 @@ def integrity(ctx: typer.Context) -> None:
     out = c.output
     out.info("Running data integrity checks...")
 
-    projects = _collect_all_projects(c)
-    if not projects:
+    raw_projects = _collect_all_projects(c)
+    if not raw_projects:
         out.warn("No projects found or API unreachable.")
 
+    data = collect_all_services(c.client)
+
     findings: list[IntegrityFinding] = []
-    findings.extend(_check_orphaned_compose(projects))
-    findings.extend(_check_services_without_domains(c, projects))
+    findings.extend(_check_orphaned_compose(data["projects"], data["composes"]))
+    findings.extend(_check_services_without_domains(data["composes"], data["applications"]))
     findings.extend(_check_stale_deployments(c, threshold_seconds=3600.0))
-    findings.extend(_check_databases_without_backups(c, projects))
-    findings.extend(_check_unreachable_services(projects))
+    findings.extend(_check_databases_without_backups(c, data["composes"], raw_projects))
+    findings.extend(_check_unreachable_services(data["composes"], data["applications"]))
 
     if c.json_mode:
         out.raw_json([asdict(f) for f in findings])
@@ -361,18 +364,9 @@ def orphans(ctx: typer.Context) -> None:
     out = c.output
     out.info("Scanning for orphaned resources...")
 
-    projects = _collect_all_projects(c)
+    data = collect_all_services(c.client)
     findings: list[IntegrityFinding] = []
-    findings.extend(_check_orphaned_compose(projects))
-
-    # Check for domains pointing to non-existent services
-    all_compose_ids: set[str] = set()
-    all_app_ids: set[str] = set()
-    for p in projects:
-        for comp in p.get("compose", []):
-            all_compose_ids.add(comp.get("composeId", ""))
-        for app_item in p.get("applications", []):
-            all_app_ids.add(app_item.get("applicationId", ""))
+    findings.extend(_check_orphaned_compose(data["projects"], data["composes"]))
 
     if c.json_mode:
         out.raw_json([asdict(f) for f in findings])
@@ -453,11 +447,11 @@ def cleanup(
     else:
         out.warn("Running cleanup in LIVE mode...")
 
-    projects = _collect_all_projects(c)
+    data = collect_all_services(c.client)
     findings: list[IntegrityFinding] = []
-    findings.extend(_check_orphaned_compose(projects))
+    findings.extend(_check_orphaned_compose(data["projects"], data["composes"]))
     findings.extend(_check_stale_deployments(c, threshold_seconds=3600.0))
-    findings.extend(_check_unreachable_services(projects))
+    findings.extend(_check_unreachable_services(data["composes"], data["applications"]))
 
     # Filter to actionable findings (those with fix commands)
     actionable = [f for f in findings if f.fix_command]

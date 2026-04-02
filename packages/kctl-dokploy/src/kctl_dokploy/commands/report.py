@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from kctl_dokploy.core.callbacks import AppContext
+from kctl_dokploy.core.helpers import collect_all_services
 from kctl_dokploy.core.utils import fmt_duration, status_icon
 
 app = typer.Typer(help="Deployment reports and analytics.")
@@ -48,38 +49,13 @@ def _parse_iso(iso_str: str | None) -> datetime | None:
 
 def _collect_all_domains(c: AppContext) -> list[dict]:
     """Iterate projects and collect domains from compose + application services."""
-    projects = c.client.get("/project.all")
-    if not isinstance(projects, list):
-        return []
+    data = collect_all_services(c.client)
     all_domains: list[dict] = []
-    for p in projects:
-        project_name = p.get("name", "")
-        for comp in p.get("compose", []):
-            cid = comp.get("composeId", "")
-            comp_name = comp.get("name", "")
-            try:
-                detail = c.client.get("/compose.one", params={"composeId": cid})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                for d in detail.get("domains", []):
-                    d["serviceName"] = comp_name
-                    d["serviceType"] = "compose"
-                    d["projectName"] = project_name
-                    all_domains.append(d)
-        for app_item in p.get("applications", []):
-            aid = app_item.get("applicationId", "")
-            app_name = app_item.get("name", "")
-            try:
-                detail = c.client.get("/application.one", params={"applicationId": aid})
-            except Exception:
-                continue
-            if isinstance(detail, dict):
-                for d in detail.get("domains", []):
-                    d["serviceName"] = app_name
-                    d["serviceType"] = "application"
-                    d["projectName"] = project_name
-                    all_domains.append(d)
+    for d in data["domains"]:
+        d["serviceName"] = d.get("_service", "")
+        d["serviceType"] = d.get("_serviceType", "")
+        d["projectName"] = d.get("_project", "")
+        all_domains.append(d)
     return all_domains
 
 
@@ -93,39 +69,35 @@ def summary(ctx: typer.Context) -> None:
     """Overall platform summary across all projects."""
     c: AppContext = ctx.obj
 
-    projects = c.client.get("/project.all")
-    if not isinstance(projects, list):
-        projects = []
+    data = collect_all_services(c.client)
+    s = data["summary"]
 
-    total_compose = 0
-    total_apps = 0
+    total_compose = s.get("composes", 0)
+    total_apps = s.get("applications", 0)
+    domain_count = s.get("domains", 0)
+    num_projects = s.get("projects", 0)
+
+    # Count databases from environments
     total_dbs = 0
-    status_counts: dict[str, int] = {}
-
-    for p in projects:
-        compose_list = p.get("compose", [])
-        apps_list = p.get("applications", [])
-        dbs_list = p.get("databases", p.get("mariadb", []))
-        if not isinstance(dbs_list, list):
-            dbs_list = []
-
-        total_compose += len(compose_list)
-        total_apps += len(apps_list)
-        total_dbs += len(dbs_list)
-
-        for comp in compose_list:
-            st = comp.get("composeStatus", "idle").lower()
-            status_counts[st] = status_counts.get(st, 0) + 1
-        for app_item in apps_list:
-            st = app_item.get("applicationStatus", "idle").lower()
-            status_counts[st] = status_counts.get(st, 0) + 1
-
-    # Domain count
     try:
-        all_domains = _collect_all_domains(c)
-        domain_count = len(all_domains)
+        raw_projects = c.client.get("/project.all")
+        if isinstance(raw_projects, list):
+            for p in raw_projects:
+                for env in p.get("environments", [p]):
+                    dbs_list = env.get("databases", env.get("mariadb", []))
+                    if isinstance(dbs_list, list):
+                        total_dbs += len(dbs_list)
     except Exception:
-        domain_count = 0
+        pass
+
+    # Status counts from collected services
+    status_counts: dict[str, int] = {}
+    for comp in data["composes"]:
+        st = comp.get("composeStatus", "idle").lower()
+        status_counts[st] = status_counts.get(st, 0) + 1
+    for app_item in data["applications"]:
+        st = app_item.get("applicationStatus", "idle").lower()
+        status_counts[st] = status_counts.get(st, 0) + 1
 
     # Certificate count
     try:
@@ -145,7 +117,7 @@ def summary(ctx: typer.Context) -> None:
         (
             "Platform Overview",
             [
-                ("Projects", str(len(projects))),
+                ("Projects", str(num_projects)),
                 ("Compose Services", str(total_compose)),
                 ("Applications", str(total_apps)),
                 ("Databases", str(total_dbs)),
@@ -161,7 +133,7 @@ def summary(ctx: typer.Context) -> None:
     ]
 
     json_data = {
-        "projects": len(projects),
+        "projects": num_projects,
         "compose": total_compose,
         "applications": total_apps,
         "databases": total_dbs,
