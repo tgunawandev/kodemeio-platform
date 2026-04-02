@@ -391,6 +391,8 @@ class Deployer:
                 if github_id:
                     update_args += ["--github-id", github_id]
                 self._run_kctl(update_args)
+                # Gate 4: Disable autodeploy on existing compose too
+                self._disable_auto_deploy()
                 self._record_phase("compose", "updated", f"Updated compose {instance_name} (id={self._compose_id})")
                 return
 
@@ -449,12 +451,13 @@ class Deployer:
             if github_id:
                 update_args += ["--github-id", github_id]
             self._run_kctl(update_args)
-            # Gate 4: Disable autodeploy
+            # Gate 4: Disable autodeploy — ALWAYS, using both methods
+            self._disable_auto_deploy()  # Direct API call (fast)
             client = self._get_client()
             if client and self._compose_id:
                 ok, msg = disable_autodeploy(client, self._compose_id)
                 if not ok:
-                    self._log(f"WARNING: {msg}")
+                    self._log(f"WARNING: autodeploy: {msg}")
                 else:
                     self._log(msg)
             self._record_phase(
