@@ -1,0 +1,25 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploys/instances/**'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Deploy changed manifests
+        run: |
+          echo "Changed manifests:"
+          git diff --name-only HEAD~1 HEAD -- deploys/instances/ || true
+          echo ""
+          echo "Manual deploy required: kctl-dokploy deploy apply -f <manifest>"

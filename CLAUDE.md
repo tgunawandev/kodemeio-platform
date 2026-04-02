@@ -187,6 +187,17 @@ init, add, use, show, validate, remove, set, profiles, current
 | Diagnostics | `doctor` |
 | Cleanup | `clean` |
 
+## Deploy Manifest Naming
+
+Convention: `{domain}-{type}-{name}.yaml`
+
+Examples:
+- `kodeme.io-odoo-full.yaml`
+- `mandiriagro.com-react-sfa.yaml`
+- `terakidz.com-nextjs-web.yaml`
+
+Projects in Dokploy match domains: kodeme.io, terakidz.com, mandiriagro.com, pakerti.com, trigunawan.com, kidneuro.io, provetics.com
+
 ## Conventions
 
 - Python 3.12+, Typer + Rich + Pydantic 2 + PyYAML
