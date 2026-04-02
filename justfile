@@ -131,6 +131,18 @@ new-cli name:
     copier copy templates/kctl-cli/ packages/{{name}}/
 
 # ---------------------------------------------------------------------------
+# Inventory
+# ---------------------------------------------------------------------------
+
+# Generate resource inventory report
+inventory:
+    uv run python scripts/inventory.py
+
+# Generate resource inventory as JSON
+inventory-json:
+    uv run python scripts/inventory.py --json
+
+# ---------------------------------------------------------------------------
 # Maintenance
 # ---------------------------------------------------------------------------
 

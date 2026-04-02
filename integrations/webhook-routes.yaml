@@ -1,0 +1,493 @@
+# Webhook Route Configuration
+#
+# Declarative map of all webhook routes in the Kodemeio platform.
+# This file is documentation only — it is not parsed or executed.
+#
+# Last updated: 2026-04-03
+# Source of truth: kodemeio-odoo/src/fastapi/apps/*/src/*/routes.py
+#
+# Legend:
+#   auth:   authentication method used to validate the inbound request
+#   stream: Redis Stream event key written on success
+#   note:   routing detail or implementation note
+
+# ---------------------------------------------------------------------------
+# ODOO → FastAPI  (approval workflow events)
+# ---------------------------------------------------------------------------
+
+routes:
+
+  - name: odoo-approval-to-mattermost
+    description: >
+      Odoo tier-validation lifecycle events (requested, approved, rejected,
+      restarted) are sent by the mattermost_integration addon and processed
+      synchronously. Approval requests trigger DMs to reviewers; status
+      changes post a formatted message to the configured Mattermost channel.
+    source:
+      service: odoo
+      addon: mattermost_integration
+      events:
+        - validation_requested
+        - validation_approved
+        - validation_rejected
+        - validation_restarted
+      webhook_url: https://api.kodeme.io/webhooks/odoo-mm
+      method: POST
+      content_type: application/json
+    destination:
+      service: mattermost
+      host: chat.kodeme.io
+      actions:
+        - dm_to_reviewer           # on validation_requested
+        - channel_notification     # on validation_approved / rejected / restarted
+    auth: shared_secret            # x-webhook-secret header, constant-time compare
+    transform: odoo-mm
+    sync: true                     # destination must respond before Odoo retry
+    retry:
+      max_attempts: 3
+      backoff: exponential
+
+  - name: odoo-generic-dispatch
+    description: >
+      Generic Odoo events (sale orders, invoices, stock moves) sent via the
+      base_webhook addon. FastAPI resolves the event type from the model field
+      and writes to Redis Streams for async consumer pickup.
+    source:
+      service: odoo
+      addon: base_webhook
+      events:
+        - model:sale.order      # → odoo.order.created
+        - model:account.move    # → odoo.invoice.paid
+        - model:stock.picking   # → odoo.stock.moved
+        - model:*               # → odoo.<model>.<action> (fallback)
+      webhook_url: https://api.kodeme.io/webhooks/odoo
+      method: POST
+      content_type: application/json
+      header: X-Odoo-Webhook-Signature
+    destination:
+      service: redis_streams
+      stream_prefix: odoo
+    auth: hmac_sha256             # HMAC-SHA256 over raw request body
+    transform: none               # payload forwarded as-is to stream
+    sync: false
+    retry:
+      max_attempts: 5
+      backoff: exponential
+
+# ---------------------------------------------------------------------------
+# MATTERMOST → FastAPI  (interactive callbacks)
+# ---------------------------------------------------------------------------
+
+  - name: mattermost-action-callback
+    description: >
+      Mattermost posts a callback when a user clicks an interactive button
+      (approve / reject) in an approval DM. FastAPI calls back into Odoo
+      to update the approval record and returns an updated message to
+      Mattermost immediately.
+    source:
+      service: mattermost
+      host: chat.kodeme.io
+      event: interactive_message_action
+      webhook_url: https://api.kodeme.io/webhooks/odoo-mm/action
+      method: POST
+    destination:
+      service: odoo
+      endpoint: JSON-RPC /web/dataset/call_kw
+    auth: mattermost_integration_token   # verified via MM bot token context
+    transform: odoo-mm
+    sync: true
+
+  - name: mattermost-dialog-callback
+    description: >
+      Mattermost posts dialog submission payloads (rejection reason text
+      entered via modal). FastAPI processes and forwards to Odoo.
+    source:
+      service: mattermost
+      host: chat.kodeme.io
+      event: dialog_submission
+      webhook_url: https://api.kodeme.io/webhooks/odoo-mm/dialog
+      method: POST
+    destination:
+      service: odoo
+      endpoint: JSON-RPC /web/dataset/call_kw
+    auth: mattermost_integration_token
+    transform: odoo-mm
+    sync: true
+
+  - name: mattermost-slash-approval
+    description: >
+      Mattermost calls this endpoint when a user runs /approval. FastAPI
+      queries Odoo for pending approvals and returns a formatted ephemeral
+      response.
+    source:
+      service: mattermost
+      host: chat.kodeme.io
+      event: slash_command
+      trigger: /approval
+      webhook_url: https://api.kodeme.io/webhooks/odoo-mm/slash
+      method: POST
+      content_type: application/x-www-form-urlencoded
+    destination:
+      service: odoo
+      endpoint: JSON-RPC (read pending validations)
+    auth: slash_token              # static token in MM slash command config
+    transform: odoo-mm
+    sync: true
+
+  - name: mattermost-slash-plane
+    description: >
+      Mattermost calls this endpoint when a user runs /plane. FastAPI
+      queries Plane for issue/project details and returns formatted output.
+    source:
+      service: mattermost
+      host: chat.kodeme.io
+      event: slash_command
+      trigger: /plane
+      webhook_url: https://api.kodeme.io/webhooks/plane-mm/slash
+      method: POST
+      content_type: application/x-www-form-urlencoded
+    destination:
+      service: plane
+      endpoint: Plane REST API
+    auth: slash_token
+    transform: plane-mm
+    sync: true
+
+  - name: mattermost-reply-to-plane
+    description: >
+      An outgoing Mattermost webhook fires when a user replies to a thread
+      that contains a Plane issue reference (e.g. PROJ-42). FastAPI parses
+      the issue identifier and creates a comment on Plane via its API.
+    source:
+      service: mattermost
+      host: chat.kodeme.io
+      event: outgoing_webhook
+      pattern: "[A-Z][A-Z0-9_-]+-\\d+"   # issue key pattern in thread
+      webhook_url: https://api.kodeme.io/webhooks/plane-mm/reply
+      method: POST
+    destination:
+      service: plane
+      endpoint: POST /api/v1/workspaces/{slug}/projects/{id}/issues/{id}/comments/
+    auth: outgoing_webhook_token   # static token compared via hmac.compare_digest
+    transform: plane-mm
+    sync: true
+
+# ---------------------------------------------------------------------------
+# PLANE → FastAPI  (project management events)
+# ---------------------------------------------------------------------------
+
+  - name: plane-issue-to-mattermost
+    description: >
+      Plane webhook fires on issue lifecycle events. FastAPI resolves the
+      subscribed Mattermost channels for the project (stored in Redis) and
+      posts a formatted notification. Falls back to MM_DEFAULT_CHANNEL_ID if
+      no subscriptions are configured.
+    source:
+      service: plane
+      events:
+        - issue.created
+        - issue.updated
+        - issue.deleted
+        - comment.created
+        - cycle.created
+        - module.created
+        - project.created
+      webhook_url: https://api.kodeme.io/webhooks/plane-mm
+      method: POST
+      content_type: application/json
+      header: X-Plane-Signature
+    destination:
+      service: mattermost
+      host: chat.kodeme.io
+      channel: subscribed-per-project    # stored in Redis hash plane-mm:subscriptions
+    auth: hmac_sha256
+    transform: plane-mm
+    sync: false
+
+  - name: plane-generic-dispatch
+    description: >
+      Generic Plane events written to Redis Streams for async consumers.
+      Maps Plane event+action combinations to structured stream event types.
+    source:
+      service: plane
+      events:
+        - issue.created    # → plane.issue.created
+        - issue.updated    # → plane.issue.updated
+        - issue.deleted    # → plane.issue.deleted
+        - comment.created  # → plane.comment.created
+        - cycle.created    # → plane.cycle.created
+        - module.created   # → plane.module.created
+        - project.created  # → plane.project.created
+      webhook_url: https://api.kodeme.io/webhooks/plane
+      method: POST
+      content_type: application/json
+      header: X-Plane-Signature
+    destination:
+      service: redis_streams
+      stream_prefix: plane
+    auth: hmac_sha256
+    transform: none
+    sync: false
+
+# ---------------------------------------------------------------------------
+# GITHUB → FastAPI  (developer workflow events)
+# ---------------------------------------------------------------------------
+
+  - name: github-push
+    description: >
+      GitHub calls this endpoint on every push. FastAPI verifies the
+      X-Hub-Signature-256 HMAC and dispatches to Redis Streams as
+      github.push. Consumers can trigger CI status posts to Mattermost or
+      Linear updates.
+    source:
+      service: github
+      event: push
+      webhook_url: https://api.kodeme.io/webhooks/github
+      method: POST
+      content_type: application/json
+      header: X-Hub-Signature-256
+    destination:
+      service: redis_streams
+      stream: github.push
+    auth: hmac_sha256_github       # sha256=<hex> prefix, GitHub standard
+    transform: none
+    sync: false
+
+  - name: github-pull-request
+    description: >
+      GitHub PR events (opened, closed, merged, review_requested). Consumers
+      can post to the #dev-notifications Mattermost channel or update Linear
+      issue status.
+    source:
+      service: github
+      event: pull_request
+      webhook_url: https://api.kodeme.io/webhooks/github
+      method: POST
+      content_type: application/json
+      header: X-Hub-Signature-256
+    destination:
+      service: redis_streams
+      stream: github.pull_request
+    auth: hmac_sha256_github
+    transform: none
+    sync: false
+
+  - name: github-workflow-run
+    description: >
+      GitHub Actions workflow completion events. Consumers can notify
+      Mattermost #ci-alerts on failure or alert Telegram on deploy
+      pipeline failures.
+    source:
+      service: github
+      event: workflow_run
+      webhook_url: https://api.kodeme.io/webhooks/github
+      method: POST
+      content_type: application/json
+      header: X-Hub-Signature-256
+    destination:
+      service: redis_streams
+      stream: github.workflow_run
+    auth: hmac_sha256_github
+    transform: none
+    sync: false
+
+  - name: github-issues
+    description: >
+      GitHub issue events (opened, closed, labeled, assigned). Consumers
+      can sync to Linear or post a Mattermost notification.
+    source:
+      service: github
+      event: issues
+      webhook_url: https://api.kodeme.io/webhooks/github
+      method: POST
+      content_type: application/json
+      header: X-Hub-Signature-256
+    destination:
+      service: redis_streams
+      stream: github.issues
+    auth: hmac_sha256_github
+    transform: none
+    sync: false
+
+  - name: github-release
+    description: >
+      GitHub release published events. Consumers can announce new releases
+      to Mattermost #releases or trigger downstream deployment pipelines.
+    source:
+      service: github
+      event: release
+      webhook_url: https://api.kodeme.io/webhooks/github
+      method: POST
+      content_type: application/json
+      header: X-Hub-Signature-256
+    destination:
+      service: redis_streams
+      stream: github.release
+    auth: hmac_sha256_github
+    transform: none
+    sync: false
+
+# ---------------------------------------------------------------------------
+# CHATWOOT → FastAPI  (customer support events)
+# ---------------------------------------------------------------------------
+
+  - name: chatwoot-message-created
+    description: >
+      Fires when a new message arrives in any Chatwoot inbox. Consumers can
+      create an Odoo helpdesk ticket or notify the support team on Mattermost.
+    source:
+      service: chatwoot
+      event: message_created
+      webhook_url: https://api.kodeme.io/webhooks/chatwoot
+      method: POST
+      content_type: application/json
+      header: X-Chatwoot-Signature
+    destination:
+      service: redis_streams
+      stream: chatwoot.message.created
+    auth: hmac_sha256_chatwoot
+    transform: none
+    sync: false
+
+  - name: chatwoot-conversation-created
+    description: >
+      Fires when a new conversation is opened. Consumers can auto-assign
+      to the appropriate Odoo support team or log the lead.
+    source:
+      service: chatwoot
+      event: conversation_created
+      webhook_url: https://api.kodeme.io/webhooks/chatwoot
+      method: POST
+      content_type: application/json
+      header: X-Chatwoot-Signature
+    destination:
+      service: redis_streams
+      stream: chatwoot.conversation.created
+    auth: hmac_sha256_chatwoot
+    transform: none
+    sync: false
+
+  - name: chatwoot-conversation-status-changed
+    description: >
+      Fires when a conversation is resolved, reopened, or snoozed. Consumers
+      can update the linked Odoo ticket status.
+    source:
+      service: chatwoot
+      event: conversation_status_changed
+      webhook_url: https://api.kodeme.io/webhooks/chatwoot
+      method: POST
+      content_type: application/json
+      header: X-Chatwoot-Signature
+    destination:
+      service: redis_streams
+      stream: chatwoot.conversation.status_changed
+    auth: hmac_sha256_chatwoot
+    transform: none
+    sync: false
+
+  - name: chatwoot-contact-created
+    description: >
+      Fires when a new Chatwoot contact is created. Consumers can sync
+      the contact to Odoo as a partner (res.partner).
+    source:
+      service: chatwoot
+      event: contact_created
+      webhook_url: https://api.kodeme.io/webhooks/chatwoot
+      method: POST
+      content_type: application/json
+      header: X-Chatwoot-Signature
+    destination:
+      service: redis_streams
+      stream: chatwoot.contact.created
+    auth: hmac_sha256_chatwoot
+    transform: none
+    sync: false
+
+# ---------------------------------------------------------------------------
+# EVENTS-SYNC  (Redis Streams → notification channels)
+# ---------------------------------------------------------------------------
+
+  - name: stream-to-mattermost
+    description: >
+      events-sync consumer reads notification.* events from Redis Streams
+      where channel=mattermost and sends via Mattermost incoming webhook URL.
+      This is the generic fanout path for any service that publishes a
+      notification event — not a webhook inbound route.
+    source:
+      service: redis_streams
+      event_pattern: "notification.*"
+      filter: "channel=mattermost"
+    destination:
+      service: mattermost
+      host: chat.kodeme.io
+      mechanism: incoming_webhook_url   # MATTERMOST_WEBHOOK_URL env var
+    auth: none                          # incoming webhook URL contains the token
+    transform: events-sync
+    sync: false
+
+  - name: stream-to-telegram
+    description: >
+      events-sync consumer reads notification.* events from Redis Streams
+      where channel=telegram and sends via Telegram Bot API. The bot token
+      and default chat_id are configured via env vars.
+    source:
+      service: redis_streams
+      event_pattern: "notification.*"
+      filter: "channel=telegram"
+    destination:
+      service: telegram
+      mechanism: bot_api                # https://api.telegram.org/bot<token>/sendMessage
+    auth: bot_token                     # Bearer token in URL path
+    transform: events-sync
+    sync: false
+
+# ---------------------------------------------------------------------------
+# ODOO ADDON OUTBOUND  (Odoo → WAHA / WhatsApp)
+# ---------------------------------------------------------------------------
+
+  - name: odoo-whatsapp-via-waha
+    description: >
+      whatsapp_integration addon sends WhatsApp messages via WAHA
+      (waha.kodeme.io) for sale order confirmations, invoice deliveries,
+      and stock alerts. Configured as a webhook.endpoint record in Odoo
+      with bearer token auth to WAHA API.
+    source:
+      service: odoo
+      addon: whatsapp_integration
+      events:
+        - sale.order.confirm
+        - account.move.post
+        - stock.picking.done
+    destination:
+      service: waha
+      host: waha.kodeme.io
+      endpoint: POST /api/sendText
+    auth: api_key                       # X-Api-Key header in WAHA
+    transform: whatsapp_integration
+    sync: false
+    retry:
+      max_attempts: 3
+      backoff: exponential
+
+  - name: odoo-telegram-notifications
+    description: >
+      telegram_integration addon sends Telegram notifications for business
+      events. Uses base_webhook endpoints configured with the Telegram Bot
+      API URL and bearer token.
+    source:
+      service: odoo
+      addon: telegram_integration
+      events:
+        - sale.order.confirm
+        - account.move.post
+        - purchase.order.approve
+        - stock.picking.done
+    destination:
+      service: telegram
+      endpoint: POST https://api.telegram.org/bot<token>/sendMessage
+    auth: bearer_token                  # token embedded in URL path
+    transform: telegram_integration
+    sync: false
+    retry:
+      max_attempts: 3
+      backoff: exponential

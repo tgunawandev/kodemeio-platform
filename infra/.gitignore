@@ -1,0 +1,31 @@
+# =============================================================================
+# Terraform .gitignore
+# =============================================================================
+
+# Local .terraform directory (provider plugins, module downloads)
+.terraform/
+.terraform.lock.hcl
+
+# State files — never commit these; use remote state (see backend.tf)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Variable files with real secrets — only commit the .example file
+terraform.tfvars
+*.auto.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform plan output files (may contain sensitive data)
+*.tfplan
+*.plan
+
+# Generated files
+.terraform.tfstate.lock.info
