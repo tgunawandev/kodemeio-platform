@@ -8,6 +8,12 @@ from typing import Annotated
 import typer
 
 from kctl_dokploy.core.callbacks import AppContext
+from kctl_dokploy.core.validators import (
+    validate_project_exists,
+    find_github_app_id,
+    disable_autodeploy,
+    validate_service_name,
+)
 
 app = typer.Typer(help="Quick deploy a GitHub-sourced service to Dokploy.")
 
@@ -32,8 +38,11 @@ def run(
 ) -> None:
     """Deploy a GitHub-sourced service to Dokploy in one atomic command.
 
-    Handles: project resolution, GitHub provider linking, compose creation,
-    domain setup, deployment, and health verification.
+    Uses a 2-deploy flow when a domain is configured:
+      1st deploy: build container + Dokploy discovers services
+      2nd deploy: apply Traefik labels after domain is linked to discovered service
+
+    Without --domain, only a single deploy is needed.
     """
     c: AppContext = ctx.obj
 
@@ -43,25 +52,39 @@ def run(
         raise typer.Exit(1)
     owner, repo_name = repo.split("/", 1)
 
-    steps_total = 7 if wait else 6
+    # Step count depends on whether domain is provided
+    # With domain: 8 steps (2 deploys + domain between them + health check)
+    # Without domain: 5 steps (1 deploy + wait)
+    if domain:
+        steps_total = 8
+    else:
+        steps_total = 5
 
-    # --- Step 1: Resolve project → environment ---
+    # --- Step 1/N: Resolve project (Gate 2) ---
     _step(c, 1, steps_total, "Resolving project...")
-    env_id = _resolve_environment(c, project, dry_run)
-    if not env_id:
-        _fail(c, 1, steps_total, f"Project '{project}' not found or has no environment")
-        raise typer.Exit(1)
-    _ok(c, 1, steps_total, f"Project '{project}' → env {env_id}")
+    if dry_run:
+        env_id = "dry-run-env-id"
+        _ok(c, 1, steps_total, f"[dry-run] Project '{project}'")
+    else:
+        ok, msg, pid, env_id = validate_project_exists(c.client, project)
+        if not ok:
+            _fail(c, 1, steps_total, msg)
+            raise typer.Exit(1)
+        _ok(c, 1, steps_total, msg)
 
-    # --- Step 2: Find GitHub provider ---
+    # --- Step 2/N: Find GitHub provider (Gate 3) ---
     _step(c, 2, steps_total, "Finding GitHub provider...")
-    github_id = _find_github_app_id(c, dry_run)
-    if not github_id:
-        _fail(c, 2, steps_total, "No GitHub provider configured. Set up GitHub App in Dokploy UI → Settings → Git.")
-        raise typer.Exit(1)
-    _ok(c, 2, steps_total, f"GitHub provider → githubId {github_id}")
+    if dry_run:
+        github_id = "dry-run-github-id"
+        _ok(c, 2, steps_total, "[dry-run] GitHub provider")
+    else:
+        ok, msg, github_id = find_github_app_id(c.client)
+        if not ok:
+            _fail(c, 2, steps_total, msg)
+            raise typer.Exit(1)
+        _ok(c, 2, steps_total, msg)
 
-    # --- Step 3: Create or update compose ---
+    # --- Step 3/N: Create or update compose (link GitHub source) ---
     _step(c, 3, steps_total, "Setting up compose service...")
     compose_id = _setup_compose(c, env_id, name, owner, repo_name, branch, compose_path, github_id, dry_run)
     if not compose_id:
@@ -69,56 +92,133 @@ def run(
         raise typer.Exit(1)
     _ok(c, 3, steps_total, f"Compose '{name}' ready ({compose_id})")
 
-    # --- Step 4: Add domain ---
+    # Gate 4: Disable autodeploy
+    if not dry_run and compose_id:
+        ok, msg = disable_autodeploy(c.client, compose_id)
+        if not ok:
+            c.output.warn(f"  Autodeploy: {msg}")
+
     if domain:
-        _step(c, 4, steps_total, f"Configuring domain {domain}...")
-        _setup_domain(c, compose_id, domain, port, service or name, https, dry_run)
-        _ok(c, 4, steps_total, f"Domain {domain}:{port} configured")
-    else:
-        _ok(c, 4, steps_total, "No domain (skipped)")
+        # === 2-DEPLOY FLOW (with domain) ===
 
-    # --- Step 5: Deploy ---
-    _step(c, 5, steps_total, "Triggering deployment...")
-    if dry_run:
-        _ok(c, 5, steps_total, "[dry-run] Would deploy")
-    else:
-        try:
-            c.client.post("/compose.deploy", json={"composeId": compose_id})
-            _ok(c, 5, steps_total, "Deployment triggered")
-        except Exception as e:
-            _fail(c, 5, steps_total, f"Deploy failed: {e}")
-            raise typer.Exit(1)
-
-    # --- Step 6: Wait for deployment ---
-    _step(c, 6, steps_total, "Waiting for deployment...")
-    if dry_run:
-        _ok(c, 6, steps_total, "[dry-run] Would wait")
-    else:
-        status, elapsed, error = _wait_for_deployment(c, compose_id, timeout)
-        if status == "done":
-            _ok(c, 6, steps_total, f"Deployment done ({elapsed}s)")
-        elif status == "error":
-            _fail(c, 6, steps_total, f"Deployment FAILED after {elapsed}s")
-            if error:
-                c.output.error(f"Build error: {error[:500]}")
-            raise typer.Exit(1)
-        else:
-            _fail(c, 6, steps_total, f"Deployment timeout after {timeout}s (status: {status})")
-            raise typer.Exit(1)
-
-    # --- Step 7: Health check ---
-    if wait and domain:
-        _step(c, 7, steps_total, f"Health checking {'https' if https else 'http'}://{domain}...")
+        # --- Step 4/8: First deploy (build + discover services) ---
+        _step(c, 4, steps_total, "First deploy (build + service discovery)...")
         if dry_run:
-            _ok(c, 7, steps_total, "[dry-run] Would verify")
+            _ok(c, 4, steps_total, "[dry-run] Would trigger first deploy")
         else:
-            scheme = "https" if https else "http"
-            healthy = _health_check(c, f"{scheme}://{domain}", 60)
-            if healthy:
-                _ok(c, 7, steps_total, f"Health check passed — {scheme}://{domain}")
+            try:
+                c.client.post("/compose.deploy", json={"composeId": compose_id})
+                _ok(c, 4, steps_total, "First deployment triggered")
+            except Exception as e:
+                _fail(c, 4, steps_total, f"First deploy failed: {e}")
+                raise typer.Exit(1)
+
+        # --- Step 5/8: Wait for first deploy to complete ---
+        _step(c, 5, steps_total, "Waiting for first deploy to complete...")
+        if dry_run:
+            _ok(c, 5, steps_total, "[dry-run] Would wait for first deploy")
+        else:
+            status, elapsed, error = _wait_for_deployment(c, compose_id, timeout)
+            if status == "done":
+                _ok(c, 5, steps_total, f"First deploy done ({elapsed}s) — services discovered")
+            elif status == "error":
+                _fail(c, 5, steps_total, f"First deploy FAILED after {elapsed}s")
+                if error:
+                    c.output.error(f"Build error: {error[:500]}")
+                raise typer.Exit(1)
             else:
-                c.output.warn(f"Health check did not pass within 60s. Site may need Traefik propagation time.")
-                c.output.info(f"Try: curl -sL {scheme}://{domain}")
+                _fail(c, 5, steps_total, f"First deploy timeout after {timeout}s (status: {status})")
+                raise typer.Exit(1)
+
+        # --- Step 6/8: Add domain (NOW Dokploy can link to discovered service) ---
+        # Gate 5: Validate service name before domain creation
+        if domain and not dry_run:
+            svc = service or name
+            ok, msg = validate_service_name(c.client, compose_id, svc)
+            if not ok:
+                _fail(c, 6, steps_total, msg)
+                raise typer.Exit(1)
+            c.output.info(f"  {msg}")
+
+        _step(c, 6, steps_total, f"Adding domain {domain} → service '{service or name}'...")
+        _setup_domain(c, compose_id, domain, port, service or name, https, dry_run)
+        if dry_run:
+            _ok(c, 6, steps_total, f"[dry-run] Would add domain {domain}:{port}")
+        else:
+            _ok(c, 6, steps_total, f"Domain {domain}:{port} → {service or name}")
+
+        # --- Step 7/8: Second deploy (apply Traefik labels) ---
+        _step(c, 7, steps_total, "Second deploy (apply Traefik labels)...")
+        if dry_run:
+            _ok(c, 7, steps_total, "[dry-run] Would trigger second deploy")
+        else:
+            try:
+                c.client.post("/compose.deploy", json={"composeId": compose_id})
+                _ok(c, 7, steps_total, "Second deployment triggered")
+            except Exception as e:
+                _fail(c, 7, steps_total, f"Second deploy failed: {e}")
+                raise typer.Exit(1)
+
+            # Wait for second deploy
+            status, elapsed, error = _wait_for_deployment(c, compose_id, timeout)
+            if status == "done":
+                c.output.success(f"  Second deploy done ({elapsed}s) — Traefik labels applied")
+            elif status == "error":
+                _fail(c, 7, steps_total, f"Second deploy FAILED after {elapsed}s")
+                if error:
+                    c.output.error(f"Build error: {error[:500]}")
+                raise typer.Exit(1)
+            else:
+                _fail(c, 7, steps_total, f"Second deploy timeout after {timeout}s (status: {status})")
+                raise typer.Exit(1)
+
+        # --- Step 8/8: Health check ---
+        if wait:
+            scheme = "https" if https else "http"
+            _step(c, 8, steps_total, f"Health checking {scheme}://{domain}...")
+            if dry_run:
+                _ok(c, 8, steps_total, "[dry-run] Would verify health")
+            else:
+                healthy = _health_check(c, f"{scheme}://{domain}", 60)
+                if healthy:
+                    _ok(c, 8, steps_total, f"Health check passed — {scheme}://{domain}")
+                else:
+                    c.output.warn("Health check did not pass within 60s. Site may need Traefik propagation time.")
+                    c.output.info(f"Try: curl -sL {scheme}://{domain}")
+        else:
+            _ok(c, 8, steps_total, "Health check skipped (use --wait to enable)")
+
+    else:
+        # === SINGLE-DEPLOY FLOW (no domain) ===
+
+        # --- Step 4/5: Deploy ---
+        _step(c, 4, steps_total, "Triggering deployment...")
+        if dry_run:
+            _ok(c, 4, steps_total, "[dry-run] Would deploy")
+        else:
+            try:
+                c.client.post("/compose.deploy", json={"composeId": compose_id})
+                _ok(c, 4, steps_total, "Deployment triggered")
+            except Exception as e:
+                _fail(c, 4, steps_total, f"Deploy failed: {e}")
+                raise typer.Exit(1)
+
+        # --- Step 5/5: Wait for deployment ---
+        _step(c, 5, steps_total, "Waiting for deployment...")
+        if dry_run:
+            _ok(c, 5, steps_total, "[dry-run] Would wait")
+        else:
+            status, elapsed, error = _wait_for_deployment(c, compose_id, timeout)
+            if status == "done":
+                _ok(c, 5, steps_total, f"Deployment done ({elapsed}s)")
+            elif status == "error":
+                _fail(c, 5, steps_total, f"Deployment FAILED after {elapsed}s")
+                if error:
+                    c.output.error(f"Build error: {error[:500]}")
+                raise typer.Exit(1)
+            else:
+                _fail(c, 5, steps_total, f"Deployment timeout after {timeout}s (status: {status})")
+                raise typer.Exit(1)
 
     # Final summary
     url = f"{'https' if https else 'http'}://{domain}" if domain else "(no domain)"
