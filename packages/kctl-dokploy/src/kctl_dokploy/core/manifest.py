@@ -95,6 +95,15 @@ class ScheduleConfig(BaseModel):
     timezone: str = "UTC"
 
 
+class VolumeBackupConfig(BaseModel):
+    """Volume backup job configuration."""
+
+    service: str = ""
+    cron_schedule: str = "0 3 * * *"
+    destination: str = ""
+    prefix: str = ""
+
+
 class PostDeployConfig(BaseModel):
     """Post-deployment actions."""
 
@@ -131,7 +140,12 @@ class DeployManifest(BaseModel):
 
     backup: BackupConfig | None = None
     schedules: list[ScheduleConfig] = Field(default_factory=list)
+    volume_backups: list[VolumeBackupConfig] = Field(default_factory=list)
     post_deploy: PostDeployConfig = Field(default_factory=PostDeployConfig)
+
+    command: str = ""
+    trigger_type: str = ""  # push, tag, manual
+    enable_submodules: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -230,8 +244,16 @@ def merge_manifests(base: DeployManifest, instance: DeployManifest) -> DeployMan
     # -- Schedules: instance wins if non-empty --
     schedules = instance.schedules if instance.schedules else base.schedules
 
+    # -- Volume backups: instance wins if non-empty --
+    volume_backups = instance.volume_backups if instance.volume_backups else base.volume_backups
+
     # -- Backup: instance wins if set --
     backup = instance.backup if instance.backup is not None else base.backup
+
+    # -- Compose advanced settings --
+    command = _pick("command")
+    trigger_type = _pick("trigger_type")
+    enable_submodules = _pick("enable_submodules")
 
     return DeployManifest(
         kind=kind,
@@ -251,7 +273,11 @@ def merge_manifests(base: DeployManifest, instance: DeployManifest) -> DeployMan
         source_overrides={},
         backup=backup,
         schedules=schedules,
+        volume_backups=volume_backups,
         post_deploy=PostDeployConfig(**post_deploy_merged),
+        command=command,
+        trigger_type=trigger_type,
+        enable_submodules=enable_submodules,
     )
 
 

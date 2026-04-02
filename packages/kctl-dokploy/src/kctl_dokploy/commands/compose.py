@@ -165,6 +165,17 @@ def update(
     branch: Annotated[str | None, typer.Option("--branch", help="Git branch")] = None,
     compose_path: Annotated[str | None, typer.Option("--compose-path", help="Path to compose file in repo")] = None,
     github_id: Annotated[str | None, typer.Option("--github-id", help="Dokploy GitHub provider ID")] = None,
+    command: Annotated[str | None, typer.Option("--command", help="Post-deploy command to run")] = None,
+    trigger_type: Annotated[str | None, typer.Option("--trigger-type", help="Trigger type: push, tag, manual")] = None,
+    watch_paths: Annotated[
+        str | None, typer.Option("--watch-paths", help="Comma-separated file paths to watch for auto-deploy")
+    ] = None,
+    enable_submodules: Annotated[
+        bool | None, typer.Option("--submodules/--no-submodules", help="Enable git submodules")
+    ] = None,
+    auto_deploy: Annotated[
+        bool | None, typer.Option("--auto-deploy/--no-auto-deploy", help="Enable auto-deploy on push")
+    ] = None,
 ) -> None:
     """Update a compose service configuration."""
     c: AppContext = ctx.obj
@@ -192,6 +203,16 @@ def update(
         payload["composePath"] = compose_path
     if github_id is not None:
         payload["githubId"] = github_id
+    if command is not None:
+        payload["command"] = command
+    if trigger_type is not None:
+        payload["triggerType"] = trigger_type
+    if watch_paths is not None:
+        payload["watchPaths"] = [p.strip() for p in watch_paths.split(",") if p.strip()]
+    if enable_submodules is not None:
+        payload["enableSubmodules"] = enable_submodules
+    if auto_deploy is not None:
+        payload["autoDeploy"] = auto_deploy
     if len(payload) == 1:
         c.output.error("No update options provided. Use --env, --compose-file, or --source-type.")
         raise typer.Exit(1)

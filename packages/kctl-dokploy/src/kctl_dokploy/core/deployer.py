@@ -190,6 +190,31 @@ class Deployer:
         except Exception:
             pass  # Best-effort; autoDeploy can be disabled manually
 
+    def _apply_advanced_compose_settings(self) -> None:
+        """Apply advanced compose settings (command, triggerType, submodules) via direct API."""
+        if not self._compose_id or self.dry_run:
+            return
+        client = self._get_client()
+        if not client:
+            return
+        advanced_payload: dict[str, Any] = {"composeId": self._compose_id}
+        changed = False
+        if self.manifest.command:
+            advanced_payload["command"] = self.manifest.command
+            changed = True
+        if self.manifest.trigger_type:
+            advanced_payload["triggerType"] = self.manifest.trigger_type
+            changed = True
+        if self.manifest.enable_submodules:
+            advanced_payload["enableSubmodules"] = self.manifest.enable_submodules
+            changed = True
+        if changed:
+            try:
+                client.post("/compose.update", json=advanced_payload)
+                self._log(f"Applied advanced settings: {list(advanced_payload.keys())}")
+            except Exception:
+                pass  # Best-effort
+
     def _get_client(self):
         """Get a DokployClient instance for direct API calls (validation)."""
         if hasattr(self, "_client") and self._client:
@@ -400,6 +425,7 @@ class Deployer:
                     ok, msg = disable_autodeploy(client, self._compose_id)
                     if not ok:
                         self._log(f"WARNING: autodeploy: {msg}")
+                self._apply_advanced_compose_settings()
                 self._record_phase("compose", "updated", f"Updated compose {instance_name} (id={self._compose_id})")
                 return
 
@@ -467,6 +493,7 @@ class Deployer:
                     self._log(f"WARNING: autodeploy: {msg}")
                 else:
                     self._log(msg)
+            self._apply_advanced_compose_settings()
             self._record_phase(
                 "compose", self._action("created"), self._msg(f"Create compose {instance_name} (id={self._compose_id})")
             )
@@ -796,7 +823,55 @@ class Deployer:
             self._record_phase("schedules", "skipped", "All schedules already exist")
 
     # ------------------------------------------------------------------
-    # Phase 11 — Post-deploy
+    # Phase 11 — Volume Backups
+    # ------------------------------------------------------------------
+
+    def phase_volume_backups(self) -> None:
+        """Configure volume backups for compose services."""
+        vbs = self.manifest.volume_backups
+        if not vbs:
+            self._record_phase("volume_backups", "skipped", "No volume backups configured")
+            return
+
+        if not self._compose_id:
+            self._record_phase("volume_backups", "skipped", "No compose_id — skipping volume backups")
+            return
+
+        created: list[str] = []
+        failed: list[str] = []
+        for vb in vbs:
+            destination_id = self._resolve_destination_id(vb.destination) if vb.destination else ""
+            cmd = [
+                "kctl-dokploy",
+                "volume-backups",
+                "create",
+                "--compose",
+                self._compose_id,
+                "--schedule",
+                vb.cron_schedule,
+            ]
+            if vb.service:
+                cmd += ["--service", vb.service]
+            if destination_id:
+                cmd += ["--destination", destination_id]
+            if vb.prefix:
+                cmd += ["--prefix", vb.prefix]
+
+            code, out = self._run_kctl(cmd)
+            if code == 0:
+                created.append(vb.service or "default")
+            else:
+                failed.append(f"{vb.service}: {out}")
+
+        if created:
+            self._record_phase("volume_backups", self._action("created"), f"Volume backups: {', '.join(created)}")
+        if failed:
+            self._record_phase("volume_backups", "failed", f"Failed: {'; '.join(failed)}")
+        if not created and not failed:
+            self._record_phase("volume_backups", "skipped", "All volume backups already exist")
+
+    # ------------------------------------------------------------------
+    # Phase 12 — Post-deploy
     # ------------------------------------------------------------------
 
     def phase_validate(self) -> None:
@@ -908,5 +983,6 @@ class Deployer:
         self.phase_verify()
         self.phase_backup()
         self.phase_schedules()
+        self.phase_volume_backups()
         self.phase_post_deploy()
         return self.results

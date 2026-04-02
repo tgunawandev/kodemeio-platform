@@ -149,6 +149,7 @@ def post(
     deployer.phase_compose()
     deployer.phase_backup()
     deployer.phase_schedules()
+    deployer.phase_volume_backups()
     deployer.phase_post_deploy()
 
     # Filter out the compose phase from summary (it's just for ID resolution)
@@ -207,6 +208,7 @@ def apply(
     # Stage 3: Post-deploy
     deployer.phase_backup()
     deployer.phase_schedules()
+    deployer.phase_volume_backups()
     deployer.phase_post_deploy()
 
     has_failures = _print_summary(c, f"Deployment Summary: {manifest.instance.name}", deployer.results)
@@ -268,6 +270,7 @@ def apply_all(
         deployer.phase_verify()
         deployer.phase_backup()
         deployer.phase_schedules()
+        deployer.phase_volume_backups()
         deployer.phase_post_deploy()
 
         if any(r.action == "failed" for r in deployer.results):
@@ -306,6 +309,7 @@ def status(
     deployer.phase_verify()
     deployer.phase_backup()
     deployer.phase_schedules()
+    deployer.phase_volume_backups()
     deployer.phase_post_deploy()
 
     _print_summary(c, f"Status: {manifest.instance.name}", deployer.results)
