@@ -107,9 +107,8 @@ class TestRunKctl:
         with patch("subprocess.run") as mock_run:
             code, out = deployer._run_kctl(["kctl-dokploy", "compose", "create", "--name", "x"])
             mock_run.assert_not_called()
-            # Returns (0, "") to signal dry-run skip
             assert code == 0
-            assert out == ""
+            assert out == "[dry-run] skipped"
 
     def test_run_kctl_dry_run_allows_readonly(self) -> None:
         """In dry_run mode, read-only commands are still executed."""
@@ -223,9 +222,9 @@ class TestPhaseDns:
         manifest = _make_manifest(dns=DnsConfig(zone="example.com", name="app.example.com", content="1.2.3.4"))
         deployer = Deployer(manifest=manifest, dry_run=False)
 
-        # Text output from kctl-cf records list containing the FQDN
-        text_output = "app.example.com  A  1.2.3.4  proxied"
-        with patch("subprocess.run", return_value=_mock_proc(0, text_output)):
+        # JSON output from kctl-cf records list containing matching FQDN
+        existing_records = [{"name": "app.example.com", "type": "A", "content": "1.2.3.4"}]
+        with patch("subprocess.run", return_value=_mock_proc(0, json.dumps(existing_records))):
             deployer.phase_dns()
 
         dns_result = next(r for r in deployer.results if r.phase == "dns")
@@ -250,18 +249,15 @@ class TestPhaseDatabase:
         db_result = next(r for r in deployer.results if r.phase == "database")
         assert db_result.action == "created"
 
-    def test_skips_when_user_and_db_exist(self) -> None:
+    def test_skips_when_db_exists(self) -> None:
         manifest = _make_manifest()
         deployer = Deployer(manifest=manifest, dry_run=False)
 
-        users = [{"rolname": "myuser"}]
+        # phase_database checks db list first (via _run_kctl_json which adds --json)
         dbs = [{"datname": "mydb"}]
         with patch(
             "subprocess.run",
-            side_effect=[
-                _mock_proc(0, json.dumps(users)),
-                _mock_proc(0, json.dumps(dbs)),
-            ],
+            return_value=_mock_proc(0, json.dumps(dbs)),
         ):
             deployer.phase_database()
 
@@ -307,13 +303,17 @@ class TestPhaseCompose:
                 ],
             }
         ]
+        servers = [{"name": "srv-001", "serverId": "server-1"}]
         create_resp = {"composeId": "comp-new-1"}
+        git_providers = [{"providerType": "github", "github": {"githubId": "gh-1"}}]
 
         with patch(
             "subprocess.run",
             side_effect=[
                 _mock_proc(0, json.dumps(projects)),  # projects list
+                _mock_proc(0, json.dumps(servers)),  # servers list (resolve server)
                 _mock_proc(0, json.dumps(create_resp)),  # compose create
+                _mock_proc(0, json.dumps(git_providers)),  # git providers list
                 _mock_proc(0, "{}"),  # compose update (source)
             ],
         ):
@@ -360,11 +360,19 @@ class TestPhaseDeploy:
         deployer = Deployer(manifest=manifest, dry_run=False)
         deployer._compose_id = "comp-abc"
 
-        with patch("subprocess.run", return_value=_mock_proc(0, "")) as mock_run:
+        # redeploy returns OK, then polling returns deployment with status=done
+        done_deployment = [{"status": "done", "deploymentId": "dep-1"}]
+        with patch(
+            "subprocess.run",
+            side_effect=[
+                _mock_proc(0, ""),  # redeploy
+                _mock_proc(0, json.dumps(done_deployment)),  # poll status
+            ],
+        ):
             deployer.phase_deploy()
 
         deploy_result = next(r for r in deployer.results if r.phase == "deploy")
-        assert deploy_result.action in ("created", "updated")
+        assert deploy_result.action == "updated"
 
     def test_fails_without_compose_id(self) -> None:
         manifest = _make_manifest()
