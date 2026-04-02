@@ -103,6 +103,7 @@ def create(
             accent=p.get("accent"),
         )
     elif style == "full":
+        sig = p["signature"] if "signature" in p else defaults.get("signature", "kodeme.io")
         img = generate_full_logo(
             name=p.get("full_name", p["name"]),
             icon_name=icon_name,
@@ -110,7 +111,7 @@ def create(
             size=size,
             tagline=p.get("tagline", ""),
             accent=p.get("accent"),
-            signature=defaults.get("signature", "kodeme.io"),
+            signature=sig,
         )
     elif style == "circle":
         img = generate_circle_badge(
@@ -201,6 +202,7 @@ def batch(
                     elif s == "monogram":
                         img = generate_monogram(p["name"], p["color"], actual_size, accent=p.get("accent"))
                     elif s == "full":
+                        batch_sig = p["signature"] if "signature" in p else defaults.get("signature", "kodeme.io")
                         img = generate_full_logo(
                             p.get("full_name", p["name"]),
                             icon_name,
@@ -208,7 +210,7 @@ def batch(
                             actual_size,
                             tagline=p.get("tagline", ""),
                             accent=p.get("accent"),
-                            signature=defaults.get("signature", "kodeme.io"),
+                            signature=batch_sig,
                         )
                     elif s == "circle":
                         img = generate_circle_badge(icon_name, p["color"], actual_size, accent=p.get("accent"))

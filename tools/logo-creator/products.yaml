@@ -148,10 +148,11 @@ products:
   provetics:
     name: "Provetics"
     full_name: "Provetics"
-    icon: "flask-conical"
+    icon: "megaphone"
     color: "#0E7490"        # Cyan dark
     accent: "#06B6D4"
-    tagline: "Probiotics & Genetics"
+    tagline: "Promotion, Revenue & Analytics"
+    signature: ""
 
 # ──────────────────────────────────────────────────────────────────────
 # Infrastructure Services
