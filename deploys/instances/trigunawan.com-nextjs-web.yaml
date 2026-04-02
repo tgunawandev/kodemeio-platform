@@ -6,8 +6,7 @@ instance:
   description: "Tri Gunawan portfolio website"
 
 source_overrides:
-  repo: kodemeio-next-web
-  compose_path: ./docker-compose.prod.portfolio.yml
+  compose_path: compose/docker-compose.prod.trigunawan.yml
 
 project: trigunawan.com
 
@@ -17,8 +16,8 @@ dns:
 
 domain:
   host: trigunawan.com
-  port: 3000
-  service: portfolio
+  port: 4000
+  service: trigunawan-web
   https: true
   cert: letsencrypt
 
