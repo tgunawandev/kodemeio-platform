@@ -20,7 +20,7 @@ def list_(ctx: typer.Context) -> None:
         servers = []
     rows = []
     for s in servers:
-        sid = s.get("serverId", "")[:12]
+        sid = s.get("serverId", "")
         name = s.get("name", "")
         ip = s.get("ipAddress", "")
         status = s.get("serverStatus", "unknown")
@@ -259,7 +259,7 @@ def with_ssh_key(ctx: typer.Context) -> None:
         data = []
     rows = []
     for s in data:
-        sid = s.get("serverId", "")[:12]
+        sid = s.get("serverId", "")
         name = s.get("name", "")
         ip = s.get("ipAddress", "")
         key_name = ""
@@ -284,7 +284,7 @@ def build_servers(ctx: typer.Context) -> None:
         data = []
     rows = []
     for s in data:
-        sid = s.get("serverId", "")[:12]
+        sid = s.get("serverId", "")
         name = s.get("name", "")
         ip = s.get("ipAddress", "")
         status = s.get("serverStatus", "unknown")
@@ -320,7 +320,7 @@ def server_deployments(
         deployments = []
     rows = []
     for d in deployments:
-        did = d.get("deploymentId", "")[:12]
+        did = d.get("deploymentId", "")
         status = d.get("status", "unknown")
         deploy_type = d.get("deploymentType", "-")
         created = d.get("createdAt", "")

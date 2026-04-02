@@ -33,7 +33,7 @@ def list_(
     deployments = sorted(deployments, key=lambda d: d.get("createdAt", ""), reverse=True)[:limit]
     rows = []
     for d in deployments:
-        did = d.get("deploymentId", "")[:12]
+        did = d.get("deploymentId", "")
         status = d.get("status", "unknown")
         deploy_type = d.get("deploymentType", "-")
         created = d.get("createdAt", "")
@@ -227,7 +227,7 @@ def by_server(
         data = []
     rows = []
     for d in data:
-        did = d.get("deploymentId", "")[:12]
+        did = d.get("deploymentId", "")
         status = d.get("status", "unknown")
         deploy_type = d.get("deploymentType", "-")
         created = d.get("createdAt", "")
@@ -250,7 +250,7 @@ def queue(ctx: typer.Context) -> None:
         data = []
     rows = []
     for d in data:
-        did = d.get("deploymentId", "")[:12]
+        did = d.get("deploymentId", "")
         status = d.get("status", "unknown")
         deploy_type = d.get("deploymentType", "-")
         created = d.get("createdAt", "")
@@ -278,7 +278,7 @@ def by_type(
         data = []
     rows = []
     for d in data:
-        did = d.get("deploymentId", "")[:12]
+        did = d.get("deploymentId", "")
         status = d.get("status", "unknown")
         deploy_type = d.get("deploymentType", "-")
         created = d.get("createdAt", "")

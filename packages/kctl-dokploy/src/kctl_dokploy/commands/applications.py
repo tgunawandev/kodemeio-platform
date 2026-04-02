@@ -31,7 +31,7 @@ def list_(
             aid = a.get("applicationId", "")
             name = a.get("name", "")
             status = a.get("applicationStatus", "unknown")
-            rows.append([aid[:12], proj_name, name, status])
+            rows.append([aid, proj_name, name, status])
             json_data.append(
                 {
                     "applicationId": aid,
@@ -257,7 +257,7 @@ def search(
         data = []
     rows = []
     for a in data:
-        aid = a.get("applicationId", "")[:12]
+        aid = a.get("applicationId", "")
         aname = a.get("name", "")
         status = a.get("applicationStatus", "unknown")
         rows.append([aid, aname, status])

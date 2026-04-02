@@ -83,7 +83,7 @@ def run(
         _ok(c, 5, steps_total, "[dry-run] Would deploy")
     else:
         try:
-            c.client.post("/compose.deployCompose", json={"composeId": compose_id})
+            c.client.post("/compose.deploy", json={"composeId": compose_id})
             _ok(c, 5, steps_total, "Deployment triggered")
         except Exception as e:
             _fail(c, 5, steps_total, f"Deploy failed: {e}")
@@ -291,7 +291,7 @@ def _wait_for_deployment(c: AppContext, compose_id: str, timeout: int) -> tuple[
 
     while (elapsed := int(time.monotonic() - start)) < timeout:
         try:
-            deployments = c.client.get("/deployment.all", params={"composeId": compose_id})
+            deployments = c.client.get("/deployment.allByCompose", params={"composeId": compose_id})
             if isinstance(deployments, list) and deployments:
                 # Sort by created desc, get latest
                 latest = sorted(deployments, key=lambda d: d.get("createdAt", ""), reverse=True)[0]

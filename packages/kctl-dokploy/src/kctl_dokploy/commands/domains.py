@@ -78,7 +78,7 @@ def get(
         port = str(d.get("port", "80"))
         https = "yes" if d.get("https") else "no"
         cert = d.get("certificateType", "none")
-        did = d.get("domainId", "")[:12]
+        did = d.get("domainId", "")
         rows.append([did, host, port, https, cert])
     c.output.table(
         f"Domains for {compose_id}",

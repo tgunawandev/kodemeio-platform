@@ -38,7 +38,7 @@ def list_(
         name = s.get("name", "")
         status = s.get("composeStatus", "unknown")
         project = s.get("_projectName", s.get("projectName", ""))
-        rows.append([cid[:12], name, status, project])
+        rows.append([cid, name, status, project])
         json_data.append(
             {
                 "composeId": cid,
@@ -114,6 +114,35 @@ def create(
     c.output.success(f"Compose '{name}' created: {cid}")
     if c.json_mode:
         c.output.raw_json(result)
+
+
+def _resolve_github_app_id(c: AppContext, id_or_provider_id: str) -> str | None:
+    """Resolve a gitProviderId to its inner github.githubId if needed.
+
+    Dokploy has two IDs:
+    - gitProviderId: the provider record
+    - github.githubId: the GitHub App installation ID (FK in compose table)
+
+    This function accepts either and returns the github.githubId.
+    """
+    try:
+        providers = c.client.get("/gitProvider.getAll")
+    except Exception:
+        return None
+    if not isinstance(providers, list):
+        return None
+    for p in providers:
+        github = p.get("github", {})
+        if not isinstance(github, dict):
+            continue
+        inner_id = github.get("githubId", "")
+        # If the provided ID IS already the inner github.githubId, return it
+        if inner_id == id_or_provider_id:
+            return id_or_provider_id
+        # If the provided ID is the outer gitProviderId, resolve to inner
+        if p.get("gitProviderId") == id_or_provider_id:
+            return inner_id if inner_id else None
+    return None
 
 
 @app.command()
@@ -412,7 +441,7 @@ def search(
         data = []
     rows = []
     for s in data:
-        cid = s.get("composeId", "")[:12]
+        cid = s.get("composeId", "")
         sname = s.get("name", "")
         status = s.get("composeStatus", "unknown")
         rows.append([cid, sname, status])

@@ -21,17 +21,60 @@ def list_(ctx: typer.Context) -> None:
     rows = []
     for g in providers:
         gid = g.get("gitProviderId", "")
+        github_inner = g.get("github", {})
+        github_app_id = github_inner.get("githubId", "") if isinstance(github_inner, dict) else ""
         name = g.get("name", g.get("gitProviderType", ""))
         ptype = g.get("gitProviderType", g.get("providerType", "unknown"))
         org = g.get("organizationName", g.get("organization", "-"))
         created = g.get("createdAt", "-")
-        rows.append([gid, name, ptype, str(org), str(created)])
+        rows.append([gid, github_app_id, name, ptype, str(org), str(created)])
     c.output.table(
         "Git Providers",
-        [("ID", "dim"), ("Name", "cyan"), ("Type", ""), ("Organization", ""), ("Created", "dim")],
+        [
+            ("Provider ID", "dim"),
+            ("GitHub App ID", "cyan"),
+            ("Name", ""),
+            ("Type", ""),
+            ("Organization", ""),
+            ("Created", "dim"),
+        ],
         rows,
         data_for_json=providers,
     )
+
+
+@app.command()
+def resolve(
+    ctx: typer.Context,
+    provider_id: Annotated[
+        str | None, typer.Argument(help="Git provider ID (optional, uses first GitHub provider if omitted)")
+    ] = None,
+) -> None:
+    """Resolve a git provider to its GitHub App ID (for compose linking).
+
+    The compose table's githubId FK references the INNER github.githubId,
+    not the outer gitProviderId. This command returns the correct ID.
+    """
+    c: AppContext = ctx.obj
+    providers = c.client.get("/gitProvider.getAll")
+    if not isinstance(providers, list):
+        providers = []
+
+    for p in providers:
+        if provider_id and p.get("gitProviderId") != provider_id:
+            continue
+        ptype = p.get("gitProviderType", p.get("providerType", ""))
+        if ptype == "github":
+            github = p.get("github", {})
+            if isinstance(github, dict) and github.get("githubId"):
+                github_id = github["githubId"]
+                c.output.success(f"GitHub App ID: {github_id}")
+                if c.json_mode:
+                    c.output.raw_json({"githubId": github_id, "gitProviderId": p.get("gitProviderId")})
+                return
+
+    c.output.error("No GitHub provider found" + (f" with ID {provider_id}" if provider_id else ""))
+    raise typer.Exit(1)
 
 
 @app.command()
