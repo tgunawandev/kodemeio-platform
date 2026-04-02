@@ -18,7 +18,7 @@ source:
   branch: "18.0"
 
 server: kodeme-service
-project: kodemeio-service
+project: kodeme.io
 
 healthcheck:
   path: /api/v1/health

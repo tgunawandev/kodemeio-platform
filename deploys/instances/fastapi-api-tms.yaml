@@ -8,7 +8,7 @@ instance:
 source_overrides:
   compose_path: compose/fastapi.prod.api-tms.yml
 
-project: kidneuro-service
+project: terakidz.com
 
 dns:
   zone: terakidz.com
