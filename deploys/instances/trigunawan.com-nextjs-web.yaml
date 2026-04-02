@@ -2,16 +2,22 @@ kind: instance
 extends: ../bases/nextjs.yaml
 
 instance:
-  name: kodemeio-portfolio
-  description: "Portfolio website (trigunawan.com)"
+  name: trigunawan-web
+  description: "Tri Gunawan portfolio website"
 
 source_overrides:
   repo: kodemeio-next-web
   compose_path: ./docker-compose.prod.portfolio.yml
 
+project: trigunawan.com
+
+dns:
+  zone: trigunawan.com
+  name: "@"
+
 domain:
   host: trigunawan.com
-  port: 4000
+  port: 3000
   service: portfolio
   https: true
   cert: letsencrypt

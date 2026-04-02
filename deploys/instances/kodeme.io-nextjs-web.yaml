@@ -2,8 +2,8 @@ kind: instance
 extends: ../bases/nextjs.yaml
 
 instance:
-  name: kodemeio-consulting
-  description: "Consulting website (kodeme.io)"
+  name: kodemeio-web
+  description: "Kodemeio consulting website"
 
 source_overrides:
   repo: kodemeio-next-web
@@ -11,7 +11,7 @@ source_overrides:
 
 domain:
   host: kodeme.io
-  port: 4003
+  port: 3000
   service: consulting
   https: true
   cert: letsencrypt
