@@ -5,6 +5,8 @@ instance:
   name: kodemeio-react-wms-mac
   description: "MAC Customer — WMS PWA"
 
+project: mandiriagro.com
+
 source_overrides:
   compose_path: ./docker-compose.wms.yml
 

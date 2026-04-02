@@ -5,6 +5,8 @@ instance:
   name: kodemeio-react-dms-mac
   description: "MAC Customer — DMS PWA"
 
+project: mandiriagro.com
+
 source_overrides:
   compose_path: ./docker-compose.dms.yml
 

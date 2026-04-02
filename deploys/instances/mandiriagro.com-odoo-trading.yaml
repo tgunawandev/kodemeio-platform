@@ -5,6 +5,8 @@ instance:
   name: odoo-trading-mac
   description: "MAC — Trading (import/export, multi-currency, landed costs)"
 
+project: mandiriagro.com
+
 dns:
   zone: kodeme.io
   name: odoo-trading-mac

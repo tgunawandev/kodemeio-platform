@@ -5,6 +5,8 @@ instance:
   name: kodemeio-react-saas-mac
   description: "MAC Customer — SAAS PWA"
 
+project: mandiriagro.com
+
 source_overrides:
   compose_path: ./docker-compose.saas.yml
 

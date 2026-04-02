@@ -5,6 +5,8 @@ instance:
   name: odoo-hrms-tpp
   description: "TPP — HRMS (employees, attendance, payroll, leaves, expenses)"
 
+project: pakerti.com
+
 dns:
   zone: kodeme.io
   name: odoo-hrms-tpp

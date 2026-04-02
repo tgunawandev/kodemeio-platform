@@ -5,6 +5,8 @@ instance:
   name: odoo-hrms-mac
   description: "MAC — HRMS (employees, attendance, payroll, leaves, expenses)"
 
+project: mandiriagro.com
+
 dns:
   zone: kodeme.io
   name: odoo-hrms-mac

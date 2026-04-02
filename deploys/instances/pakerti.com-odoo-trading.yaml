@@ -5,6 +5,8 @@ instance:
   name: odoo-trading-tpp
   description: "TPP — Trading (import/export, multi-currency, landed costs)"
 
+project: pakerti.com
+
 dns:
   zone: kodeme.io
   name: odoo-trading-tpp

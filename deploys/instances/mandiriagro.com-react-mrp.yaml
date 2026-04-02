@@ -5,6 +5,8 @@ instance:
   name: kodemeio-react-mrp-mac
   description: "MAC Customer — MRP PWA"
 
+project: mandiriagro.com
+
 source_overrides:
   compose_path: ./docker-compose.mrp.yml
 

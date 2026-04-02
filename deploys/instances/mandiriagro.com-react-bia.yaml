@@ -5,6 +5,8 @@ instance:
   name: kodemeio-react-bia-mac
   description: "MAC Customer — BIA PWA"
 
+project: mandiriagro.com
+
 source_overrides:
   compose_path: ./docker-compose.bia.yml
 
