@@ -157,7 +157,7 @@ class APIClient:
                     if key in data:
                         val = data[key]
                         return str(val) if not isinstance(val, str) else val
-        except Exception:  # noqa: BLE001
+        except (ValueError, KeyError, TypeError):
             pass
         return response.text[:200] if response.text else f"HTTP {response.status_code}"
 

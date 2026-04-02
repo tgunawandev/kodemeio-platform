@@ -27,6 +27,7 @@ def test_cli_app_has_all_groups():
             "maintenance",
             "patches",
             "remote",
+            "rustdesk",
             "scripts",
             "services",
             "software",
@@ -46,6 +47,7 @@ def test_core_config_service_key():
 def test_rmm_client_requires_url():
     import pytest
     from kctl_lib import ConfigError
+
     from kctl_rmm.core.client import RMMClient
 
     with pytest.raises(ConfigError, match="No API URL configured"):
@@ -55,6 +57,7 @@ def test_rmm_client_requires_url():
 def test_rmm_client_requires_api_key():
     import pytest
     from kctl_lib import ConfigError
+
     from kctl_rmm.core.client import RMMClient
 
     with pytest.raises(ConfigError, match="API credential is required"):
@@ -63,6 +66,7 @@ def test_rmm_client_requires_api_key():
 
 def test_app_context_extends_base():
     from kctl_lib.callbacks import AppContextBase
+
     from kctl_rmm.core.callbacks import AppContext
 
     assert issubclass(AppContext, AppContextBase)

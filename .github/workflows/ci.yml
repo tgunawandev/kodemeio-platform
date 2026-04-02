@@ -10,7 +10,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  test:
+  # Fast gate: lint and test the shared library first
+  kctl-lib:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -41,3 +42,62 @@ jobs:
       - name: Check formatting
         run: uv run ruff format --check src/ tests/
         working-directory: packages/kctl-lib
+
+  # Test all CLI packages (Python 3.12 only — 3.13 covered by kctl-lib job)
+  cli-packages:
+    needs: kctl-lib
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - kctl-ak
+          - kctl-api
+          - kctl-cf
+          - kctl-claude
+          - kctl-claw
+          - kctl-dokploy
+          - kctl-gatus
+          - kctl-github
+          - kctl-glitchtip
+          - kctl-grafana
+          - kctl-hz
+          - kctl-linear
+          - kctl-notion
+          - kctl-odoo
+          - kctl-op
+          - kctl-pg
+          - kctl-react
+          - kctl-rmm
+          - kctl-rustdesk
+          - kctl-sentry
+          - kctl-telegram
+          - kctl-waha
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install workspace dependencies
+        run: uv sync --all-extras --all-packages
+
+      - name: Run tests
+        run: uv run pytest packages/${{ matrix.package }}/tests/ -v --tb=short
+        # Allow packages with no tests to pass (exit 5 = no tests collected)
+        continue-on-error: false
+
+      - name: Run linting
+        run: uv run ruff check packages/${{ matrix.package }}/src/
+
+      - name: Check formatting
+        run: uv run ruff format --check packages/${{ matrix.package }}/src/
+
+      - name: Type check
+        run: uv run mypy packages/${{ matrix.package }}/src/
+        continue-on-error: true

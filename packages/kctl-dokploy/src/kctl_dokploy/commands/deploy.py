@@ -15,6 +15,8 @@ from typing import Annotated
 
 import typer
 
+from pydantic import ValidationError
+
 from kctl_dokploy.core.callbacks import AppContext
 from kctl_dokploy.core.deployer import Deployer, PhaseResult
 from kctl_dokploy.core.manifest import DeployManifest, load_and_resolve
@@ -50,6 +52,71 @@ def _load(file: Path, c: AppContext) -> DeployManifest:
     except Exception as exc:
         c.output.error(f"Failed to load manifest: {exc}")
         raise typer.Exit(1) from exc
+
+
+# ---------------------------------------------------------------------------
+# Validate manifest
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def validate(
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Option("--file", "-f", help="Manifest YAML file", exists=True)] = ...,  # type: ignore[assignment]
+) -> None:
+    """Validate a deploy manifest without deploying.
+
+    Loads the manifest, resolves base extends and interpolation, and reports
+    validation results. Exits 0 on success, 1 on validation failure.
+    """
+    c: AppContext = ctx.obj
+    out = c.output
+
+    try:
+        manifest = load_and_resolve(file)
+    except ValidationError as exc:
+        out.error("Manifest validation failed:")
+        errors = exc.errors()
+        rows = []
+        json_errors = []
+        for err in errors:
+            field_path = " -> ".join(str(loc) for loc in err["loc"])
+            msg = err["msg"]
+            rows.append([field_path, err["type"], msg])
+            json_errors.append({"field": field_path, "type": err["type"], "message": msg})
+
+        out.table(
+            "Validation Errors",
+            [("Field", "cyan"), ("Type", "yellow"), ("Message", "")],
+            rows,
+            data_for_json=json_errors,
+        )
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        out.error(f"Failed to load manifest: {exc}")
+        raise typer.Exit(1) from exc
+
+    # Build summary data
+    summary = {
+        "file": str(file),
+        "instance": manifest.instance.name,
+        "type": manifest.type,
+        "domain": manifest.domain.host if manifest.domain else "-",
+        "project": manifest.project,
+        "server": manifest.server,
+        "extends": manifest.extends or "-",
+        "has_backup": manifest.backup is not None,
+        "schedules": len(manifest.schedules),
+        "env_file": manifest.env_file or "-",
+    }
+
+    out.table(
+        f"Manifest Valid: {file.name}",
+        [("Property", "cyan"), ("Value", "")],
+        [[k, str(v)] for k, v in summary.items()],
+        data_for_json=summary,
+    )
+    out.success(f"Manifest is valid: {manifest.instance.name} ({manifest.type})")
 
 
 # ---------------------------------------------------------------------------
