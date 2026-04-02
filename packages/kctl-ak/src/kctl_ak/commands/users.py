@@ -153,9 +153,24 @@ def create(
     c.client.post(f"core/users/{pk}/set_password/", data={"password": generated_password})
 
     group_names_added: list[str] = []
-    if groups:
-        from kctl_ak.core.resolve import resolve_group
+    from kctl_ak.core.resolve import resolve_group
 
+    # Authentik ignores is_superuser on the API — superuser is granted via group membership.
+    # Auto-add to the first group with is_superuser=True (typically "ak-admin-super").
+    if superuser:
+        try:
+            all_groups = c.client.get_all("core/groups/", params={"page_size": 100})
+            su_group = next((g for g in all_groups if g.get("is_superuser")), None)
+            if su_group:
+                gid = su_group["pk"]
+                c.client.post(f"core/groups/{gid}/add_user/", data={"pk": pk})
+                group_names_added.append(su_group["name"])
+            else:
+                c.output.warn("No superuser group found — user created without superuser privileges")
+        except Exception:
+            c.output.warn("Failed to add user to superuser group")
+
+    if groups:
         for gname in groups.split(","):
             gname = gname.strip()
             if not gname:

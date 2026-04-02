@@ -342,3 +342,139 @@ def suspicious(
         rows,
         data_for_json=all_results[:50],
     )
+
+
+def _delete_events(c: AppContext, events: list[dict], label: str) -> None:
+    """Delete a list of events by UUID via the API."""
+    if not events:
+        c.output.info(f"No {label} events found.")
+        return
+
+    c.output.info(f"Deleting {len(events)} {label} events...")
+    deleted = 0
+    errors = 0
+    for ev in events:
+        pk = ev.get("pk", "")
+        try:
+            c.client.delete(f"{_ENDPOINT}{pk}/")
+            deleted += 1
+        except Exception:
+            errors += 1
+
+    if errors:
+        c.output.warn(f"Deleted {deleted}, failed {errors}")
+    else:
+        c.output.success(f"Deleted {deleted} {label} events")
+
+
+@app.command()
+def delete(
+    ctx: typer.Context,
+    event_id: Annotated[str | None, typer.Argument(help="Event UUID to delete (omit to use filters).")] = None,
+    action: Annotated[str | None, typer.Option(help="Delete all events with this action type.")] = None,
+    user: Annotated[str | None, typer.Option(help="Delete events by user (ID, username, or email).")] = None,
+    days: Annotated[int | None, typer.Option(help="Only delete events from the last N days.")] = None,
+    force: Annotated[bool, typer.Option("--force", help="Skip confirmation.")] = False,
+) -> None:
+    """Delete audit events by ID, action type, or user.
+
+    Examples:
+      kctl-ak audit delete <event-uuid>
+      kctl-ak audit delete --action impersonation_started
+      kctl-ak audit delete --action impersonation_started --action impersonation_ended
+      kctl-ak audit delete --user tgunawan --action authorize_application --days 7
+    """
+    c: AppContext = ctx.obj
+
+    if event_id:
+        c.client.delete(f"{_ENDPOINT}{event_id}/")
+        c.output.success(f"Deleted event {event_id}")
+        return
+
+    if not action and not user:
+        c.output.error("Provide an event ID or at least --action or --user filter.")
+        raise typer.Exit(1)
+
+    params: dict = {"ordering": "-created", "page_size": 100}
+    if action:
+        params["action"] = action
+    if user:
+        pk = resolve_user(c.client, user)
+        params["user"] = pk
+    if days:
+        from datetime import datetime, timedelta
+
+        since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        params["created__gte"] = since
+
+    events = c.client.get_all(_ENDPOINT, params=params)
+
+    if not events:
+        c.output.info("No matching events found.")
+        return
+
+    if not force:
+        c.output.warn(f"About to delete {len(events)} events (action={action}, user={user})")
+        if not typer.confirm("Continue?"):
+            c.output.info("Cancelled.")
+            raise typer.Exit(0)
+
+    _delete_events(c, events, action or "filtered")
+
+
+@app.command("delete-impersonation")
+def delete_impersonation(
+    ctx: typer.Context,
+    force: Annotated[bool, typer.Option("--force", help="Skip confirmation.")] = False,
+) -> None:
+    """Delete all impersonation-related events.
+
+    Removes impersonation_started, impersonation_ended, and any events
+    performed on behalf of another user (authorize_application, login, etc.).
+
+    Examples:
+      kctl-ak audit delete-impersonation
+      kctl-ak audit delete-impersonation --force
+    """
+    c: AppContext = ctx.obj
+
+    # 1. Collect impersonation_started and impersonation_ended events
+    imp_events: list[dict] = []
+    for act in ("impersonation_started", "impersonation_ended"):
+        imp_events.extend(c.client.get_all(_ENDPOINT, params={"action": act, "page_size": 100}))
+
+    # 2. Collect events with on_behalf_of in the user field
+    #    These are actions performed while impersonating — the API returns them with
+    #    user.on_behalf_of populated. We need to fetch all events and filter.
+    obo_events: list[dict] = []
+    all_events = c.client.get_all(_ENDPOINT, params={"ordering": "-created", "page_size": 100})
+    for ev in all_events:
+        user_data = ev.get("user") or {}
+        if isinstance(user_data, dict) and user_data.get("on_behalf_of"):
+            obo_events.append(ev)
+
+    # Deduplicate by pk
+    seen: set[str] = set()
+    combined: list[dict] = []
+    for ev in imp_events + obo_events:
+        pk = ev.get("pk", "")
+        if pk not in seen:
+            seen.add(pk)
+            combined.append(ev)
+
+    if not combined:
+        c.output.success("No impersonation events found.")
+        return
+
+    imp_count = len(imp_events)
+    obo_count = len(obo_events)
+    c.output.info(
+        f"Found {len(combined)} events: {imp_count} impersonation start/end + {obo_count} on-behalf-of actions"
+    )
+
+    if not force:
+        if not typer.confirm(f"Delete all {len(combined)} impersonation-related events?"):
+            c.output.info("Cancelled.")
+            raise typer.Exit(0)
+
+    _delete_events(c, combined, "impersonation")
