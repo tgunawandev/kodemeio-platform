@@ -18,6 +18,15 @@ from typing import Any
 import httpx
 
 from kctl_dokploy.core.manifest import DeployManifest, load_env_file
+from kctl_dokploy.core.validators import (
+    resolve_server_ip,
+    validate_dns_ip,
+    validate_project_exists,
+    find_github_app_id,
+    disable_autodeploy,
+    validate_service_name,
+    check_domain_routing,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -120,6 +129,12 @@ class Deployer:
         """Append a :class:`PhaseResult` to :attr:`results`."""
         self.results.append(PhaseResult(phase=phase, action=action, message=message))
 
+    def _log(self, message: str) -> None:
+        """Log an informational message (non-phase, for validation feedback)."""
+        import sys
+
+        print(f"[deploy] {message}", file=sys.stderr)
+
     def _action(self, action: str) -> str:
         """Prefix action with 'would-' in dry-run mode."""
         return f"would-{action}" if self.dry_run else action
@@ -175,12 +190,50 @@ class Deployer:
         except Exception:
             pass  # Best-effort; autoDeploy can be disabled manually
 
+    def _get_client(self):
+        """Get a DokployClient instance for direct API calls (validation)."""
+        if hasattr(self, "_client") and self._client:
+            return self._client
+        try:
+            from kctl_lib.config import load_config
+            from kctl_dokploy.core.client import DokployClient
+
+            cfg = load_config()
+            profile = cfg.get("default_profile", "kodemeio")
+            profiles = cfg.get("profiles", {})
+            p = profiles.get(profile, {})
+            dokploy_cfg = p.get("dokploy", {})
+            url = dokploy_cfg.get("url", "")
+            key = dokploy_cfg.get("api_key", "")
+            if url and key:
+                self._client = DokployClient(base_url=url, credential=key)
+                return self._client
+        except Exception:
+            pass
+        return None
+
     # ------------------------------------------------------------------
     # Phase 1 — DNS
     # ------------------------------------------------------------------
 
     def phase_dns(self) -> None:
         """Ensure the DNS A/CNAME record exists in Cloudflare (idempotent)."""
+        # Gate 1: Validate DNS IP matches server
+        client = self._get_client()
+        if client and self.manifest.server:
+            ok, msg, server_ip = resolve_server_ip(client, self.manifest.server)
+            if not ok:
+                self._record_phase("dns", "failed", f"[VALIDATION] {msg}")
+                return
+            if self.manifest.dns and not self.manifest.dns.content and server_ip:
+                self.manifest.dns.content = server_ip
+                self._log(f"Auto-resolved DNS IP from server: {server_ip}")
+            if self.manifest.dns and self.manifest.dns.content and server_ip:
+                ok2, msg2 = validate_dns_ip(self.manifest.dns.content, server_ip, self.manifest.server)
+                if not ok2:
+                    self._record_phase("dns", "failed", f"[VALIDATION] {msg2}")
+                    return
+
         dns = self.manifest.dns
         if not dns.zone or not dns.name:
             self._record_phase("dns", "skipped", "No DNS config specified")
@@ -396,8 +449,14 @@ class Deployer:
             if github_id:
                 update_args += ["--github-id", github_id]
             self._run_kctl(update_args)
-            # Bug fix #3: Disable autoDeploy to prevent premature deployments
-            self._disable_auto_deploy()
+            # Gate 4: Disable autodeploy
+            client = self._get_client()
+            if client and self._compose_id:
+                ok, msg = disable_autodeploy(client, self._compose_id)
+                if not ok:
+                    self._log(f"WARNING: {msg}")
+                else:
+                    self._log(msg)
             self._record_phase(
                 "compose", self._action("created"), self._msg(f"Create compose {instance_name} (id={self._compose_id})")
             )
@@ -476,6 +535,15 @@ class Deployer:
         if not self._compose_id:
             self._record_phase("domain", "skipped", "No compose_id set — skipping domain config")
             return
+
+        # Gate 5: Validate service name
+        client = self._get_client()
+        if client and self._compose_id and domain and domain.service:
+            ok, msg = validate_service_name(client, self._compose_id, domain.service)
+            if not ok:
+                self._record_phase("domain", "failed", f"[VALIDATION] {msg}")
+                return
+            self._log(msg)
 
         existing: list | dict = self._run_kctl_json(["kctl-dokploy", "domains", "get", "--", self._compose_id])
         if isinstance(existing, list):
