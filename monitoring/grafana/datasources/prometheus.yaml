@@ -1,0 +1,30 @@
+# Grafana Datasource Provisioning — Prometheus
+# Place in: /etc/grafana/provisioning/datasources/prometheus.yaml
+#
+# This configures Prometheus as the default datasource for Grafana.
+# Applied via kctl-grafana or volume-mounted in the Grafana container.
+
+apiVersion: 1
+
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    orgId: 1
+    uid: prometheus
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: "15s"
+      exemplarTraceIdDestinations:
+        - name: traceID
+          datasourceUid: tempo
+      incrementalQuerying: true
+      incrementalQueryOverlapWindow: "10m"
+    version: 1
