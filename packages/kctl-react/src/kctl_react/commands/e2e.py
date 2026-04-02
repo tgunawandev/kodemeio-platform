@@ -280,11 +280,18 @@ def install(ctx: typer.Context) -> None:
 def screenshots(
     ctx: typer.Context,
     app_name: Annotated[str | None, typer.Argument(help="App name (omit for all)")] = None,
+    mobile: Annotated[bool, typer.Option("--mobile", help="Use mobile viewport (default).")] = True,
+    desktop: Annotated[bool, typer.Option("--desktop", help="Use desktop viewport.")] = False,
 ) -> None:
-    """Capture screenshots of all app pages using Playwright.
+    """Capture screenshots of all app pages via Playwright.
 
-    Uses the existing capture-fast.sh script if available,
-    or falls back to a basic Playwright screenshot approach.
+    Runs the all-pages.factory.ts test which saves timestamped screenshots
+    to e2e/screenshots/{app}/{viewport}/{YYYYMMDD-HHMMSS}/.
+
+    Examples:
+      kctl-react e2e screenshots           # All apps, mobile viewport
+      kctl-react e2e screenshots sfa       # SFA only
+      kctl-react e2e screenshots --desktop # Desktop viewport
     """
     actx: AppContext = ctx.obj
     out = actx.output
@@ -293,32 +300,44 @@ def screenshots(
     if app_name:
         actx.validate_app(app_name)
 
-    # Try existing script first
-    script = root / "scripts" / "screenshots" / "capture-fast.sh"
-    if script.exists():
-        out.info(f"Running screenshot capture{f' for {app_name}' if app_name else ''}...")
-        cmd = ["bash", str(script)]
-        if app_name:
-            cmd.append(app_name)
-        try:
-            run(cmd, cwd=root, capture=False, timeout=300)
+    e2e_dir = root / "e2e"
+    if not e2e_dir.is_dir():
+        out.error("e2e/ directory not found")
+        raise typer.Exit(1) from None
+
+    # Determine viewport: --desktop overrides default mobile
+    use_mobile = not desktop
+
+    # Build playwright command — delegates to all-pages.factory.ts
+    cmd = ["npx", "playwright", "test", "factories/all-pages.factory.ts"]
+
+    if app_name:
+        project_name = f"{app_name}-mobile" if use_mobile else app_name
+        cmd.extend(["--project", project_name])
+
+    viewport_label = "mobile" if use_mobile else "desktop"
+    out.info(f"Capturing screenshots{f' for {app_name}' if app_name else ' (all apps)'} [{viewport_label}]...")
+
+    import os
+
+    env = {**os.environ}
+    if app_name:
+        env["E2E_APPS"] = app_name
+
+    try:
+        proc = subprocess.Popen(cmd, cwd=e2e_dir, env=env)
+        proc.wait()
+        if proc.returncode == 0:
             out.success("Screenshots captured")
-        except Exception as e:
-            out.error(f"Screenshot capture failed: {e}")
-            raise typer.Exit(1) from None
-    else:
-        # Fallback: use pnpm screenshots script
-        out.info("Using pnpm screenshots script...")
-        cmd = ["pnpm", f"screenshots{f':{app_name}' if app_name else ''}"]
-        try:
-            run(cmd, cwd=root, capture=False, timeout=300)
-            out.success("Screenshots captured")
-        except Exception as e:
-            out.error(f"Screenshot capture failed: {e}")
-            raise typer.Exit(1) from None
+        else:
+            out.error("Screenshot capture failed (Playwright exited with errors)")
+            raise typer.Exit(1)
+    except KeyboardInterrupt:
+        proc.send_signal(signal.SIGINT)
+        proc.wait()
 
     # Show screenshot directory
-    screenshots_dir = root / "docs" / "screenshots"
+    screenshots_dir = root / "e2e" / "screenshots"
     if screenshots_dir.is_dir():
         count = len(list(screenshots_dir.rglob("*.png")))
-        out.info(f"Screenshots: {count} file(s) in docs/screenshots/")
+        out.info(f"Screenshots: {count} file(s) in e2e/screenshots/")

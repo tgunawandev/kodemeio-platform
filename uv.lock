@@ -720,7 +720,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "kctl-dokploy"
-version = "0.3.1"
+version = "0.3.2"
 source = { editable = "packages/kctl-dokploy" }
 dependencies = [
     { name = "httpx" },
