@@ -20,7 +20,7 @@ def list_(ctx: typer.Context) -> None:
         providers = []
     rows = []
     for g in providers:
-        gid = g.get("gitProviderId", "")[:12]
+        gid = g.get("gitProviderId", "")
         name = g.get("name", g.get("gitProviderType", ""))
         ptype = g.get("gitProviderType", g.get("providerType", "unknown"))
         org = g.get("organizationName", g.get("organization", "-"))
