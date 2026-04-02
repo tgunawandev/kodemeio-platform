@@ -205,7 +205,25 @@ def test_destination(
     """Test S3 connection for a destination."""
     c: AppContext = ctx.obj
     c.output.info(f"Testing S3 connection for destination '{destination_id}'...")
-    result = c.client.post("/destination.testConnection", json={"destinationId": destination_id})
+    # Fetch full destination details first (API requires all fields for test)
+    try:
+        dest = c.client.get("/destination.one", params={"destinationId": destination_id})
+        if not isinstance(dest, dict):
+            c.output.error("Destination not found")
+            raise typer.Exit(1)
+    except Exception as e:
+        c.output.error(f"Failed to fetch destination: {e}")
+        raise typer.Exit(1)
+    payload = {
+        "name": dest.get("name", ""),
+        "bucket": dest.get("bucket", ""),
+        "endpoint": dest.get("endpoint", ""),
+        "accessKey": dest.get("accessKey", ""),
+        "secretAccessKey": dest.get("secretAccessKey", ""),
+        "region": dest.get("region", ""),
+        "provider": dest.get("provider", ""),
+    }
+    result = c.client.post("/destination.testConnection", json=payload)
     c.output.success(f"S3 connection test passed for destination '{destination_id}'")
     if c.json_mode:
         c.output.raw_json(result)
