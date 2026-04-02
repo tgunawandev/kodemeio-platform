@@ -1,0 +1,22 @@
+kind: instance
+extends: ../bases/nextjs.yaml
+
+instance:
+  name: pakerti-web
+  description: "Pakerti company website"
+
+source_overrides:
+  compose_path: compose/docker-compose.pakerti.yml
+
+project: pakerti.com
+
+dns:
+  zone: pakerti.com
+  name: "@"
+
+domain:
+  host: pakerti.com
+  port: 3000
+  service: pakerti-web
+  https: true
+  cert: letsencrypt

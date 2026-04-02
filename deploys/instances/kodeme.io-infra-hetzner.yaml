@@ -1,9 +1,0 @@
-kind: instance
-extends: ../bases/infra.yaml
-
-instance:
-  name: kodemeio-hetzner
-  description: "Hetzner Cloud CLI tool"
-
-source_overrides:
-  repo: kodemeio-hetzner

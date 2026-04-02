@@ -1,0 +1,25 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+
+instance:
+  name: pakerti-react-hrm
+  description: "Pakerti — HRM PWA"
+
+source_overrides:
+  compose_path: compose/docker-compose.hrm.yml
+
+project: pakerti.com
+
+dns:
+  zone: pakerti.com
+  name: hrm
+
+domain:
+  host: hrm.pakerti.com
+  port: 80
+  service: hrm
+  https: true
+
+env_overrides:
+  VITE_HRM_APP_NAME: "Pakerti HRM"
+  VITE_HRM_API_BASE_URL: "https://odoo-hrms.pakerti.com"
