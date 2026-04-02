@@ -90,6 +90,7 @@ def create(
     elif provider == "telegram":
         payload["botToken"] = bot_token or ""
         payload["chatId"] = chat_id or ""
+        payload["messageThreadId"] = ""
     elif provider == "email":
         # Email uses SMTP settings from Dokploy
         pass
@@ -107,6 +108,19 @@ def create(
     elif provider == "lark":
         payload["webhookUrl"] = webhook_url or ""
 
+    # Dokploy requires event flags on all notification channels
+    payload.update(
+        {
+            "appBuildError": True,
+            "appBuildSuccess": True,
+            "appDeploy": True,
+            "databaseBackup": True,
+            "dokployRestart": True,
+            "dockerCleanup": True,
+            "volumeBackup": True,
+            "serverThreshold": True,
+        }
+    )
     endpoint = f"/notification.create{_provider_label(provider)}"
     result = c.client.post(endpoint, json=payload)
     nid = result.get("notificationId", "") if isinstance(result, dict) else ""
@@ -177,7 +191,34 @@ def test_channel(
 
     endpoint = f"/notification.test{_provider_label(provider)}Connection"
     c.output.info(f"Testing {provider} notification '{notification_id}'...")
-    result = c.client.post(endpoint, json={"notificationId": notification_id})
+    # Fetch full notification details (Dokploy requires all fields for test)
+    # Fetch notification details from the list (provider fields are nested)
+    payload = {"notificationId": notification_id}
+    try:
+        all_notifs = c.client.get("/notification.all")
+        if isinstance(all_notifs, list):
+            for notif in all_notifs:
+                if notif.get("notificationId") == notification_id:
+                    # Provider details are nested: notif.telegram.botToken, notif.slack.webhookUrl, etc.
+                    nested = notif.get(provider, {})
+                    if isinstance(nested, dict):
+                        for key in (
+                            "botToken",
+                            "chatId",
+                            "messageThreadId",
+                            "webhookUrl",
+                            "serverUrl",
+                            "appToken",
+                            "userKey",
+                            "apiKey",
+                        ):
+                            val = nested.get(key)
+                            if val is not None:
+                                payload[key] = val
+                    break
+    except Exception:
+        pass
+    result = c.client.post(endpoint, json=payload)
     c.output.success(f"Test sent for '{notification_id}'")
     if c.json_mode:
         c.output.raw_json(result)
