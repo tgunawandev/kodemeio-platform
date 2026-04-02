@@ -1,0 +1,27 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+
+instance:
+  name: terakidz-web
+  description: "Terakidz marketing site (Next.js)"
+
+source_overrides:
+  compose_path: compose/docker-compose.terakidz.yml
+
+server: kodeme-service
+project: kidneuro-service
+
+dns:
+  zone: terakidz.com
+  name: "@"
+  content: 49.13.14.79
+
+domain:
+  host: terakidz.com
+  port: 3006
+  service: terakidz-web
+  https: true
+
+env_overrides:
+  NODE_ENV: production
+  PORT: "3006"
