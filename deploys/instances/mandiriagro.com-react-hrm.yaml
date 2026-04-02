@@ -21,6 +21,8 @@ domain:
   service: hrm
   https: true
 
+env_file: ../env/mandiriagro.com-react-hrm.env
+
 env_overrides:
   VITE_HRM_APP_NAME: "MAC HRM"
   VITE_HRM_API_BASE_URL: "https://odoo-mac.kodeme.io"

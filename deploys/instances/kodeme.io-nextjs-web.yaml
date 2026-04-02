@@ -15,3 +15,5 @@ domain:
   service: consulting
   https: true
   cert: letsencrypt
+
+env_file: ../env/kodeme.io-nextjs-web.env

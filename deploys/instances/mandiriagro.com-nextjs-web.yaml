@@ -20,3 +20,5 @@ domain:
   service: mandiriagro-web
   https: true
   cert: letsencrypt
+
+env_file: ../env/mandiriagro.com-nextjs-web.env

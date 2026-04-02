@@ -14,3 +14,5 @@ domain:
   service: rustdesk-server
   https: true
   cert: letsencrypt
+
+env_file: ../env/kodeme.io-infra-rustdesk.env

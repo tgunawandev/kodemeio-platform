@@ -15,3 +15,5 @@ domain:
   service: server
   https: true
   cert: letsencrypt
+
+env_file: ../env/kodeme.io-infra-authentik.env

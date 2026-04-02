@@ -7,3 +7,5 @@ instance:
 
 source_overrides:
   repo: kodemeio-postgres-16
+
+env_file: ../env/kodeme.io-infra-postgres.env

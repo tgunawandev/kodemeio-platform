@@ -22,7 +22,7 @@ database:
   name: odoo_hrms_mac
   user: odoo
 
-env_file: ../env/odoo/.env.prod.hrms-mac
+env_file: ../env/mandiriagro.com-odoo-hrms.env
 
 env_overrides:
   COMPOSE_PROJECT_NAME: odoo-hrms-mac

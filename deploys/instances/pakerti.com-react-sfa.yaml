@@ -20,6 +20,8 @@ domain:
   service: sfa
   https: true
 
+env_file: ../env/pakerti.com-react-sfa.env
+
 env_overrides:
   VITE_SFA_APP_NAME: "Pakerti SFA"
   VITE_SFA_API_BASE_URL: "https://odoo-trading.pakerti.com"

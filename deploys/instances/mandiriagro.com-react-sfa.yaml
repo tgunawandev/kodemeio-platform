@@ -21,6 +21,8 @@ domain:
   service: sfa
   https: true
 
+env_file: ../env/mandiriagro.com-react-sfa.env
+
 env_overrides:
   VITE_SFA_APP_NAME: "MAC SFA"
   VITE_SFA_API_BASE_URL: "https://odoo-mac.kodeme.io"

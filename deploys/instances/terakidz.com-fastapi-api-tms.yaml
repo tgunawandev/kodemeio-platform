@@ -29,6 +29,8 @@ healthcheck:
   timeout: 300
   interval: 10
 
+env_file: ../env/terakidz.com-fastapi-api-tms.env
+
 env_overrides:
   APP_ENV: production
   PORT: "8015"

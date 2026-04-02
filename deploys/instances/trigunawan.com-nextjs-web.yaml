@@ -21,3 +21,5 @@ domain:
   service: portfolio
   https: true
   cert: letsencrypt
+
+env_file: ../env/trigunawan.com-nextjs-web.env

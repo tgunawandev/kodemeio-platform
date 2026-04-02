@@ -22,7 +22,7 @@ database:
   name: odoo_trading_tpp
   user: odoo
 
-env_file: ../env/odoo/.env.prod.trading-tpp
+env_file: ../env/pakerti.com-odoo-trading.env
 
 env_overrides:
   COMPOSE_PROJECT_NAME: odoo-trading-tpp

@@ -20,7 +20,7 @@ database:
   name: odoo_hrms
   user: odoo
 
-env_file: ../env/odoo/.env.prod.hrms
+env_file: ../env/kodeme.io-odoo-hrms.env
 
 env_overrides:
   PGDATABASE: odoo_hrms

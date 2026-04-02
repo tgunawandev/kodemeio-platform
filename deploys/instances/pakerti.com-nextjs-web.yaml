@@ -20,3 +20,5 @@ domain:
   service: pakerti-web
   https: true
   cert: letsencrypt
+
+env_file: ../env/pakerti.com-nextjs-web.env

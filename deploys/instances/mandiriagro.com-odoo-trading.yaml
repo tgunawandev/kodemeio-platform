@@ -22,7 +22,7 @@ database:
   name: odoo_trading_mac
   user: odoo
 
-env_file: ../env/odoo/.env.prod.trading-mac
+env_file: ../env/mandiriagro.com-odoo-trading.env
 
 env_overrides:
   COMPOSE_PROJECT_NAME: odoo-trading-mac

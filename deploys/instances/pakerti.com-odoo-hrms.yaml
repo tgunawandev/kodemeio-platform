@@ -22,7 +22,7 @@ database:
   name: odoo_hrms_tpp
   user: odoo
 
-env_file: ../env/odoo/.env.prod.hrms-tpp
+env_file: ../env/pakerti.com-odoo-hrms.env
 
 env_overrides:
   COMPOSE_PROJECT_NAME: odoo-hrms-tpp

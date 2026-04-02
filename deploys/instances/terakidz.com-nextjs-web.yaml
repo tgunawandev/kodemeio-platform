@@ -21,3 +21,5 @@ domain:
   service: terakidz-web
   https: true
   cert: letsencrypt
+
+env_file: ../env/terakidz.com-nextjs-web.env

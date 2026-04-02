@@ -16,3 +16,5 @@ domain:
   service: immich-server
   https: true
   cert: letsencrypt
+
+env_file: ../env/kidneuro.io-infra-immich.env
