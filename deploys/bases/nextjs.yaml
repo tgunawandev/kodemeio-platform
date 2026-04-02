@@ -1,0 +1,32 @@
+# Naming convention for instances:
+#   File:     nextjs-{app}-{customer}.yaml  or  nextjs-{app}.yaml
+#   Instance: {app}-web
+#   Domain:   {app}.com  or  {subdomain}.kodeme.io
+#
+# Examples:
+#   nextjs-terakidz       → terakidz-web       → terakidz.com
+#   nextjs-corporate      → corporate-web      → kodeme.io
+#   nextjs-provetics      → provetics-web      → provetics.com
+
+kind: base
+type: nextjs
+
+source:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-react
+  branch: main
+
+server: kodeme-service
+project: kodemeio-app
+
+healthcheck:
+  path: /
+  port: 3000
+  expected_status: 200
+  timeout: 600
+  interval: 10
+
+env_defaults:
+  NODE_ENV: production
+  TZ: "Asia/Jakarta"
