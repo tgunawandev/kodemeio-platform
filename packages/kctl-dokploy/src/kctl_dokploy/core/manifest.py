@@ -99,7 +99,7 @@ class PostDeployConfig(BaseModel):
     """Post-deployment actions."""
 
     odoo_profile: str | None = None
-    odoo_init_db: bool = False
+    commands: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

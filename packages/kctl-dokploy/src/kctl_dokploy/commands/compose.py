@@ -257,6 +257,113 @@ def logs(
         c.output.text(str(log_text))
 
 
+@app.command("service-logs")
+def service_logs(
+    ctx: typer.Context,
+    compose_id: Annotated[str, typer.Argument(help="Compose service ID")],
+    service: Annotated[str, typer.Option("--service", "-s", help="Service name (e.g. 'odoo-init')")] = "",
+    tail: Annotated[int, typer.Option("--tail", "-n", help="Number of lines from end")] = 200,
+) -> None:
+    """Show Docker container runtime logs for a compose service.
+
+    Fetches actual container stdout/stderr (not Dokploy build logs).
+    Works for services on both the main server and remote servers.
+    """
+    import subprocess
+
+    c: AppContext = ctx.obj
+
+    # Get compose details to find appName and serverId
+    compose_data = c.client.get("/compose.one", params={"composeId": compose_id})
+    if not isinstance(compose_data, dict):
+        c.output.error(f"Compose '{compose_id}' not found")
+        raise typer.Exit(1)
+
+    app_name = compose_data.get("appName", "")
+    server_id = compose_data.get("serverId")
+
+    if not app_name:
+        c.output.error("Compose has no appName — cannot resolve container names")
+        raise typer.Exit(1)
+
+    # Get containers for this compose
+    params: dict[str, str] = {}
+    if server_id:
+        params["serverId"] = server_id
+    containers = c.client.get("/docker.getContainers", params=params)
+    if not isinstance(containers, list):
+        containers = []
+
+    # Filter containers matching this compose appName
+    matching = [ct for ct in containers if app_name in ct.get("name", "")]
+
+    # Further filter by service name if specified
+    if service:
+        matching = [ct for ct in matching if service in ct.get("name", "")]
+
+    if not matching:
+        # Show available containers for this compose
+        all_compose_containers = [ct for ct in containers if app_name in ct.get("name", "")]
+        if all_compose_containers:
+            c.output.warn(f"Service '{service}' not found. Available containers:")
+            for ct in all_compose_containers:
+                c.output.text(f"  {ct.get('name', '')} ({ct.get('state', '')})")
+        else:
+            c.output.error(f"No containers found for compose '{app_name}'")
+        raise typer.Exit(1)
+
+    # Resolve server IP for SSH (remote servers) or use local docker
+    server_ip = ""
+    if server_id:
+        server_data = compose_data.get("server", {})
+        if isinstance(server_data, dict):
+            server_ip = server_data.get("ipAddress", "")
+        if not server_ip:
+            # Fetch server details
+            try:
+                srv = c.client.get("/server.one", params={"serverId": server_id})
+                if isinstance(srv, dict):
+                    server_ip = srv.get("ipAddress", "")
+            except Exception:
+                pass
+
+    for ct in matching:
+        container_name = ct.get("name", "")
+        state = ct.get("state", "")
+        status = ct.get("status", "")
+        c.output.header(f"{container_name} ({state}, {status})")
+
+        if server_ip:
+            # Remote server — use SSH
+            cmd = [
+                "ssh",
+                "-o",
+                "ConnectTimeout=10",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                f"root@{server_ip}",
+                f"docker logs --tail {tail} {container_name} 2>&1",
+            ]
+        else:
+            # Local server
+            cmd = ["docker", "logs", "--tail", str(tail), container_name]
+
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            log_output = proc.stdout or proc.stderr
+            if log_output:
+                if c.json_mode:
+                    c.output.raw_json({"container": container_name, "logs": log_output})
+                else:
+                    c.output.text(log_output)
+            else:
+                c.output.warn("No logs available")
+        except subprocess.TimeoutExpired:
+            c.output.error(f"Timeout fetching logs from {container_name}")
+        except Exception as exc:
+            c.output.error(f"Failed to fetch logs: {exc}")
+
+
 @app.command("cancel")
 def cancel(
     ctx: typer.Context,

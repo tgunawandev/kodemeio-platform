@@ -73,5 +73,4 @@ schedules:
     shell: bash
     timezone: Asia/Jakarta
 
-post_deploy:
-  odoo_init_db: true
+post_deploy: {}

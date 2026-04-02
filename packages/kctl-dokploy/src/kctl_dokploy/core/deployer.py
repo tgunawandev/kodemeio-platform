@@ -600,6 +600,15 @@ class Deployer:
     # Phase 9 — Backup
     # ------------------------------------------------------------------
 
+    def _resolve_destination_id(self, destination_name: str) -> str:
+        """Resolve an S3 backup destination name to its Dokploy destination ID."""
+        destinations = self._run_kctl_json(["kctl-dokploy", "backups", "destinations"])
+        if isinstance(destinations, list):
+            for d in destinations:
+                if d.get("name", "") == destination_name:
+                    return d.get("destinationId", "")
+        return ""
+
     def phase_backup(self) -> None:
         """Ensure a backup job is configured for the compose service."""
         backup = self.manifest.backup
@@ -611,28 +620,35 @@ class Deployer:
             self._record_phase("backup", "skipped", "No compose_id — skipping backup setup")
             return
 
-        existing: list | dict = self._run_kctl_json(["kctl-dokploy", "backups", "list", "--", self._compose_id])
+        existing: list | dict = self._run_kctl_json(["kctl-dokploy", "backups", "list", "--compose", self._compose_id])
         if isinstance(existing, list) and existing:
             self._record_phase("backup", "skipped", "Backup job already configured")
             return
 
+        # Resolve destination name → ID
+        destination_id = self._resolve_destination_id(backup.destination)
+        if not destination_id and not self.dry_run:
+            self._record_phase("backup", "failed", f"Destination '{backup.destination}' not found — create it first")
+            return
+
+        db_name = self.manifest.database.name
         code, out = self._run_kctl(
             [
                 "kctl-dokploy",
                 "backups",
                 "create",
-                "--",
-                self._compose_id,
                 "--destination",
-                backup.destination,
+                destination_id or backup.destination,
+                "--database",
+                db_name,
                 "--type",
                 backup.type,
+                "--compose",
+                self._compose_id,
                 "--schedule",
                 backup.schedule,
                 "--prefix",
                 backup.prefix_template,
-                "--keep-latest",
-                str(backup.keep_latest),
             ]
         )
         if code == 0:
@@ -653,10 +669,12 @@ class Deployer:
             self._record_phase("schedules", "skipped", "No schedules defined")
             return
 
-        list_cmd = ["kctl-dokploy", "schedules", "list"]
-        if self._compose_id:
-            list_cmd += ["--", self._compose_id]
-        existing: list | dict = self._run_kctl_json(list_cmd)
+        if not self._compose_id:
+            self._record_phase("schedules", "skipped", "No compose_id — skipping schedule setup")
+            return
+
+        # schedules list takes positional resource_id
+        existing: list | dict = self._run_kctl_json(["kctl-dokploy", "schedules", "list", self._compose_id])
         existing_names = {s.get("name", "") for s in (existing if isinstance(existing, list) else [])}
 
         created: list[str] = []
@@ -665,6 +683,8 @@ class Deployer:
         for sched in schedules:
             if sched.name in existing_names:
                 continue
+            # Normalize shell: manifest uses "bash"/"sh", API expects shellType
+            shell_type = sched.shell.split("/")[-1] if "/" in sched.shell else sched.shell
             create_cmd = [
                 "kctl-dokploy",
                 "schedules",
@@ -675,15 +695,15 @@ class Deployer:
                 sched.cron,
                 "--command",
                 sched.command,
-                "--service",
-                sched.service,
+                "--compose",
+                self._compose_id,
                 "--shell",
-                sched.shell,
+                shell_type,
                 "--timezone",
                 sched.timezone,
             ]
-            if self._compose_id:
-                create_cmd += ["--", self._compose_id]
+            if sched.service:
+                create_cmd += ["--service", sched.service]
             code, out = self._run_kctl(create_cmd)
             if code == 0:
                 created.append(sched.name)
@@ -730,21 +750,40 @@ class Deployer:
             self._record_phase("validate", "ok", "Manifest validation passed")
 
     def phase_post_deploy(self) -> None:
-        """Run post-deployment actions (e.g. Odoo bundle install)."""
+        """Run post-deployment actions (Odoo bundle install + custom commands)."""
         pd = self.manifest.post_deploy
-        if not pd.odoo_profile:
+        has_profile = bool(pd.odoo_profile)
+        has_commands = bool(pd.commands)
+
+        if not has_profile and not has_commands:
             self._record_phase("post_deploy", "skipped", "No post-deploy actions configured")
             return
 
-        code, out = self._run_kctl(
-            ["kctl-odoo", "bundles", "profile-install", pd.odoo_profile.removeprefix("profile-")]
-        )
-        if code == 0:
-            self._record_phase(
-                "post_deploy", self._action("updated"), self._msg(f"Install Odoo bundles via profile {pd.odoo_profile}")
+        actions: list[str] = []
+        failed: list[str] = []
+
+        # Odoo profile installation
+        if has_profile:
+            code, out = self._run_kctl(
+                ["kctl-odoo", "bundles", "profile-install", pd.odoo_profile.removeprefix("profile-")]
             )
+            if code == 0:
+                actions.append(f"profile={pd.odoo_profile}")
+            else:
+                failed.append(f"Odoo bundle install failed: {out}")
+
+        # Custom shell commands (run via subprocess, not kctl)
+        for cmd in pd.commands:
+            code, out = self._run_kctl(cmd.split())
+            if code == 0:
+                actions.append(cmd.split()[0])
+            else:
+                failed.append(f"Command '{cmd}' failed: {out}")
+
+        if failed:
+            self._record_phase("post_deploy", "failed", "; ".join(failed))
         else:
-            self._record_phase("post_deploy", "failed", f"Odoo bundle install failed: {out}")
+            self._record_phase("post_deploy", self._action("updated"), self._msg(f"Post-deploy: {', '.join(actions)}"))
 
     # ------------------------------------------------------------------
     # Orchestrator

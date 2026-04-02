@@ -407,14 +407,16 @@ class TestPhaseVerify:
 
 class TestPhaseBackup:
     def test_creates_backup_config(self) -> None:
-        manifest = _make_manifest(backup=BackupConfig(destination="s3://bucket", schedule="0 3 * * *"))
+        manifest = _make_manifest(backup=BackupConfig(destination="my-s3", schedule="0 3 * * *"))
         deployer = Deployer(manifest=manifest, dry_run=False)
         deployer._compose_id = "comp-abc"
 
+        destinations = [{"name": "my-s3", "destinationId": "dest-123"}]
         with patch(
             "subprocess.run",
             side_effect=[
                 _mock_proc(0, json.dumps([])),  # backups list
+                _mock_proc(0, json.dumps(destinations)),  # destinations list
                 _mock_proc(0, "{}"),  # backup create
             ],
         ):
@@ -423,6 +425,24 @@ class TestPhaseBackup:
         backup_result = next(r for r in deployer.results if r.phase == "backup")
         assert backup_result.action == "created"
 
+    def test_fails_when_destination_not_found(self) -> None:
+        manifest = _make_manifest(backup=BackupConfig(destination="nonexistent"))
+        deployer = Deployer(manifest=manifest, dry_run=False)
+        deployer._compose_id = "comp-abc"
+
+        with patch(
+            "subprocess.run",
+            side_effect=[
+                _mock_proc(0, json.dumps([])),  # backups list (empty)
+                _mock_proc(0, json.dumps([])),  # destinations list (empty)
+            ],
+        ):
+            deployer.phase_backup()
+
+        backup_result = next(r for r in deployer.results if r.phase == "backup")
+        assert backup_result.action == "failed"
+        assert "not found" in backup_result.message
+
     def test_skips_when_no_backup_config(self) -> None:
         manifest = _make_manifest(backup=None)
         deployer = Deployer(manifest=manifest, dry_run=False)
@@ -430,6 +450,21 @@ class TestPhaseBackup:
         with patch("subprocess.run") as mock_run:
             deployer.phase_backup()
             mock_run.assert_not_called()
+
+        backup_result = next(r for r in deployer.results if r.phase == "backup")
+        assert backup_result.action == "skipped"
+
+    def test_skips_when_backup_already_exists(self) -> None:
+        manifest = _make_manifest(backup=BackupConfig(destination="my-s3"))
+        deployer = Deployer(manifest=manifest, dry_run=False)
+        deployer._compose_id = "comp-abc"
+
+        existing_backups = [{"backupId": "bk-1", "status": "active"}]
+        with patch(
+            "subprocess.run",
+            return_value=_mock_proc(0, json.dumps(existing_backups)),
+        ):
+            deployer.phase_backup()
 
         backup_result = next(r for r in deployer.results if r.phase == "backup")
         assert backup_result.action == "skipped"
@@ -455,6 +490,29 @@ class TestPhaseSchedules:
         sched_result = next(r for r in deployer.results if r.phase == "schedules")
         assert sched_result.action == "created"
 
+    def test_normalizes_shell_path(self) -> None:
+        """Shell paths like /bin/sh should be normalized to 'sh'."""
+        manifest = _make_manifest(
+            schedules=[ScheduleConfig(name="job", cron="0 * * * *", command="ls", shell="/bin/bash")]
+        )
+        deployer = Deployer(manifest=manifest, dry_run=False)
+        deployer._compose_id = "comp-abc"
+
+        with patch(
+            "subprocess.run",
+            side_effect=[
+                _mock_proc(0, json.dumps([])),  # schedules list
+                _mock_proc(0, "{}"),  # schedule create
+            ],
+        ) as mock_run:
+            deployer.phase_schedules()
+
+        # Verify the create command uses normalized shell name
+        create_call = mock_run.call_args_list[-1]
+        cmd_args = create_call.args[0]
+        shell_idx = cmd_args.index("--shell") + 1
+        assert cmd_args[shell_idx] == "bash"  # /bin/bash → bash
+
     def test_skips_when_no_schedules(self) -> None:
         manifest = _make_manifest(schedules=[])
         deployer = Deployer(manifest=manifest, dry_run=False)
@@ -466,22 +524,45 @@ class TestPhaseSchedules:
         sched_result = next(r for r in deployer.results if r.phase == "schedules")
         assert sched_result.action == "skipped"
 
+    def test_skips_without_compose_id(self) -> None:
+        manifest = _make_manifest(schedules=[ScheduleConfig(name="cleanup", cron="0 4 * * *", command="echo hi")])
+        deployer = Deployer(manifest=manifest, dry_run=False)
+        # No compose_id set
+
+        with patch("subprocess.run") as mock_run:
+            deployer.phase_schedules()
+            mock_run.assert_not_called()
+
+        sched_result = next(r for r in deployer.results if r.phase == "schedules")
+        assert sched_result.action == "skipped"
+
 
 class TestPhasePostDeploy:
     def test_runs_odoo_bundles_when_profile_set(self) -> None:
-        manifest = _make_manifest(post_deploy=PostDeployConfig(odoo_profile="my-odoo-prod"))
+        manifest = _make_manifest(post_deploy=PostDeployConfig(odoo_profile="profile-hrms"))
         deployer = Deployer(manifest=manifest, dry_run=False)
 
         with patch("subprocess.run", return_value=_mock_proc(0, "")) as mock_run:
             deployer.phase_post_deploy()
 
-        # Should have called kctl-odoo bundles install
+        # Should have called kctl-odoo bundles profile-install
         calls_flat = [arg for c in mock_run.call_args_list for arg in c.args[0]]
         assert "kctl-odoo" in calls_flat
+        assert "hrms" in calls_flat  # profile- prefix stripped
         post_result = next(r for r in deployer.results if r.phase == "post_deploy")
         assert post_result.action != "failed"
 
-    def test_skips_when_no_odoo_profile(self) -> None:
+    def test_runs_custom_commands(self) -> None:
+        manifest = _make_manifest(post_deploy=PostDeployConfig(commands=["kctl-odoo doctor check"]))
+        deployer = Deployer(manifest=manifest, dry_run=False)
+
+        with patch("subprocess.run", return_value=_mock_proc(0, "")):
+            deployer.phase_post_deploy()
+
+        post_result = next(r for r in deployer.results if r.phase == "post_deploy")
+        assert post_result.action != "failed"
+
+    def test_skips_when_no_actions(self) -> None:
         manifest = _make_manifest(post_deploy=PostDeployConfig())
         deployer = Deployer(manifest=manifest, dry_run=False)
 
@@ -500,7 +581,7 @@ class TestPhasePostDeploy:
 
 class TestRunAll:
     def test_returns_12_results(self) -> None:
-        """run_all must produce one result per execution phase (11 phases total)."""
+        """run_all must produce one result per execution phase (12 phases: validate + 11)."""
         manifest = _make_manifest()
         deployer = Deployer(manifest=manifest, dry_run=True)
 
@@ -511,8 +592,9 @@ class TestRunAll:
             results = deployer.run_all()
 
         phases = [r.phase for r in results]
-        assert len(results) == 11
+        assert len(results) == 12
         expected_phases = [
+            "validate",
             "dns",
             "database",
             "registry",
