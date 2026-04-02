@@ -23,7 +23,7 @@ def list_(
         data = []
     rows = []
     for m in data:
-        mid = m.get("mountId", "")[:12]
+        mid = m.get("mountId", "")
         mtype = m.get("type", "")
         host_path = m.get("hostPath", "-")
         mount_path = m.get("mountPath", "-")
@@ -49,7 +49,7 @@ def list_by_service(
         data = []
     rows = []
     for m in data:
-        mid = m.get("mountId", "")[:12]
+        mid = m.get("mountId", "")
         mtype = m.get("type", "")
         host_path = m.get("hostPath", "-")
         mount_path = m.get("mountPath", "-")

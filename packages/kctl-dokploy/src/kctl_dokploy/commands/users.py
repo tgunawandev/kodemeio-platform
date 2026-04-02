@@ -20,7 +20,7 @@ def list_(ctx: typer.Context) -> None:
         users = []
     rows = []
     for u in users:
-        uid = u.get("userId", u.get("id", ""))[:12]
+        uid = u.get("userId", u.get("id", ""))
         email = u.get("email", "")
         role = u.get("rol", u.get("role", "unknown"))
         status = u.get("status", u.get("isActive", "active"))
@@ -155,7 +155,7 @@ def permissions(
         sections.append(("Permissions", perm_items))
     if projects:
         proj_items = [
-            (p.get("name", p.get("projectName", str(i))), p.get("projectId", "-")[:12]) for i, p in enumerate(projects)
+            (p.get("name", p.get("projectName", str(i))), p.get("projectId", "-")) for i, p in enumerate(projects)
         ]
         sections.append(("Projects", proj_items))
     if not perms and not projects:

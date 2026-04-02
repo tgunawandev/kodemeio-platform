@@ -23,10 +23,10 @@ def list_(
         envs = []
     rows = []
     for env in envs:
-        eid = env.get("environmentId", "")[:12]
+        eid = env.get("environmentId", "")
         name = env.get("name", "")
         description = env.get("description", "-")
-        proj = env.get("projectId", "")[:12]
+        proj = env.get("projectId", "")
         rows.append([eid, name, description, proj])
     c.output.table(
         "Environments",
@@ -154,10 +154,10 @@ def search(
         envs = []
     rows = []
     for env in envs:
-        eid = env.get("environmentId", "")[:12]
+        eid = env.get("environmentId", "")
         ename = env.get("name", "")
         description = env.get("description", "-")
-        proj = env.get("projectId", "")[:12]
+        proj = env.get("projectId", "")
         rows.append([eid, ename, description, proj])
     c.output.table(
         "Search Results",

@@ -25,7 +25,7 @@ def list_(
         schedules = []
     rows = []
     for s in schedules:
-        sid = s.get("scheduleId", "")[:12]
+        sid = s.get("scheduleId", "")
         name = s.get("name", "")
         cron = s.get("cronExpression", "")
         command = s.get("command", "")[:40]

@@ -29,7 +29,7 @@ def get_nodes(
     rows = []
     for n in data:
         if isinstance(n, dict):
-            nid = str(n.get("ID", n.get("nodeId", "")))[:12]
+            nid = str(n.get("ID", n.get("nodeId", "")))
             hostname = (
                 n.get("Description", {}).get("Hostname", n.get("hostname", "-"))
                 if isinstance(n.get("Description"), dict)
@@ -118,7 +118,7 @@ def swarm_nodes(
     rows = []
     for n in data:
         if isinstance(n, dict):
-            nid = str(n.get("ID", n.get("nodeId", "")))[:12]
+            nid = str(n.get("ID", n.get("nodeId", "")))
             hostname = n.get("Description", {}).get("Hostname", "-") if isinstance(n.get("Description"), dict) else "-"
             role = n.get("Spec", {}).get("Role", "-") if isinstance(n.get("Spec"), dict) else "-"
             status = n.get("Status", {}).get("State", "-") if isinstance(n.get("Status"), dict) else "-"

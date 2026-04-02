@@ -28,13 +28,13 @@ def list_(
         backups = []
     rows = []
     for b in backups:
-        bid = b.get("backupId", "")[:12]
+        bid = b.get("backupId", "")
         status = b.get("status", "unknown")
         schedule = b.get("schedule", b.get("backupSchedule", "-"))
         enabled = "yes" if b.get("enabled", False) else "no"
         dest = b.get("destinationId", b.get("destination", "-"))
         if isinstance(dest, str) and len(dest) > 16:
-            dest = dest[:12] + "..."
+            dest = dest + "..."
         rows.append([bid, status, schedule, enabled, str(dest)])
     c.output.table(
         "Backups",
@@ -160,7 +160,7 @@ def destinations(ctx: typer.Context) -> None:
         endpoint = d.get("endpoint", "(AWS default)")
         bucket = d.get("bucket", "")
         region = d.get("region", "")
-        rows.append([did[:12], name, endpoint, bucket, region])
+        rows.append([did, name, endpoint, bucket, region])
     c.output.table(
         "S3 Backup Destinations",
         [("ID", "dim"), ("Name", "cyan"), ("Endpoint", ""), ("Bucket", "green"), ("Region", "")],

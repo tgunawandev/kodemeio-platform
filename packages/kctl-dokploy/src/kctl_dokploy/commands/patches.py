@@ -24,7 +24,7 @@ def list_(
         patches = []
     rows = []
     for p in patches:
-        pid = p.get("patchId", "")[:12]
+        pid = p.get("patchId", "")
         name = p.get("name", p.get("filePath", ""))
         enabled = str(p.get("enabled", "-"))
         created = p.get("createdAt", "-")

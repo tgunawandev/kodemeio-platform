@@ -27,11 +27,11 @@ def list_(
         backups = []
     rows = []
     for b in backups:
-        bid = b.get("volumeBackupId", "")[:12]
+        bid = b.get("volumeBackupId", "")
         name = b.get("name", "")
         cron = b.get("cronExpression", "-")
         btype = b.get("backupType", "")
-        destination = b.get("destinationId", "-")[:12]
+        destination = b.get("destinationId", "-")
         rows.append([bid, name, cron, btype, destination])
     c.output.table(
         "Volume Backups",

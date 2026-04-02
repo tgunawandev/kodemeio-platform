@@ -122,7 +122,7 @@ def deploy_all(
             spinner.update(f"[bold blue]Deploying {name}...")
             try:
                 c.client.post("/compose.deploy", json={"composeId": cid})
-                results.append([name, "[green]success[/green]", cid[:12]])
+                results.append([name, "[green]success[/green]", cid])
             except Exception as exc:
                 results.append([name, "[red]failed[/red]", str(exc)[:50]])
 
@@ -185,7 +185,7 @@ def stop_all(
             spinner.update(f"[bold red]Stopping {name}...")
             try:
                 c.client.post("/compose.stop", json={"composeId": cid})
-                results.append([name, "[green]stopped[/green]", cid[:12]])
+                results.append([name, "[green]stopped[/green]", cid])
             except Exception as exc:
                 results.append([name, "[red]failed[/red]", str(exc)[:50]])
 
@@ -250,7 +250,7 @@ def restart_all(
             spinner.update(f"[bold blue]Deploying {name}...")
             try:
                 c.client.post("/compose.deploy", json={"composeId": cid})
-                results.append([name, "[green]restarted[/green]", cid[:12]])
+                results.append([name, "[green]restarted[/green]", cid])
             except Exception as exc:
                 results.append([name, "[red]failed[/red]", str(exc)[:50]])
 
@@ -308,7 +308,7 @@ def env_set(
                 current_env = _fetch_env(c, cid)
                 updated_env = _update_env_key(current_env, key, value)
                 c.client.post("/compose.update", json={"composeId": cid, "env": updated_env})
-                results.append([name, "[green]updated[/green]", cid[:12]])
+                results.append([name, "[green]updated[/green]", cid])
             except Exception as exc:
                 results.append([name, "[red]failed[/red]", str(exc)[:50]])
 

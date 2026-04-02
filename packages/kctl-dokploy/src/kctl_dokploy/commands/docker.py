@@ -30,7 +30,7 @@ def containers(
     rows = []
     json_data = []
     for ct in data:
-        cid = ct.get("containerId", ct.get("id", ""))[:12]
+        cid = ct.get("containerId", ct.get("id", ""))
         name = ct.get("name", ct.get("Names", ""))
         name = (name[0].lstrip("/") if name else "") if isinstance(name, list) else str(name).lstrip("/")
         state = ct.get("state", ct.get("State", "unknown"))
@@ -146,7 +146,7 @@ def find_(
         data = []
     rows = []
     for ct in data:
-        cid = ct.get("containerId", ct.get("id", ""))[:12]
+        cid = ct.get("containerId", ct.get("id", ""))
         name = ct.get("name", ct.get("Names", ""))
         name = (name[0].lstrip("/") if name else "") if isinstance(name, list) else str(name).lstrip("/")
         state = ct.get("state", ct.get("State", "unknown"))

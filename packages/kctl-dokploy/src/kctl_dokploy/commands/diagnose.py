@@ -197,7 +197,7 @@ def _check_service_health(client: DokployClient) -> SectionResult:
                     if status in ("done", "running", "active"):
                         running += 1
                     elif status in ("error", "failed"):
-                        svc_name = svc.get("name", svc.get("composeId", "?")[:12])
+                        svc_name = svc.get("name", svc.get("composeId", "?"))
                         error_services.append(f"{project_name}/{svc_name}")
                 for svc in env.get("applications", []):
                     total += 1
@@ -205,7 +205,7 @@ def _check_service_health(client: DokployClient) -> SectionResult:
                     if status in ("done", "running", "active"):
                         running += 1
                     elif status in ("error", "failed"):
-                        svc_name = svc.get("name", svc.get("applicationId", "?")[:12])
+                        svc_name = svc.get("name", svc.get("applicationId", "?"))
                         error_services.append(f"{project_name}/{svc_name}")
 
         if total == 0:
@@ -367,7 +367,7 @@ def _check_ssl_certificates(client: DokployClient) -> SectionResult:
         expired: list[str] = []
 
         for cert in certs:
-            cert_name = cert.get("name", cert.get("certificateId", "?")[:12])
+            cert_name = cert.get("name", cert.get("certificateId", "?"))
             expires_raw = cert.get("expiresAt", cert.get("expiration"))
             if not expires_raw:
                 continue
@@ -636,7 +636,7 @@ def _check_server_health(client: DokployClient) -> SectionResult:
         unhealthy_servers: list[str] = []
 
         for s in servers:
-            server_name = s.get("name", s.get("serverId", "?")[:12])
+            server_name = s.get("name", s.get("serverId", "?"))
             status = s.get("serverStatus", "unknown").lower()
             if status in ("active", "running", "healthy", "connected"):
                 healthy += 1

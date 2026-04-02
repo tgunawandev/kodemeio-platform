@@ -21,7 +21,7 @@ def list_(ctx: typer.Context) -> None:
     rows = []
     for p in projects:
         name = p.get("name", "")
-        pid = p.get("projectId", "")[:12]
+        pid = p.get("projectId", "")
         compose = str(len(p.get("compose", [])))
         apps = str(len(p.get("applications", [])))
         rows.append([pid, name, compose, apps])

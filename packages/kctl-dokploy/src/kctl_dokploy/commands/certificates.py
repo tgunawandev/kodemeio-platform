@@ -20,7 +20,7 @@ def list_(ctx: typer.Context) -> None:
         certs = []
     rows = []
     for cert in certs:
-        cid = cert.get("certificateId", "")[:12]
+        cid = cert.get("certificateId", "")
         name = cert.get("name", "")
         cert_type = cert.get("certificateType", cert.get("type", "unknown"))
         auto_renew = str(cert.get("autoRenew", "-"))

@@ -26,7 +26,7 @@ def list_(ctx: typer.Context) -> None:
         notifications = []
     rows = []
     for n in notifications:
-        nid = n.get("notificationId", "")[:12]
+        nid = n.get("notificationId", "")
         name = n.get("name", "")
         ntype = n.get("notificationType", n.get("type", "unknown"))
         enabled = str(n.get("enabled", True))

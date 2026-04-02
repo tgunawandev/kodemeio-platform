@@ -354,7 +354,7 @@ def history(
 
     rows: list[list[str]] = []
     for d in deployments:
-        deploy_id = d.get("deploymentId", "")[:12]
+        deploy_id = d.get("deploymentId", "")
         deploy_status = d.get("status", "unknown")
         deploy_type = d.get("deploymentType", "-")
         created = d.get("createdAt", "")
@@ -385,7 +385,7 @@ def history(
         )
 
     out.table(
-        f"Deployment History ({compose_id[:12]}...)",
+        f"Deployment History ({compose_id}...)",
         [
             ("ID", "dim"),
             ("Date", ""),

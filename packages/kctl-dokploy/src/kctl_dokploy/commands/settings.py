@@ -75,7 +75,7 @@ def ssh_keys(ctx: typer.Context) -> None:
         keys = []
     rows = []
     for k in keys:
-        kid = k.get("sshKeyId", "")[:12]
+        kid = k.get("sshKeyId", "")
         name = k.get("name", "")
         fingerprint = k.get("fingerprint", k.get("publicKey", ""))
         if len(str(fingerprint)) > 40:

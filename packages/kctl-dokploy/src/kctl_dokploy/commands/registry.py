@@ -20,7 +20,7 @@ def list_(ctx: typer.Context) -> None:
         registries = []
     rows = []
     for r in registries:
-        rid = r.get("registryId", "")[:12]
+        rid = r.get("registryId", "")
         name = r.get("registryName", r.get("name", ""))
         url = r.get("registryUrl", r.get("imagePrefix", ""))
         username = r.get("username", "-")

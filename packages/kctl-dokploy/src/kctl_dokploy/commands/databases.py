@@ -32,7 +32,7 @@ def list_(ctx: typer.Context) -> None:
         for env in p.get("environments", [p]):
             for db_type in DB_TYPES:
                 for db in env.get(db_type, []):
-                    db_id = db.get(_id_field(db_type), "")[:12]
+                    db_id = db.get(_id_field(db_type), "")
                     name = db.get("name", "")
                     status = db.get(f"{db_type}Status", db.get("status", "unknown"))
                     version = db.get("databaseVersion", db.get("version", "-"))
