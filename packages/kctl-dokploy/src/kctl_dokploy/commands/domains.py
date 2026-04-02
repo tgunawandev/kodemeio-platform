@@ -106,6 +106,7 @@ def create(
         "port": port,
         "https": https,
         "certificateType": cert_type,
+        "domainType": "compose",
     }
     if service_name:
         payload["serviceName"] = service_name

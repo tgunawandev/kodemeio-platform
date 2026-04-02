@@ -378,6 +378,7 @@ def _setup_domain(
         "https": https,
         "serviceName": service_name,
         "composeId": compose_id,
+        "domainType": "compose",
     }
     if https:
         payload["certificateType"] = "letsencrypt"
