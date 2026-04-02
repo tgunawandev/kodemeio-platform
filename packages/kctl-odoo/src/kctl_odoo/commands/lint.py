@@ -124,8 +124,16 @@ def _check_python_quality(mod_dir: Path) -> list[tuple[str, str, str]]:
 
         lines = content.splitlines()
         for i, line in enumerate(lines, 1):
-            # SQL injection: f-string in SQL
-            if re.search(r'f["\'].*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER)', line, re.IGNORECASE):
+            # SQL injection: f-string in SQL execution calls
+            # Only flag f-strings that are arguments to .execute() calls,
+            # not display messages that happen to contain SQL keywords
+            stripped = line.strip()
+            if re.search(r'\.execute\(\s*f["\']', stripped) or re.search(r'\.execute\([^)]*\+\s*f["\']', stripped):
+                issues.append(("error", f"{rel}:{i}", "f-string in SQL — use psycopg2.sql or %s params"))
+            elif re.search(
+                r'f["\'].*(?:SELECT\s|INSERT\s|UPDATE\s\w+\sSET|DELETE\s+FROM|CREATE\s+TABLE|DROP\s+TABLE|ALTER\s+TABLE)',
+                line,
+            ) and re.search(r"\.execute\(", line):
                 issues.append(("error", f"{rel}:{i}", "f-string in SQL — use psycopg2.sql or %s params"))
 
             # Bare except
@@ -185,9 +193,12 @@ def _check_python_quality(mod_dir: Path) -> list[tuple[str, str, str]]:
                 "string=",
                 "env[",
             ]
+            # Skip ALL_CAPS constant assignments (e.g., TOKEN_EXPIRED = "TOKEN_EXPIRED")
+            _is_constant = re.match(r"[A-Z_]+\s*=\s*", stripped)
             if (
                 not stripped.startswith("#")
                 and "test" not in str(rel)
+                and not _is_constant
                 and re.search(
                     r'(?:password|secret|api_key|token)\s*=\s*["\'][^"\']{8,}["\']',
                     stripped,
