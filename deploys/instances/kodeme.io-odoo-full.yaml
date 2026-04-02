@@ -1,0 +1,17 @@
+kind: instance
+extends: ../bases/odoo.yaml
+
+instance:
+  name: odoo-full-kodemeio
+  description: "Kodemeio — Full Odoo (all modules)"
+
+dns:
+  zone: kodeme.io
+  name: odoo
+
+domain:
+  host: odoo.kodeme.io
+  port: 8069
+  service: odoo
+  https: true
+  cert: letsencrypt
