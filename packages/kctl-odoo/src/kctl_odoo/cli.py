@@ -35,6 +35,7 @@ from kctl_odoo.commands.data_quality_cmd import app as data_quality_app
 from kctl_odoo.commands.databases import app as databases_app
 from kctl_odoo.commands.deploy import app as deploy_app
 from kctl_odoo.commands.dev import app as dev_app
+from kctl_odoo.commands.e2e import app as e2e_app
 from kctl_odoo.commands.dev_mode import app as dev_mode_app
 from kctl_odoo.commands.diff import app as diff_app
 from kctl_odoo.commands.dunning_cmd import app as dunning_app
@@ -237,6 +238,7 @@ app.add_typer(traceback_app, name="traceback", rich_help_panel=_P_DEV)
 app.add_typer(translations_app, name="translations", rich_help_panel=_P_DEV)
 app.add_typer(fastapi_app, name="fastapi", rich_help_panel=_P_DEV)
 app.add_typer(dev_mode_app, name="dev-mode", rich_help_panel=_P_DEV)
+app.add_typer(e2e_app, name="e2e", rich_help_panel=_P_DEV)
 
 # --- Instance Management ---
 _P_INSTANCE = "Instance Management"
