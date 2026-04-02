@@ -1,0 +1,17 @@
+kind: instance
+extends: ../bases/infra.yaml
+
+instance:
+  name: kodemeio-plane
+  description: "Plane project management"
+
+source_overrides:
+  repo: kodemeio-plane
+  branch: "master"
+
+domain:
+  host: plane.kodeme.io
+  port: 80
+  service: proxy
+  https: true
+  cert: letsencrypt

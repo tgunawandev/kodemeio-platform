@@ -1,0 +1,17 @@
+kind: instance
+extends: ../bases/nextjs.yaml
+
+instance:
+  name: kodemeio-portfolio
+  description: "Portfolio website (trigunawan.com)"
+
+source_overrides:
+  repo: kodemeio-next-web
+  compose_path: ./docker-compose.prod.portfolio.yml
+
+domain:
+  host: trigunawan.com
+  port: 4000
+  service: portfolio
+  https: true
+  cert: letsencrypt

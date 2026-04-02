@@ -1,0 +1,17 @@
+kind: instance
+extends: ../bases/nextjs.yaml
+
+instance:
+  name: kodemeio-consulting
+  description: "Consulting website (kodeme.io)"
+
+source_overrides:
+  repo: kodemeio-next-web
+  compose_path: ./docker-compose.prod.consulting.yml
+
+domain:
+  host: kodeme.io
+  port: 4003
+  service: consulting
+  https: true
+  cert: letsencrypt

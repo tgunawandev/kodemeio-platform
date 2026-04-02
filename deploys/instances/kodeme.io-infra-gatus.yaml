@@ -1,0 +1,16 @@
+kind: instance
+extends: ../bases/infra.yaml
+
+instance:
+  name: kodemeio-gatus
+  description: "Gatus health monitoring"
+
+source_overrides:
+  repo: kodemeio-gatus
+
+domain:
+  host: gatus.kodeme.io
+  port: 8080
+  service: gatus
+  https: true
+  cert: letsencrypt

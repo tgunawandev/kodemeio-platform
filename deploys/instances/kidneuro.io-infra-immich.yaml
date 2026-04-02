@@ -1,0 +1,18 @@
+kind: instance
+extends: ../bases/infra.yaml
+
+instance:
+  name: kidneuro-immich
+  description: "Immich photo management"
+
+source_overrides:
+  repo: kidneuro-immich
+
+project: kidneuro.io
+
+domain:
+  host: immich.kidneuro.io
+  port: 2283
+  service: immich-server
+  https: true
+  cert: letsencrypt

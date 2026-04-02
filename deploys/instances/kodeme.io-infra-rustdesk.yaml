@@ -1,0 +1,16 @@
+kind: instance
+extends: ../bases/infra.yaml
+
+instance:
+  name: kodemeio-rustdesk
+  description: "RustDesk remote desktop server"
+
+source_overrides:
+  repo: kodemeio-rustdesk
+
+domain:
+  host: rustdesk.kodeme.io
+  port: 21114
+  service: rustdesk-server
+  https: true
+  cert: letsencrypt

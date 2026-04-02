@@ -1,0 +1,17 @@
+kind: instance
+extends: ../bases/infra.yaml
+
+instance:
+  name: kodemeio-mailcow
+  description: "Mailcow mail server"
+
+source_overrides:
+  repo: kodemeio-mailcow
+  branch: "master"
+
+domain:
+  host: mail.kodeme.io
+  port: 8080
+  service: nginx-mailcow
+  https: true
+  cert: letsencrypt

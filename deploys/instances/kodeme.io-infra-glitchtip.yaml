@@ -1,0 +1,16 @@
+kind: instance
+extends: ../bases/infra.yaml
+
+instance:
+  name: kodemeio-glitchtip
+  description: "GlitchTip error tracking"
+
+source_overrides:
+  repo: kodemeio-glitchtip
+
+domain:
+  host: glitchtip.kodeme.io
+  port: 8080
+  service: web
+  https: true
+  cert: letsencrypt
