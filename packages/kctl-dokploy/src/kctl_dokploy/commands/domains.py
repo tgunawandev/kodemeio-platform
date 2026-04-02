@@ -20,6 +20,7 @@ def list_(ctx: typer.Context) -> None:
         projects = []
     all_domains: list[dict] = []
     for p in projects:
+        # Check compose at project root (older API)
         for comp in p.get("compose", []):
             cid = comp.get("composeId", "")
             comp_name = comp.get("name", "")
@@ -33,6 +34,22 @@ def list_(ctx: typer.Context) -> None:
                     d["serviceType"] = "compose"
                     d["projectName"] = p.get("name", "")
                     all_domains.append(d)
+        # Check compose inside environments (standard structure)
+        for env in p.get("environments", []):
+            for comp in env.get("compose", []):
+                cid = comp.get("composeId", "")
+                comp_name = comp.get("name", "")
+                try:
+                    detail = c.client.get("/compose.one", params={"composeId": cid})
+                except Exception:
+                    continue
+                if isinstance(detail, dict):
+                    for d in detail.get("domains", []):
+                        d["serviceName"] = comp_name
+                        d["serviceType"] = "compose"
+                        d["projectName"] = p.get("name", "")
+                        all_domains.append(d)
+        # Check applications at project root
         for app_item in p.get("applications", []):
             aid = app_item.get("applicationId", "")
             app_name = app_item.get("name", "")
@@ -46,6 +63,21 @@ def list_(ctx: typer.Context) -> None:
                     d["serviceType"] = "application"
                     d["projectName"] = p.get("name", "")
                     all_domains.append(d)
+        # Check applications inside environments
+        for env in p.get("environments", []):
+            for app_item in env.get("applications", []):
+                aid = app_item.get("applicationId", "")
+                app_name = app_item.get("name", "")
+                try:
+                    detail = c.client.get("/application.one", params={"applicationId": aid})
+                except Exception:
+                    continue
+                if isinstance(detail, dict):
+                    for d in detail.get("domains", []):
+                        d["serviceName"] = app_name
+                        d["serviceType"] = "application"
+                        d["projectName"] = p.get("name", "")
+                        all_domains.append(d)
     rows = []
     for d in all_domains:
         host = d.get("host", "")

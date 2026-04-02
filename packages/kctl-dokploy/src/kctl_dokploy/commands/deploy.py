@@ -253,6 +253,11 @@ def apply_all(
             continue
 
         deployer = Deployer(manifest=manifest, dry_run=dry_run)
+        deployer.phase_validate()
+        if any(r.action == "failed" for r in deployer.results):
+            c.output.error(f"{f.name}: validation FAILED")
+            any_failed = True
+            continue
         deployer.phase_dns()
         deployer.phase_database()
         deployer.phase_registry()

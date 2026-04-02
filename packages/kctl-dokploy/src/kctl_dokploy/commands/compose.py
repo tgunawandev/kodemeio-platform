@@ -26,9 +26,15 @@ def list_(
             projects = []
         services = []
         for p in projects:
+            # Check compose at project root (older API)
             for comp in p.get("compose", []):
                 comp["_projectName"] = p.get("name", "")
                 services.append(comp)
+            # Check compose inside environments (standard structure)
+            for env in p.get("environments", []):
+                for comp in env.get("compose", []):
+                    comp["_projectName"] = p.get("name", "")
+                    services.append(comp)
     if not isinstance(services, list):
         services = []
     rows = []

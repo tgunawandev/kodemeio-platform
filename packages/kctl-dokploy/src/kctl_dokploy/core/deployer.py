@@ -370,6 +370,8 @@ class Deployer:
             if comp.get("name") == instance_name:
                 self._compose_id = comp["composeId"]
                 github_id = comp.get("githubId", "")
+                if not github_id:
+                    github_id = self._find_github_id()
                 # Update the GitHub source using --id flag
                 update_args = [
                     "kctl-dokploy",
@@ -393,6 +395,11 @@ class Deployer:
                 self._run_kctl(update_args)
                 # Gate 4: Disable autodeploy on existing compose too
                 self._disable_auto_deploy()
+                client = self._get_client()
+                if client and self._compose_id:
+                    ok, msg = disable_autodeploy(client, self._compose_id)
+                    if not ok:
+                        self._log(f"WARNING: autodeploy: {msg}")
                 self._record_phase("compose", "updated", f"Updated compose {instance_name} (id={self._compose_id})")
                 return
 
@@ -656,7 +663,7 @@ class Deployer:
 
         while time.monotonic() < deadline:
             try:
-                resp = httpx.get(url, timeout=5.0, follow_redirects=True)
+                resp = httpx.get(url, timeout=5.0, follow_redirects=True, verify=False)
                 if resp.status_code == hc.expected_status:
                     self._record_phase("verify", "updated", f"Healthcheck passed: {url} → {resp.status_code}")
                     return
@@ -817,8 +824,28 @@ class Deployer:
 
         if errors:
             self._record_phase("validate", "failed", "; ".join(errors))
-        else:
-            self._record_phase("validate", "ok", "Manifest validation passed")
+            return
+
+        # Pre-flight: verify project exists (Gate 2)
+        if self.manifest.project:
+            client = self._get_client()
+            if client:
+                ok, msg, _, _ = validate_project_exists(client, self.manifest.project)
+                if not ok:
+                    self._record_phase("validate", "failed", f"[PRE-FLIGHT] {msg}")
+                    return
+
+        # Pre-flight: verify GitHub provider exists (Gate 3)
+        src = self.manifest.source
+        if src and src.type == "github":
+            client = self._get_client()
+            if client:
+                ok, msg, _ = find_github_app_id(client)
+                if not ok:
+                    self._record_phase("validate", "failed", f"[PRE-FLIGHT] {msg}")
+                    return
+
+        self._record_phase("validate", "ok", "Manifest validation passed")
 
     def phase_post_deploy(self) -> None:
         """Run post-deployment actions (Odoo bundle install + custom commands)."""
