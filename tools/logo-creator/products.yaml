@@ -1,0 +1,177 @@
+# Kodemeio Product Catalog — icon + color mapping for logo generation
+# Icons are from Lucide (https://lucide.dev) — MIT licensed, 1400+ SVG icons
+# Colors follow a consistent palette with unique hues per product
+
+# ──────────────────────────────────────────────────────────────────────
+# React PWA Apps (11 mobile apps)
+# ──────────────────────────────────────────────────────────────────────
+products:
+  sfa:
+    name: "SFA"
+    full_name: "Sales Force Automation"
+    icon: "briefcase-business"
+    color: "#4F46E5"        # Indigo
+    accent: "#818CF8"
+    tagline: "Smart Sales"
+
+  lfa:
+    name: "LFA"
+    full_name: "Logistics Force Automation"
+    icon: "truck"
+    color: "#0891B2"        # Cyan
+    accent: "#22D3EE"
+    tagline: "Track & Deliver"
+
+  shop:
+    name: "Shop"
+    full_name: "Shop Management"
+    icon: "store"
+    color: "#059669"        # Emerald
+    accent: "#34D399"
+    tagline: "Retail Made Easy"
+
+  wms:
+    name: "WMS"
+    full_name: "Warehouse Management"
+    icon: "warehouse"
+    color: "#D97706"        # Amber
+    accent: "#FBBF24"
+    tagline: "Warehouse Control"
+
+  bia:
+    name: "BIA"
+    full_name: "Business Intelligence"
+    icon: "bar-chart-3"
+    color: "#7C3AED"        # Violet
+    accent: "#A78BFA"
+    tagline: "Data Insights"
+
+  eam:
+    name: "EAM"
+    full_name: "Enterprise Asset Management"
+    icon: "settings"
+    color: "#DC2626"        # Red
+    accent: "#F87171"
+    tagline: "Asset Lifecycle"
+
+  mrp:
+    name: "MRP"
+    full_name: "Manufacturing"
+    icon: "factory"
+    color: "#EA580C"        # Orange
+    accent: "#FB923C"
+    tagline: "Production Flow"
+
+  hrm:
+    name: "HRM"
+    full_name: "Human Resources"
+    icon: "users"
+    color: "#2563EB"        # Blue
+    accent: "#60A5FA"
+    tagline: "People First"
+
+  tpm:
+    name: "TPM"
+    full_name: "Total Productive Maintenance"
+    icon: "wrench"
+    color: "#65A30D"        # Lime
+    accent: "#A3E635"
+    tagline: "Zero Downtime"
+
+  dms:
+    name: "DMS"
+    full_name: "Document Management"
+    icon: "file-text"
+    color: "#0D9488"        # Teal
+    accent: "#2DD4BF"
+    tagline: "Paperless Office"
+
+  saas:
+    name: "SaaS"
+    full_name: "SaaS Platform"
+    icon: "cloud"
+    color: "#6366F1"        # Indigo
+    accent: "#A5B4FC"
+    tagline: "Cloud Platform"
+
+# ──────────────────────────────────────────────────────────────────────
+# Websites / Brands
+# ──────────────────────────────────────────────────────────────────────
+  kodemeio:
+    name: "Kodemeio"
+    full_name: "Kodemeio Technology"
+    icon: "code"
+    color: "#1E293B"        # Slate dark
+    accent: "#3B82F6"
+    tagline: "Build Better"
+
+  mandiriagro:
+    name: "MAC"
+    full_name: "Mandiri Agro Cemerlang"
+    icon: "sprout"
+    color: "#166534"        # Green dark
+    accent: "#4ADE80"
+    tagline: "Agri Innovation"
+
+  pakerti:
+    name: "TPP"
+    full_name: "Tri Putra Pakerti"
+    icon: "shield"
+    color: "#1E40AF"        # Blue dark
+    accent: "#60A5FA"
+    tagline: "Trading Excellence"
+
+  terakidz:
+    name: "TeraKidz"
+    full_name: "TeraKidz Education"
+    icon: "graduation-cap"
+    color: "#9333EA"        # Purple
+    accent: "#C084FC"
+    tagline: "Learn & Grow"
+
+  trigunawan:
+    name: "TG"
+    full_name: "Tri Gunawan"
+    icon: "terminal"
+    color: "#0F172A"        # Slate darkest
+    accent: "#38BDF8"
+    tagline: "Engineering"
+
+  kidneuro:
+    name: "KidNeuro"
+    full_name: "KidNeuro Health"
+    icon: "brain"
+    color: "#BE185D"        # Pink
+    accent: "#F472B6"
+    tagline: "Pediatric Neuro"
+
+  provetics:
+    name: "Provetics"
+    full_name: "Provetics"
+    icon: "flask-conical"
+    color: "#0E7490"        # Cyan dark
+    accent: "#06B6D4"
+    tagline: "Probiotics & Genetics"
+
+# ──────────────────────────────────────────────────────────────────────
+# Infrastructure Services
+# ──────────────────────────────────────────────────────────────────────
+  platform:
+    name: "Platform"
+    full_name: "Kodemeio Platform"
+    icon: "layers"
+    color: "#334155"        # Slate
+    accent: "#94A3B8"
+    tagline: "Infrastructure"
+
+# ──────────────────────────────────────────────────────────────────────
+# Logo Generation Defaults
+# ──────────────────────────────────────────────────────────────────────
+defaults:
+  sizes: [32, 64, 128, 256, 512]
+  formats: [png, svg]
+  styles: [icon-badge, monogram, full]
+  corner_radius_ratio: 0.22    # Rounded corners as ratio of size
+  icon_padding_ratio: 0.25     # Icon padding inside badge
+  font_family: "Inter"         # Falls back to system sans-serif
+  signature: "kodeme.io"

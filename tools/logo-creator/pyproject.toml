@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kodemeio-logo"
+version = "0.1.0"
+description = "Lightweight logo creator for Kodemeio products"
+requires-python = ">=3.12"
+dependencies = [
+    "pillow>=11.0.0",
+    "cairosvg>=2.7.0",
+    "httpx>=0.28.0",
+    "typer>=0.15.0",
+    "rich>=13.9.0",
+    "pyyaml>=6.0.2",
+]
+
+[project.scripts]
+logo = "logo_creator.cli:app_run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["logo_creator"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
