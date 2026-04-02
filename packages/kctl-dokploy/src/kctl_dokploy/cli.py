@@ -46,7 +46,6 @@ from kctl_dokploy.commands.template import app as template_app
 from kctl_dokploy.commands.users import app as users_app
 from kctl_dokploy.commands.deploy import app as deploy_app
 from kctl_dokploy.commands.patches import app as patches_app
-from kctl_dokploy.commands.quickdeploy import app as quickdeploy_app
 from kctl_dokploy.commands.volume_backups import app as volume_backups_app
 from kctl_dokploy.core.callbacks import AppContext
 from kctl_dokploy.core.plugins import discover_and_register_plugins
@@ -143,7 +142,6 @@ app.add_typer(schedules_app, name="schedules")
 app.add_typer(cluster_app, name="cluster")
 app.add_typer(deploy_app, name="deploy")
 app.add_typer(patches_app, name="patches")
-app.add_typer(quickdeploy_app, name="quickdeploy")
 app.add_typer(volume_backups_app, name="volume-backups")
 
 # Hidden aliases for power users
