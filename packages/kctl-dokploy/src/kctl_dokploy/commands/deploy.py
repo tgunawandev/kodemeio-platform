@@ -217,7 +217,10 @@ def post(
     deployer.phase_backup()
     deployer.phase_schedules()
     deployer.phase_volume_backups()
-    deployer.phase_post_deploy()
+    try:
+        deployer.phase_post_deploy()
+    except RuntimeError:
+        pass  # Already recorded as failed in results
 
     # Filter out the compose phase from summary (it's just for ID resolution)
     results = [r for r in deployer.results if r.phase != "compose"]
@@ -276,7 +279,10 @@ def apply(
     deployer.phase_backup()
     deployer.phase_schedules()
     deployer.phase_volume_backups()
-    deployer.phase_post_deploy()
+    try:
+        deployer.phase_post_deploy()
+    except RuntimeError:
+        pass  # Already recorded as failed in results
 
     has_failures = _print_summary(c, f"Deployment Summary: {manifest.instance.name}", deployer.results)
     if has_failures:
@@ -338,7 +344,10 @@ def apply_all(
         deployer.phase_backup()
         deployer.phase_schedules()
         deployer.phase_volume_backups()
-        deployer.phase_post_deploy()
+        try:
+            deployer.phase_post_deploy()
+        except RuntimeError:
+            pass  # Already recorded as failed in results
 
         if any(r.action == "failed" for r in deployer.results):
             c.output.error(f"{f.name}: FAILED")
@@ -377,7 +386,10 @@ def status(
     deployer.phase_backup()
     deployer.phase_schedules()
     deployer.phase_volume_backups()
-    deployer.phase_post_deploy()
+    try:
+        deployer.phase_post_deploy()
+    except RuntimeError:
+        pass  # Already recorded as failed in results
 
     _print_summary(c, f"Status: {manifest.instance.name}", deployer.results)
 

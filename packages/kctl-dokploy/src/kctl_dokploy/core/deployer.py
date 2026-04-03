@@ -991,7 +991,9 @@ class Deployer:
                 failed.append(f"Command '{cmd}' failed: {out}")
 
         if failed:
-            self._record_phase("post_deploy", "failed", "; ".join(failed))
+            msg = "; ".join(failed)
+            self._record_phase("post_deploy", "failed", msg)
+            raise RuntimeError(f"Post-deploy failed: {msg}")
         else:
             self._record_phase("post_deploy", self._action("updated"), self._msg(f"Post-deploy: {', '.join(actions)}"))
 
@@ -1021,5 +1023,8 @@ class Deployer:
         self.phase_backup()
         self.phase_schedules()
         self.phase_volume_backups()
-        self.phase_post_deploy()
+        try:
+            self.phase_post_deploy()
+        except RuntimeError:
+            pass  # Already recorded as failed in results
         return self.results
