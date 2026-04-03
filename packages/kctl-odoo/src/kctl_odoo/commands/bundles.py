@@ -1370,7 +1370,7 @@ def profile_validate(
         return
 
     # Local imports to avoid circular imports
-    from kctl_odoo.core.bundles import _find_bundle_file, _find_profile_file, _parse_bundle_entry
+    from kctl_odoo.core.bundles import _find_bundle_file, _find_profile_file, _parse_bundle_entry, load_bundle
 
     rows = []
     json_data = []
@@ -1386,11 +1386,27 @@ def profile_validate(
             if not parent:
                 issues.append(f"extends '{p.extends}' not found")
 
-        # Check each bundle reference exists
+        # Check each bundle reference exists + validate group names
         for entry in p.bundles:
-            bundle_name, _groups = _parse_bundle_entry(entry)
-            if _find_bundle_file(install_dir, bundle_name) is None:
+            bundle_name, group_str = _parse_bundle_entry(entry)
+            bundle_path = _find_bundle_file(install_dir, bundle_name)
+            if bundle_path is None:
                 issues.append(f"bundle '{bundle_name}' not found")
+                continue
+            if group_str:
+                try:
+                    bundle_obj = load_bundle(bundle_path)
+                    if not bundle_obj.is_flat and bundle_obj.groups:
+                        requested_groups = [g.strip() for g in group_str.split(",") if g.strip()]
+                        available_groups = set(bundle_obj.groups.keys())
+                        for g in requested_groups:
+                            if g not in available_groups:
+                                issues.append(
+                                    f"group '{g}' not in {bundle_name} "
+                                    f"(available: {', '.join(sorted(available_groups))})"
+                                )
+                except Exception as e:
+                    issues.append(f"failed to load '{bundle_name}': {e}")
 
         # Try to resolve
         try:
