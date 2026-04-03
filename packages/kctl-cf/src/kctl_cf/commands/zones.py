@@ -17,9 +17,20 @@ app = typer.Typer(help="Manage DNS zones.")
 def list_(ctx: typer.Context) -> None:
     """List all zones."""
     c: AppContext = ctx.obj
-    zones = c.client.get("/zones")
-    if not isinstance(zones, list):
-        zones = []
+    zones: list = []
+    page = 1
+    per_page = 50
+    while True:
+        response = c.client._request("GET", "/zones", params={"page": page, "per_page": per_page})  # noqa: SLF001
+        data = response.json() if response.content else {}
+        result = data.get("result", [])
+        if isinstance(result, list):
+            zones.extend(result)
+        result_info = data.get("result_info", {})
+        total_pages = result_info.get("total_pages", 1)
+        if page >= total_pages:
+            break
+        page += 1
     rows = []
     for z in zones:
         rows.append(
