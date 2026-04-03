@@ -138,18 +138,12 @@ def resolve_modules(bundle: Bundle, groups: list[str] | None = None) -> list[str
     resolved: set[str] = set()
     modules: list[str] = []
 
-    # Validate requested groups exist
+    # Validate requested groups exist — fail loud on typos
     available = set(bundle.groups.keys())
     invalid = [g for g in requested if g not in available]
     if invalid:
-        import logging
-
-        _logger = logging.getLogger(__name__)
-        _logger.warning(
-            "Bundle '%s' has no groups: %s (available: %s)",
-            bundle.name,
-            ", ".join(invalid),
-            ", ".join(sorted(available)),
+        raise ValueError(
+            f"Bundle '{bundle.name}' has no groups: {', '.join(invalid)}. Available: {', '.join(sorted(available))}"
         )
 
     def _resolve_group(gname: str) -> None:
