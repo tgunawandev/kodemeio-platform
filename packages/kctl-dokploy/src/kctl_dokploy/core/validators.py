@@ -155,6 +155,38 @@ def validate_service_name(client: Any, compose_id: str, service_name: str) -> tu
         return True, f"WARNING: Service validation skipped: {e}"
 
 
+def validate_dns_resolution(
+    fqdn: str, expected_ip: str, max_retries: int = 3, retry_delay: float = 2.0
+) -> tuple[bool, str]:
+    """Gate 1c: Post-creation DNS resolution validation.
+
+    After creating a DNS record, resolve the FQDN and assert it points to
+    the expected IP.  Retries a few times to allow for propagation delay.
+
+    Returns (ok, message).
+    """
+    import time
+
+    if not expected_ip:
+        return True, "No expected IP to validate against (skipping DNS resolution check)"
+
+    last_error = ""
+    for attempt in range(1, max_retries + 1):
+        try:
+            results = socket.getaddrinfo(fqdn, None, socket.AF_INET, socket.SOCK_STREAM)
+            resolved_ips = sorted({r[4][0] for r in results})
+            if expected_ip in resolved_ips:
+                return True, f"DNS verified: {fqdn} → {expected_ip}"
+            last_error = f"DNS mismatch: {fqdn} resolves to {', '.join(resolved_ips)} but expected {expected_ip}"
+        except socket.gaierror as e:
+            last_error = f"DNS resolution failed for {fqdn}: {e}"
+
+        if attempt < max_retries:
+            time.sleep(retry_delay)
+
+    return False, f"{last_error} (after {max_retries} attempts, may need more propagation time)"
+
+
 def check_domain_routing(domain: str, expected_ip: str, timeout: int = 30) -> tuple[bool, str]:
     """Gate 7: Verify domain DNS resolves to expected IP and responds.
 

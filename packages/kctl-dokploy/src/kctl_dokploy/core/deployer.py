@@ -21,6 +21,7 @@ from kctl_dokploy.core.manifest import DeployManifest, load_env_file
 from kctl_dokploy.core.validators import (
     resolve_server_ip,
     validate_dns_ip,
+    validate_dns_resolution,
     validate_project_exists,
     find_github_app_id,
     disable_autodeploy,
@@ -242,18 +243,38 @@ class Deployer:
     # ------------------------------------------------------------------
 
     def phase_dns(self) -> None:
-        """Ensure the DNS A/CNAME record exists in Cloudflare (idempotent)."""
-        # Gate 1: Validate DNS IP matches server
+        """Ensure the DNS A/CNAME record exists in Cloudflare (idempotent).
+
+        The server IP is always resolved dynamically from the Dokploy servers
+        API.  If the manifest has a hardcoded ``dns.content``, it is validated
+        against the resolved IP (mismatch = hard failure) and a deprecation
+        warning is emitted encouraging removal of the hardcoded value.
+
+        After record creation the FQDN is resolved via ``socket.getaddrinfo``
+        and compared against the expected IP as a post-creation sanity check.
+        """
+        # Gate 1: Resolve server IP dynamically
         client = self._get_client()
+        server_ip = ""
         if client and self.manifest.server:
             ok, msg, server_ip = resolve_server_ip(client, self.manifest.server)
             if not ok:
                 self._record_phase("dns", "failed", f"[VALIDATION] {msg}")
                 return
+
+            # Auto-fill dns.content from resolved server IP
             if self.manifest.dns and not self.manifest.dns.content and server_ip:
                 self.manifest.dns.content = server_ip
-                self._log(f"Auto-resolved DNS IP from server: {server_ip}")
-            if self.manifest.dns and self.manifest.dns.content and server_ip:
+                self._log(f"Auto-resolved DNS IP from server '{self.manifest.server}': {server_ip}")
+            elif self.manifest.dns and self.manifest.dns.content and server_ip:
+                # Warn about hardcoded IP that matches — encourage removal
+                if self.manifest.dns.content == server_ip:
+                    self._log(
+                        f"DEPRECATION: dns.content is hardcoded to {self.manifest.dns.content} "
+                        f"which matches server '{self.manifest.server}'. "
+                        f"Remove dns.content from manifest to auto-resolve."
+                    )
+                # Validate hardcoded IP against server (mismatch = failure)
                 ok2, msg2 = validate_dns_ip(self.manifest.dns.content, server_ip, self.manifest.server)
                 if not ok2:
                     self._record_phase("dns", "failed", f"[VALIDATION] {msg2}")
@@ -265,6 +286,7 @@ class Deployer:
             return
 
         fqdn = f"{dns.name}.{dns.zone}" if not dns.name.endswith(dns.zone) else dns.name
+
         # Use JSON output for reliable matching (text output truncates long names)
         existing_records = self._run_kctl_json(["kctl-cf", "records", "list", "--zone", dns.zone])
         if isinstance(existing_records, list):
@@ -289,10 +311,25 @@ class Deployer:
                 dns.content,
             ]
         )
+
         if code == 0:
             self._record_phase(
-                "dns", self._action("created"), self._msg(f"Create {dns.type} record {dns.name} → {dns.content}")
+                "dns",
+                self._action("created"),
+                self._msg(f"Create {dns.type} record {dns.name} → {dns.content}"),
             )
+            # Post-creation validation: resolve FQDN and assert it matches
+            if not self.dry_run and server_ip:
+                ok_v, msg_v = validate_dns_resolution(fqdn, server_ip)
+                if ok_v:
+                    self._log(f"Post-DNS validation passed: {msg_v}")
+                else:
+                    self._log(f"Post-DNS validation warning: {msg_v}")
+                    self._record_phase(
+                        "dns-verify",
+                        "warning",
+                        f"DNS created but resolution check failed: {msg_v}",
+                    )
         else:
             # Idempotent: if creation fails because record already exists, treat as success
             if "already exists" in out.lower() or "duplicate" in out.lower():

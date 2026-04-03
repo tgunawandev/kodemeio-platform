@@ -588,8 +588,8 @@ class TestPhasePostDeploy:
 
 
 class TestRunAll:
-    def test_returns_12_results(self) -> None:
-        """run_all must produce one result per execution phase (12 phases: validate + 11)."""
+    def test_returns_13_results(self) -> None:
+        """run_all must produce one result per execution phase (13 phases: validate + 12)."""
         manifest = _make_manifest()
         deployer = Deployer(manifest=manifest, dry_run=True)
 
@@ -600,7 +600,7 @@ class TestRunAll:
             results = deployer.run_all()
 
         phases = [r.phase for r in results]
-        assert len(results) == 12
+        assert len(results) == 13
         expected_phases = [
             "validate",
             "dns",
@@ -613,6 +613,7 @@ class TestRunAll:
             "verify",
             "backup",
             "schedules",
+            "volume_backups",
             "post_deploy",
         ]
         for phase in expected_phases:

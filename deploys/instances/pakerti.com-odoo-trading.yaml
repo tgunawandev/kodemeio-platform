@@ -10,7 +10,6 @@ project: pakerti.com
 dns:
   zone: kodeme.io
   name: odoo-trading-tpp
-  content: 49.13.14.79             # kodeme-service (16GB RAM)
 
 domain:
   host: odoo-trading-tpp.kodeme.io

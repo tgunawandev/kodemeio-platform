@@ -8,7 +8,6 @@ instance:
 dns:
   zone: kodeme.io
   name: odoo-hrms
-  content: 49.13.14.79             # kodeme-service (16GB RAM)
 
 domain:
   host: odoo-hrms.kodeme.io

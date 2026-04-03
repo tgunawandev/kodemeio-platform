@@ -13,7 +13,6 @@ source_overrides:
 dns:
   zone: kodeme.io
   name: sfa-mac
-  content: 49.13.14.79
 
 domain:
   host: sfa-mac.kodeme.io
