@@ -43,6 +43,17 @@ def _find_authentication_flow(client) -> dict | None:
     return None
 
 
+def _find_invalidation_flow(client) -> dict | None:
+    """Find the default provider invalidation flow."""
+    flows = client.get_all("flows/instances/", params={"designation": "invalidation"})
+    if flows:
+        for f in flows:
+            if "default-provider-invalidation-flow" in f.get("slug", ""):
+                return f
+        return flows[0]
+    return None
+
+
 def _slugify(name: str) -> str:
     """Convert a name to a slug."""
     return name.lower().replace(" ", "-").replace("_", "-")
@@ -148,16 +159,21 @@ def oauth2(
 
     out.info(f"Using authorization flow: {auth_flow['slug']}")
 
+    # Find invalidation flow
+    inval_flow = _find_invalidation_flow(c)
+
     # Create OAuth2 provider
     provider_data: dict = {
         "name": f"{name} Provider",
         "authorization_flow": auth_flow["pk"],
-        "redirect_uris": redirect_uri,
+        "redirect_uris": [{"matching_mode": "strict", "url": redirect_uri}],
         "client_type": client_type,
         "signing_key": None,
     }
     if authn_flow:
         provider_data["authentication_flow"] = authn_flow["pk"]
+    if inval_flow:
+        provider_data["invalidation_flow"] = inval_flow["pk"]
 
     try:
         provider = c.post("providers/oauth2/", data=provider_data)
@@ -519,6 +535,7 @@ def batch(
         raise typer.Exit(code=1)
 
     authn_flow = _find_authentication_flow(c)
+    inval_flow = _find_invalidation_flow(c)
 
     # --- Process each app ----------------------------------------------------
     created: list[str] = []
@@ -557,12 +574,14 @@ def batch(
         provider_data: dict = {
             "name": f"{slug} Provider",
             "authorization_flow": auth_flow["pk"],
-            "redirect_uris": redirect_uri,
+            "redirect_uris": [{"matching_mode": "strict", "url": redirect_uri}],
             "client_type": client_type,
             "signing_key": None,
         }
         if authn_flow:
             provider_data["authentication_flow"] = authn_flow["pk"]
+        if inval_flow:
+            provider_data["invalidation_flow"] = inval_flow["pk"]
 
         try:
             provider = c.post("providers/oauth2/", data=provider_data)
