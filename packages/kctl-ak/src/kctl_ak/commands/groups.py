@@ -230,7 +230,7 @@ def members(
 @app.command()
 def sync(
     ctx: typer.Context,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview changes without applying")] = True,
+    dry_run: Annotated[bool, typer.Option("--dry-run/--no-dry-run", help="Preview changes without applying")] = True,
     file: Annotated[Path | None, typer.Option(help="Path to group-structure.yaml")] = None,
 ) -> None:
     """Sync groups from group-structure.yaml."""
