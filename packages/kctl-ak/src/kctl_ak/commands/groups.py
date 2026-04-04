@@ -227,13 +227,73 @@ def members(
     )
 
 
+def _compute_sync_plan(
+    desired: list[dict],
+    existing: list[dict],
+) -> dict[str, list[dict]]:
+    """Compare desired groups (from YAML) with existing groups (from API).
+
+    Returns ``{"create": [...], "update": [...], "prune": [...]}``.
+    This is a pure function with NO side effects.
+    """
+    existing_by_name: dict[str, dict] = {g["name"]: g for g in existing}
+    desired_names: set[str] = set()
+
+    create: list[dict] = []
+    update: list[dict] = []
+
+    for g in desired:
+        name = g.get("name", "")
+        if not name:
+            continue
+        desired_names.add(name)
+
+        ex = existing_by_name.get(name)
+        if ex is None:
+            create.append(g)
+            continue
+
+        # Detect changes
+        changes: dict = {}
+
+        # is_superuser
+        desired_su = g.get("is_superuser", False)
+        if desired_su != ex.get("is_superuser", False):
+            changes["is_superuser"] = desired_su
+
+        # parent (compare by name)
+        desired_parent = g.get("parent")  # name string or None
+        existing_parent = ex.get("parent_name") or None
+        if desired_parent != existing_parent:
+            changes["parent"] = desired_parent
+
+        # description (stored in attributes.description)
+        desired_desc = g.get("description", "")
+        existing_desc = ex.get("attributes", {}).get("description", "")
+        if desired_desc != existing_desc:
+            changes["description"] = desired_desc
+
+        if changes:
+            update.append({"name": name, "pk": ex["pk"], "changes": changes})
+
+    # Prune: existing groups with ak- prefix not in desired set
+    prune: list[dict] = []
+    for ex in existing:
+        name = ex.get("name", "")
+        if name.startswith("ak-") and name not in desired_names:
+            prune.append({"name": name, "pk": ex["pk"]})
+
+    return {"create": create, "update": update, "prune": prune}
+
+
 @app.command()
 def sync(
     ctx: typer.Context,
     dry_run: Annotated[bool, typer.Option("--dry-run/--no-dry-run", help="Preview changes without applying")] = True,
+    prune: Annotated[bool, typer.Option("--prune", help="Delete ak-* groups not in YAML")] = False,
     file: Annotated[Path | None, typer.Option(help="Path to group-structure.yaml")] = None,
 ) -> None:
-    """Sync groups from group-structure.yaml."""
+    """Sync groups from group-structure.yaml (3-phase: create/update/prune)."""
     c: AppContext = ctx.obj
 
     if file:
@@ -252,47 +312,96 @@ def sync(
         c.output.warn("No groups defined in structure file")
         return
 
+    # --- Initial plan ---
     existing = c.client.get_all("core/groups/")
-    existing_names = {g["name"] for g in existing}
-
-    to_create: list[dict] = []
-    already_exist: list[str] = []
-
-    for g in desired_groups:
-        name = g.get("name", "")
-        if not name:
-            continue
-        if name in existing_names:
-            already_exist.append(name)
-        else:
-            to_create.append(g)
+    plan = _compute_sync_plan(desired_groups, existing)
 
     c.output.header("Group Sync")
     c.output.info(f"Source: {gs_path}")
-    c.output.info(f"Desired: {len(desired_groups)} | Existing: {len(already_exist)} | To create: {len(to_create)}")
+    c.output.info(
+        f"Desired: {len(desired_groups)} | "
+        f"Create: {len(plan['create'])} | "
+        f"Update: {len(plan['update'])} | "
+        f"Prune: {len(plan['prune'])}"
+    )
 
-    if not to_create:
-        c.output.success("All groups already exist")
-        return
-
-    for g in to_create:
-        name = g["name"]
-        if dry_run:
-            c.output.info(f"[dry-run] Would create: {name}")
-        else:
-            try:
-                c.client.post(
-                    "core/groups/",
-                    data={
+    # ---- Phase 1: CREATE (no parents yet) ----
+    if plan["create"]:
+        c.output.header("Phase 1: Create")
+        for g in plan["create"]:
+            name = g["name"]
+            if dry_run:
+                c.output.info(f"[create] {name}")
+            else:
+                try:
+                    data: dict = {
                         "name": name,
                         "is_superuser": g.get("is_superuser", False),
-                    },
-                )
-                c.output.success(f"Created: {name}")
-            except Exception as e:
-                c.output.error(f"Failed to create {name}: {e}")
+                    }
+                    desc = g.get("description", "")
+                    if desc:
+                        data["attributes"] = {"description": desc}
+                    c.client.post("core/groups/", data=data)
+                    c.output.success(f"[create] {name}")
+                except Exception as e:
+                    c.output.error(f"[create] Failed {name}: {e}")
 
-    if dry_run:
+    # ---- Reload + recompute after creates (to get PKs) ----
+    if plan["create"] and not dry_run:
+        existing = c.client.get_all("core/groups/")
+        plan = _compute_sync_plan(desired_groups, existing)
+
+    # ---- Phase 2: UPDATE (parent, is_superuser, description) ----
+    if plan["update"]:
+        c.output.header("Phase 2: Update")
+        existing_by_name = {g["name"]: g for g in existing}
+        for entry in plan["update"]:
+            name = entry["name"]
+            pk = entry["pk"]
+            changes = entry["changes"]
+            if dry_run:
+                c.output.info(f"[update] {name}: {changes}")
+            else:
+                try:
+                    patch_data: dict = {}
+                    if "is_superuser" in changes:
+                        patch_data["is_superuser"] = changes["is_superuser"]
+                    if "parent" in changes:
+                        parent_name = changes["parent"]
+                        if parent_name and parent_name in existing_by_name:
+                            patch_data["parent"] = existing_by_name[parent_name]["pk"]
+                        else:
+                            patch_data["parent"] = None
+                    if "description" in changes:
+                        patch_data["attributes"] = {"description": changes["description"]}
+                    c.client.patch(f"core/groups/{pk}/", data=patch_data)
+                    c.output.success(f"[update] {name}")
+                except Exception as e:
+                    c.output.error(f"[update] Failed {name}: {e}")
+
+    # ---- Phase 3: PRUNE (only with --prune flag) ----
+    if plan["prune"] and prune:
+        c.output.header("Phase 3: Prune")
+        for entry in plan["prune"]:
+            name = entry["name"]
+            pk = entry["pk"]
+            if dry_run:
+                c.output.info(f"[prune] {name}")
+            else:
+                try:
+                    c.client.delete(f"core/groups/{pk}/")
+                    c.output.success(f"[prune] {name}")
+                except Exception as e:
+                    c.output.error(f"[prune] Failed {name}: {e}")
+    elif plan["prune"] and not prune:
+        c.output.warn(f"{len(plan['prune'])} stale ak-* group(s) found. Use --prune to remove them.")
+
+    # ---- Summary ----
+    no_changes = not plan["create"] and not plan["update"] and (not plan["prune"] or not prune)
+    if no_changes and not plan["prune"]:
+        c.output.success("All groups in sync")
+
+    if dry_run and (plan["create"] or plan["update"] or (plan["prune"] and prune)):
         c.output.warn("Dry-run mode. Use --no-dry-run to apply changes.")
 
 
