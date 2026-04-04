@@ -1,0 +1,25 @@
+tenant:
+  code: tpp
+  name: "Pakerti"
+  short_name: "Pakerti"
+  domain: pakerti.com
+
+odoo:
+  - profile: trading
+    short: trad
+    description: "Trading (import/export, multi-currency, landed costs)"
+    workers: 4
+    apps: [sfa, bia, wms]
+  - profile: hrms
+    short: hrms
+    description: "HRMS (employees, attendance, payroll, leaves, expenses)"
+    workers: 2
+    apps: [hrm]
+
+web:
+  corporate:
+    compose_brand: pakerti
+  careers: true
+
+services:
+  notify: true

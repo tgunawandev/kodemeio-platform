@@ -1,0 +1,25 @@
+tenant:
+  code: mac
+  name: "Mandiri Agro"
+  short_name: "MAC"
+  domain: mandiriagro.com
+
+odoo:
+  - profile: distribution
+    short: dist
+    description: "Distribution (SFA, LFA, WMS, DMS, retail, marketplace, BI)"
+    workers: 2
+    apps: [bia, wms]
+  - profile: hrms
+    short: hrms
+    description: "HRMS (employees, attendance, payroll, leaves, expenses)"
+    workers: 2
+    apps: [hrm]
+
+web:
+  corporate:
+    compose_brand: mandiriagro
+  careers: true
+
+services:
+  notify: true

@@ -67,6 +67,20 @@ class AuthentikClient(APIClient):
             raise APIError(status_code=response.status_code, detail=detail)
         return self._unwrap_response(response)
 
+    def patch_multipart(self, endpoint: str, files: dict[str, Any], data: dict[str, Any] | None = None) -> Any:
+        """PATCH with multipart form data (for file uploads like app icons)."""
+        url = self._ensure_trailing_slash(endpoint)
+        headers = dict(self._client.headers)
+        headers.pop("Content-Type", None)
+        try:
+            response = self._client.patch(url, files=files, data=data, headers=headers)
+        except httpx.HTTPError as e:
+            raise KctlConnectionError(self._base_url, e) from e
+        if response.status_code >= 400:
+            detail = self._map_error(response)
+            raise APIError(status_code=response.status_code, detail=detail)
+        return self._unwrap_response(response)
+
     def get_all(self, endpoint: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Fetch all pages and return combined results list."""
         all_results: list[dict[str, Any]] = []

@@ -1,37 +1,30 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
 kind: instance
 extends: ../bases/odoo.yaml
-
 instance:
   name: odoo-hrms-mac
-  description: "MAC — HRMS (employees, attendance, payroll, leaves, expenses)"
-
+  description: MAC — HRMS (employees, attendance, payroll, leaves, expenses)
 project: mandiriagro.com
-
 dns:
   zone: mandiriagro.com
   name: odoo-hrms-mac
-
 domain:
   host: odoo-hrms-mac.mandiriagro.com
   port: 8069
   service: odoo-web
   https: true
   cert: letsencrypt
-
 database:
   name: odoo_hrms_mac
   user: odoo
-
 env_file: ../env/mandiriagro.com-odoo-hrms.env
-
 env_overrides:
   COMPOSE_PROJECT_NAME: odoo-hrms-mac
   TENANT: mac
   PGDATABASE: odoo_hrms_mac
   PGUSER: odoo
-  ODOO_DB_FILTER: "^odoo_hrms_mac$"
+  ODOO_DB_FILTER: ^odoo_hrms_mac$
   DOMAIN: odoo-hrms-mac.mandiriagro.com
-  ODOO_WORKERS: "2"
-
+  ODOO_WORKERS: '2'
 post_deploy:
   odoo_profile: profile-hrms

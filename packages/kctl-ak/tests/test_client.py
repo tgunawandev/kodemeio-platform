@@ -31,3 +31,9 @@ class TestClientConstruction:
         assert client._ensure_trailing_slash("/users") == "users/"
         assert client._ensure_trailing_slash("users?page=1") == "users?page=1"
         client.close()
+
+
+class TestPatchMultipart:
+    def test_method_exists(self) -> None:
+        """patch_multipart is available on AuthentikClient."""
+        assert hasattr(AuthentikClient, "patch_multipart")

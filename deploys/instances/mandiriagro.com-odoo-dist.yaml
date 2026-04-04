@@ -1,37 +1,30 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
 kind: instance
 extends: ../bases/odoo.yaml
-
 instance:
   name: odoo-dist-mac
-  description: "MAC — Distribution (SFA, LFA, WMS, DMS, retail, marketplace, BI)"
-
+  description: MAC — Distribution (SFA, LFA, WMS, DMS, retail, marketplace, BI)
 project: mandiriagro.com
-
 dns:
   zone: mandiriagro.com
   name: odoo-dist-mac
-
 domain:
   host: odoo-dist-mac.mandiriagro.com
   port: 8069
   service: odoo-web
   https: true
   cert: letsencrypt
-
 database:
   name: odoo_dist_mac
   user: odoo
-
 env_file: ../env/mandiriagro.com-odoo-dist.env
-
 env_overrides:
   COMPOSE_PROJECT_NAME: odoo-dist-mac
   TENANT: mac
   PGDATABASE: odoo_dist_mac
   PGUSER: odoo
-  ODOO_DB_FILTER: "^odoo_dist_mac$"
+  ODOO_DB_FILTER: ^odoo_dist_mac$
   DOMAIN: odoo-dist-mac.mandiriagro.com
-  ODOO_WORKERS: "2"
-
+  ODOO_WORKERS: '2'
 post_deploy:
   odoo_profile: profile-distribution

@@ -229,6 +229,32 @@ def resolve_group_structure_path(
     return None
 
 
+def resolve_app_registry_path(
+    profile_name: str | None = None,
+) -> Path | None:
+    """Find app-registry.yaml."""
+    pname = resolve_active_profile_name(profile_name)
+    svc = get_service_config(pname)
+
+    raw = load_raw_config()
+    if arp := raw.get("app_registry_path", ""):
+        p = Path(arp).expanduser()
+        if p.exists():
+            return p
+
+    cwd = Path.cwd()
+    for parent in [cwd, *cwd.parents]:
+        ar = parent / "config" / "app-registry.yaml"
+        if ar.exists():
+            return ar
+
+    user_ar = CONFIG_DIR / "app-registry.yaml"
+    if user_ar.exists():
+        return user_ar
+
+    return None
+
+
 # Re-export everything that config_cmd.py needs
 __all__ = [
     "CONFIG_DIR",
@@ -247,6 +273,7 @@ __all__ = [
     "load_raw_config",
     "remove_profile",
     "resolve_active_profile_name",
+    "resolve_app_registry_path",
     "resolve_connection",
     "resolve_group_structure_path",
     "resolve_roles_paths",

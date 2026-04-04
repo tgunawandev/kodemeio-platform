@@ -21,13 +21,14 @@ def list_(ctx: typer.Context) -> None:
             [
                 a.get("slug", ""),
                 a.get("name", ""),
+                a.get("group", "") or "-",
                 provider.get("name", "-"),
                 a.get("meta_launch_url", "") or "-",
             ]
         )
     c.output.table(
         "Applications",
-        [("Slug", "cyan"), ("Name", ""), ("Provider", "dim"), ("Launch URL", "dim")],
+        [("Slug", "cyan"), ("Name", ""), ("Group", "green"), ("Provider", "dim"), ("Launch URL", "dim")],
         rows,
         data_for_json=apps,
     )

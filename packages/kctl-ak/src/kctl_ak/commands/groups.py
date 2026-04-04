@@ -397,11 +397,14 @@ def sync(
         c.output.warn(f"{len(plan['prune'])} stale ak-* group(s) found. Use --prune to remove them.")
 
     # ---- Summary ----
-    no_changes = not plan["create"] and not plan["update"] and (not plan["prune"] or not prune)
-    if no_changes and not plan["prune"]:
-        c.output.success("All groups in sync")
+    actionable = plan["create"] or plan["update"] or (plan["prune"] and prune)
+    if not actionable:
+        if plan["prune"] and not prune:
+            c.output.success("Groups in sync (stale ak-* groups exist — use --prune to remove)")
+        else:
+            c.output.success("All groups in sync")
 
-    if dry_run and (plan["create"] or plan["update"] or (plan["prune"] and prune)):
+    if dry_run and actionable:
         c.output.warn("Dry-run mode. Use --no-dry-run to apply changes.")
 
 

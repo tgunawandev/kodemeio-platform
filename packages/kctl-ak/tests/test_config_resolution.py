@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from kctl_ak.core.config import (
     ServiceConfig,
+    resolve_app_registry_path,
     resolve_connection,
     resolve_group_structure_path,
     resolve_roles_paths,
@@ -119,3 +120,12 @@ class TestResolveGroupStructurePath:
         result = resolve_group_structure_path()
         assert result is not None
         assert result.name == "group-structure.yaml"
+
+
+class TestResolveAppRegistryPath:
+    @patch("kctl_ak.core.config.load_raw_config", return_value={})
+    @patch("kctl_ak.core.config.get_service_config", return_value=ServiceConfig())
+    @patch("kctl_ak.core.config.resolve_active_profile_name", return_value="default")
+    def test_returns_none_when_not_found(self, mock_pname: MagicMock, mock_svc: MagicMock, mock_raw: MagicMock) -> None:
+        result = resolve_app_registry_path()
+        assert result is None

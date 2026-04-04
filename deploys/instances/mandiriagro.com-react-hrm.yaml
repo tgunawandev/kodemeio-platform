@@ -1,30 +1,24 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
 kind: instance
 extends: ../bases/react-pwa.yaml
-
 instance:
   name: react-hrm-mac
-  description: "MAC Customer — HRM PWA"
-
+  description: MAC — HRM PWA
 project: mandiriagro.com
-
 source_overrides:
-  compose_path: ./compose/docker-compose.hrm.yml
-
+  compose_path: compose/docker-compose.hrm.yml
 dns:
   zone: mandiriagro.com
   name: hrm-mac
-
 domain:
   host: hrm-mac.mandiriagro.com
   port: 80
   service: hrm
   https: true
-
 env_file: ../env/mandiriagro.com-react-hrm.env
-
 env_overrides:
-  VITE_HRM_APP_NAME: "MAC HRM"
-  VITE_HRM_API_BASE_URL: "https://odoo-hrms-mac.mandiriagro.com/hrm/api"
-  VITE_AUTH_MODE: "native"
-  VITE_HRM_OIDC_CLIENT_ID: ""
-  VITE_HRM_OIDC_REDIRECT_URI: ""
+  VITE_HRM_APP_NAME: MAC HRM
+  VITE_HRM_API_BASE_URL: https://odoo-hrms-mac.mandiriagro.com/hrm/api
+  VITE_AUTH_MODE: native
+  VITE_HRM_OIDC_CLIENT_ID: ''
+  VITE_HRM_OIDC_REDIRECT_URI: ''
