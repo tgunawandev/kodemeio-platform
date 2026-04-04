@@ -86,8 +86,12 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, kee
 | `packages/kctl-sentry/` | Sentry error tracking CLI |
 | `packages/kctl-telegram/` | Telegram bot platform CLI |
 | `packages/kctl-waha/` | WhatsApp HTTP API CLI |
-| `deploys/bases/` | Deployment base templates (odoo, react-pwa, infra) |
-| `deploys/instances/` | Instance manifests (odoo-prod, odoo-mac, react-*-mac) |
+| `deploys/bases/` | Deployment base templates (odoo, react-pwa, nextjs, fastapi, infra) |
+| `deploys/instances/production/` | Production instance manifests (34 services) |
+| `deploys/instances/staging/` | Staging instance manifests (17 services — mac + tpp) |
+| `deploys/env/production/` | Production .env files (gitignored) |
+| `deploys/env/staging/` | Staging .env files (gitignored) |
+| `deploys/tenants/` | Tenant definitions with environment config |
 | `templates/kctl-cli/` | Copier template for new CLIs |
 | `docs/cli-standards.md` | CLI naming and option standards |
 | `docs/architecture.md` | Platform architecture |
@@ -102,21 +106,50 @@ Declarative YAML-based deployment via `kctl-dokploy deploy`. Manifests live in `
 
 ```
 deploys/
-├── bases/           # Reusable base templates
-│   ├── odoo.yaml    # Odoo 18 base (compose, env, healthcheck, backup, schedules)
-│   ├── react-pwa.yaml  # React PWA base (GitHub source, Authentik OIDC)
-│   └── infra.yaml   # Infrastructure services base
-└── instances/       # Per-instance manifests (extend a base)
-    ├── odoo-prod.yaml       # kodemeio_prod → odoo.kodeme.io
-    ├── odoo-mac.yaml        # odoo_full_mac → odoo-mac.kodeme.io
-    └── react-*-mac.yaml     # 11 React PWA apps for MAC customer
+├── bases/                          # Reusable base templates
+│   ├── odoo.yaml                   # Odoo 18 base (compose, env, healthcheck, backup)
+│   ├── react-pwa.yaml              # React PWA base (GitHub source, nginx)
+│   ├── nextjs.yaml                 # Next.js base (GitHub source, port 3000)
+│   ├── fastapi.yaml                # FastAPI base (port 8000)
+│   └── infra.yaml                  # Infrastructure services base
+├── env/
+│   ├── production/                 # Production .env files (gitignored)
+│   └── staging/                    # Staging .env files (gitignored)
+├── instances/
+│   ├── production/                 # Production manifests (34 services)
+│   └── staging/                    # Staging manifests (17 services)
+├── tenants/                        # Tenant definitions (mac.yaml, tpp.yaml)
+├── setup/                          # Company setup scripts
+└── generate.py                     # Generate instances from tenant config
 ```
+
+### Multi-Environment Support
+
+Each tenant can define production + staging environments. The deployer targets the correct Dokploy environment automatically.
+
+| Environment | Branch | DNS Prefix | DB Prefix | Auto-deploy |
+|-------------|--------|------------|-----------|-------------|
+| production | main / 18.0 | (none) | (none) | false (manual) |
+| staging | main / 18.0 | stg- | stg_ | true (on push) |
+
+Server mapping:
+- **mac**: `mac-prod-01` / `mac-stg-01` (dedicated)
+- **kod, tpp, tkz, pro, tgw, kid**: `kod-prod-01` / `kod-stg-01` (shared)
 
 ### Deploy Commands
 
 ```bash
-# Full pipeline: DNS → DB → Compose → Env → Domain → Deploy → Verify → Backup → Post
-kctl-dokploy deploy apply -f deploys/instances/odoo-mac.yaml
+# Production deploy
+kctl-dokploy deploy apply -f deploys/instances/production/mac-react-sfa.yaml
+
+# Staging deploy
+kctl-dokploy deploy apply -f deploys/instances/staging/mac-react-sfa.yaml
+
+# Batch deploy all production
+kctl-dokploy deploy apply-all -d deploys/instances/production/
+
+# Batch deploy all staging
+kctl-dokploy deploy apply-all -d deploys/instances/staging/
 
 # Staged deployment (for troubleshooting)
 kctl-dokploy deploy setup -f <manifest>   # Stage 1: DNS + DB + Compose + Env + Domain
@@ -125,10 +158,11 @@ kctl-dokploy deploy post -f <manifest>    # Stage 3: Backup + Schedules + Post-d
 
 # Preview / status
 kctl-dokploy deploy status -f <manifest>  # Dry-run all phases
-kctl-dokploy deploy apply -f <manifest> --dry-run
 
-# Batch deploy all instances
-kctl-dokploy deploy apply-all -d deploys/instances/
+# Generate manifests from tenant config
+cd deploys && python generate.py            # Generate all
+cd deploys && python generate.py -t mac     # Generate single tenant
+cd deploys && python generate.py --dry-run  # Preview
 ```
 
 ### 12-Phase Pipeline
@@ -191,14 +225,18 @@ init, add, use, show, validate, remove, set, profiles, current
 
 ## Deploy Manifest Naming
 
-Convention: `{domain}-{type}-{name}.yaml`
+Convention: `{tenant}-{stack}-{app}.yaml`
+
+Stacks: `react`, `nextjs`, `odoo`, `hono`, `fastapi`, `infra`
 
 Examples:
-- `kodeme.io-odoo-full.yaml`
-- `mandiriagro.com-react-sfa.yaml`
-- `terakidz.com-nextjs-web.yaml`
+- `mac-react-sfa.yaml` — MAC SFA PWA
+- `tpp-odoo-trad.yaml` — Pakerti Trading Odoo
+- `kod-infra-gatus.yaml` — Kodemeio Gatus monitoring
 
-Projects in Dokploy match domains: kodeme.io, terakidz.com, mandiriagro.com, pakerti.com, trigunawan.com, kidneuro.io, provetics.com
+Dokploy projects use tenant codes: `mac`, `tpp`, `kod`, `tgw`, `tkz`, `pro`, `kid`
+
+Each Dokploy project has environments (production + staging). Services keep the same name across environments — the Dokploy environment provides separation.
 
 ## E2E Testing (Playwright)
 
