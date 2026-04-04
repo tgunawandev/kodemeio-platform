@@ -155,6 +155,8 @@ def _resolve_github_app_id(c: AppContext, id_or_provider_id: str) -> str | None:
 def update(
     ctx: typer.Context,
     compose_id: Annotated[str, typer.Option("--id", "-i", help="Compose service ID")],
+    name: Annotated[str | None, typer.Option("--name", "-n", help="New name for the compose service")] = None,
+    description: Annotated[str | None, typer.Option("--description", help="Service description")] = None,
     env_content: Annotated[str | None, typer.Option("--env", help="Environment variables content")] = None,
     compose_file: Annotated[str | None, typer.Option("--compose-file", help="Path to docker-compose file")] = None,
     source_type: Annotated[
@@ -180,6 +182,10 @@ def update(
     """Update a compose service configuration."""
     c: AppContext = ctx.obj
     payload: dict = {"composeId": compose_id}
+    if name is not None:
+        payload["name"] = name
+    if description is not None:
+        payload["description"] = description
     if env_content is not None:
         payload["env"] = env_content
     if compose_file is not None:
