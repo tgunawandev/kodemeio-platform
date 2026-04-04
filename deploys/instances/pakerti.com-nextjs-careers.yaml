@@ -1,28 +1,22 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
 kind: instance
 extends: ../bases/nextjs.yaml
-
 instance:
   name: careers-tpp
-  description: "Pakerti — Careers Portal (recruitment)"
-
+  description: Pakerti — Careers Portal (recruitment)
 source_overrides:
   compose_path: compose/docker-compose.prod.careers.yml
-
 project: pakerti.com
-
 healthcheck:
   port: 4002
-
 dns:
   zone: pakerti.com
   name: careers-tpp
-
 domain:
   host: careers-tpp.pakerti.com
   port: 4002
   service: careers
   https: true
-
 env_overrides:
-  NEXT_PUBLIC_SITE_URL: "https://careers-tpp.pakerti.com"
-  API_URL: "https://odoo-hrms-tpp.pakerti.com"
+  NEXT_PUBLIC_SITE_URL: https://careers-tpp.pakerti.com
+  API_URL: https://odoo-hrms-tpp.pakerti.com

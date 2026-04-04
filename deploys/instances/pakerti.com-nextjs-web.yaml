@@ -1,24 +1,19 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
 kind: instance
 extends: ../bases/nextjs.yaml
-
 instance:
   name: web-tpp
-  description: "Pakerti company website"
-
+  description: Pakerti company website
 source_overrides:
   compose_path: compose/docker-compose.pakerti.yml
-
 project: pakerti.com
-
 dns:
   zone: pakerti.com
-  name: "@"
-
+  name: '@'
 domain:
   host: pakerti.com
   port: 3000
   service: pakerti-web
   https: true
   cert: letsencrypt
-
 env_file: ../env/pakerti.com-nextjs-web.env
