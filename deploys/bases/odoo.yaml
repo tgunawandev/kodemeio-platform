@@ -20,7 +20,7 @@ source:
   compose_path: ./compose/odoo.prod.yml
 
 server: kodeme-service
-project: kodeme.io
+project: kod
 
 healthcheck:
   path: /web/health

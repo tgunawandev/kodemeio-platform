@@ -1,0 +1,28 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
+kind: instance
+extends: ../bases/nextjs.yaml
+instance:
+  name: careers-mac
+  description: Mandiri Agro — Careers Portal (recruitment)
+source_overrides:
+  compose_path: compose/docker-compose.prod.careers.yml
+project: mac
+healthcheck:
+  port: 4002
+dns:
+  zone: mandiriagro.com
+  name: careers-mac
+domain:
+  host: careers-mac.mandiriagro.com
+  port: 4002
+  service: careers
+  https: true
+env_overrides:
+  NEXT_PUBLIC_SITE_URL: https://careers-mac.mandiriagro.com
+  NEXT_PUBLIC_SITE_NAME: Mandiri Agro
+  NEXT_PUBLIC_COMPANY_WEBSITE: https://mandiriagro.com
+  NEXT_PUBLIC_HERO_TITLE: Bergabunglah Bersama Mandiri Agro
+  NEXT_PUBLIC_HERO_SUBTITLE: Kami adalah distributor komoditas terkemuka di Indonesia. Bergabunglah dan bangun solusi teknologi yang menggerakkan rantai pasok komoditas nasional.
+  NEXT_PUBLIC_API_URL: https://odoo-hrms-mac.mandiriagro.com
+  ODOO_API_URL: https://odoo-hrms-mac.mandiriagro.com
+  API_URL: https://odoo-hrms-mac.mandiriagro.com

@@ -8,7 +8,7 @@ source:
   branch: main
 
 server: kodeme-service
-project: kodeme.io
+project: kod
 
 healthcheck:
   path: /

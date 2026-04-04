@@ -2,7 +2,7 @@ kind: base
 type: infrastructure
 
 server: kodeme-service
-project: kodeme.io
+project: kod
 
 healthcheck:
   path: /

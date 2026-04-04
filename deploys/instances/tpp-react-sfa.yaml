@@ -1,0 +1,24 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
+kind: instance
+extends: ../bases/react-pwa.yaml
+instance:
+  name: react-sfa-tpp
+  description: Pakerti — SFA PWA
+project: tpp
+source_overrides:
+  compose_path: compose/docker-compose.sfa.yml
+dns:
+  zone: pakerti.com
+  name: sfa-tpp
+domain:
+  host: sfa-tpp.pakerti.com
+  port: 80
+  service: sfa
+  https: true
+env_file: ../env/tpp-react-sfa.env
+env_overrides:
+  VITE_SFA_APP_NAME: Pakerti SFA
+  VITE_SFA_API_BASE_URL: https://odoo-trad-tpp.pakerti.com/sfa/api
+  VITE_AUTH_MODE: native
+  VITE_SFA_OIDC_CLIENT_ID: ''
+  VITE_SFA_OIDC_REDIRECT_URI: ''

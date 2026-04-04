@@ -1,0 +1,11 @@
+kind: instance
+extends: ../bases/infra.yaml
+
+instance:
+  name: kodemeio-postgres
+  description: "Shared PostgreSQL 16 database"
+
+source_overrides:
+  repo: kodemeio-postgres-16
+
+env_file: ../env/kod-infra-postgres.env

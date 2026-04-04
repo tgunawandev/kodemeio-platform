@@ -1,0 +1,18 @@
+kind: instance
+extends: ../bases/nextjs.yaml
+
+instance:
+  name: kodemeio-web
+  description: "Kodemeio company website"
+
+source_overrides:
+  compose_path: compose/docker-compose.prod.kodemeio.yml
+
+domain:
+  host: kodeme.io
+  port: 4003
+  service: kodemeio-web
+  https: true
+  cert: letsencrypt
+
+env_file: ../env/kod-nextjs-web.env

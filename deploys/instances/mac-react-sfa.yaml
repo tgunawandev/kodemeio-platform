@@ -1,0 +1,23 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+instance:
+  name: react-sfa-mac
+  description: MAC — SFA PWA
+project: mac
+source_overrides:
+  compose_path: compose/docker-compose.sfa.yml
+dns:
+  zone: mandiriagro.com
+  name: sfa-mac
+domain:
+  host: sfa-mac.mandiriagro.com
+  port: 80
+  service: sfa
+  https: true
+env_file: ../env/mac-react-sfa.env
+env_overrides:
+  VITE_SFA_APP_NAME: MAC SFA
+  VITE_SFA_API_BASE_URL: https://odoo-dist-mac.mandiriagro.com/sfa/api
+  VITE_AUTH_MODE: native
+  VITE_SFA_OIDC_CLIENT_ID: ''
+  VITE_SFA_OIDC_REDIRECT_URI: ''
