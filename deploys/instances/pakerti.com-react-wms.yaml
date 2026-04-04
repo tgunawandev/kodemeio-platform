@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/react-pwa.yaml
 
 instance:
-  name: pakerti-react-wms
+  name: react-wms-tpp
   description: "Pakerti — WMS PWA"
 
 source_overrides:

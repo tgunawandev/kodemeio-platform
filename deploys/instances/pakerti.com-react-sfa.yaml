@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/react-pwa.yaml
 
 instance:
-  name: pakerti-react-sfa
+  name: react-sfa-tpp
   description: "Pakerti — SFA PWA"
 
 source_overrides:

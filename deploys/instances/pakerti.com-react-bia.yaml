@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/react-pwa.yaml
 
 instance:
-  name: pakerti-react-bia
+  name: react-bia-tpp
   description: "Pakerti — BIA PWA"
 
 source_overrides:

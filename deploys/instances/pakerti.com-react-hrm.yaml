@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/react-pwa.yaml
 
 instance:
-  name: pakerti-react-hrm
+  name: react-hrm-tpp
   description: "Pakerti — HRM PWA"
 
 source_overrides:
