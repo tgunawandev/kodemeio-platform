@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -124,6 +125,31 @@ def delete(
     c = ctx.obj
     c.client.delete(f"core/applications/{slug}/")
     c.output.success(f"Deleted application '{slug}'")
+
+
+@app.command("set-icon")
+def set_icon(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Application slug")],
+    source: Annotated[str, typer.Argument(help="Local file path or URL")],
+) -> None:
+    """Set application icon from a local file or URL."""
+    c = ctx.obj
+    if source.startswith("http://") or source.startswith("https://"):
+        c.client.patch(f"core/applications/{slug}/", data={"meta_icon": source})
+        c.output.success(f"Icon set for '{slug}' from URL")
+    else:
+        path = Path(source)
+        if not path.exists():
+            c.output.error(f"File not found: {source}")
+            raise typer.Exit(1)
+        content_type = "image/png" if path.suffix == ".png" else "image/svg+xml"
+        with open(path, "rb") as f:
+            c.client.patch_multipart(
+                f"core/applications/{slug}/",
+                files={"meta_icon": (path.name, f, content_type)},
+            )
+        c.output.success(f"Icon uploaded for '{slug}' from {path.name}")
 
 
 @app.command("launch-urls")

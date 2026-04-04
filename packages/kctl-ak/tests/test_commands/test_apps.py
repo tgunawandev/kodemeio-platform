@@ -44,3 +44,11 @@ class TestAppsOrphaned:
         result = runner.invoke(app, ["apps", "orphaned", "--help"])
         assert result.exit_code == 0
         assert "no" in result.output.lower() or "provider" in result.output.lower()
+
+
+class TestAppsSetIcon:
+    def test_set_icon_help(self) -> None:
+        result = runner.invoke(app, ["apps", "set-icon", "--help"])
+        assert result.exit_code == 0
+        assert "slug" in result.output.lower()
+        assert "source" in result.output.lower()
