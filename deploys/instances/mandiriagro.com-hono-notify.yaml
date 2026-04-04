@@ -1,0 +1,47 @@
+kind: instance
+extends: ../bases/infra.yaml
+
+instance:
+  name: notify-mac
+  description: "Notification dispatch service (FCM push + SSE real-time + Telegram)"
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-react
+  branch: main
+  compose_path: apps/api/notify/docker-compose.yml
+
+server: kodeme-service
+project: mandiriagro.com
+
+healthcheck:
+  path: /health
+  port: 3020
+  expected_status: 200
+  timeout: 60
+  interval: 10
+
+dns:
+  zone: mandiriagro.com
+  name: notify-mac
+  # content auto-resolved from server IP
+
+domain:
+  host: notify-mac.mandiriagro.com
+  port: 3020
+  service: notify
+  https: true
+
+env_overrides:
+  NODE_ENV: production
+  PORT: "3020"
+  DATABASE_URL: "postgresql://kodemeio:${DB_PASSWORD}@postgres:5432/kodemeio"
+  REDIS_URL: "redis://redis:6379"
+  DISPATCH_SECRET: "${DISPATCH_SECRET}"
+  JWT_SECRET: "${JWT_SECRET}"
+  ALLOWED_ORIGINS: "https://sfa.mandiriagro.com,https://lfa.mandiriagro.com,https://shop.mandiriagro.com,https://wms.mandiriagro.com,https://bia.mandiriagro.com,https://eam.mandiriagro.com,https://mrp.mandiriagro.com,https://hrm.mandiriagro.com,https://tpm.mandiriagro.com,https://dms.mandiriagro.com,https://saas.mandiriagro.com"
+  FIREBASE_SERVICE_ACCOUNT_JSON: "${FIREBASE_SERVICE_ACCOUNT_JSON}"
+
+backup:
+  enabled: false

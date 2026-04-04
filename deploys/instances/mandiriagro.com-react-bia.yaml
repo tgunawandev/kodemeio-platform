@@ -1,0 +1,30 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+
+instance:
+  name: react-bia-mac
+  description: "MAC Customer — BIA PWA"
+
+project: mandiriagro.com
+
+source_overrides:
+  compose_path: ./compose/docker-compose.bia.yml
+
+dns:
+  zone: mandiriagro.com
+  name: bia-mac
+
+domain:
+  host: bia-mac.mandiriagro.com
+  port: 80
+  service: bia
+  https: true
+
+env_file: ../env/mandiriagro.com-react-bia.env
+
+env_overrides:
+  VITE_BIA_APP_NAME: "MAC BIA"
+  VITE_BIA_API_BASE_URL: "https://odoo-dist-mac.mandiriagro.com/bia/api"
+  VITE_AUTH_MODE: "native"
+  VITE_BIA_OIDC_CLIENT_ID: ""
+  VITE_BIA_OIDC_REDIRECT_URI: ""

@@ -1,0 +1,28 @@
+kind: instance
+extends: ../bases/nextjs.yaml
+
+instance:
+  name: careers-mac
+  description: "MAC Customer — Careers Portal (recruitment)"
+
+source_overrides:
+  compose_path: compose/docker-compose.prod.careers.yml
+
+project: mandiriagro.com
+
+healthcheck:
+  port: 4002
+
+dns:
+  zone: mandiriagro.com
+  name: careers-mac
+
+domain:
+  host: careers-mac.mandiriagro.com
+  port: 4002
+  service: careers
+  https: true
+
+env_overrides:
+  NEXT_PUBLIC_SITE_URL: "https://careers-mac.mandiriagro.com"
+  API_URL: "https://odoo-hrms-mac.mandiriagro.com"

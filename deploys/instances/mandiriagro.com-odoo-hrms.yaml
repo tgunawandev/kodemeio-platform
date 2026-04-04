@@ -8,14 +8,15 @@ instance:
 project: mandiriagro.com
 
 dns:
-  zone: kodeme.io
+  zone: mandiriagro.com
   name: odoo-hrms-mac
 
 domain:
-  host: odoo-hrms-mac.kodeme.io
+  host: odoo-hrms-mac.mandiriagro.com
   port: 8069
   service: odoo-web
   https: true
+  cert: letsencrypt
 
 database:
   name: odoo_hrms_mac
@@ -29,7 +30,7 @@ env_overrides:
   PGDATABASE: odoo_hrms_mac
   PGUSER: odoo
   ODOO_DB_FILTER: "^odoo_hrms_mac$"
-  DOMAIN: odoo-hrms-mac.kodeme.io
+  DOMAIN: odoo-hrms-mac.mandiriagro.com
   ODOO_WORKERS: "2"
 
 post_deploy:

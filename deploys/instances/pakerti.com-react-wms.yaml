@@ -24,7 +24,7 @@ env_file: ../env/pakerti.com-react-wms.env
 
 env_overrides:
   VITE_WMS_APP_NAME: "Pakerti WMS"
-  VITE_WMS_API_BASE_URL: "https://odoo-trading-tpp.kodeme.io/wms/api"
+  VITE_WMS_API_BASE_URL: "https://odoo-trad-tpp.kodeme.io/wms/api"
   VITE_AUTH_MODE: "native"
   VITE_WMS_OIDC_CLIENT_ID: ""
   VITE_WMS_OIDC_REDIRECT_URI: ""

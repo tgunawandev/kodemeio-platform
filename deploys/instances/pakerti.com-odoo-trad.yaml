@@ -2,34 +2,34 @@ kind: instance
 extends: ../bases/odoo.yaml
 
 instance:
-  name: odoo-trading-tpp
+  name: odoo-trad-tpp
   description: "TPP — Trading (import/export, multi-currency, landed costs)"
 
 project: pakerti.com
 
 dns:
   zone: kodeme.io
-  name: odoo-trading-tpp
+  name: odoo-trad-tpp
 
 domain:
-  host: odoo-trading-tpp.kodeme.io
+  host: odoo-trad-tpp.kodeme.io
   port: 8069
   service: odoo-web
   https: true
 
 database:
-  name: odoo_trading_tpp
+  name: odoo_trad_tpp
   user: odoo
 
-env_file: ../env/pakerti.com-odoo-trading.env
+env_file: ../env/pakerti.com-odoo-trad.env
 
 env_overrides:
-  COMPOSE_PROJECT_NAME: odoo-trading-tpp
+  COMPOSE_PROJECT_NAME: odoo-trad-tpp
   TENANT: tpp
-  PGDATABASE: odoo_trading_tpp
+  PGDATABASE: odoo_trad_tpp
   PGUSER: odoo
-  ODOO_DB_FILTER: "^odoo_trading_tpp$"
-  DOMAIN: odoo-trading-tpp.kodeme.io
+  ODOO_DB_FILTER: "^odoo_trad_tpp$"
+  DOMAIN: odoo-trad-tpp.kodeme.io
 
 post_deploy:
   odoo_profile: profile-trading
