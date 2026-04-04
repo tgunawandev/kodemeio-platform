@@ -310,6 +310,10 @@ def gen_nextjs_careers(tenant: dict) -> tuple[str, str, str, str]:
         },
         "env_overrides": {
             "NEXT_PUBLIC_SITE_URL": f"https://careers-{code}.{domain}",
+            "NEXT_PUBLIC_SITE_NAME": name,
+            "NEXT_PUBLIC_COMPANY_WEBSITE": f"https://{domain}",
+            "NEXT_PUBLIC_API_URL": f"https://odoo-hrms-{code}.{domain}",
+            "NEXT_PUBLIC_RECRUITMENT_API_URL": f"https://odoo-hrms-{code}.{domain}/recruitment/api",
             "API_URL": f"https://odoo-hrms-{code}.{domain}",
         },
     }
@@ -317,6 +321,10 @@ def gen_nextjs_careers(tenant: dict) -> tuple[str, str, str, str]:
     env_content = (
         f"NODE_ENV=production\n"
         f"NEXT_PUBLIC_SITE_URL=https://careers-{code}.{domain}\n"
+        f"NEXT_PUBLIC_SITE_NAME={name}\n"
+        f"NEXT_PUBLIC_COMPANY_WEBSITE=https://{domain}\n"
+        f"NEXT_PUBLIC_API_URL=https://odoo-hrms-{code}.{domain}\n"
+        f"NEXT_PUBLIC_RECRUITMENT_API_URL=https://odoo-hrms-{code}.{domain}/recruitment/api\n"
         f"API_URL=https://odoo-hrms-{code}.{domain}\n"
         f"TZ=Asia/Jakarta\n"
     )

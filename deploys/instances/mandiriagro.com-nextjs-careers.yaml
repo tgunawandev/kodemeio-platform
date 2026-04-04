@@ -19,4 +19,8 @@ domain:
   https: true
 env_overrides:
   NEXT_PUBLIC_SITE_URL: https://careers-mac.mandiriagro.com
+  NEXT_PUBLIC_SITE_NAME: Mandiri Agro
+  NEXT_PUBLIC_COMPANY_WEBSITE: https://mandiriagro.com
+  NEXT_PUBLIC_API_URL: https://odoo-hrms-mac.mandiriagro.com
+  NEXT_PUBLIC_RECRUITMENT_API_URL: https://odoo-hrms-mac.mandiriagro.com/recruitment/api
   API_URL: https://odoo-hrms-mac.mandiriagro.com
