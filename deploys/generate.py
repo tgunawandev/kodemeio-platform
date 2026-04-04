@@ -55,7 +55,13 @@ def load_tenant(path: Path) -> dict:
 
 
 def gen_react_pwa(
-    tenant: dict, odoo_entry: dict, app: str
+    tenant: dict,
+    odoo_entry: dict,
+    app: str,
+    env_name: str = "production",
+    server: str = "",
+    dns_prefix: str = "",
+    db_prefix: str = "",
 ) -> tuple[str, str, str, str | None]:
     """Generate react-pwa instance YAML + env content.
 
@@ -70,40 +76,47 @@ def gen_react_pwa(
     yaml_filename = f"{code}-react-{app}.yaml"
     env_filename = f".env.{code}-react-{app}"
 
-    instance = {
+    instance: dict = {
         "kind": "instance",
-        "extends": "../bases/react-pwa.yaml",
+        "extends": "../../bases/react-pwa.yaml",
         "instance": {
             "name": f"{code}-react-{app}",
             "description": f"{display} — {app_upper} PWA",
         },
         "project": code,
-        "source_overrides": {
-            "compose_path": f"compose/docker-compose.{app}.yml",
-        },
-        "dns": {
-            "zone": domain,
-            "name": f"{code}-{app}",
-        },
-        "domain": {
-            "host": f"{code}-{app}.{domain}",
-            "port": 80,
-            "service": app,
-            "https": True,
-        },
-        "env_file": f"../env/{env_filename}",
-        "env_overrides": {
-            f"VITE_{app_upper}_APP_NAME": f"{display} {app_upper}",
-            f"VITE_{app_upper}_API_BASE_URL": f"https://{code}-odoo-{short}.{domain}/{app}/api",
-            "VITE_AUTH_MODE": "native",
-            f"VITE_{app_upper}_OIDC_CLIENT_ID": "",
-            f"VITE_{app_upper}_OIDC_REDIRECT_URI": "",
-        },
+        "environment": env_name,
     }
+    if server:
+        instance["server"] = server
+    instance.update(
+        {
+            "source_overrides": {
+                "compose_path": f"compose/docker-compose.{app}.yml",
+            },
+            "dns": {
+                "zone": domain,
+                "name": f"{dns_prefix}{code}-{app}",
+            },
+            "domain": {
+                "host": f"{dns_prefix}{code}-{app}.{domain}",
+                "port": 80,
+                "service": app,
+                "https": True,
+            },
+            "env_file": f"../../env/{env_name}/{env_filename}",
+            "env_overrides": {
+                f"VITE_{app_upper}_APP_NAME": f"{display} {app_upper}",
+                f"VITE_{app_upper}_API_BASE_URL": f"https://{dns_prefix}{code}-odoo-{short}.{domain}/{app}/api",
+                "VITE_AUTH_MODE": "native",
+                f"VITE_{app_upper}_OIDC_CLIENT_ID": "",
+                f"VITE_{app_upper}_OIDC_REDIRECT_URI": "",
+            },
+        }
+    )
 
     env_content = (
         f"VITE_{app_upper}_APP_NAME={display} {app_upper}\n"
-        f"VITE_{app_upper}_API_BASE_URL=https://{code}-odoo-{short}.{domain}/{app}/api\n"
+        f"VITE_{app_upper}_API_BASE_URL=https://{dns_prefix}{code}-odoo-{short}.{domain}/{app}/api\n"
         f"VITE_AUTH_MODE=native\n"
         f"VITE_OIDC_AUTHORITY=\n"
         f"VITE_{app_upper}_OIDC_CLIENT_ID=\n"
@@ -114,7 +127,14 @@ def gen_react_pwa(
     return yaml_filename, yaml_dump(instance), env_filename, env_content
 
 
-def gen_odoo(tenant: dict, odoo_entry: dict) -> tuple[str, str, str, str]:
+def gen_odoo(
+    tenant: dict,
+    odoo_entry: dict,
+    env_name: str = "production",
+    server: str = "",
+    dns_prefix: str = "",
+    db_prefix: str = "",
+) -> tuple[str, str, str, str]:
     """Generate odoo instance YAML + env.example content.
 
     Returns (yaml_filename, yaml_content, env_example_filename, env_example_content).
@@ -126,61 +146,70 @@ def gen_odoo(tenant: dict, odoo_entry: dict) -> tuple[str, str, str, str]:
     short = odoo_entry["short"]
     description = odoo_entry.get("description", profile)
     workers = odoo_entry.get("workers", 4)
-    db_name = f"{code}_odoo_{short}"
+    db_name = f"{db_prefix}{code}_odoo_{short}"
+    dns_name = f"{dns_prefix}{code}-odoo-{short}"
+    host = f"{dns_prefix}{code}-odoo-{short}.{domain}"
 
     yaml_filename = f"{code}-odoo-{short}.yaml"
     env_example_filename = f".env.{code}-odoo-{short}.example"
 
-    instance = {
+    instance: dict = {
         "kind": "instance",
-        "extends": "../bases/odoo.yaml",
+        "extends": "../../bases/odoo.yaml",
         "instance": {
             "name": f"{code}-odoo-{short}",
             "description": f"{display} — {description}",
         },
         "project": code,
-        "dns": {
-            "zone": domain,
-            "name": f"{code}-odoo-{short}",
-        },
-        "domain": {
-            "host": f"{code}-odoo-{short}.{domain}",
-            "port": 8069,
-            "service": "odoo-web",
-            "https": True,
-            "cert": "letsencrypt",
-        },
-        "database": {
-            "name": db_name,
-            "user": "odoo",
-        },
-        "env_file": f"../env/.env.{code}-odoo-{short}",
-        "env_overrides": {
-            "COMPOSE_PROJECT_NAME": f"{code}-odoo-{short}",
-            "TENANT": code,
-            "PGDATABASE": db_name,
-            "PGUSER": "odoo",
-            "ODOO_DB_FILTER": f"^{db_name}$",
-            "DOMAIN": f"{code}-odoo-{short}.{domain}",
-            "ODOO_WORKERS": str(workers),
-        },
-        "post_deploy": {
-            "odoo_profile": f"profile-{profile}",
-        },
+        "environment": env_name,
     }
+    if server:
+        instance["server"] = server
+    instance.update(
+        {
+            "dns": {
+                "zone": domain,
+                "name": dns_name,
+            },
+            "domain": {
+                "host": host,
+                "port": 8069,
+                "service": "odoo-web",
+                "https": True,
+                "cert": "letsencrypt",
+            },
+            "database": {
+                "name": db_name,
+                "user": "odoo",
+            },
+            "env_file": f"../../env/{env_name}/.env.{code}-odoo-{short}",
+            "env_overrides": {
+                "COMPOSE_PROJECT_NAME": f"{code}-odoo-{short}",
+                "TENANT": code,
+                "PGDATABASE": db_name,
+                "PGUSER": "odoo",
+                "ODOO_DB_FILTER": f"^{db_name}$",
+                "DOMAIN": host,
+                "ODOO_WORKERS": str(workers),
+            },
+            "post_deploy": {
+                "odoo_profile": f"profile-{profile}",
+            },
+        }
+    )
 
     env_example = (
         f"# =============================================================================\n"
-        f"# {display} {description} — Production Environment\n"
+        f"# {display} {description} — {env_name.title()} Environment\n"
         f"# =============================================================================\n"
-        f"# Instance: {code}-odoo-{short}.{domain}\n"
+        f"# Instance: {host}\n"
         f"# Profile:  {profile}\n"
         f"# =============================================================================\n"
         f"\n"
         f"# PROJECT IDENTIFICATION\n"
         f"COMPOSE_PROJECT_NAME={code}-odoo-{short}\n"
         f"TENANT={code}\n"
-        f"DOMAIN={code}-odoo-{short}.{domain}\n"
+        f"DOMAIN={host}\n"
         f"\n"
         f"# DATABASE\n"
         f"PGHOST=10.0.0.3\n"
@@ -196,7 +225,7 @@ def gen_odoo(tenant: dict, odoo_entry: dict) -> tuple[str, str, str, str]:
         f"ODOO_DB_NAME={db_name}\n"
         f"ODOO_LIST_DB=False\n"
         f"ODOO_INIT_DB=true\n"
-        f"RUNNING_ENV=production\n"
+        f"RUNNING_ENV={env_name}\n"
         f"WITHOUT_DEMO=True\n"
         f"ODOO_HTTP_PORT=8069\n"
         f"ODOO_GEVENT_PORT=8072\n"
@@ -241,7 +270,12 @@ def gen_odoo(tenant: dict, odoo_entry: dict) -> tuple[str, str, str, str]:
     return yaml_filename, yaml_dump(instance), env_example_filename, env_example
 
 
-def gen_nextjs_corporate(tenant: dict) -> tuple[str, str, str, str]:
+def gen_nextjs_corporate(
+    tenant: dict,
+    env_name: str = "production",
+    server: str = "",
+    dns_prefix: str = "",
+) -> tuple[str, str, str, str]:
     """Generate Next.js corporate website instance YAML + env."""
     code = tenant["code"]
     name = tenant["name"]
@@ -251,9 +285,17 @@ def gen_nextjs_corporate(tenant: dict) -> tuple[str, str, str, str]:
     yaml_filename = f"{code}-nextjs-web.yaml"
     env_filename = f".env.{code}-nextjs-web"
 
-    instance = {
+    # Production uses "@" (apex), staging uses prefixed subdomain
+    if dns_prefix:
+        dns_name = f"{dns_prefix}{code}-web"
+        host = f"{dns_prefix}{code}-web.{domain}"
+    else:
+        dns_name = "@"
+        host = domain
+
+    instance: dict = {
         "kind": "instance",
-        "extends": "../bases/nextjs.yaml",
+        "extends": "../../bases/nextjs.yaml",
         "instance": {
             "name": f"{code}-nextjs-web",
             "description": f"{name} company website",
@@ -262,39 +304,53 @@ def gen_nextjs_corporate(tenant: dict) -> tuple[str, str, str, str]:
             "compose_path": f"compose/docker-compose.{compose_brand}.yml",
         },
         "project": code,
-        "dns": {
-            "zone": domain,
-            "name": "@",
-        },
-        "domain": {
-            "host": domain,
-            "port": 3000,
-            "service": f"{compose_brand}-web",
-            "https": True,
-            "cert": "letsencrypt",
-        },
-        "env_file": f"../env/{env_filename}",
+        "environment": env_name,
     }
+    if server:
+        instance["server"] = server
+    instance.update(
+        {
+            "dns": {
+                "zone": domain,
+                "name": dns_name,
+            },
+            "domain": {
+                "host": host,
+                "port": 3000,
+                "service": f"{compose_brand}-web",
+                "https": True,
+                "cert": "letsencrypt",
+            },
+            "env_file": f"../../env/{env_name}/{env_filename}",
+        }
+    )
 
     env_content = (
-        f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{domain}\nTZ=Asia/Jakarta\n"
+        f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{host}\nTZ=Asia/Jakarta\n"
     )
 
     return yaml_filename, yaml_dump(instance), env_filename, env_content
 
 
-def gen_nextjs_careers(tenant: dict) -> tuple[str, str, str, str]:
+def gen_nextjs_careers(
+    tenant: dict,
+    env_name: str = "production",
+    server: str = "",
+    dns_prefix: str = "",
+) -> tuple[str, str, str, str]:
     """Generate Next.js careers portal instance YAML + env."""
     code = tenant["code"]
     name = tenant["name"]
     domain = tenant["domain"]
+    dns_name = f"{dns_prefix}{code}-careers"
+    host = f"{dns_prefix}{code}-careers.{domain}"
 
     yaml_filename = f"{code}-nextjs-careers.yaml"
     env_filename = f".env.{code}-nextjs-careers"
 
-    instance = {
+    instance: dict = {
         "kind": "instance",
-        "extends": "../bases/nextjs.yaml",
+        "extends": "../../bases/nextjs.yaml",
         "instance": {
             "name": f"{code}-nextjs-careers",
             "description": f"{name} — Careers Portal (recruitment)",
@@ -303,48 +359,62 @@ def gen_nextjs_careers(tenant: dict) -> tuple[str, str, str, str]:
             "compose_path": "compose/docker-compose.prod.careers.yml",
         },
         "project": code,
-        "healthcheck": {
-            "port": 3000,
-        },
-        "dns": {
-            "zone": domain,
-            "name": f"{code}-careers",
-        },
-        "domain": {
-            "host": f"{code}-careers.{domain}",
-            "port": 3000,
-            "service": "careers",
-            "https": True,
-        },
-        "env_overrides": {
-            "NEXT_PUBLIC_SITE_URL": f"https://{code}-careers.{domain}",
-            "NEXT_PUBLIC_SITE_NAME": name,
-            "NEXT_PUBLIC_COMPANY_WEBSITE": f"https://{domain}",
-            "NEXT_PUBLIC_API_URL": f"https://{code}-odoo-hrms.{domain}",
-            "NEXT_PUBLIC_RECRUITMENT_API_URL": f"https://{code}-odoo-hrms.{domain}/recruitment/api",
-            "API_URL": f"https://{code}-odoo-hrms.{domain}",
-        },
+        "environment": env_name,
     }
+    if server:
+        instance["server"] = server
+    instance.update(
+        {
+            "healthcheck": {
+                "port": 3000,
+            },
+            "dns": {
+                "zone": domain,
+                "name": dns_name,
+            },
+            "domain": {
+                "host": host,
+                "port": 3000,
+                "service": "careers",
+                "https": True,
+            },
+            "env_overrides": {
+                "NEXT_PUBLIC_SITE_URL": f"https://{host}",
+                "NEXT_PUBLIC_SITE_NAME": name,
+                "NEXT_PUBLIC_COMPANY_WEBSITE": f"https://{domain}",
+                "NEXT_PUBLIC_API_URL": f"https://{dns_prefix}{code}-odoo-hrms.{domain}",
+                "NEXT_PUBLIC_RECRUITMENT_API_URL": f"https://{dns_prefix}{code}-odoo-hrms.{domain}/recruitment/api",
+                "API_URL": f"https://{dns_prefix}{code}-odoo-hrms.{domain}",
+            },
+        }
+    )
 
     env_content = (
         f"NODE_ENV=production\n"
-        f"NEXT_PUBLIC_SITE_URL=https://{code}-careers.{domain}\n"
+        f"NEXT_PUBLIC_SITE_URL=https://{host}\n"
         f"NEXT_PUBLIC_SITE_NAME={name}\n"
         f"NEXT_PUBLIC_COMPANY_WEBSITE=https://{domain}\n"
-        f"NEXT_PUBLIC_API_URL=https://{code}-odoo-hrms.{domain}\n"
-        f"NEXT_PUBLIC_RECRUITMENT_API_URL=https://{code}-odoo-hrms.{domain}/recruitment/api\n"
-        f"API_URL=https://{code}-odoo-hrms.{domain}\n"
+        f"NEXT_PUBLIC_API_URL=https://{dns_prefix}{code}-odoo-hrms.{domain}\n"
+        f"NEXT_PUBLIC_RECRUITMENT_API_URL=https://{dns_prefix}{code}-odoo-hrms.{domain}/recruitment/api\n"
+        f"API_URL=https://{dns_prefix}{code}-odoo-hrms.{domain}\n"
         f"TZ=Asia/Jakarta\n"
     )
 
     return yaml_filename, yaml_dump(instance), env_filename, env_content
 
 
-def gen_notify(tenant: dict) -> tuple[str, str, str, str]:
+def gen_notify(
+    tenant: dict,
+    env_name: str = "production",
+    server: str = "",
+    dns_prefix: str = "",
+) -> tuple[str, str, str, str]:
     """Generate notify service instance YAML + env.example."""
     code = tenant["code"]
     name = tenant["name"]
     domain = tenant["domain"]
+    dns_name = f"{dns_prefix}{code}-notify"
+    host = f"{dns_prefix}{code}-notify.{domain}"
 
     yaml_filename = f"{code}-hono-notify.yaml"
     env_example_filename = f".env.{code}-hono-notify.example"
@@ -353,12 +423,12 @@ def gen_notify(tenant: dict) -> tuple[str, str, str, str]:
     all_apps = []
     for odoo_entry in tenant.get("_odoo_entries", []):
         for app in odoo_entry.get("apps", []):
-            all_apps.append(f"https://{code}-{app}.{domain}")
+            all_apps.append(f"https://{dns_prefix}{code}-{app}.{domain}")
     allowed_origins = ",".join(all_apps)
 
-    instance = {
+    instance: dict = {
         "kind": "instance",
-        "extends": "../bases/infra.yaml",
+        "extends": "../../bases/infra.yaml",
         "instance": {
             "name": f"{code}-hono-notify",
             "description": "Notification dispatch service (FCM push + SSE real-time + Telegram)",
@@ -370,39 +440,47 @@ def gen_notify(tenant: dict) -> tuple[str, str, str, str]:
             "branch": "main",
             "compose_path": "apps/api/notify/docker-compose.yml",
         },
-        "server": "kodeme-service",
         "project": code,
-        "healthcheck": {
-            "path": "/health",
-            "port": 3020,
-            "expected_status": 200,
-            "timeout": 60,
-            "interval": 10,
-        },
-        "dns": {
-            "zone": domain,
-            "name": f"{code}-notify",
-        },
-        "domain": {
-            "host": f"{code}-notify.{domain}",
-            "port": 3020,
-            "service": "notify",
-            "https": True,
-        },
-        "env_overrides": {
-            "NODE_ENV": "production",
-            "PORT": "3020",
-            "DATABASE_URL": "postgresql://kodemeio:${DB_PASSWORD}@postgres:5432/kodemeio",
-            "REDIS_URL": "redis://redis:6379",
-            "DISPATCH_SECRET": "${DISPATCH_SECRET}",
-            "JWT_SECRET": "${JWT_SECRET}",
-            "ALLOWED_ORIGINS": allowed_origins,
-            "FIREBASE_SERVICE_ACCOUNT_JSON": "${FIREBASE_SERVICE_ACCOUNT_JSON}",
-        },
-        "backup": {
-            "enabled": False,
-        },
+        "environment": env_name,
     }
+    if server:
+        instance["server"] = server
+    else:
+        instance["server"] = "kodeme-service"
+    instance.update(
+        {
+            "healthcheck": {
+                "path": "/health",
+                "port": 3020,
+                "expected_status": 200,
+                "timeout": 60,
+                "interval": 10,
+            },
+            "dns": {
+                "zone": domain,
+                "name": dns_name,
+            },
+            "domain": {
+                "host": host,
+                "port": 3020,
+                "service": "notify",
+                "https": True,
+            },
+            "env_overrides": {
+                "NODE_ENV": "production",
+                "PORT": "3020",
+                "DATABASE_URL": "postgresql://kodemeio:${DB_PASSWORD}@postgres:5432/kodemeio",
+                "REDIS_URL": "redis://redis:6379",
+                "DISPATCH_SECRET": "${DISPATCH_SECRET}",
+                "JWT_SECRET": "${JWT_SECRET}",
+                "ALLOWED_ORIGINS": allowed_origins,
+                "FIREBASE_SERVICE_ACCOUNT_JSON": "${FIREBASE_SERVICE_ACCOUNT_JSON}",
+            },
+            "backup": {
+                "enabled": False,
+            },
+        }
+    )
 
     env_example = (
         f"# Notify service for {name}\n"
@@ -439,39 +517,63 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
     header = HEADER.format(code=code)
     files: list[tuple[Path, str]] = []
 
-    # --- React PWAs + Odoo instances ---
-    for odoo_entry in raw.get("odoo", []):
-        # Odoo instance
-        y_name, y_content, e_name, e_content = gen_odoo(t, odoo_entry)
-        files.append((INSTANCES_DIR / y_name, header + y_content))
-        files.append((ENV_DIR / e_name, e_content))
+    environments = raw.get(
+        "environments",
+        {
+            "production": {"server": "", "dns_prefix": "", "db_prefix": ""},
+        },
+    )
 
-        # React PWAs for this Odoo
-        for app in odoo_entry.get("apps", []):
-            y_name, y_content, e_name, e_content = gen_react_pwa(t, odoo_entry, app)
-            files.append((INSTANCES_DIR / y_name, header + y_content))
-            files.append((ENV_DIR / e_name, e_content))
+    for env_name, env_config in environments.items():
+        server = env_config.get("server", "")
+        dns_prefix = env_config.get("dns_prefix", "")
+        db_prefix = env_config.get("db_prefix", "")
+        inst_dir = INSTANCES_DIR / env_name
+        env_dir = ENV_DIR / env_name
 
-    # --- Next.js corporate ---
-    web = raw.get("web", {})
-    if "corporate" in web:
-        t["_web_corporate_brand"] = web["corporate"]["compose_brand"]
-        y_name, y_content, e_name, e_content = gen_nextjs_corporate(t)
-        files.append((INSTANCES_DIR / y_name, header + y_content))
-        files.append((ENV_DIR / e_name, e_content))
+        # --- React PWAs + Odoo instances ---
+        for odoo_entry in raw.get("odoo", []):
+            # Odoo instance
+            y_name, y_content, e_name, e_content = gen_odoo(
+                t, odoo_entry, env_name, server, dns_prefix, db_prefix
+            )
+            files.append((inst_dir / y_name, header + y_content))
+            files.append((env_dir / e_name, e_content))
 
-    # --- Next.js careers ---
-    if web.get("careers"):
-        y_name, y_content, e_name, e_content = gen_nextjs_careers(t)
-        files.append((INSTANCES_DIR / y_name, header + y_content))
-        files.append((ENV_DIR / e_name, e_content))
+            # React PWAs for this Odoo
+            for app in odoo_entry.get("apps", []):
+                y_name, y_content, e_name, e_content = gen_react_pwa(
+                    t, odoo_entry, app, env_name, server, dns_prefix, db_prefix
+                )
+                files.append((inst_dir / y_name, header + y_content))
+                files.append((env_dir / e_name, e_content))
 
-    # --- Notify ---
-    services = raw.get("services", {})
-    if services.get("notify"):
-        y_name, y_content, e_name, e_content = gen_notify(t)
-        files.append((INSTANCES_DIR / y_name, header + y_content))
-        files.append((ENV_DIR / e_name, e_content))
+        # --- Next.js corporate ---
+        web = raw.get("web", {})
+        if "corporate" in web:
+            t["_web_corporate_brand"] = web["corporate"]["compose_brand"]
+            y_name, y_content, e_name, e_content = gen_nextjs_corporate(
+                t, env_name, server, dns_prefix
+            )
+            files.append((inst_dir / y_name, header + y_content))
+            files.append((env_dir / e_name, e_content))
+
+        # --- Next.js careers ---
+        if web.get("careers"):
+            y_name, y_content, e_name, e_content = gen_nextjs_careers(
+                t, env_name, server, dns_prefix
+            )
+            files.append((inst_dir / y_name, header + y_content))
+            files.append((env_dir / e_name, e_content))
+
+        # --- Notify ---
+        services = raw.get("services", {})
+        if services.get("notify"):
+            y_name, y_content, e_name, e_content = gen_notify(
+                t, env_name, server, dns_prefix
+            )
+            files.append((inst_dir / y_name, header + y_content))
+            files.append((env_dir / e_name, e_content))
 
     return files
 
@@ -523,6 +625,7 @@ def main() -> None:
     unchanged = 0
 
     for path, content in all_files:
+        path.parent.mkdir(parents=True, exist_ok=True)
         is_example = path.name.endswith(".example")
         existing_secret_env = not is_example and is_secret_env(path) and path.exists()
 
