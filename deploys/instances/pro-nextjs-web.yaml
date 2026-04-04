@@ -12,14 +12,14 @@ source_overrides:
 
 domain:
   host: provetics.com
-  port: 3005
+  port: 3000
   service: provetics
   https: true
   cert: letsencrypt
 
 healthcheck:
   path: /
-  port: 3005
+  port: 3000
   expected_status: 200
 
 env_file: ../env/pro-nextjs-web.env

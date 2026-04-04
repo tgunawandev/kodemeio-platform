@@ -8,13 +8,13 @@ source_overrides:
   compose_path: compose/docker-compose.prod.careers.yml
 project: mac
 healthcheck:
-  port: 4002
+  port: 3000
 dns:
   zone: mandiriagro.com
   name: mac-careers
 domain:
   host: mac-careers.mandiriagro.com
-  port: 4002
+  port: 3000
   service: careers
   https: true
 env_overrides:
