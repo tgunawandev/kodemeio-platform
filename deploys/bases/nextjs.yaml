@@ -1,12 +1,12 @@
 # Naming convention for instances:
-#   File:     nextjs-{app}-{customer}.yaml  or  nextjs-{app}.yaml
-#   Instance: {app}-web
-#   Domain:   {app}.com  or  {subdomain}.kodeme.io
+#   File:     {tenant}-nextjs-{app}.yaml
+#   Instance: {tenant}-web
+#   Domain:   {domain}  or  {tenant}-{app}.{domain}
 #
 # Examples:
-#   nextjs-terakidz       → terakidz-web       → terakidz.com
-#   nextjs-corporate      → corporate-web      → kodeme.io
-#   nextjs-provetics      → provetics-web      → provetics.com
+#   tkz-nextjs-web        → tkz-web            → terakidz.com
+#   kod-nextjs-web        → kod-web             → kodeme.io
+#   pro-nextjs-web        → pro-web             → provetics.com
 
 kind: base
 type: nextjs

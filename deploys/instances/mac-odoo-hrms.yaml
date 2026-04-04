@@ -19,7 +19,7 @@ database:
   user: odoo
 env_file: ../env/mac-odoo-hrms.env
 env_overrides:
-  COMPOSE_PROJECT_NAME: odoo-hrms-mac
+  COMPOSE_PROJECT_NAME: mac-odoo-hrms
   TENANT: mac
   PGDATABASE: odoo_hrms_mac
   PGUSER: odoo

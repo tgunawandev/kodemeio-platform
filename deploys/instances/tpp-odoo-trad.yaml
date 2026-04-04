@@ -19,7 +19,7 @@ database:
   user: odoo
 env_file: ../env/tpp-odoo-trad.env
 env_overrides:
-  COMPOSE_PROJECT_NAME: odoo-trad-tpp
+  COMPOSE_PROJECT_NAME: tpp-odoo-trad
   TENANT: tpp
   PGDATABASE: odoo_trad_tpp
   PGUSER: odoo

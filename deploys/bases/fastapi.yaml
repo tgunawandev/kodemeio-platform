@@ -1,12 +1,11 @@
 # Naming convention for instances:
-#   File:     fastapi-{app}.yaml
-#   Instance: {app}
-#   Domain:   {app}.kodeme.io  or  api.{domain}.com
+#   File:     {tenant}-fastapi-{app}.yaml
+#   Instance: {tenant}-{app}
+#   Domain:   {tenant}-{app}.{domain}  or  api.{domain}
 #
 # Examples:
-#   fastapi-api-main      → api-main       → api.kodeme.io
-#   fastapi-api-tms       → api-tms        → api.terakidz.com
-#   fastapi-ai-main       → ai-main        → ai.kodeme.io
+#   tkz-fastapi-api-tms   → tkz-api-tms    → api.terakidz.com
+#   kod-fastapi-api       → kod-api        → api.kodeme.io
 
 kind: base
 type: fastapi

@@ -19,7 +19,7 @@ database:
   user: odoo
 env_file: ../env/mac-odoo-dist.env
 env_overrides:
-  COMPOSE_PROJECT_NAME: odoo-dist-mac
+  COMPOSE_PROJECT_NAME: mac-odoo-dist
   TENANT: mac
   PGDATABASE: odoo_dist_mac
   PGUSER: odoo

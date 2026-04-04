@@ -2,7 +2,7 @@
 # Odoo Company Setup — CV Mandiri Agro Cemerlang (MAC)
 # =============================================================================
 # Profile: distribution
-# Instance: odoo-dist-mac.mandiriagro.com
+# Instance: mac-odoo-dist.mandiriagro.com
 # Database: odoo_dist_mac
 #
 # Usage:
@@ -21,7 +21,7 @@ company:
   currency: IDR
   timezone: Asia/Jakarta
   language: id_ID
-  base_url: "https://odoo-dist-mac.mandiriagro.com"
+  base_url: "https://mac-odoo-dist.mandiriagro.com"
   catchall_domain: "mandiriagro.com"
 
 operating_units:

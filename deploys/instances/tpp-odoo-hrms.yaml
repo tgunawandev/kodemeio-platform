@@ -19,7 +19,7 @@ database:
   user: odoo
 env_file: ../env/tpp-odoo-hrms.env
 env_overrides:
-  COMPOSE_PROJECT_NAME: odoo-hrms-tpp
+  COMPOSE_PROJECT_NAME: tpp-odoo-hrms
   TENANT: tpp
   PGDATABASE: odoo_hrms_tpp
   PGUSER: odoo
