@@ -2,7 +2,7 @@
 kind: instance
 extends: ../bases/infra.yaml
 instance:
-  name: mac-notify
+  name: mac-hono-notify
   description: Notification dispatch service (FCM push + SSE real-time + Telegram)
 source_overrides:
   type: github

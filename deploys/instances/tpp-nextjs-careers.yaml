@@ -2,7 +2,7 @@
 kind: instance
 extends: ../bases/nextjs.yaml
 instance:
-  name: tpp-careers
+  name: tpp-nextjs-careers
   description: Pakerti — Careers Portal (recruitment)
 source_overrides:
   compose_path: compose/docker-compose.prod.careers.yml

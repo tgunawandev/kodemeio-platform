@@ -25,6 +25,15 @@ ENV_DIR = DEPLOY_DIR / "env"
 HEADER = "# GENERATED FROM tenants/{code}.yaml — DO NOT EDIT\n"
 
 # ---------------------------------------------------------------------------
+# Naming convention: {tenant}-{stack}-{app}
+#
+#   Filename:      {tenant}-{stack}-{app}.yaml
+#   instance.name: {tenant}-{stack}-{app}
+#   DNS name:      {tenant}-{app}.{domain}
+#   Env file:      .env.{tenant}-{stack}-{app}
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
 # YAML helpers
 # ---------------------------------------------------------------------------
 
@@ -58,26 +67,26 @@ def gen_react_pwa(
     short = odoo_entry["short"]
     app_upper = app.upper()
 
-    yaml_filename = f"{domain}-react-{app}.yaml"
-    env_filename = f"{domain}-react-{app}.env"
+    yaml_filename = f"{code}-react-{app}.yaml"
+    env_filename = f".env.{code}-react-{app}"
 
     instance = {
         "kind": "instance",
         "extends": "../bases/react-pwa.yaml",
         "instance": {
-            "name": f"react-{app}-{code}",
+            "name": f"{code}-react-{app}",
             "description": f"{display} — {app_upper} PWA",
         },
-        "project": domain,
+        "project": code,
         "source_overrides": {
             "compose_path": f"compose/docker-compose.{app}.yml",
         },
         "dns": {
             "zone": domain,
-            "name": f"{app}-{code}",
+            "name": f"{code}-{app}",
         },
         "domain": {
-            "host": f"{app}-{code}.{domain}",
+            "host": f"{code}-{app}.{domain}",
             "port": 80,
             "service": app,
             "https": True,
@@ -85,7 +94,7 @@ def gen_react_pwa(
         "env_file": f"../env/{env_filename}",
         "env_overrides": {
             f"VITE_{app_upper}_APP_NAME": f"{display} {app_upper}",
-            f"VITE_{app_upper}_API_BASE_URL": f"https://odoo-{short}-{code}.{domain}/{app}/api",
+            f"VITE_{app_upper}_API_BASE_URL": f"https://{code}-odoo-{short}.{domain}/{app}/api",
             "VITE_AUTH_MODE": "native",
             f"VITE_{app_upper}_OIDC_CLIENT_ID": "",
             f"VITE_{app_upper}_OIDC_REDIRECT_URI": "",
@@ -94,7 +103,7 @@ def gen_react_pwa(
 
     env_content = (
         f"VITE_{app_upper}_APP_NAME={display} {app_upper}\n"
-        f"VITE_{app_upper}_API_BASE_URL=https://odoo-{short}-{code}.{domain}/{app}/api\n"
+        f"VITE_{app_upper}_API_BASE_URL=https://{code}-odoo-{short}.{domain}/{app}/api\n"
         f"VITE_AUTH_MODE=native\n"
         f"VITE_OIDC_AUTHORITY=\n"
         f"VITE_{app_upper}_OIDC_CLIENT_ID=\n"
@@ -117,25 +126,25 @@ def gen_odoo(tenant: dict, odoo_entry: dict) -> tuple[str, str, str, str]:
     short = odoo_entry["short"]
     description = odoo_entry.get("description", profile)
     workers = odoo_entry.get("workers", 4)
-    db_name = f"odoo_{short}_{code}"
+    db_name = f"{code}_odoo_{short}"
 
-    yaml_filename = f"{domain}-odoo-{short}.yaml"
-    env_example_filename = f"{domain}-odoo-{short}.env.example"
+    yaml_filename = f"{code}-odoo-{short}.yaml"
+    env_example_filename = f".env.{code}-odoo-{short}.example"
 
     instance = {
         "kind": "instance",
         "extends": "../bases/odoo.yaml",
         "instance": {
-            "name": f"odoo-{short}-{code}",
+            "name": f"{code}-odoo-{short}",
             "description": f"{display} — {description}",
         },
-        "project": domain,
+        "project": code,
         "dns": {
             "zone": domain,
-            "name": f"odoo-{short}-{code}",
+            "name": f"{code}-odoo-{short}",
         },
         "domain": {
-            "host": f"odoo-{short}-{code}.{domain}",
+            "host": f"{code}-odoo-{short}.{domain}",
             "port": 8069,
             "service": "odoo-web",
             "https": True,
@@ -145,14 +154,14 @@ def gen_odoo(tenant: dict, odoo_entry: dict) -> tuple[str, str, str, str]:
             "name": db_name,
             "user": "odoo",
         },
-        "env_file": f"../env/{domain}-odoo-{short}.env",
+        "env_file": f"../env/.env.{code}-odoo-{short}",
         "env_overrides": {
-            "COMPOSE_PROJECT_NAME": f"odoo-{short}-{code}",
+            "COMPOSE_PROJECT_NAME": f"{code}-odoo-{short}",
             "TENANT": code,
             "PGDATABASE": db_name,
             "PGUSER": "odoo",
             "ODOO_DB_FILTER": f"^{db_name}$",
-            "DOMAIN": f"odoo-{short}-{code}.{domain}",
+            "DOMAIN": f"{code}-odoo-{short}.{domain}",
             "ODOO_WORKERS": str(workers),
         },
         "post_deploy": {
@@ -164,14 +173,14 @@ def gen_odoo(tenant: dict, odoo_entry: dict) -> tuple[str, str, str, str]:
         f"# =============================================================================\n"
         f"# {display} {description} — Production Environment\n"
         f"# =============================================================================\n"
-        f"# Instance: odoo-{short}-{code}.{domain}\n"
+        f"# Instance: {code}-odoo-{short}.{domain}\n"
         f"# Profile:  {profile}\n"
         f"# =============================================================================\n"
         f"\n"
         f"# PROJECT IDENTIFICATION\n"
-        f"COMPOSE_PROJECT_NAME=odoo-{short}-{code}\n"
+        f"COMPOSE_PROJECT_NAME={code}-odoo-{short}\n"
         f"TENANT={code}\n"
-        f"DOMAIN=odoo-{short}-{code}.{domain}\n"
+        f"DOMAIN={code}-odoo-{short}.{domain}\n"
         f"\n"
         f"# DATABASE\n"
         f"PGHOST=10.0.0.3\n"
@@ -236,24 +245,23 @@ def gen_nextjs_corporate(tenant: dict) -> tuple[str, str, str, str]:
     """Generate Next.js corporate website instance YAML + env."""
     code = tenant["code"]
     name = tenant["name"]
-    display = tenant.get("short_name", name)
     domain = tenant["domain"]
     compose_brand = tenant["_web_corporate_brand"]
 
-    yaml_filename = f"{domain}-nextjs-web.yaml"
-    env_filename = f"{domain}-nextjs-web.env"
+    yaml_filename = f"{code}-nextjs-web.yaml"
+    env_filename = f".env.{code}-nextjs-web"
 
     instance = {
         "kind": "instance",
         "extends": "../bases/nextjs.yaml",
         "instance": {
-            "name": f"web-{code}",
+            "name": f"{code}-nextjs-web",
             "description": f"{name} company website",
         },
         "source_overrides": {
             "compose_path": f"compose/docker-compose.{compose_brand}.yml",
         },
-        "project": domain,
+        "project": code,
         "dns": {
             "zone": domain,
             "name": "@",
@@ -281,51 +289,51 @@ def gen_nextjs_careers(tenant: dict) -> tuple[str, str, str, str]:
     name = tenant["name"]
     domain = tenant["domain"]
 
-    yaml_filename = f"{domain}-nextjs-careers.yaml"
-    env_filename = f"{domain}-nextjs-careers.env"
+    yaml_filename = f"{code}-nextjs-careers.yaml"
+    env_filename = f".env.{code}-nextjs-careers"
 
     instance = {
         "kind": "instance",
         "extends": "../bases/nextjs.yaml",
         "instance": {
-            "name": f"careers-{code}",
+            "name": f"{code}-nextjs-careers",
             "description": f"{name} — Careers Portal (recruitment)",
         },
         "source_overrides": {
             "compose_path": "compose/docker-compose.prod.careers.yml",
         },
-        "project": domain,
+        "project": code,
         "healthcheck": {
-            "port": 4002,
+            "port": 3000,
         },
         "dns": {
             "zone": domain,
-            "name": f"careers-{code}",
+            "name": f"{code}-careers",
         },
         "domain": {
-            "host": f"careers-{code}.{domain}",
-            "port": 4002,
+            "host": f"{code}-careers.{domain}",
+            "port": 3000,
             "service": "careers",
             "https": True,
         },
         "env_overrides": {
-            "NEXT_PUBLIC_SITE_URL": f"https://careers-{code}.{domain}",
+            "NEXT_PUBLIC_SITE_URL": f"https://{code}-careers.{domain}",
             "NEXT_PUBLIC_SITE_NAME": name,
             "NEXT_PUBLIC_COMPANY_WEBSITE": f"https://{domain}",
-            "NEXT_PUBLIC_API_URL": f"https://odoo-hrms-{code}.{domain}",
-            "NEXT_PUBLIC_RECRUITMENT_API_URL": f"https://odoo-hrms-{code}.{domain}/recruitment/api",
-            "API_URL": f"https://odoo-hrms-{code}.{domain}",
+            "NEXT_PUBLIC_API_URL": f"https://{code}-odoo-hrms.{domain}",
+            "NEXT_PUBLIC_RECRUITMENT_API_URL": f"https://{code}-odoo-hrms.{domain}/recruitment/api",
+            "API_URL": f"https://{code}-odoo-hrms.{domain}",
         },
     }
 
     env_content = (
         f"NODE_ENV=production\n"
-        f"NEXT_PUBLIC_SITE_URL=https://careers-{code}.{domain}\n"
+        f"NEXT_PUBLIC_SITE_URL=https://{code}-careers.{domain}\n"
         f"NEXT_PUBLIC_SITE_NAME={name}\n"
         f"NEXT_PUBLIC_COMPANY_WEBSITE=https://{domain}\n"
-        f"NEXT_PUBLIC_API_URL=https://odoo-hrms-{code}.{domain}\n"
-        f"NEXT_PUBLIC_RECRUITMENT_API_URL=https://odoo-hrms-{code}.{domain}/recruitment/api\n"
-        f"API_URL=https://odoo-hrms-{code}.{domain}\n"
+        f"NEXT_PUBLIC_API_URL=https://{code}-odoo-hrms.{domain}\n"
+        f"NEXT_PUBLIC_RECRUITMENT_API_URL=https://{code}-odoo-hrms.{domain}/recruitment/api\n"
+        f"API_URL=https://{code}-odoo-hrms.{domain}\n"
         f"TZ=Asia/Jakarta\n"
     )
 
@@ -338,21 +346,21 @@ def gen_notify(tenant: dict) -> tuple[str, str, str, str]:
     name = tenant["name"]
     domain = tenant["domain"]
 
-    yaml_filename = f"{domain}-hono-notify.yaml"
-    env_example_filename = f"{domain}-hono-notify.env.example"
+    yaml_filename = f"{code}-hono-notify.yaml"
+    env_example_filename = f".env.{code}-hono-notify.example"
 
     # Build ALLOWED_ORIGINS from all React PWA apps across all Odoo entries
     all_apps = []
     for odoo_entry in tenant.get("_odoo_entries", []):
         for app in odoo_entry.get("apps", []):
-            all_apps.append(f"https://{app}-{code}.{domain}")
+            all_apps.append(f"https://{code}-{app}.{domain}")
     allowed_origins = ",".join(all_apps)
 
     instance = {
         "kind": "instance",
         "extends": "../bases/infra.yaml",
         "instance": {
-            "name": f"notify-{code}",
+            "name": f"{code}-hono-notify",
             "description": "Notification dispatch service (FCM push + SSE real-time + Telegram)",
         },
         "source_overrides": {
@@ -363,7 +371,7 @@ def gen_notify(tenant: dict) -> tuple[str, str, str, str]:
             "compose_path": "apps/api/notify/docker-compose.yml",
         },
         "server": "kodeme-service",
-        "project": domain,
+        "project": code,
         "healthcheck": {
             "path": "/health",
             "port": 3020,
@@ -373,10 +381,10 @@ def gen_notify(tenant: dict) -> tuple[str, str, str, str]:
         },
         "dns": {
             "zone": domain,
-            "name": f"notify-{code}",
+            "name": f"{code}-notify",
         },
         "domain": {
-            "host": f"notify-{code}.{domain}",
+            "host": f"{code}-notify.{domain}",
             "port": 3020,
             "service": "notify",
             "https": True,
@@ -424,7 +432,6 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
     raw = load_tenant(tenant_path)
     t = raw["tenant"]
     code = t["code"]
-    domain = t["domain"]
 
     # Stash odoo entries for notify generator
     t["_odoo_entries"] = raw.get("odoo", [])
@@ -474,9 +481,9 @@ def is_secret_env(path: Path) -> bool:
     name = path.name
     return (
         "-odoo-" in name
-        and name.endswith(".env")
+        and name.startswith(".env.")
         or "-hono-notify" in name
-        and name.endswith(".env")
+        and name.startswith(".env.")
     )
 
 
@@ -516,12 +523,12 @@ def main() -> None:
     unchanged = 0
 
     for path, content in all_files:
-        is_example = path.name.endswith(".env.example")
+        is_example = path.name.endswith(".example")
         existing_secret_env = not is_example and is_secret_env(path) and path.exists()
 
         if existing_secret_env:
             # Never overwrite .env files with secrets
-            example_path = path.with_suffix(".env.example")
+            example_path = Path(str(path) + ".example")
             if args.diff and example_path.exists():
                 old = example_path.read_text().splitlines(keepends=True)
                 new = content.splitlines(keepends=True)
@@ -531,7 +538,7 @@ def main() -> None:
                 sys.stdout.writelines(diff)
             if not args.dry_run:
                 example_path.write_text(content)
-            print(f"  SKIP (secrets): {path.name} → wrote .env.example instead")
+            print(f"  SKIP (secrets): {path.name} → wrote .example instead")
             skipped += 1
             continue
 

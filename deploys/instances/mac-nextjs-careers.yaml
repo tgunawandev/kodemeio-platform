@@ -2,7 +2,7 @@
 kind: instance
 extends: ../bases/nextjs.yaml
 instance:
-  name: mac-careers
+  name: mac-nextjs-careers
   description: Mandiri Agro — Careers Portal (recruitment)
 source_overrides:
   compose_path: compose/docker-compose.prod.careers.yml

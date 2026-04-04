@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/fastapi.yaml
 
 instance:
-  name: api-tms
+  name: tkz-fastapi-api-tms
   description: "Terakidz TMS clinical API (FastAPI)"
 
 source_overrides:
