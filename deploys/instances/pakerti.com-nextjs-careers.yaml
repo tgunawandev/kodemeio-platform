@@ -1,0 +1,28 @@
+kind: instance
+extends: ../bases/nextjs.yaml
+
+instance:
+  name: careers-tpp
+  description: "Pakerti — Careers Portal (recruitment)"
+
+source_overrides:
+  compose_path: compose/docker-compose.prod.careers.yml
+
+project: pakerti.com
+
+healthcheck:
+  port: 4002
+
+dns:
+  zone: pakerti.com
+  name: careers
+
+domain:
+  host: careers.pakerti.com
+  port: 4002
+  service: careers
+  https: true
+
+env_overrides:
+  NEXT_PUBLIC_SITE_URL: "https://careers.pakerti.com"
+  API_URL: "https://odoo-hrms-tpp.kodeme.io"

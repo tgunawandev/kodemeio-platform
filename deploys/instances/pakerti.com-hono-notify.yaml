@@ -1,0 +1,42 @@
+kind: instance
+extends: ../bases/infra.yaml
+
+instance:
+  name: notify-tpp
+  description: "Notification dispatch service (FCM push + SSE real-time + Telegram)"
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-react
+  branch: main
+  compose_path: apps/api/notify/docker-compose.yml
+
+server: kodeme-service
+project: pakerti.com
+
+healthcheck:
+  path: /health
+  port: 3020
+  expected_status: 200
+  timeout: 60
+  interval: 10
+
+dns:
+  zone: pakerti.com
+  name: notify
+
+domain:
+  host: notify.pakerti.com
+  port: 3020
+  service: notify
+  https: true
+
+env_overrides:
+  NODE_ENV: production
+  PORT: "3020"
+  DATABASE_URL: "postgresql://kodemeio:${DB_PASSWORD}@postgres:5432/kodemeio"
+  REDIS_URL: "redis://redis:6379"
+
+backup:
+  enabled: false

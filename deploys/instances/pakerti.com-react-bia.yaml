@@ -1,0 +1,30 @@
+kind: instance
+extends: ../bases/react-pwa.yaml
+
+instance:
+  name: pakerti-react-bia
+  description: "Pakerti — BIA PWA"
+
+source_overrides:
+  compose_path: compose/docker-compose.bia.yml
+
+project: pakerti.com
+
+dns:
+  zone: pakerti.com
+  name: bia
+
+domain:
+  host: bia.pakerti.com
+  port: 80
+  service: bia
+  https: true
+
+env_file: ../env/pakerti.com-react-bia.env
+
+env_overrides:
+  VITE_BIA_APP_NAME: "Pakerti BIA"
+  VITE_BIA_API_BASE_URL: "https://odoo-trading-tpp.kodeme.io/bia/api"
+  VITE_AUTH_MODE: "native"
+  VITE_BIA_OIDC_CLIENT_ID: ""
+  VITE_BIA_OIDC_REDIRECT_URI: ""
