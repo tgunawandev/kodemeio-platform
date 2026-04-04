@@ -24,12 +24,16 @@ dev = [
     "mypy>=1.14.0",
     "types-PyYAML>=6.0.0",
 ]
+provision = [
+    "kctl-ak>=0.1.0",
+]
 
 [project.scripts]
 kctl-mailcow = "kctl_mailcow.cli:_run"
 
 [tool.uv.sources]
 kctl-lib = { workspace = true }
+kctl-ak = { workspace = true }
 
 [project.entry-points."kctl_mailcow.plugins"]
 

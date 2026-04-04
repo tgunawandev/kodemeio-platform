@@ -26,6 +26,7 @@ from kctl_mailcow.commands.resources import app as resources_app
 from kctl_mailcow.commands.status import app as status_app
 from kctl_mailcow.commands.sync_jobs import app as sync_jobs_app
 from kctl_mailcow.commands.tls import app as tls_app
+from kctl_mailcow.commands.provision import app as provision_app
 from kctl_mailcow.core.callbacks import AppContext
 
 
@@ -86,6 +87,7 @@ app.add_typer(tls_app, name="tls")
 app.add_typer(resources_app, name="resources")
 app.add_typer(identity_provider_app, name="identity-provider")
 app.add_typer(oauth2_clients_app, name="oauth2-clients")
+app.add_typer(provision_app, name="provision")
 
 
 def _run() -> None:
