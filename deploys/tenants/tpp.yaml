@@ -4,6 +4,18 @@ tenant:
   short_name: "Pakerti"
   domain: pakerti.com
 
+environments:
+  production:
+    server: kod-prod-01
+    dns_prefix: ""
+    db_prefix: ""
+    auto_deploy: false
+  staging:
+    server: kod-stg-01
+    dns_prefix: "stg-"
+    db_prefix: "stg_"
+    auto_deploy: true
+
 odoo:
   - profile: trading
     short: trad

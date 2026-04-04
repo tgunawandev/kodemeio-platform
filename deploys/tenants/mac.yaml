@@ -4,6 +4,18 @@ tenant:
   short_name: "MAC"
   domain: mandiriagro.com
 
+environments:
+  production:
+    server: mac-prod-01
+    dns_prefix: ""
+    db_prefix: ""
+    auto_deploy: false
+  staging:
+    server: mac-stg-01
+    dns_prefix: "stg-"
+    db_prefix: "stg_"
+    auto_deploy: true
+
 odoo:
   - profile: distribution
     short: dist
