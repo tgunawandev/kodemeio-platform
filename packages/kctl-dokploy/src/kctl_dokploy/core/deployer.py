@@ -461,14 +461,51 @@ class Deployer:
                     project_data = proj
                     break
 
-        # Search environments[].compose[] for existing compose by name
-        existing_composes: list[dict[str, Any]] = []
+        # Find the target Dokploy environment by name
+        target_env_name = self.manifest.environment or "production"
+        target_env_id: str = ""
+        target_env_data: dict[str, Any] = {}
         default_environment_id: str = ""
+
         for env in (project_data or {}).get("environments", []):
             if env.get("isDefault"):
                 default_environment_id = env.get("environmentId", "")
-            for comp in env.get("compose", []):
-                existing_composes.append(comp)
+            if (env.get("name") or "").lower() == target_env_name.lower():
+                target_env_id = env.get("environmentId", "")
+                target_env_data = env
+
+        # Auto-create the environment if it doesn't exist
+        if not target_env_id and target_env_name.lower() != "production":
+            client = self._get_client()
+            project_id = (project_data or {}).get("projectId", "")
+            if client and project_id:
+                try:
+                    result = client.post(
+                        "/environment.create",
+                        json={
+                            "projectId": project_id,
+                            "name": target_env_name,
+                            "description": f"{target_env_name} environment",
+                        },
+                    )
+                    target_env_id = (result or {}).get("environmentId", "") if isinstance(result, dict) else ""
+                    target_env_data = {"environmentId": target_env_id, "compose": []}
+                    self._log(f"Created Dokploy environment '{target_env_name}': {target_env_id}")
+                except Exception as exc:
+                    self._log(f"WARNING: Failed to create environment '{target_env_name}': {exc}")
+
+        # Fall back to default environment if target not found
+        if not target_env_id:
+            target_env_id = default_environment_id
+            for env in (project_data or {}).get("environments", []):
+                if env.get("environmentId") == default_environment_id:
+                    target_env_data = env
+                    break
+
+        # Search ONLY the target environment for existing compose
+        existing_composes: list[dict[str, Any]] = []
+        for comp in target_env_data.get("compose", []):
+            existing_composes.append(comp)
 
         # Check if compose already exists
         for comp in existing_composes:
@@ -509,12 +546,12 @@ class Deployer:
                 self._record_phase("compose", "updated", f"Updated compose {instance_name} (id={self._compose_id})")
                 return
 
-        # Create new compose — positional arg is environment_id (or project_id for older API)
+        # Create new compose in the target environment
         create_args = [
             "kctl-dokploy",
             "compose",
             "create",
-            default_environment_id or (project_data or {}).get("projectId", ""),
+            target_env_id or default_environment_id or (project_data or {}).get("projectId", ""),
             "--name",
             instance_name,
         ]
