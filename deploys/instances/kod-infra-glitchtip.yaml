@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/infra.yaml
 
 instance:
-  name: kodemeio-glitchtip
+  name: kod-glitchtip
   description: "GlitchTip error tracking"
 
 source_overrides:

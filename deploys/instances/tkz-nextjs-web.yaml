@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/nextjs.yaml
 
 instance:
-  name: terakidz-web
+  name: tkz-web
   description: "Terakidz marketing site (Next.js 15)"
 
 source_overrides:

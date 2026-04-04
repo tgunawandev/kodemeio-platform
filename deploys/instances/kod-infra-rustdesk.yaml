@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/infra.yaml
 
 instance:
-  name: kodemeio-rustdesk
+  name: kod-rustdesk
   description: "RustDesk remote desktop server"
 
 source_overrides:

@@ -2,7 +2,7 @@
 kind: instance
 extends: ../bases/nextjs.yaml
 instance:
-  name: web-mac
+  name: mac-web
   description: Mandiri Agro company website
 source_overrides:
   compose_path: compose/docker-compose.mandiriagro.yml

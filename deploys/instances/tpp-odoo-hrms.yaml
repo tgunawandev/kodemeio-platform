@@ -2,14 +2,14 @@
 kind: instance
 extends: ../bases/odoo.yaml
 instance:
-  name: odoo-hrms-tpp
+  name: tpp-odoo-hrms
   description: Pakerti — HRMS (employees, attendance, payroll, leaves, expenses)
 project: tpp
 dns:
   zone: pakerti.com
-  name: odoo-hrms-tpp
+  name: tpp-odoo-hrms
 domain:
-  host: odoo-hrms-tpp.pakerti.com
+  host: tpp-odoo-hrms.pakerti.com
   port: 8069
   service: odoo-web
   https: true
@@ -24,7 +24,7 @@ env_overrides:
   PGDATABASE: odoo_hrms_tpp
   PGUSER: odoo
   ODOO_DB_FILTER: ^odoo_hrms_tpp$
-  DOMAIN: odoo-hrms-tpp.pakerti.com
+  DOMAIN: tpp-odoo-hrms.pakerti.com
   ODOO_WORKERS: '2'
 post_deploy:
   odoo_profile: profile-hrms

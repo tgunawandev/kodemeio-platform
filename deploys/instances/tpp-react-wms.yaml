@@ -2,23 +2,23 @@
 kind: instance
 extends: ../bases/react-pwa.yaml
 instance:
-  name: react-wms-tpp
+  name: tpp-react-wms
   description: Pakerti — WMS PWA
 project: tpp
 source_overrides:
   compose_path: compose/docker-compose.wms.yml
 dns:
   zone: pakerti.com
-  name: wms-tpp
+  name: tpp-wms
 domain:
-  host: wms-tpp.pakerti.com
+  host: tpp-wms.pakerti.com
   port: 80
   service: wms
   https: true
 env_file: ../env/tpp-react-wms.env
 env_overrides:
   VITE_WMS_APP_NAME: Pakerti WMS
-  VITE_WMS_API_BASE_URL: https://odoo-trad-tpp.pakerti.com/wms/api
+  VITE_WMS_API_BASE_URL: https://tpp-odoo-trad.pakerti.com/wms/api
   VITE_AUTH_MODE: native
   VITE_WMS_OIDC_CLIENT_ID: ''
   VITE_WMS_OIDC_REDIRECT_URI: ''

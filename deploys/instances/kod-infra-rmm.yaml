@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/infra.yaml
 
 instance:
-  name: kodemeio-rmm
+  name: kod-rmm
   description: "Tactical RMM remote monitoring"
 
 source_overrides:

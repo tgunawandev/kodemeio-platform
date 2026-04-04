@@ -2,23 +2,23 @@
 kind: instance
 extends: ../bases/react-pwa.yaml
 instance:
-  name: react-wms-mac
+  name: mac-react-wms
   description: MAC — WMS PWA
 project: mac
 source_overrides:
   compose_path: compose/docker-compose.wms.yml
 dns:
   zone: mandiriagro.com
-  name: wms-mac
+  name: mac-wms
 domain:
-  host: wms-mac.mandiriagro.com
+  host: mac-wms.mandiriagro.com
   port: 80
   service: wms
   https: true
 env_file: ../env/mac-react-wms.env
 env_overrides:
   VITE_WMS_APP_NAME: MAC WMS
-  VITE_WMS_API_BASE_URL: https://odoo-dist-mac.mandiriagro.com/wms/api
+  VITE_WMS_API_BASE_URL: https://mac-odoo-dist.mandiriagro.com/wms/api
   VITE_AUTH_MODE: native
   VITE_WMS_OIDC_CLIENT_ID: ''
   VITE_WMS_OIDC_REDIRECT_URI: ''

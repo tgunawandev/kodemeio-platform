@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/infra.yaml
 
 instance:
-  name: kodemeio-postgres
+  name: kod-postgres
   description: "Shared PostgreSQL 16 database"
 
 source_overrides:

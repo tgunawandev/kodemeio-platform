@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/nextjs.yaml
 
 instance:
-  name: trigunawan-web
+  name: tgw-web
   description: "Tri Gunawan portfolio website"
 
 source_overrides:

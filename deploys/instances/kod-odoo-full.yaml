@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/odoo.yaml
 
 instance:
-  name: odoo-full-kodemeio
+  name: kod-odoo-full
   description: "Kodemeio — Full Odoo (all modules)"
 
 dns:

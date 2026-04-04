@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/infra.yaml
 
 instance:
-  name: kodemeio-gatus
+  name: kod-gatus
   description: "Gatus health monitoring"
 
 source_overrides:

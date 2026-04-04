@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/nextjs.yaml
 
 instance:
-  name: provetics-web
+  name: pro-web
   description: "Provetics SaaS Platform - marketing site + portal"
 
 project: pro

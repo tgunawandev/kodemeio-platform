@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/infra.yaml
 
 instance:
-  name: kidneuro-immich
+  name: kid-immich
   description: "Immich photo management"
 
 source_overrides:

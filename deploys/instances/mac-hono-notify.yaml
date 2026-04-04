@@ -2,7 +2,7 @@
 kind: instance
 extends: ../bases/infra.yaml
 instance:
-  name: notify-mac
+  name: mac-notify
   description: Notification dispatch service (FCM push + SSE real-time + Telegram)
 source_overrides:
   type: github
@@ -20,9 +20,9 @@ healthcheck:
   interval: 10
 dns:
   zone: mandiriagro.com
-  name: notify-mac
+  name: mac-notify
 domain:
-  host: notify-mac.mandiriagro.com
+  host: mac-notify.mandiriagro.com
   port: 3020
   service: notify
   https: true
@@ -33,7 +33,7 @@ env_overrides:
   REDIS_URL: redis://redis:6379
   DISPATCH_SECRET: ${DISPATCH_SECRET}
   JWT_SECRET: ${JWT_SECRET}
-  ALLOWED_ORIGINS: https://bia-mac.mandiriagro.com,https://wms-mac.mandiriagro.com,https://hrm-mac.mandiriagro.com
+  ALLOWED_ORIGINS: https://mac-bia.mandiriagro.com,https://mac-wms.mandiriagro.com,https://mac-hrm.mandiriagro.com
   FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}
 backup:
   enabled: false

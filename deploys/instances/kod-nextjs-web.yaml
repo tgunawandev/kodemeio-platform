@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/nextjs.yaml
 
 instance:
-  name: kodemeio-web
+  name: kod-web
   description: "Kodemeio company website"
 
 source_overrides:

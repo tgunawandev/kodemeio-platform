@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/infra.yaml
 
 instance:
-  name: kodemeio-authentik
+  name: kod-authentik
   description: "Authentik SSO/Identity Provider"
 
 source_overrides:

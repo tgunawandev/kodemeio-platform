@@ -2,7 +2,7 @@ kind: instance
 extends: ../bases/infra.yaml
 
 instance:
-  name: kodemeio-mailcow
+  name: kod-mailcow
   description: "Mailcow mail server"
 
 source_overrides:
