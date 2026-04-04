@@ -21,4 +21,4 @@ domain:
   https: true
   cert: letsencrypt
 
-env_file: ../env/tgw-nextjs-web.env
+env_file: ../env/.env.tgw-nextjs-web

@@ -15,7 +15,7 @@ domain:
   port: 80
   service: wms
   https: true
-env_file: ../env/mac-react-wms.env
+env_file: ../env/.env.mac-react-wms
 env_overrides:
   VITE_WMS_APP_NAME: MAC WMS
   VITE_WMS_API_BASE_URL: https://mac-odoo-dist.mandiriagro.com/wms/api

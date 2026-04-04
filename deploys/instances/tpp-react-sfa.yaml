@@ -15,7 +15,7 @@ domain:
   port: 80
   service: sfa
   https: true
-env_file: ../env/tpp-react-sfa.env
+env_file: ../env/.env.tpp-react-sfa
 env_overrides:
   VITE_SFA_APP_NAME: Pakerti SFA
   VITE_SFA_API_BASE_URL: https://tpp-odoo-trad.pakerti.com/sfa/api

@@ -16,4 +16,4 @@ domain:
   service: mandiriagro-web
   https: true
   cert: letsencrypt
-env_file: ../env/mac-nextjs-web.env
+env_file: ../env/.env.mac-nextjs-web

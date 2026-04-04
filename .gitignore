@@ -11,7 +11,7 @@ build/
 .env
 .env.prod
 .env.prod.*
-# Deploy env files (flat naming: {domain}-{type}-{name}.env)
-deploys/env/*.env
+# Deploy env files (.env.{tenant}-{type}-{name})
+deploys/env/.env.*
 .playwright-mcp/
 .claude/

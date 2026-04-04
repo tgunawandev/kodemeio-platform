@@ -17,7 +17,7 @@ domain:
 database:
   name: mac_odoo_dist
   user: odoo
-env_file: ../env/mac-odoo-dist.env
+env_file: ../env/.env.mac-odoo-dist
 env_overrides:
   COMPOSE_PROJECT_NAME: mac-odoo-dist
   TENANT: mac

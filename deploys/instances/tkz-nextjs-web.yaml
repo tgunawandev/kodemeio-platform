@@ -22,4 +22,4 @@ domain:
   https: true
   cert: letsencrypt
 
-env_file: ../env/tkz-nextjs-web.env
+env_file: ../env/.env.tkz-nextjs-web

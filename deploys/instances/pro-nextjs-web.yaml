@@ -22,4 +22,4 @@ healthcheck:
   port: 3000
   expected_status: 200
 
-env_file: ../env/pro-nextjs-web.env
+env_file: ../env/.env.pro-nextjs-web

@@ -17,4 +17,4 @@ domain:
   https: true
   cert: letsencrypt
 
-env_file: ../env/kid-infra-immich.env
+env_file: ../env/.env.kid-infra-immich

@@ -15,7 +15,7 @@ domain:
   port: 80
   service: bia
   https: true
-env_file: ../env/tpp-react-bia.env
+env_file: ../env/.env.tpp-react-bia
 env_overrides:
   VITE_BIA_APP_NAME: Pakerti BIA
   VITE_BIA_API_BASE_URL: https://tpp-odoo-trad.pakerti.com/bia/api

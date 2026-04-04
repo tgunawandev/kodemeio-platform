@@ -29,7 +29,7 @@ healthcheck:
   timeout: 300
   interval: 10
 
-env_file: ../env/tkz-fastapi-api-tms.env
+env_file: ../env/.env.tkz-fastapi-api-tms
 
 env_overrides:
   APP_ENV: production

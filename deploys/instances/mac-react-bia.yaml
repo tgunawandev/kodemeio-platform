@@ -15,7 +15,7 @@ domain:
   port: 80
   service: bia
   https: true
-env_file: ../env/mac-react-bia.env
+env_file: ../env/.env.mac-react-bia
 env_overrides:
   VITE_BIA_APP_NAME: MAC BIA
   VITE_BIA_API_BASE_URL: https://mac-odoo-dist.mandiriagro.com/bia/api

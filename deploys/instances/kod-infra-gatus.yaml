@@ -15,4 +15,4 @@ domain:
   https: true
   cert: letsencrypt
 
-env_file: ../env/kod-infra-gatus.env
+env_file: ../env/.env.kod-infra-gatus
