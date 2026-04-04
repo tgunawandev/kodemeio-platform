@@ -5,6 +5,8 @@ instance:
   name: kod-infra-rustdesk
   description: "RustDesk remote desktop server"
 
+project: kod
+
 source_overrides:
   repo: kodemeio-rustdesk
 

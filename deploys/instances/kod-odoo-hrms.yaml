@@ -5,6 +5,8 @@ instance:
   name: kod-odoo-hrms
   description: "HRMS — Standalone HR, attendance, leave, payroll"
 
+project: kod
+
 dns:
   zone: kodeme.io
   name: odoo-hrms

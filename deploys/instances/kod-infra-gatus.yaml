@@ -5,6 +5,8 @@ instance:
   name: kod-infra-gatus
   description: "Gatus health monitoring"
 
+project: kod
+
 source_overrides:
   repo: kodemeio-gatus
 

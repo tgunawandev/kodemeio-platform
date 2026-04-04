@@ -5,6 +5,8 @@ instance:
   name: kod-infra-mailcow
   description: "Mailcow mail server"
 
+project: kod
+
 source_overrides:
   repo: kodemeio-mailcow
   branch: "master"
@@ -15,3 +17,5 @@ domain:
   service: nginx-mailcow
   https: true
   cert: letsencrypt
+
+env_file: ../env/.env.kod-infra-mailcow

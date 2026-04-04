@@ -5,6 +5,8 @@ instance:
   name: kod-infra-authentik
   description: "Authentik SSO/Identity Provider"
 
+project: kod
+
 source_overrides:
   repo: kodemeio-authentik
   compose_path: ./docker-compose.prod.yml

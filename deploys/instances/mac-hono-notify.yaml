@@ -26,6 +26,7 @@ domain:
   port: 3020
   service: notify
   https: true
+env_file: ../env/.env.mac-hono-notify
 env_overrides:
   NODE_ENV: production
   PORT: '3020'

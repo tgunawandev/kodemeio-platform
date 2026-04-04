@@ -5,6 +5,8 @@ instance:
   name: kod-nextjs-web
   description: "Kodemeio company website"
 
+project: kod
+
 source_overrides:
   compose_path: compose/docker-compose.prod.kodemeio.yml
 

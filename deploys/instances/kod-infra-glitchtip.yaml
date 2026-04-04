@@ -5,6 +5,8 @@ instance:
   name: kod-infra-glitchtip
   description: "GlitchTip error tracking"
 
+project: kod
+
 source_overrides:
   repo: kodemeio-glitchtip
 
@@ -14,3 +16,5 @@ domain:
   service: web
   https: true
   cert: letsencrypt
+
+env_file: ../env/.env.kod-infra-glitchtip

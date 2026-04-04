@@ -5,6 +5,8 @@ instance:
   name: kod-odoo-full
   description: "Kodemeio — Full Odoo (all modules)"
 
+project: kod
+
 dns:
   zone: kodeme.io
   name: odoo
@@ -15,3 +17,5 @@ domain:
   service: odoo
   https: true
   cert: letsencrypt
+
+env_file: ../env/.env.kod-odoo-full
