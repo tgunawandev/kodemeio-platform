@@ -12,10 +12,10 @@ project: pakerti.com
 
 dns:
   zone: pakerti.com
-  name: hrm
+  name: hrm-tpp
 
 domain:
-  host: hrm.pakerti.com
+  host: hrm-tpp.pakerti.com
   port: 80
   service: hrm
   https: true
@@ -24,7 +24,7 @@ env_file: ../env/pakerti.com-react-hrm.env
 
 env_overrides:
   VITE_HRM_APP_NAME: "Pakerti HRM"
-  VITE_HRM_API_BASE_URL: "https://odoo-hrms-tpp.kodeme.io/hrm/api"
+  VITE_HRM_API_BASE_URL: "https://odoo-hrms-tpp.pakerti.com/hrm/api"
   VITE_AUTH_MODE: "native"
   VITE_HRM_OIDC_CLIENT_ID: ""
   VITE_HRM_OIDC_REDIRECT_URI: ""

@@ -15,14 +15,14 @@ healthcheck:
 
 dns:
   zone: pakerti.com
-  name: careers
+  name: careers-tpp
 
 domain:
-  host: careers.pakerti.com
+  host: careers-tpp.pakerti.com
   port: 4002
   service: careers
   https: true
 
 env_overrides:
-  NEXT_PUBLIC_SITE_URL: "https://careers.pakerti.com"
-  API_URL: "https://odoo-hrms-tpp.kodeme.io"
+  NEXT_PUBLIC_SITE_URL: "https://careers-tpp.pakerti.com"
+  API_URL: "https://odoo-hrms-tpp.pakerti.com"

@@ -8,11 +8,11 @@ instance:
 project: pakerti.com
 
 dns:
-  zone: kodeme.io
+  zone: pakerti.com
   name: odoo-hrms-tpp
 
 domain:
-  host: odoo-hrms-tpp.kodeme.io
+  host: odoo-hrms-tpp.pakerti.com
   port: 8069
   service: odoo-web
   https: true
@@ -29,7 +29,7 @@ env_overrides:
   PGDATABASE: odoo_hrms_tpp
   PGUSER: odoo
   ODOO_DB_FILTER: "^odoo_hrms_tpp$"
-  DOMAIN: odoo-hrms-tpp.kodeme.io
+  DOMAIN: odoo-hrms-tpp.pakerti.com
   ODOO_WORKERS: "2"
 
 post_deploy:

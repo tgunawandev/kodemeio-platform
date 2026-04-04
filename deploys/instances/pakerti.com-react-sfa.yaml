@@ -12,10 +12,10 @@ project: pakerti.com
 
 dns:
   zone: pakerti.com
-  name: sfa
+  name: sfa-tpp
 
 domain:
-  host: sfa.pakerti.com
+  host: sfa-tpp.pakerti.com
   port: 80
   service: sfa
   https: true
@@ -24,7 +24,7 @@ env_file: ../env/pakerti.com-react-sfa.env
 
 env_overrides:
   VITE_SFA_APP_NAME: "Pakerti SFA"
-  VITE_SFA_API_BASE_URL: "https://odoo-trad-tpp.kodeme.io/sfa/api"
+  VITE_SFA_API_BASE_URL: "https://odoo-trad-tpp.pakerti.com/sfa/api"
   VITE_AUTH_MODE: "native"
   VITE_SFA_OIDC_CLIENT_ID: ""
   VITE_SFA_OIDC_REDIRECT_URI: ""

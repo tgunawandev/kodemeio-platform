@@ -24,10 +24,10 @@ healthcheck:
 
 dns:
   zone: pakerti.com
-  name: notify
+  name: notify-tpp
 
 domain:
-  host: notify.pakerti.com
+  host: notify-tpp.pakerti.com
   port: 3020
   service: notify
   https: true

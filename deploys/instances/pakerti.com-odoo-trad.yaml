@@ -8,11 +8,11 @@ instance:
 project: pakerti.com
 
 dns:
-  zone: kodeme.io
+  zone: pakerti.com
   name: odoo-trad-tpp
 
 domain:
-  host: odoo-trad-tpp.kodeme.io
+  host: odoo-trad-tpp.pakerti.com
   port: 8069
   service: odoo-web
   https: true
@@ -29,7 +29,7 @@ env_overrides:
   PGDATABASE: odoo_trad_tpp
   PGUSER: odoo
   ODOO_DB_FILTER: "^odoo_trad_tpp$"
-  DOMAIN: odoo-trad-tpp.kodeme.io
+  DOMAIN: odoo-trad-tpp.pakerti.com
 
 post_deploy:
   odoo_profile: profile-trading
