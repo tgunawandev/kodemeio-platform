@@ -623,6 +623,7 @@ class Deployer:
             "bia",
             "hrm",
             "mrp",
+            "eam",
             "asset",
             "dms",
             "tpm",
