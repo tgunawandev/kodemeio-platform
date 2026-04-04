@@ -3,7 +3,7 @@
 # =============================================================================
 # Profile: distribution
 # Instance: mac-odoo-dist.mandiriagro.com
-# Database: odoo_dist_mac
+# Database: mac_odoo_dist
 #
 # Usage:
 #   This file documents the setup applied. To replay for a new company,

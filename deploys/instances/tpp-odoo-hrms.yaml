@@ -15,15 +15,15 @@ domain:
   https: true
   cert: letsencrypt
 database:
-  name: odoo_hrms_tpp
+  name: tpp_odoo_hrms
   user: odoo
 env_file: ../env/tpp-odoo-hrms.env
 env_overrides:
   COMPOSE_PROJECT_NAME: tpp-odoo-hrms
   TENANT: tpp
-  PGDATABASE: odoo_hrms_tpp
+  PGDATABASE: tpp_odoo_hrms
   PGUSER: odoo
-  ODOO_DB_FILTER: ^odoo_hrms_tpp$
+  ODOO_DB_FILTER: ^tpp_odoo_hrms$
   DOMAIN: tpp-odoo-hrms.pakerti.com
   ODOO_WORKERS: '2'
 post_deploy:

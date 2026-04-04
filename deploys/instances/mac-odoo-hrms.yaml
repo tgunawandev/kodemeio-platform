@@ -15,15 +15,15 @@ domain:
   https: true
   cert: letsencrypt
 database:
-  name: odoo_hrms_mac
+  name: mac_odoo_hrms
   user: odoo
 env_file: ../env/mac-odoo-hrms.env
 env_overrides:
   COMPOSE_PROJECT_NAME: mac-odoo-hrms
   TENANT: mac
-  PGDATABASE: odoo_hrms_mac
+  PGDATABASE: mac_odoo_hrms
   PGUSER: odoo
-  ODOO_DB_FILTER: ^odoo_hrms_mac$
+  ODOO_DB_FILTER: ^mac_odoo_hrms$
   DOMAIN: mac-odoo-hrms.mandiriagro.com
   ODOO_WORKERS: '2'
 post_deploy:

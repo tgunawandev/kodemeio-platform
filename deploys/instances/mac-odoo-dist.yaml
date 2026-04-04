@@ -15,15 +15,15 @@ domain:
   https: true
   cert: letsencrypt
 database:
-  name: odoo_dist_mac
+  name: mac_odoo_dist
   user: odoo
 env_file: ../env/mac-odoo-dist.env
 env_overrides:
   COMPOSE_PROJECT_NAME: mac-odoo-dist
   TENANT: mac
-  PGDATABASE: odoo_dist_mac
+  PGDATABASE: mac_odoo_dist
   PGUSER: odoo
-  ODOO_DB_FILTER: ^odoo_dist_mac$
+  ODOO_DB_FILTER: ^mac_odoo_dist$
   DOMAIN: mac-odoo-dist.mandiriagro.com
   ODOO_WORKERS: '2'
 post_deploy:
