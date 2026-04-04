@@ -6,11 +6,14 @@ manage admin access, and generate recovery links.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
+import yaml
 
 from kctl_ak.core.callbacks import AppContext
+from kctl_ak.core.config import resolve_app_registry_path
 from kctl_ak.core.exceptions import NotFoundError
 from kctl_ak.core.resolve import resolve_user
 
@@ -419,3 +422,174 @@ def app_create(
     else:
         out.error(f"Unknown app type: {app_type}. Use 'oauth2' or 'proxy'.")
         raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# Redirect URI patterns per app type
+# ---------------------------------------------------------------------------
+
+_REDIRECT_PATTERNS: dict[str, str] = {
+    "react-spa": "{launch_url}/callback",
+    "odoo": "{launch_url}/auth_oauth/signin",
+    "nextjs": "{launch_url}/api/auth/callback/oidc",
+}
+
+_OAUTH_APP_TYPES = frozenset(_REDIRECT_PATTERNS.keys())
+
+
+def _build_env_block(
+    app_type: str,
+    slug: str,
+    client_id: str,
+    client_secret: str,
+    redirect_uri: str,
+    base_url: str,
+) -> str:
+    """Return env-var block for a given app type."""
+    lines: list[str] = [f"# === {slug} ({app_type}) ==="]
+
+    if app_type == "react-spa":
+        # Derive APP_UPPER from slug: last segment after last '-'
+        # e.g. mac-react-wms -> WMS
+        parts = slug.rsplit("-", 1)
+        app_upper = parts[-1].upper() if len(parts) > 1 else slug.upper()
+        lines += [
+            "VITE_AUTH_MODE=oidc",
+            f"VITE_OIDC_AUTHORITY={base_url}/application/o/{slug}/",
+            f"VITE_{app_upper}_OIDC_CLIENT_ID={client_id}",
+            f"VITE_{app_upper}_OIDC_REDIRECT_URI={redirect_uri}",
+        ]
+    elif app_type == "odoo":
+        lines += [
+            "ODOO_OAUTH_PROVIDER_NAME=Authentik",
+            f"ODOO_OAUTH_CLIENT_ID={client_id}",
+            f"ODOO_OAUTH_AUTH_ENDPOINT={base_url}/application/o/authorize/",
+            f"ODOO_OAUTH_TOKEN_ENDPOINT={base_url}/application/o/token/",
+            f"ODOO_OAUTH_USERINFO_ENDPOINT={base_url}/application/o/userinfo/",
+        ]
+    elif app_type == "nextjs":
+        lines += [
+            f"NEXT_PUBLIC_OIDC_ISSUER={base_url}/application/o/{slug}/",
+            f"OIDC_CLIENT_ID={client_id}",
+            f"OIDC_CLIENT_SECRET={client_secret}",
+            f"OIDC_REDIRECT_URI={redirect_uri}",
+        ]
+
+    return "\n".join(lines)
+
+
+@app.command()
+def batch(
+    ctx: typer.Context,
+    dry_run: Annotated[bool, typer.Option("--dry-run/--no-dry-run", help="Preview without applying")] = True,
+    output_env: Annotated[bool, typer.Option("--output-env", help="Print env vars for each app")] = False,
+    file: Annotated[Path | None, typer.Option(help="Path to app-registry.yaml")] = None,
+) -> None:
+    """Bulk create OAuth2 providers for all apps in app-registry.yaml."""
+    actx: AppContext = ctx.obj
+    c = actx.client
+    out = actx.output
+    base_url = c._root_url.rstrip("/")
+
+    # --- Load registry -------------------------------------------------------
+    if file:
+        ar_path = file
+    else:
+        ar_path = resolve_app_registry_path()
+        if ar_path is None:
+            out.error("app-registry.yaml not found. Use --file to specify path.")
+            raise typer.Exit(code=1)
+
+    with open(ar_path) as fh:
+        registry = yaml.safe_load(fh) or {}
+
+    apps_list: list[dict] = registry.get("apps", [])
+    if not apps_list:
+        out.warn("No apps found in registry.")
+        return
+
+    # --- Fetch existing Authentik apps ---------------------------------------
+    existing_apps = c.get_all("core/applications/")
+    app_by_slug: dict[str, dict] = {a["slug"]: a for a in existing_apps}
+
+    # --- Find flows ----------------------------------------------------------
+    auth_flow = _find_authorization_flow(c)
+    if not auth_flow:
+        out.error("No authorization flow found. Create one first.")
+        raise typer.Exit(code=1)
+
+    authn_flow = _find_authentication_flow(c)
+
+    # --- Process each app ----------------------------------------------------
+    created: list[str] = []
+    skipped: list[str] = []
+    env_blocks: list[str] = []
+
+    for entry in apps_list:
+        slug = entry.get("slug", "")
+        app_type = entry.get("type", "")
+        launch_url = entry.get("launch_url", "").rstrip("/")
+
+        if app_type not in _OAUTH_APP_TYPES:
+            skipped.append(f"{slug} (type={app_type or 'none'}, not oauth)")
+            continue
+
+        if slug not in app_by_slug:
+            skipped.append(f"{slug} (not in Authentik — run apps sync first)")
+            continue
+
+        ak_app = app_by_slug[slug]
+        if ak_app.get("provider") is not None:
+            skipped.append(f"{slug} (already has provider)")
+            continue
+
+        redirect_uri = _REDIRECT_PATTERNS[app_type].format(launch_url=launch_url)
+        client_type = "public" if app_type == "react-spa" else "confidential"
+
+        if dry_run:
+            out.info(f"[dry-run] Would create OAuth2 provider for {slug} ({app_type})")
+            out.info(f"  redirect_uri: {redirect_uri}")
+            out.info(f"  client_type:  {client_type}")
+            created.append(slug)
+            continue
+
+        # Create provider
+        provider_data: dict = {
+            "name": f"{slug} Provider",
+            "authorization_flow": auth_flow["pk"],
+            "redirect_uris": redirect_uri,
+            "client_type": client_type,
+            "signing_key": None,
+        }
+        if authn_flow:
+            provider_data["authentication_flow"] = authn_flow["pk"]
+
+        try:
+            provider = c.post("providers/oauth2/", data=provider_data)
+        except Exception as e:
+            out.error(f"Failed to create provider for {slug}: {e}")
+            continue
+
+        # Link provider to app
+        try:
+            c.patch(f"core/applications/{slug}/", data={"provider": provider["pk"]})
+        except Exception as e:
+            out.error(f"Failed to link provider to {slug}: {e}")
+            continue
+
+        client_id = provider.get("client_id", "")
+        client_secret = provider.get("client_secret", "")
+        out.success(f"Created OAuth2 provider for {slug} (client_id={client_id})")
+        created.append(slug)
+
+        if output_env:
+            env_blocks.append(_build_env_block(app_type, slug, client_id, client_secret, redirect_uri, base_url))
+
+    # --- Summary -------------------------------------------------------------
+    out.info(f"Created: {len(created)}, Skipped: {len(skipped)}")
+    for s in skipped:
+        out.info(f"  skip: {s}")
+
+    if env_blocks:
+        out.text("")
+        out.text("\n\n".join(env_blocks))
