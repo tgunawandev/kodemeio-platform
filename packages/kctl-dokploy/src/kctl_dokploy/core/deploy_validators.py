@@ -89,8 +89,17 @@ class DeployValidator:
         manifest: A resolved :class:`DeployManifest`.
     """
 
-    def __init__(self, manifest: DeployManifest) -> None:
+    def __init__(
+        self,
+        manifest: DeployManifest,
+        env_vars: dict[str, str] | None = None,
+        dry_run: bool = False,
+        compose_id: str = "",
+    ) -> None:
         self.manifest = manifest
+        self.env_vars = env_vars or {}
+        self.dry_run = dry_run
+        self.compose_id = compose_id
         self.deploy_type = self._detect_type()
 
     # -- Type detection -----------------------------------------------------
@@ -132,7 +141,7 @@ class DeployValidator:
 
     def _check_react_pwa(self, warnings: list[str], errors: list[str]) -> None:
         """React PWA-specific pre-deploy checks."""
-        env = {**self.manifest.env_defaults, **self.manifest.env_overrides}
+        env = self.env_vars or {**self.manifest.env_defaults, **self.manifest.env_overrides}
 
         # Check VITE_*_API_BASE_URL vars
         for key, value in env.items():
@@ -158,7 +167,7 @@ class DeployValidator:
 
     def _check_odoo(self, warnings: list[str], errors: list[str]) -> None:
         """Odoo-specific pre-deploy checks."""
-        env = {**self.manifest.env_defaults, **self.manifest.env_overrides}
+        env = self.env_vars or {**self.manifest.env_defaults, **self.manifest.env_overrides}
 
         db_name = env.get("PGDATABASE") or env.get("ODOO_DB_NAME") or ""
         if len(db_name) > 63:
@@ -191,7 +200,7 @@ class DeployValidator:
 
     def _verify_react_pwa(self, results: list[CheckResult], timeout: float) -> None:
         """React PWA post-deploy: CORS preflight and login endpoint."""
-        env = {**self.manifest.env_defaults, **self.manifest.env_overrides}
+        env = self.env_vars or {**self.manifest.env_defaults, **self.manifest.env_overrides}
         domain_host = self.manifest.domain.host
 
         # Find an API URL to probe
@@ -293,7 +302,7 @@ class DeployValidator:
 
     def _verify_odoo(self, results: list[CheckResult], timeout: float) -> None:
         """Odoo post-deploy: JWT secrets and stuck modules."""
-        env = {**self.manifest.env_defaults, **self.manifest.env_overrides}
+        env = self.env_vars or {**self.manifest.env_defaults, **self.manifest.env_overrides}
         domain_host = self.manifest.domain.host
         base_url = f"https://{domain_host}"
 

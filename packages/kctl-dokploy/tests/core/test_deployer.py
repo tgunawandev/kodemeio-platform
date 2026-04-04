@@ -588,8 +588,8 @@ class TestPhasePostDeploy:
 
 
 class TestRunAll:
-    def test_returns_13_results(self) -> None:
-        """run_all must produce one result per execution phase (13 phases: validate + 12)."""
+    def test_returns_14_results(self) -> None:
+        """run_all must produce one result per execution phase (14 phases: validate + pre_validate + 12)."""
         manifest = _make_manifest()
         deployer = Deployer(manifest=manifest, dry_run=True)
 
@@ -600,9 +600,10 @@ class TestRunAll:
             results = deployer.run_all()
 
         phases = [r.phase for r in results]
-        assert len(results) == 13
+        assert len(results) == 14
         expected_phases = [
             "validate",
+            "pre_validate",
             "dns",
             "database",
             "registry",
@@ -627,3 +628,46 @@ class TestRunAll:
             results = deployer.run_all()
 
         assert all(isinstance(r, PhaseResult) for r in results)
+
+
+# ---------------------------------------------------------------------------
+# phase_pre_validate
+# ---------------------------------------------------------------------------
+
+
+class TestPhasePreValidate:
+    def test_passes_with_valid_react_env(self) -> None:
+        m = DeployManifest(
+            type="react-pwa",
+            domain=DomainConfig(host="wms.example.com", service="wms"),
+            env_overrides={
+                "VITE_WMS_API_BASE_URL": "https://odoo.example.com/wms/api",
+                "VITE_AUTH_MODE": "native",
+            },
+        )
+        deployer = Deployer(manifest=m, dry_run=True)
+        deployer.phase_pre_validate()
+        assert deployer.results[-1].action != "failed"
+
+    def test_fails_with_bad_api_url(self) -> None:
+        m = DeployManifest(
+            type="react-pwa",
+            domain=DomainConfig(host="wms.example.com", service="wms"),
+            env_overrides={
+                "VITE_WMS_API_BASE_URL": "https://odoo.example.com",
+                "VITE_AUTH_MODE": "native",
+            },
+        )
+        deployer = Deployer(manifest=m, dry_run=True)
+        deployer.phase_pre_validate()
+        assert deployer.results[-1].action == "failed"
+
+    def test_odoo_passes(self) -> None:
+        m = DeployManifest(
+            type="odoo",
+            domain=DomainConfig(host="odoo.example.com", service="odoo-web"),
+            env_overrides={"PGDATABASE": "odoo_test", "ODOO_ADMIN_PASSWD": "secret"},
+        )
+        deployer = Deployer(manifest=m, dry_run=True)
+        deployer.phase_pre_validate()
+        assert deployer.results[-1].action != "failed"

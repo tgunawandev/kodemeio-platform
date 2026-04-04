@@ -9,6 +9,8 @@ test / status / check).
 from __future__ import annotations
 
 import json
+import logging
+import pathlib
 import subprocess
 import tempfile
 import time
@@ -17,7 +19,10 @@ from typing import Any
 
 import httpx
 
+from kctl_dokploy.core.deploy_validators import DeployValidator
 from kctl_dokploy.core.manifest import DeployManifest, load_env_file
+
+_logger = logging.getLogger(__name__)
 from kctl_dokploy.core.validators import (
     resolve_server_ip,
     validate_dns_ip,
@@ -72,6 +77,7 @@ class Deployer:
     # Populated during execution
     results: list[PhaseResult] = field(default_factory=list)
     _compose_id: str = field(default="", init=False)
+    _merged_env: dict[str, str] = field(default_factory=dict, init=False)
 
     # ------------------------------------------------------------------
     # Low-level subprocess helpers
@@ -237,6 +243,47 @@ class Deployer:
         except Exception:
             pass
         return None
+
+    # ------------------------------------------------------------------
+    # Phase 0b — Pre-validate (type-aware)
+    # ------------------------------------------------------------------
+
+    def phase_pre_validate(self) -> None:
+        """Type-aware pre-deploy validation (before DNS phase)."""
+        # Build merged env for validation
+        merged: dict[str, str] = dict(self.manifest.env_defaults)
+        if self.manifest.env_file:
+            env_path = pathlib.Path(self.manifest.env_file)
+            if env_path.exists():
+                for line in env_path.read_text().splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, _, v = line.partition("=")
+                        merged[k.strip()] = v.strip()
+        merged.update(self.manifest.env_overrides)
+        self._merged_env = merged
+
+        validator = DeployValidator(
+            manifest=self.manifest,
+            env_vars=self._merged_env,
+            dry_run=self.dry_run,
+        )
+
+        warnings, errors = validator.pre_validate()
+
+        for w in warnings:
+            _logger.warning("PRE-VALIDATE: %s", w)
+
+        if errors:
+            for e in errors:
+                _logger.error("PRE-VALIDATE: %s", e)
+            msg = f"Pre-validation failed ({len(errors)} error(s)): " + "; ".join(errors)
+            self._record_phase("pre_validate", "failed", msg)
+        elif warnings:
+            msg = f"Pre-validation passed with {len(warnings)} warning(s)"
+            self._record_phase("pre_validate", self._action("updated"), msg)
+        else:
+            self._record_phase("pre_validate", self._action("updated"), "All pre-deploy checks passed")
 
     # ------------------------------------------------------------------
     # Phase 1 — DNS
@@ -1052,13 +1099,18 @@ class Deployer:
     # ------------------------------------------------------------------
 
     def run_all(self) -> list[PhaseResult]:
-        """Execute all 13 phases in order and return the accumulated results.
+        """Execute all 14 phases in order and return the accumulated results.
 
-        Phase 0 (validate) runs first and fails fast on invalid manifests.
+        Phase 0 (validate) and Phase 0b (pre_validate) run first and fail fast
+        on invalid manifests or type-specific validation errors.
         """
         self.phase_validate()
 
         # Abort if validation failed
+        if self.results and self.results[-1].action == "failed":
+            return self.results
+
+        self.phase_pre_validate()
         if self.results and self.results[-1].action == "failed":
             return self.results
 
