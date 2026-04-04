@@ -24,9 +24,9 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 
 ## Architecture
 
-`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **21 CLI tools**, all consolidated into this single workspace.
+`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **22 CLI tools**, all consolidated into this single workspace.
 
-### Workspace Members (21 packages)
+### Workspace Members (22 packages)
 
 #### Shared Library
 - **kctl-lib** — Shared CLI infrastructure (v0.4.0, published to PyPI)
@@ -41,6 +41,7 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 - **kctl-gatus** — Gatus health monitoring (8 groups)
 - **kctl-rustdesk** — RustDesk server management (9 groups)
 - **kctl-waha** — WhatsApp HTTP API (8 groups)
+- **kctl-mailcow** — Mailcow mail server management (16 groups)
 
 #### Application Management
 - **kctl-odoo** — Odoo 18 ERP management (70+ groups)
@@ -75,6 +76,7 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, kee
 | `packages/kctl-grafana/` | Grafana monitoring CLI |
 | `packages/kctl-hz/` | Hetzner Cloud infrastructure CLI |
 | `packages/kctl-linear/` | Linear project tracking CLI |
+| `packages/kctl-mailcow/` | Mailcow mail server CLI |
 | `packages/kctl-notion/` | Notion wiki management CLI |
 | `packages/kctl-odoo/` | Odoo 18 ERP management CLI |
 | `packages/kctl-op/` | 1Password secret management CLI |

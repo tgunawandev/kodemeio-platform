@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import time
 
-import typer
 from typing import Annotated
+
+import typer
 
 from kctl_mailcow.core.callbacks import AppContext
 

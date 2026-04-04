@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from kctl_mailcow.core.callbacks import AppContext
+from kctl_mailcow.core.helpers import handle_result
 
 app = typer.Typer(help="Manage email aliases.")
 
@@ -143,16 +144,4 @@ def delete(
     _handle_result(c, result, f"Alias {alias_id} deleted")
 
 
-def _handle_result(c: AppContext, result: dict | list, success_msg: str) -> None:
-    if isinstance(result, list):
-        errors = [r for r in result if isinstance(r, dict) and r.get("type") == "danger"]
-        if errors:
-            for e in errors:
-                c.output.error(str(e.get("msg", e)))
-            raise typer.Exit(1)
-    elif isinstance(result, dict) and result.get("type") == "danger":
-        c.output.error(str(result.get("msg", result)))
-        raise typer.Exit(1)
-    c.output.success(success_msg)
-    if c.json_mode:
-        c.output.raw_json(result)
+_handle_result = handle_result

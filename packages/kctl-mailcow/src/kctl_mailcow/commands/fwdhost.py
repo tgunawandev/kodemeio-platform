@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from kctl_mailcow.core.callbacks import AppContext
+from kctl_mailcow.core.helpers import handle_result
 
 app = typer.Typer(help="Manage forwarding hosts.")
 
@@ -41,7 +42,7 @@ def list_(ctx: typer.Context) -> None:
         "Forwarding Hosts",
         [("Host", "cyan"), ("Source", ""), ("Filter Spam", "")],
         rows,
-        data_for_json=items if isinstance(items[0], dict) else [{"host": h} for h in items],
+        data_for_json=items if items and isinstance(items[0], dict) else [{"host": h} for h in items],
     )
 
 
@@ -60,17 +61,7 @@ def add(
         "filter_spam": "1" if filter_spam else "0",
     }
     result = c.client.mc_add("fwdhost", payload)
-
-    if isinstance(result, list):
-        errors = [r for r in result if isinstance(r, dict) and r.get("type") == "danger"]
-        if errors:
-            for e in errors:
-                c.output.error(str(e.get("msg", e)))
-            raise typer.Exit(1)
-
-    c.output.success(f"Forwarding host '{hostname}' added")
-    if c.json_mode:
-        c.output.raw_json(result)
+    handle_result(c, result, f"Forwarding host '{hostname}' added")
 
 
 @app.command()
@@ -86,14 +77,4 @@ def delete(
             raise typer.Exit(0)
 
     result = c.client.mc_delete("fwdhost", [hostname])
-
-    if isinstance(result, list):
-        errors = [r for r in result if isinstance(r, dict) and r.get("type") == "danger"]
-        if errors:
-            for e in errors:
-                c.output.error(str(e.get("msg", e)))
-            raise typer.Exit(1)
-
-    c.output.success(f"Forwarding host '{hostname}' removed")
-    if c.json_mode:
-        c.output.raw_json(result)
+    handle_result(c, result, f"Forwarding host '{hostname}' removed")

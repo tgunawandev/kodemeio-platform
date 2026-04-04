@@ -7,30 +7,12 @@ from typing import Annotated
 import typer
 
 from kctl_mailcow.core.callbacks import AppContext
+from kctl_mailcow.core.helpers import handle_result
 
 app = typer.Typer(help="Manage Mailcow resources.")
 
 
-def _handle_result(c: AppContext, result: dict | list, success_msg: str) -> None:
-    """Handle Mailcow API result."""
-    if isinstance(result, list):
-        errors = [r for r in result if isinstance(r, dict) and r.get("type") == "danger"]
-        if errors:
-            for e in errors:
-                c.output.error(str(e.get("msg", e)))
-            raise typer.Exit(1)
-        c.output.success(success_msg)
-        if c.json_mode:
-            c.output.raw_json(result)
-    elif isinstance(result, dict):
-        if result.get("type") == "danger":
-            c.output.error(str(result.get("msg", result)))
-            raise typer.Exit(1)
-        c.output.success(success_msg)
-        if c.json_mode:
-            c.output.raw_json(result)
-    else:
-        c.output.success(success_msg)
+_handle_result = handle_result
 
 
 @app.command("list")
@@ -68,7 +50,8 @@ def list_(ctx: typer.Context) -> None:
 @app.command()
 def create(
     ctx: typer.Context,
-    description: Annotated[str, typer.Option("--description", "-d", help="Resource description")],
+    name: Annotated[str, typer.Argument(help="Resource name (unique identifier)")],
+    description: Annotated[str | None, typer.Option("--description", "-d", help="Resource description")] = None,
     kind: Annotated[str, typer.Option("--kind", help="Resource kind (room, equipment, etc.)")] = "room",
     active: Annotated[bool, typer.Option("--active/--inactive", help="Active state")] = True,
     multiple_bookings: Annotated[
@@ -78,13 +61,14 @@ def create(
     """Create a resource."""
     c: AppContext = ctx.obj
     payload = {
-        "description": description,
+        "name": name,
+        "description": description or name,
         "kind": kind,
         "active": "1" if active else "0",
         "multiple_bookings": str(multiple_bookings),
     }
     result = c.client.mc_add("resource", payload)
-    _handle_result(c, result, f"Resource '{description}' created")
+    _handle_result(c, result, f"Resource '{name}' created")
 
 
 @app.command()

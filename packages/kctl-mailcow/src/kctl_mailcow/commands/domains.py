@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from kctl_mailcow.core.callbacks import AppContext
+from kctl_mailcow.core.helpers import handle_result
 
 app = typer.Typer(help="Manage mail domains.")
 
@@ -166,7 +167,7 @@ def dns_check(
 ) -> None:
     """Check DNS records for a domain (MX, SPF, DKIM, DMARC, etc.)."""
     c: AppContext = ctx.obj
-    data = c.client.get(f"get/dns/{domain}/check")
+    data = c.client.mc_get(f"dns/{domain}/check")
 
     if not isinstance(data, dict):
         c.output.error(f"Unexpected DNS check response for {domain}")
@@ -202,23 +203,4 @@ def dns_check(
     c.output.detail(f"DNS Check -- {domain}", sections, data_for_json=data)
 
 
-def _handle_result(c: AppContext, result: dict | list, success_msg: str) -> None:
-    """Handle Mailcow API result (list of {type, log, msg})."""
-    if isinstance(result, list):
-        errors = [r for r in result if isinstance(r, dict) and r.get("type") == "danger"]
-        if errors:
-            for e in errors:
-                c.output.error(str(e.get("msg", e)))
-            raise typer.Exit(1)
-        c.output.success(success_msg)
-        if c.json_mode:
-            c.output.raw_json(result)
-    elif isinstance(result, dict):
-        if result.get("type") == "danger":
-            c.output.error(str(result.get("msg", result)))
-            raise typer.Exit(1)
-        c.output.success(success_msg)
-        if c.json_mode:
-            c.output.raw_json(result)
-    else:
-        c.output.success(success_msg)
+_handle_result = handle_result
