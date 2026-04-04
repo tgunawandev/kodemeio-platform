@@ -43,7 +43,18 @@ def get(ctx: typer.Context, relay_id: Annotated[str, typer.Argument(help="Relay 
     if not item:
         c.output.error(f"Relay host not found: {relay_id}")
         raise typer.Exit(1)
-    sections = [("Relay Host", [(k, str(v)) for k, v in item.items()])]
+    sections = [
+        (
+            "Relay Host",
+            [
+                ("ID", str(item.get("id", ""))),
+                ("Hostname", str(item.get("hostname", ""))),
+                ("Username", str(item.get("username", ""))),
+                ("Active", str(item.get("active", ""))),
+                ("Used By Domains", str(item.get("used_by_domains", ""))),
+            ],
+        )
+    ]
     c.output.detail(f"Relay Host: {relay_id}", sections, data_for_json=item)
 
 

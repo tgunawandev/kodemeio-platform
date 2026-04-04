@@ -27,7 +27,9 @@ def list_(ctx: typer.Context) -> None:
     rows = []
     for item in items:
         active = "[green]yes[/green]" if str(item.get("active")) == "1" else "[red]no[/red]"
-        rows.append([str(item.get("id", "")), item.get("desc", ""), item.get("content", "")[:60], active])
+        content = item.get("content", "")
+        content_preview = (content[:57] + "...") if len(content) > 60 else content
+        rows.append([str(item.get("id", "")), item.get("desc", ""), content_preview, active])
 
     c.output.table(
         "Rspamd Settings",

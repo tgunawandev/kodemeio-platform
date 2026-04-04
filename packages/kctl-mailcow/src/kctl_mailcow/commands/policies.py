@@ -74,8 +74,12 @@ def add_whitelist(
     object_: Annotated[str, typer.Argument(help="Domain or mailbox to apply policy to")],
     value: Annotated[str, typer.Argument(help="Address/domain to whitelist")],
 ) -> None:
-    """Add a whitelist entry."""
+    """Add a whitelist entry.
+
+    Example: kctl-mailcow policies add-whitelist example.com trusted@sender.com
+    """
     c: AppContext = ctx.obj
+    # Mailcow uses domain-policy for both domain and mailbox scope
     payload = {"object": object_, "value": value, "type": "wl"}
     result = c.client.mc_add("domain-policy", payload)
     handle_result(c, result, f"Whitelist added: {value} for {object_}")
@@ -87,7 +91,10 @@ def add_blacklist(
     object_: Annotated[str, typer.Argument(help="Domain or mailbox to apply policy to")],
     value: Annotated[str, typer.Argument(help="Address/domain to blacklist")],
 ) -> None:
-    """Add a blacklist entry."""
+    """Add a blacklist entry.
+
+    Example: kctl-mailcow policies add-blacklist example.com spam@bad.com
+    """
     c: AppContext = ctx.obj
     payload = {"object": object_, "value": value, "type": "bl"}
     result = c.client.mc_add("domain-policy", payload)
@@ -97,13 +104,29 @@ def add_blacklist(
 @app.command()
 def delete(
     ctx: typer.Context,
-    policy_id: Annotated[str, typer.Argument(help="Policy ID to delete")],
+    policy_id: Annotated[str, typer.Argument(help="Policy prefid to delete")],
+    policy_type: Annotated[str, typer.Option("--type", "-t", help="Policy type: wl or bl")] = "wl",
+    scope: Annotated[str, typer.Option("--scope", "-s", help="Policy scope: domain or mailbox")] = "domain",
     force: Annotated[bool, typer.Option("--force", help="Skip confirmation")] = False,
 ) -> None:
-    """Delete a policy entry."""
+    """Delete a policy entry.
+
+    You must specify --type (wl/bl) and --scope (domain/mailbox) to target
+    the correct Mailcow API endpoint.
+
+    Example: kctl-mailcow policies delete 5 --type bl --scope domain --force
+    """
     c: AppContext = ctx.obj
+    if policy_type not in ("wl", "bl"):
+        c.output.error("--type must be 'wl' or 'bl'")
+        raise typer.Exit(1)
+    if scope not in ("domain", "mailbox"):
+        c.output.error("--scope must be 'domain' or 'mailbox'")
+        raise typer.Exit(1)
     if not force:
-        if not typer.confirm(f"Delete policy {policy_id}?"):
+        if not typer.confirm(f"Delete {policy_type} {scope} policy {policy_id}?"):
             raise typer.Exit(0)
-    result = c.client.mc_delete("domain-policy", [policy_id])
+    # Mailcow delete uses scoped resource: policy_{wl|bl}_{domain|mailbox}
+    resource = f"policy_{policy_type}_{scope}"
+    result = c.client.mc_delete(resource, [policy_id])
     handle_result(c, result, f"Policy {policy_id} deleted")

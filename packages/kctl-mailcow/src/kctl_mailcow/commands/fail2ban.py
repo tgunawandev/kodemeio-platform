@@ -50,6 +50,7 @@ def ban(
 ) -> None:
     """Ban an IP address."""
     c: AppContext = ctx.obj
+    # fail2ban is a singleton endpoint — no items key needed
     result = c.client.mc_edit("fail2ban", {"attr": {"ban_ip": ip}})
     handle_result(c, result, f"IP '{ip}' banned")
 
@@ -61,5 +62,6 @@ def unban(
 ) -> None:
     """Unban an IP address."""
     c: AppContext = ctx.obj
+    # fail2ban is a singleton endpoint — no items key needed
     result = c.client.mc_edit("fail2ban", {"attr": {"unban_ip": ip}})
     handle_result(c, result, f"IP '{ip}' unbanned")

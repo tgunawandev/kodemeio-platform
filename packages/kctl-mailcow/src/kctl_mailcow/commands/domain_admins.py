@@ -81,7 +81,7 @@ def create(
         "username": username,
         "password": password,
         "password2": password,
-        "domains": domains,
+        "domains": [d.strip() for d in domains.split(",")],
         "active": "1" if active else "0",
     }
     result = c.client.mc_add("domain-admin", payload)
@@ -103,7 +103,7 @@ def update(
         attr["password"] = password
         attr["password2"] = password
     if domains is not None:
-        attr["domains"] = domains
+        attr["domains"] = [d.strip() for d in domains.split(",")]
     if active is not None:
         attr["active"] = "1" if active else "0"
 

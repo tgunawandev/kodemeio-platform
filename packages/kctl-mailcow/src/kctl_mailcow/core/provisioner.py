@@ -53,7 +53,7 @@ def fetch_authentik_users(
         group_pk = group.get("pk", "")
 
         # Get users in group
-        users = client.get_all("core/users/", params={"groups_by_pk": group_pk, "is_active": True})
+        users = client.get_all("core/users/", params={"groups_by_pk": group_pk, "is_active": "true"})
         return [
             {
                 "username": u.get("username", ""),
@@ -127,14 +127,15 @@ def sync_users_to_mailboxes(
             # Create new mailbox
             if not dry_run:
                 try:
+                    pw = _generate_password()
                     mailcow_client.mc_add(
                         "mailbox",
                         {
                             "local_part": local_part,
                             "domain": domain,
                             "name": name or local_part,
-                            "password": _generate_password(),
-                            "password2": "",
+                            "password": pw,
+                            "password2": pw,
                             "quota": str(default_quota),
                             "active": "1",
                             "force_pw_update": "1",

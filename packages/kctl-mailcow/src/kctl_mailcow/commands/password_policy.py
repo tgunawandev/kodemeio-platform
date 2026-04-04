@@ -61,5 +61,6 @@ def set_(
         c.output.warn("No fields to update")
         raise typer.Exit(0)
 
+    # passwordpolicy is a singleton endpoint — no items key needed
     result = c.client.mc_edit("passwordpolicy", {"attr": attr})
     handle_result(c, result, "Password policy updated")
