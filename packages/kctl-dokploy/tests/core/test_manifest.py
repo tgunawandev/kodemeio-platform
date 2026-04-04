@@ -380,3 +380,39 @@ class TestMergeAndResolve:
         assert merged.source.branch == "develop"
         # other source fields unchanged
         assert merged.source.repo == "my-app"
+
+
+def test_environment_field_defaults_to_production():
+    """DeployManifest.environment defaults to 'production'."""
+    from kctl_dokploy.core.manifest import DeployManifest
+
+    m = DeployManifest()
+    assert m.environment == "production"
+
+
+def test_environment_field_from_yaml(tmp_path):
+    """environment field is parsed from YAML."""
+    manifest_file = tmp_path / "staging.yaml"
+    manifest_file.write_text("kind: instance\nenvironment: staging\ninstance:\n  name: test-app\n")
+    m = load_manifest(manifest_file)
+    assert m.environment == "staging"
+
+
+def test_merge_environment_instance_wins():
+    """Instance environment overrides base environment."""
+    from kctl_dokploy.core.manifest import DeployManifest
+
+    base = DeployManifest(environment="production")
+    instance = DeployManifest(environment="staging")
+    merged = merge_manifests(base, instance)
+    assert merged.environment == "staging"
+
+
+def test_merge_environment_base_kept_when_instance_default():
+    """Base environment is kept when instance uses default."""
+    from kctl_dokploy.core.manifest import DeployManifest
+
+    base = DeployManifest(environment="production")
+    instance = DeployManifest()
+    merged = merge_manifests(base, instance)
+    assert merged.environment == "production"

@@ -126,6 +126,7 @@ class DeployManifest(BaseModel):
     source: SourceConfig = Field(default_factory=SourceConfig)
     server: str = ""
     project: str = ""
+    environment: str = "production"  # NEW — targets Dokploy environment
     instance: InstanceConfig = Field(default_factory=InstanceConfig)
 
     dns: DnsConfig = Field(default_factory=DnsConfig)
@@ -220,6 +221,7 @@ def merge_manifests(base: DeployManifest, instance: DeployManifest) -> DeployMan
     mtype = _pick("type")
     server = _pick("server")
     project = _pick("project")
+    environment = _pick("environment")  # NEW
 
     # -- Sub-models (field-level merge) --
     source_merged = _merge_submodel(base.source, instance.source)
@@ -262,6 +264,7 @@ def merge_manifests(base: DeployManifest, instance: DeployManifest) -> DeployMan
         source=SourceConfig(**source_merged),
         server=server,
         project=project,
+        environment=environment,
         instance=InstanceConfig(**instance_merged),
         dns=DnsConfig(**dns_merged),
         domain=DomainConfig(**domain_merged),
