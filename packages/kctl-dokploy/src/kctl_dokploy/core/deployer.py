@@ -827,6 +827,28 @@ class Deployer:
                 resp = httpx.get(url, timeout=5.0, follow_redirects=True, verify=False)
                 if resp.status_code == hc.expected_status:
                     self._record_phase("verify", "updated", f"Healthcheck passed: {url} → {resp.status_code}")
+
+                    # Run post-deploy smoke tests (warnings only)
+                    validator = DeployValidator(
+                        manifest=self.manifest,
+                        env_vars=self._merged_env,
+                        compose_id=self._compose_id,
+                    )
+                    smoke_results = validator.post_verify()
+                    for r in smoke_results:
+                        _logger.log(
+                            logging.WARNING if r.status == "warn" else logging.INFO,
+                            "SMOKE [%s] %s: %s",
+                            r.status.upper(),
+                            r.name,
+                            r.detail,
+                        )
+
+                    warn_count = sum(1 for r in smoke_results if r.status == "warn")
+                    if smoke_results:
+                        msg = f"{len(smoke_results)} smoke test(s), {warn_count} warning(s)"
+                        self._record_phase("smoke_tests", "updated", msg)
+
                     return
                 last_error = f"unexpected status {resp.status_code}"
             except Exception as exc:
