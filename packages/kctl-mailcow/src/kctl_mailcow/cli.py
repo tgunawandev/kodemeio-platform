@@ -10,6 +10,8 @@ from kctl_lib import KctlError, handle_cli_error
 from kctl_mailcow import __version__
 from kctl_mailcow.commands.aliases import app as aliases_app
 from kctl_mailcow.commands.config_cmd import app as config_app
+from kctl_mailcow.commands.identity_provider import app as identity_provider_app
+from kctl_mailcow.commands.oauth2_clients import app as oauth2_clients_app
 from kctl_mailcow.commands.dashboard import app as dashboard_app
 from kctl_mailcow.commands.dkim import app as dkim_app
 from kctl_mailcow.commands.domains import app as domains_app
@@ -82,6 +84,8 @@ app.add_typer(fwdhost_app, name="fwdhost")
 app.add_typer(config_app, name="config")
 app.add_typer(tls_app, name="tls")
 app.add_typer(resources_app, name="resources")
+app.add_typer(identity_provider_app, name="identity-provider")
+app.add_typer(oauth2_clients_app, name="oauth2-clients")
 
 
 def _run() -> None:
