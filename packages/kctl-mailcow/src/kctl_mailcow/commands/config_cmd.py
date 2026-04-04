@@ -373,7 +373,7 @@ def current(ctx: typer.Context) -> None:
                 ("Source", source),
                 ("URL", resolved_url or "[red]not set[/red]"),
                 ("API Key", _mask_key(resolved_key)),
-                ("Status", f"[green]Connected[/green]" if ok else f"[red]{info}[/red]"),
+                ("Status", "[green]Connected[/green]" if ok else f"[red]{info}[/red]"),
             ],
         ),
     ]
@@ -413,7 +413,7 @@ def test(ctx: typer.Context) -> None:
 
     try:
         c = actx.client
-        data = c.mc_get("status/containers")
+        c.mc_get("status/containers")
     except KctlError as e:
         out.error(f"Connection failed: {e}")
         raise typer.Exit(code=1)
