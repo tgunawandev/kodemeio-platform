@@ -1,0 +1,192 @@
+# =============================================================================
+# Odoo Company Setup — CV Mandiri Agro Cemerlang (MAC)
+# =============================================================================
+# Profile: distribution
+# Instance: odoo-dist-mac.mandiriagro.com
+# Database: odoo_dist_mac
+#
+# Usage:
+#   This file documents the setup applied. To replay for a new company,
+#   copy and modify company/OU/warehouse names, then run with kctl-odoo.
+#
+# Prerequisites:
+#   - Odoo instance deployed with distribution profile
+#   - kctl-odoo profile configured: kctl-odoo config add <name> --url <url> --database <db> --api-key admin
+# =============================================================================
+
+company:
+  name: "CV Mandiri Agro Cemerlang"
+  email: "mac@kodeme.io"
+  website: "https://mandiriagro.com"
+  currency: IDR
+  timezone: Asia/Jakarta
+  language: id_ID
+  base_url: "https://odoo-dist-mac.mandiriagro.com"
+  catchall_domain: "mandiriagro.com"
+
+operating_units:
+  - code: OFC
+    name: Office
+    type: admin  # No warehouse
+  - code: JKT
+    name: Jakarta
+    type: regional
+  - code: BDG
+    name: Bandung
+    type: regional
+  - code: SLO
+    name: Solo
+    type: regional
+  - code: SBY
+    name: Surabaya
+    type: regional
+  - code: MDN
+    name: Medan
+    type: regional
+  - code: MKS
+    name: Makassar
+    type: regional
+
+warehouses:
+  - code: JKT01
+    name: Jakarta-01
+    ou: JKT
+  - code: BDG01
+    name: Bandung-01
+    ou: BDG
+  - code: SLO01
+    name: Solo-01
+    ou: SLO
+  - code: SBY01
+    name: Surabaya-01
+    ou: SBY
+  - code: MDN01
+    name: Medan-01
+    ou: MDN
+  - code: MDN02
+    name: Medan-02
+    ou: MDN
+  - code: MKS01
+    name: Makassar-01
+    ou: MKS
+
+crm_teams:
+  - name: Jakarta-01
+    warehouse: JKT01
+  - name: Bandung-01
+    warehouse: BDG01
+  - name: Solo-01
+    warehouse: SLO01
+  - name: Surabaya-01
+    warehouse: SBY01
+  - name: Medan-01
+    warehouse: MDN01
+  - name: Medan-02
+    warehouse: MDN02
+  - name: Makassar-01
+    warehouse: MKS01
+
+taxes:
+  - name: "PPN Keluaran 11%"
+    amount: 11
+    use: sale
+  - name: "PPN Masukan 11%"
+    amount: 11
+    use: purchase
+  - name: "PPh 23 - 2%"
+    amount: 2
+    use: purchase
+  - name: "PPh 4(2) - 10%"
+    amount: 10
+    use: purchase
+
+journals:
+  - code: SAL
+    name: Penjualan
+    type: sale
+  - code: PUR
+    name: Pembelian
+    type: purchase
+  - code: BCA
+    name: Bank BCA
+    type: bank
+  - code: MDR
+    name: Bank Mandiri
+    type: bank
+  - code: CSH
+    name: Kas
+    type: cash
+
+payment_terms:
+  - name: Tunai
+    days: 0
+  - name: Net 7
+    days: 7
+  - name: Net 14
+    days: 14
+  - name: Net 30
+    days: 30
+  - name: Net 60
+    days: 60
+
+fiscal_positions:
+  - name: "PPN Dalam Negeri"
+    auto_apply: true
+  - name: "Non PPN (Bebas PPN)"
+    auto_apply: false
+  - name: "PPh 23 Jasa"
+    auto_apply: false
+
+smtp:
+  name: "Kodemeio SMTP"
+  host: mail.kodeme.io
+  port: 587
+  user: "mac@kodeme.io"
+  encryption: starttls
+
+users:
+  - login: mgr.jakarta
+    name: Manager Jakarta
+    ou: JKT
+    password: "Mac2026!"
+  - login: mgr.bandung
+    name: Manager Bandung
+    ou: BDG
+    password: "Mac2026!"
+  - login: mgr.solo
+    name: Manager Solo
+    ou: SLO
+    password: "Mac2026!"
+  - login: mgr.surabaya
+    name: Manager Surabaya
+    ou: SBY
+    password: "Mac2026!"
+  - login: mgr.medan
+    name: Manager Medan
+    ou: MDN
+    password: "Mac2026!"
+  - login: mgr.makassar
+    name: Manager Makassar
+    ou: MKS
+    password: "Mac2026!"
+
+pos_configs:
+  - name: POS Jakarta-01
+    warehouse: JKT01
+  - name: POS Bandung-01
+    warehouse: BDG01
+  - name: POS Solo-01
+    warehouse: SLO01
+  - name: POS Surabaya-01
+    warehouse: SBY01
+  - name: POS Medan-01
+    warehouse: MDN01
+  - name: POS Medan-02
+    warehouse: MDN02
+  - name: POS Makassar-01
+    warehouse: MKS01
+
+modules_extra:
+  - point_of_sale
+
+fiscal_year: 2026
