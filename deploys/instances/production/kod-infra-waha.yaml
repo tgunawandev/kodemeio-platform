@@ -1,0 +1,20 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-waha
+  description: "WAHA WhatsApp HTTP API"
+
+project: kod
+
+source_overrides:
+  repo: kodemeio-waha
+
+domain:
+  host: waha.kodeme.io
+  port: 3000
+  service: waha
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-waha

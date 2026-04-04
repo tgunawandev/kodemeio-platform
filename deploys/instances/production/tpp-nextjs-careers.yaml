@@ -1,0 +1,29 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/nextjs.yaml
+instance:
+  name: tpp-nextjs-careers
+  description: Pakerti — Careers Portal (recruitment)
+source_overrides:
+  compose_path: compose/docker-compose.prod.careers.yml
+project: tpp
+healthcheck:
+  port: 3000
+dns:
+  zone: pakerti.com
+  name: tpp-careers
+domain:
+  host: tpp-careers.pakerti.com
+  port: 3000
+  service: careers
+  https: true
+env_file: ../../env/production/.env.tpp-nextjs-careers
+env_overrides:
+  NEXT_PUBLIC_SITE_URL: https://tpp-careers.pakerti.com
+  NEXT_PUBLIC_SITE_NAME: Pakerti
+  NEXT_PUBLIC_COMPANY_WEBSITE: https://pakerti.com
+  NEXT_PUBLIC_HERO_TITLE: Bergabunglah Bersama Pakerti
+  NEXT_PUBLIC_HERO_SUBTITLE: Kami adalah perusahaan trading internasional yang bergerak di bidang impor dan ekspor. Bergabunglah dan kembangkan karir Anda di dunia perdagangan global.
+  NEXT_PUBLIC_API_URL: https://tpp-odoo-hrms.pakerti.com
+  NEXT_PUBLIC_RECRUITMENT_API_URL: https://tpp-odoo-hrms.pakerti.com/recruitment/api
+  API_URL: https://tpp-odoo-hrms.pakerti.com

@@ -1,0 +1,20 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-rmm
+  description: "Tactical RMM remote monitoring"
+
+project: kod
+
+source_overrides:
+  repo: kodemeio-rmm
+
+domain:
+  host: rmm.kodeme.io
+  port: 8080
+  service: tactical-rmm
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-rmm
