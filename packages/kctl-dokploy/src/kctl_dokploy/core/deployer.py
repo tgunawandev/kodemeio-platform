@@ -554,11 +554,15 @@ class Deployer:
                 return
 
         # Create new compose in the target environment
+        env_id = target_env_id or default_environment_id
+        if not env_id:
+            self._record_phase("compose", "failed", "No environment ID resolved — cannot create compose")
+            return
         create_args = [
             "kctl-dokploy",
             "compose",
             "create",
-            target_env_id or default_environment_id or (project_data or {}).get("projectId", ""),
+            env_id,
             "--name",
             instance_name,
         ]
@@ -675,17 +679,20 @@ class Deployer:
             tmp.write(env_content)
             tmp_path = tmp.name
 
-        # env push: options before --, positional args (compose_id, file) after --
-        code, out = self._run_kctl(["kctl-dokploy", "env", "push", "--force", "--", self._compose_id, tmp_path])
-        if code == 0:
-            # Validate React PWA env vars
-            warnings = self._validate_react_env(env)
-            if warnings:
-                for w in warnings:
-                    self._log(f"ENV VALIDATION: {w}")
-            self._record_phase("environment", "updated", f"Pushed {len(env)} env vars to {self._compose_id}")
-        else:
-            self._record_phase("environment", "failed", f"Failed to push env vars: {out}")
+        try:
+            # env push: options before --, positional args (compose_id, file) after --
+            code, out = self._run_kctl(["kctl-dokploy", "env", "push", "--force", "--", self._compose_id, tmp_path])
+            if code == 0:
+                # Validate React PWA env vars
+                warnings = self._validate_react_env(env)
+                if warnings:
+                    for w in warnings:
+                        self._log(f"ENV VALIDATION: {w}")
+                self._record_phase("environment", "updated", f"Pushed {len(env)} env vars to {self._compose_id}")
+            else:
+                self._record_phase("environment", "failed", f"Failed to push env vars: {out}")
+        finally:
+            pathlib.Path(tmp_path).unlink(missing_ok=True)
 
     def _validate_react_env(self, env_vars: dict[str, str]) -> list[str]:
         """Validate React PWA environment variables. Returns list of warnings."""

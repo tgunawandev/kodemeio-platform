@@ -578,12 +578,7 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
 def is_secret_env(path: Path) -> bool:
     """Check if a .env file likely contains secrets (Odoo, Notify)."""
     name = path.name
-    return (
-        "-odoo-" in name
-        and name.startswith(".env.")
-        or "-hono-notify" in name
-        and name.startswith(".env.")
-    )
+    return name.startswith(".env.") and ("-odoo-" in name or "-hono-notify" in name)
 
 
 def main() -> None:
