@@ -591,9 +591,58 @@ class Deployer:
         # env push: options before --, positional args (compose_id, file) after --
         code, out = self._run_kctl(["kctl-dokploy", "env", "push", "--force", "--", self._compose_id, tmp_path])
         if code == 0:
+            # Validate React PWA env vars
+            warnings = self._validate_react_env(env)
+            if warnings:
+                for w in warnings:
+                    self._log(f"ENV VALIDATION: {w}")
             self._record_phase("environment", "updated", f"Pushed {len(env)} env vars to {self._compose_id}")
         else:
             self._record_phase("environment", "failed", f"Failed to push env vars: {out}")
+
+    def _validate_react_env(self, env_vars: dict[str, str]) -> list[str]:
+        """Validate React PWA environment variables. Returns list of warnings."""
+        warnings: list[str] = []
+        compose_path = ""
+        if hasattr(self.manifest, "source_overrides") and isinstance(self.manifest.source_overrides, dict):
+            compose_path = self.manifest.source_overrides.get("compose_path", "")
+        elif hasattr(self.manifest, "source") and hasattr(self.manifest.source, "compose_path"):
+            compose_path = self.manifest.source.compose_path or ""
+
+        # Only validate React PWA composes
+        react_apps = ["sfa", "lfa", "shop", "wms", "bia", "hrm", "mrp", "eam", "tpm", "dms", "saas"]
+        if not any(app in compose_path for app in react_apps):
+            return warnings
+
+        # Check API base URL includes app path
+        fastapi_paths = [
+            "sfa",
+            "lfa",
+            "shop",
+            "wms",
+            "bia",
+            "hrm",
+            "mrp",
+            "asset",
+            "dms",
+            "tpm",
+            "recruitment",
+            "saas",
+        ]
+        for key, val in env_vars.items():
+            if key.startswith("VITE_") and key.endswith("_API_BASE_URL") and val:
+                if not any(val.endswith(f"/{app}/api") for app in fastapi_paths):
+                    warnings.append(
+                        f"  {key}={val} — missing app path (e.g., /wms/api). "
+                        f"Login will fail without the FastAPI root path."
+                    )
+
+        # Check auth mode is set
+        auth_mode = env_vars.get("VITE_AUTH_MODE", "")
+        if not auth_mode:
+            warnings.append("  VITE_AUTH_MODE not set — defaults to 'oidc'")
+
+        return warnings
 
     # ------------------------------------------------------------------
     # Phase 6 — Domain
