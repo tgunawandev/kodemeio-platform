@@ -476,9 +476,6 @@ def gen_notify(
                 "ALLOWED_ORIGINS": allowed_origins,
                 "FIREBASE_SERVICE_ACCOUNT_JSON": "${FIREBASE_SERVICE_ACCOUNT_JSON}",
             },
-            "backup": {
-                "enabled": False,
-            },
         }
     )
 

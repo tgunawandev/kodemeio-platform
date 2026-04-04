@@ -83,7 +83,6 @@ schedules:
     timezone: UTC
 post_deploy:
   odoo_profile: null
-  odoo_init_db: false
 """
 
 INSTANCE_YAML_CONTENT = """\
@@ -121,7 +120,6 @@ schedules:
     timezone: UTC
 post_deploy:
   odoo_profile: staging-profile
-  odoo_init_db: true
 """
 
 
@@ -218,7 +216,6 @@ class TestLoadBase:
         # PostDeployConfig
         assert isinstance(manifest.post_deploy, PostDeployConfig)
         assert manifest.post_deploy.odoo_profile is None
-        assert manifest.post_deploy.odoo_init_db is False
 
 
 class TestMergeAndResolve:
@@ -263,7 +260,6 @@ class TestMergeAndResolve:
 
         # --- post_deploy overridden by instance ---
         assert result.post_deploy.odoo_profile == "staging-profile"
-        assert result.post_deploy.odoo_init_db is True
 
         # --- Schedules replaced by instance ---
         assert len(result.schedules) == 1

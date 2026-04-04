@@ -494,8 +494,15 @@ class Deployer:
                 except Exception as exc:
                     self._log(f"WARNING: Failed to create environment '{target_env_name}': {exc}")
 
-        # Fall back to default environment if target not found
+        # Fall back to default environment ONLY for production
         if not target_env_id:
+            if target_env_name.lower() != "production":
+                self._record_phase(
+                    "compose",
+                    "failed",
+                    f"Dokploy environment '{target_env_name}' not found and could not be created",
+                )
+                return
             target_env_id = default_environment_id
             for env in (project_data or {}).get("environments", []):
                 if env.get("environmentId") == default_environment_id:
