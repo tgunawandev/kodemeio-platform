@@ -1,0 +1,40 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/infra.yaml
+instance:
+  name: mac-hono-notify
+  description: Notification dispatch service (FCM push + SSE real-time + Telegram)
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-react
+  branch: main
+  compose_path: apps/api/notify/docker-compose.yml
+project: mac
+environment: staging
+server: mac-stg-01
+healthcheck:
+  path: /health
+  port: 3020
+  expected_status: 200
+  timeout: 60
+  interval: 10
+dns:
+  zone: mandiriagro.com
+  name: stg-mac-notify
+domain:
+  host: stg-mac-notify.mandiriagro.com
+  port: 3020
+  service: notify
+  https: true
+env_overrides:
+  NODE_ENV: production
+  PORT: '3020'
+  DATABASE_URL: postgresql://kodemeio:${DB_PASSWORD}@postgres:5432/kodemeio
+  REDIS_URL: redis://redis:6379
+  DISPATCH_SECRET: ${DISPATCH_SECRET}
+  JWT_SECRET: ${JWT_SECRET}
+  ALLOWED_ORIGINS: https://stg-mac-bia.mandiriagro.com,https://stg-mac-wms.mandiriagro.com,https://stg-mac-hrm.mandiriagro.com
+  FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}
+backup:
+  enabled: false

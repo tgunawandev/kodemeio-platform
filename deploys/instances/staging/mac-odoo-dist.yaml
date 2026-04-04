@@ -1,0 +1,32 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/odoo.yaml
+instance:
+  name: mac-odoo-dist
+  description: MAC — Distribution (SFA, LFA, WMS, DMS, retail, marketplace, BI)
+project: mac
+environment: staging
+server: mac-stg-01
+dns:
+  zone: mandiriagro.com
+  name: stg-mac-odoo-dist
+domain:
+  host: stg-mac-odoo-dist.mandiriagro.com
+  port: 8069
+  service: odoo-web
+  https: true
+  cert: letsencrypt
+database:
+  name: stg_mac_odoo_dist
+  user: odoo
+env_file: ../../env/staging/.env.mac-odoo-dist
+env_overrides:
+  COMPOSE_PROJECT_NAME: mac-odoo-dist
+  TENANT: mac
+  PGDATABASE: stg_mac_odoo_dist
+  PGUSER: odoo
+  ODOO_DB_FILTER: ^stg_mac_odoo_dist$
+  DOMAIN: stg-mac-odoo-dist.mandiriagro.com
+  ODOO_WORKERS: '2'
+post_deploy:
+  odoo_profile: profile-distribution

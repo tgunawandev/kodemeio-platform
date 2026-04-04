@@ -1,0 +1,28 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/nextjs.yaml
+instance:
+  name: mac-nextjs-careers
+  description: Mandiri Agro — Careers Portal (recruitment)
+source_overrides:
+  compose_path: compose/docker-compose.prod.careers.yml
+project: mac
+environment: staging
+server: mac-stg-01
+healthcheck:
+  port: 3000
+dns:
+  zone: mandiriagro.com
+  name: stg-mac-careers
+domain:
+  host: stg-mac-careers.mandiriagro.com
+  port: 3000
+  service: careers
+  https: true
+env_overrides:
+  NEXT_PUBLIC_SITE_URL: https://stg-mac-careers.mandiriagro.com
+  NEXT_PUBLIC_SITE_NAME: Mandiri Agro
+  NEXT_PUBLIC_COMPANY_WEBSITE: https://mandiriagro.com
+  NEXT_PUBLIC_API_URL: https://stg-mac-odoo-hrms.mandiriagro.com
+  NEXT_PUBLIC_RECRUITMENT_API_URL: https://stg-mac-odoo-hrms.mandiriagro.com/recruitment/api
+  API_URL: https://stg-mac-odoo-hrms.mandiriagro.com

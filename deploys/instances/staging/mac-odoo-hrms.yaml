@@ -1,0 +1,32 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/odoo.yaml
+instance:
+  name: mac-odoo-hrms
+  description: MAC — HRMS (employees, attendance, payroll, leaves, expenses)
+project: mac
+environment: staging
+server: mac-stg-01
+dns:
+  zone: mandiriagro.com
+  name: stg-mac-odoo-hrms
+domain:
+  host: stg-mac-odoo-hrms.mandiriagro.com
+  port: 8069
+  service: odoo-web
+  https: true
+  cert: letsencrypt
+database:
+  name: stg_mac_odoo_hrms
+  user: odoo
+env_file: ../../env/staging/.env.mac-odoo-hrms
+env_overrides:
+  COMPOSE_PROJECT_NAME: mac-odoo-hrms
+  TENANT: mac
+  PGDATABASE: stg_mac_odoo_hrms
+  PGUSER: odoo
+  ODOO_DB_FILTER: ^stg_mac_odoo_hrms$
+  DOMAIN: stg-mac-odoo-hrms.mandiriagro.com
+  ODOO_WORKERS: '2'
+post_deploy:
+  odoo_profile: profile-hrms

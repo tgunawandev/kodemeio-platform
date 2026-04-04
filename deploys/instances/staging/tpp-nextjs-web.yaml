@@ -1,0 +1,21 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/nextjs.yaml
+instance:
+  name: tpp-nextjs-web
+  description: Pakerti company website
+source_overrides:
+  compose_path: compose/docker-compose.pakerti.yml
+project: tpp
+environment: staging
+server: kod-stg-01
+dns:
+  zone: pakerti.com
+  name: stg-tpp-web
+domain:
+  host: stg-tpp-web.pakerti.com
+  port: 3000
+  service: pakerti-web
+  https: true
+  cert: letsencrypt
+env_file: ../../env/staging/.env.tpp-nextjs-web

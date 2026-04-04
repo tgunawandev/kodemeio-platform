@@ -1,0 +1,26 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/react-pwa.yaml
+instance:
+  name: mac-react-wms
+  description: MAC — WMS PWA
+project: mac
+environment: staging
+server: mac-stg-01
+source_overrides:
+  compose_path: compose/docker-compose.wms.yml
+dns:
+  zone: mandiriagro.com
+  name: stg-mac-wms
+domain:
+  host: stg-mac-wms.mandiriagro.com
+  port: 80
+  service: wms
+  https: true
+env_file: ../../env/staging/.env.mac-react-wms
+env_overrides:
+  VITE_WMS_APP_NAME: MAC WMS
+  VITE_WMS_API_BASE_URL: https://stg-mac-odoo-dist.mandiriagro.com/wms/api
+  VITE_AUTH_MODE: native
+  VITE_WMS_OIDC_CLIENT_ID: ''
+  VITE_WMS_OIDC_REDIRECT_URI: ''
