@@ -363,7 +363,7 @@ class TestPostVerifyOdoo:
 
         with patch(
             "kctl_dokploy.core.deploy_validators.httpx.post",
-            side_effect=[jwt_resp] * 13 + [stuck_resp],
+            side_effect=[jwt_resp] * 14 + [stuck_resp],
         ):
             results = v.post_verify()
 
@@ -384,7 +384,7 @@ class TestPostVerifyOdoo:
 
         with patch(
             "kctl_dokploy.core.deploy_validators.httpx.post",
-            side_effect=[weak_resp] + [good_resp] * 12 + [stuck_resp],
+            side_effect=[weak_resp] + [good_resp] * 13 + [stuck_resp],
         ):
             results = v.post_verify()
 
@@ -404,7 +404,7 @@ class TestPostVerifyOdoo:
 
         with patch(
             "kctl_dokploy.core.deploy_validators.httpx.post",
-            side_effect=[jwt_resp] * 13 + [stuck_resp],
+            side_effect=[jwt_resp] * 14 + [stuck_resp],
         ):
             results = v.post_verify()
 

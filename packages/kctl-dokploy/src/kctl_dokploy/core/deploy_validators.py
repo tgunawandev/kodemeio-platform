@@ -42,7 +42,7 @@ VALID_APPS = frozenset(
 
 VALID_AUTH_MODES = frozenset({"native", "oidc", "development"})
 
-# All 13 apps that require JWT secrets in Odoo config parameters
+# All 14 apps that require JWT secrets in Odoo config parameters
 ODOO_JWT_APPS = (
     "sfa",
     "lfa",
@@ -57,6 +57,7 @@ ODOO_JWT_APPS = (
     "tpm",
     "recruitment",
     "saas",
+    "intercompany",
 )
 
 # API URL must match /{app}/api at the end
@@ -231,7 +232,10 @@ class DeployValidator:
         try:
             resp = httpx.options(
                 f"{api_url}/auth/login",
-                headers={"Origin": f"https://{domain_host}"},
+                headers={
+                    "Origin": f"https://{domain_host}",
+                    "Access-Control-Request-Method": "POST",
+                },
                 timeout=timeout,
             )
             has_cors = "access-control-allow-origin" in {k.lower() for k in resp.headers.keys()}
@@ -348,7 +352,7 @@ class DeployValidator:
                     CheckResult(
                         name="jwt_secrets",
                         status="pass",
-                        detail="All 13 JWT secrets present and strong",
+                        detail=f"All {len(ODOO_JWT_APPS)} JWT secrets present and strong",
                     )
                 )
         except httpx.HTTPError as exc:

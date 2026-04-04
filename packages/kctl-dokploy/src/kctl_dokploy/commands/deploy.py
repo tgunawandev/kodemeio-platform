@@ -412,11 +412,9 @@ def verify(
     if manifest.env_file:
         env_path = Path(manifest.env_file)
         if env_path.exists():
-            for line in env_path.read_text().splitlines():
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, _, v = line.partition("=")
-                    merged[k.strip()] = v.strip()
+            from kctl_dokploy.core.manifest import load_env_file
+
+            merged.update(load_env_file(env_path))
     merged.update(manifest.env_overrides)
 
     from kctl_dokploy.core.deploy_validators import DeployValidator

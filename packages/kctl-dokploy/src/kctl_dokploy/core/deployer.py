@@ -255,11 +255,7 @@ class Deployer:
         if self.manifest.env_file:
             env_path = pathlib.Path(self.manifest.env_file)
             if env_path.exists():
-                for line in env_path.read_text().splitlines():
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        k, _, v = line.partition("=")
-                        merged[k.strip()] = v.strip()
+                merged.update(load_env_file(env_path))
         merged.update(self.manifest.env_overrides)
         self._merged_env = merged
 
