@@ -6,8 +6,13 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+import yaml
+
+from kctl_ak.core.config import resolve_app_registry_path
 
 app = typer.Typer(help="Application management")
+
+_MANAGED_PREFIXES = ("mac-", "tpp-", "kod-", "tkz-", "pro-", "shared-")
 
 
 @app.command("list")
@@ -283,3 +288,181 @@ def orphaned(ctx: typer.Context) -> None:
         rows,
         data_for_json=orphans,
     )
+
+
+def _compute_app_sync_plan(
+    desired: list[dict],
+    existing: list[dict],
+) -> dict[str, list[dict]]:
+    """Compare desired apps (from YAML) with existing apps (from API).
+
+    Returns ``{"create": [...], "update": [...], "prune": [...]}``.
+    This is a pure function with NO side effects.
+    """
+    existing_by_slug: dict[str, dict] = {a["slug"]: a for a in existing}
+    desired_slugs: set[str] = set()
+
+    create: list[dict] = []
+    update: list[dict] = []
+
+    for d in desired:
+        slug = d.get("slug", "")
+        if not slug:
+            continue
+        desired_slugs.add(slug)
+
+        ex = existing_by_slug.get(slug)
+        if ex is None:
+            create.append(d)
+            continue
+
+        # Detect changes
+        changes: dict = {}
+
+        if d.get("name", "") != ex.get("name", ""):
+            changes["name"] = d["name"]
+
+        if d.get("group", "") != (ex.get("group", "") or ""):
+            changes["group"] = d.get("group", "")
+
+        if d.get("launch_url", "") != (ex.get("meta_launch_url", "") or ""):
+            changes["meta_launch_url"] = d.get("launch_url", "")
+
+        # Icon: only compare if desired icon is a URL
+        desired_icon = d.get("icon", "")
+        if desired_icon and (desired_icon.startswith("http://") or desired_icon.startswith("https://")):
+            if desired_icon != (ex.get("meta_icon", "") or ""):
+                changes["meta_icon"] = desired_icon
+
+        if changes:
+            update.append({"slug": slug, "changes": changes})
+
+    # Prune: existing apps with managed prefixes not in desired set
+    prune: list[dict] = []
+    for ex in existing:
+        slug = ex.get("slug", "")
+        if any(slug.startswith(p) for p in _MANAGED_PREFIXES) and slug not in desired_slugs:
+            prune.append({"slug": slug, "name": ex.get("name", "")})
+
+    return {"create": create, "update": update, "prune": prune}
+
+
+@app.command("sync")
+def sync(
+    ctx: typer.Context,
+    dry_run: Annotated[bool, typer.Option("--dry-run/--no-dry-run", help="Preview changes without applying")] = True,
+    prune: Annotated[bool, typer.Option("--prune", help="Delete managed apps not in YAML")] = False,
+    file: Annotated[Path | None, typer.Option(help="Path to app-registry.yaml")] = None,
+) -> None:
+    """Sync applications from app-registry.yaml (3-phase: create/update/prune)."""
+    c = ctx.obj
+
+    if file:
+        ar_path = file
+    else:
+        ar_path = resolve_app_registry_path()
+        if ar_path is None:
+            c.output.error("app-registry.yaml not found. Use --file to specify path.")
+            raise typer.Exit(1)
+
+    with open(ar_path) as f:
+        registry = yaml.safe_load(f) or {}
+
+    desired_apps = registry.get("apps", [])
+    if not desired_apps:
+        c.output.warn("No apps defined in registry file")
+        return
+
+    # --- Initial plan ---
+    existing = c.client.get_all("core/applications/")
+    plan = _compute_app_sync_plan(desired_apps, existing)
+
+    c.output.header("App Sync")
+    c.output.info(f"Source: {ar_path}")
+    c.output.info(
+        f"Desired: {len(desired_apps)} | "
+        f"Create: {len(plan['create'])} | "
+        f"Update: {len(plan['update'])} | "
+        f"Prune: {len(plan['prune'])}"
+    )
+
+    # ---- Phase 1: CREATE ----
+    if plan["create"]:
+        c.output.header("Phase 1: Create")
+        for d in plan["create"]:
+            slug = d["slug"]
+            if dry_run:
+                c.output.info(f"[create] {slug}")
+            else:
+                try:
+                    payload: dict = {
+                        "name": d.get("name", slug),
+                        "slug": slug,
+                    }
+                    if d.get("group"):
+                        payload["group"] = d["group"]
+                    if d.get("launch_url"):
+                        payload["meta_launch_url"] = d["launch_url"]
+
+                    icon = d.get("icon", "")
+                    if icon and (icon.startswith("http://") or icon.startswith("https://")):
+                        payload["meta_icon"] = icon
+
+                    result = c.client.post("core/applications/", data=payload)
+                    c.output.success(f"[create] {slug}")
+
+                    # Upload local icon file after create
+                    if icon and not icon.startswith("http://") and not icon.startswith("https://"):
+                        icon_path = Path(icon)
+                        if icon_path.exists():
+                            content_type = "image/png" if icon_path.suffix == ".png" else "image/svg+xml"
+                            with open(icon_path, "rb") as icon_f:
+                                c.client.patch_multipart(
+                                    f"core/applications/{slug}/",
+                                    files={"meta_icon": (icon_path.name, icon_f, content_type)},
+                                )
+                            c.output.success(f"[create] {slug} icon uploaded")
+                except Exception as e:
+                    c.output.error(f"[create] Failed {slug}: {e}")
+
+    # ---- Phase 2: UPDATE ----
+    if plan["update"]:
+        c.output.header("Phase 2: Update")
+        for entry in plan["update"]:
+            slug = entry["slug"]
+            changes = entry["changes"]
+            if dry_run:
+                c.output.info(f"[update] {slug}: {changes}")
+            else:
+                try:
+                    c.client.patch(f"core/applications/{slug}/", data=changes)
+                    c.output.success(f"[update] {slug}")
+                except Exception as e:
+                    c.output.error(f"[update] Failed {slug}: {e}")
+
+    # ---- Phase 3: PRUNE (only with --prune flag) ----
+    if plan["prune"] and prune:
+        c.output.header("Phase 3: Prune")
+        for entry in plan["prune"]:
+            slug = entry["slug"]
+            if dry_run:
+                c.output.info(f"[prune] {slug}")
+            else:
+                try:
+                    c.client.delete(f"core/applications/{slug}/")
+                    c.output.success(f"[prune] {slug}")
+                except Exception as e:
+                    c.output.error(f"[prune] Failed {slug}: {e}")
+    elif plan["prune"] and not prune:
+        c.output.warn(f"{len(plan['prune'])} stale managed app(s) found. Use --prune to remove them.")
+
+    # ---- Summary ----
+    actionable = plan["create"] or plan["update"] or (plan["prune"] and prune)
+    if not actionable:
+        if plan["prune"] and not prune:
+            c.output.success("Apps in sync (stale managed apps exist — use --prune to remove)")
+        else:
+            c.output.success("All apps in sync")
+
+    if dry_run and actionable:
+        c.output.warn("Dry-run mode. Use --no-dry-run to apply changes.")
