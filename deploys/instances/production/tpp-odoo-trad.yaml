@@ -5,6 +5,8 @@ instance:
   name: tpp-odoo-trad
   description: Pakerti — Trading (import/export, multi-currency, landed costs)
 project: tpp
+environment: production
+server: kod-prod-01
 dns:
   zone: pakerti.com
   name: tpp-odoo-trad

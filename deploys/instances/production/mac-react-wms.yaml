@@ -5,6 +5,8 @@ instance:
   name: mac-react-wms
   description: MAC — WMS PWA
 project: mac
+environment: production
+server: mac-prod-01
 source_overrides:
   compose_path: compose/docker-compose.wms.yml
 dns:

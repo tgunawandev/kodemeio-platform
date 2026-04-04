@@ -5,6 +5,8 @@ instance:
   name: tpp-react-wms
   description: Pakerti — WMS PWA
 project: tpp
+environment: production
+server: kod-prod-01
 source_overrides:
   compose_path: compose/docker-compose.wms.yml
 dns:

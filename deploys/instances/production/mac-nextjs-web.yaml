@@ -7,6 +7,8 @@ instance:
 source_overrides:
   compose_path: compose/docker-compose.mandiriagro.yml
 project: mac
+environment: production
+server: mac-prod-01
 dns:
   zone: mandiriagro.com
   name: '@'

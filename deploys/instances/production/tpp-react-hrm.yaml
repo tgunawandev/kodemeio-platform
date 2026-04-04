@@ -5,6 +5,8 @@ instance:
   name: tpp-react-hrm
   description: Pakerti — HRM PWA
 project: tpp
+environment: production
+server: kod-prod-01
 source_overrides:
   compose_path: compose/docker-compose.hrm.yml
 dns:

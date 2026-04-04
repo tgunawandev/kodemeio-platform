@@ -5,6 +5,8 @@ instance:
   name: mac-odoo-hrms
   description: MAC — HRMS (employees, attendance, payroll, leaves, expenses)
 project: mac
+environment: production
+server: mac-prod-01
 dns:
   zone: mandiriagro.com
   name: mac-odoo-hrms

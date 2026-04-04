@@ -10,8 +10,9 @@ source_overrides:
   repo: kodemeio-react
   branch: main
   compose_path: apps/api/notify/docker-compose.yml
-server: kodeme-service
 project: tpp
+environment: production
+server: kod-prod-01
 healthcheck:
   path: /health
   port: 3020
@@ -26,7 +27,6 @@ domain:
   port: 3020
   service: notify
   https: true
-env_file: ../../env/production/.env.tpp-hono-notify
 env_overrides:
   NODE_ENV: production
   PORT: '3020'

@@ -5,6 +5,8 @@ instance:
   name: mac-odoo-dist
   description: MAC — Distribution (SFA, LFA, WMS, DMS, retail, marketplace, BI)
 project: mac
+environment: production
+server: mac-prod-01
 dns:
   zone: mandiriagro.com
   name: mac-odoo-dist
