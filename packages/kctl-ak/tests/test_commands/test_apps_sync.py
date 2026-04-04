@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-import yaml
-from pathlib import Path
 from typer.testing import CliRunner
+
 from kctl_ak.cli import app
 
 runner = CliRunner()
@@ -127,6 +125,40 @@ class TestAppsSyncAlgorithm:
         ]
         plan = _compute_app_sync_plan(desired, existing)
         assert len(plan["prune"]) == 0
+
+    def test_update_phase_detects_launch_url_change(self) -> None:
+        from kctl_ak.commands.apps import _compute_app_sync_plan
+
+        desired = [{"slug": "gatus", "name": "Gatus", "group": "Infra", "launch_url": "https://gatus.kodeme.io"}]
+        existing = [
+            {
+                "slug": "gatus",
+                "name": "Gatus",
+                "group": "Infra",
+                "meta_launch_url": "https://old.kodeme.io",
+                "meta_icon": "",
+            }
+        ]
+        plan = _compute_app_sync_plan(desired, existing)
+        assert len(plan["update"]) == 1
+        assert "meta_launch_url" in plan["update"][0]["changes"]
+
+    def test_update_phase_detects_icon_url_change(self) -> None:
+        from kctl_ak.commands.apps import _compute_app_sync_plan
+
+        desired = [{"slug": "gatus", "name": "Gatus", "group": "Infra", "icon": "https://example.com/new.png"}]
+        existing = [
+            {
+                "slug": "gatus",
+                "name": "Gatus",
+                "group": "Infra",
+                "meta_launch_url": "",
+                "meta_icon": "https://example.com/old.png",
+            }
+        ]
+        plan = _compute_app_sync_plan(desired, existing)
+        assert len(plan["update"]) == 1
+        assert "meta_icon" in plan["update"][0]["changes"]
 
     def test_no_changes(self) -> None:
         from kctl_ak.commands.apps import _compute_app_sync_plan

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 from pathlib import Path
 from typing import Annotated
 
@@ -148,7 +149,7 @@ def set_icon(
         if not path.exists():
             c.output.error(f"File not found: {source}")
             raise typer.Exit(1)
-        content_type = "image/png" if path.suffix == ".png" else "image/svg+xml"
+        content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
         with open(path, "rb") as f:
             c.client.patch_multipart(
                 f"core/applications/{slug}/",
@@ -415,7 +416,7 @@ def sync(
                     if icon and not icon.startswith("http://") and not icon.startswith("https://"):
                         icon_path = Path(icon)
                         if icon_path.exists():
-                            content_type = "image/png" if icon_path.suffix == ".png" else "image/svg+xml"
+                            content_type = mimetypes.guess_type(str(icon_path))[0] or "application/octet-stream"
                             with open(icon_path, "rb") as icon_f:
                                 c.client.patch_multipart(
                                     f"core/applications/{slug}/",

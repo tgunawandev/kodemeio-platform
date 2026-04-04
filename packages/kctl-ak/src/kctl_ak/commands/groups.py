@@ -373,7 +373,9 @@ def sync(
                         else:
                             patch_data["parent"] = None
                     if "description" in changes:
-                        patch_data["attributes"] = {"description": changes["description"]}
+                        existing_attrs = dict(existing_by_name.get(name, {}).get("attributes") or {})
+                        existing_attrs["description"] = changes["description"]
+                        patch_data["attributes"] = existing_attrs
                     c.client.patch(f"core/groups/{pk}/", data=patch_data)
                     c.output.success(f"[update] {name}")
                 except Exception as e:

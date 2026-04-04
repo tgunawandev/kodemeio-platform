@@ -36,5 +36,5 @@ class TestServiceConfig:
 
     def test_model_fields_list(self):
         """ServiceConfig should expose the expected fields for validation."""
-        expected = {"url", "token", "container_name", "roles_dir", "group_structure", "smtp"}
+        expected = {"url", "token", "container_name", "roles_dir", "group_structure", "app_registry", "smtp"}
         assert set(ServiceConfig.model_fields.keys()) == expected

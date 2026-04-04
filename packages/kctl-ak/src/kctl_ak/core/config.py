@@ -51,6 +51,7 @@ class ServiceConfig(BaseModel):
     container_name: str = ""
     roles_dir: str = ""
     group_structure: str = ""
+    app_registry: str = ""
     smtp: SmtpProfile | None = None
 
 
@@ -232,9 +233,20 @@ def resolve_group_structure_path(
 def resolve_app_registry_path(
     profile_name: str | None = None,
 ) -> Path | None:
-    """Find app-registry.yaml."""
+    """Find app-registry.yaml.
+
+    Resolution order:
+    1. Service config ``app_registry`` field (per-profile)
+    2. Global ``app_registry_path`` in raw config
+    3. Walk up from cwd to find ``config/app-registry.yaml``
+    4. User config dir ``~/.config/kodemeio/app-registry.yaml``
+    """
     pname = resolve_active_profile_name(profile_name)
     svc = get_service_config(pname)
+    if svc.app_registry:
+        p = Path(svc.app_registry).expanduser()
+        if p.exists():
+            return p
 
     raw = load_raw_config()
     if arp := raw.get("app_registry_path", ""):
