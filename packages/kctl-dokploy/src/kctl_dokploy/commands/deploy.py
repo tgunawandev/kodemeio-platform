@@ -394,6 +394,75 @@ def status(
     _print_summary(c, f"Status: {manifest.instance.name}", deployer.results)
 
 
+@app.command()
+def verify(
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Option("--file", "-f", help="Manifest YAML file", exists=True)] = ...,  # type: ignore[assignment]
+) -> None:
+    """Run pre-deploy validation and post-deploy smoke tests.
+
+    Checks that the deployment configuration is correct and that the
+    deployed service is healthy beyond just the healthcheck.
+    """
+    c: AppContext = ctx.obj
+    manifest = _load(file, c)
+
+    # Build merged env (same logic as phase_pre_validate in deployer)
+    merged: dict[str, str] = dict(manifest.env_defaults)
+    if manifest.env_file:
+        env_path = Path(manifest.env_file)
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, _, v = line.partition("=")
+                    merged[k.strip()] = v.strip()
+    merged.update(manifest.env_overrides)
+
+    from kctl_dokploy.core.deploy_validators import DeployValidator
+
+    validator = DeployValidator(manifest=manifest, env_vars=merged)
+
+    c.output.info(f"Verifying: {manifest.instance.name} (type: {validator.deploy_type})")
+
+    # Pre-validate
+    warnings, errors = validator.pre_validate()
+    rows: list[list[str]] = []
+    json_data: list[dict[str, str]] = []
+    for e in errors:
+        rows.append(["pre-validate", "FAIL", e])
+        json_data.append({"check": "pre-validate", "status": "FAIL", "detail": e})
+    for w in warnings:
+        rows.append(["pre-validate", "WARN", w])
+        json_data.append({"check": "pre-validate", "status": "WARN", "detail": w})
+    if not errors and not warnings:
+        rows.append(["pre-validate", "PASS", "All checks passed"])
+        json_data.append({"check": "pre-validate", "status": "PASS", "detail": "All checks passed"})
+
+    # Post-verify (smoke tests)
+    smoke = validator.post_verify()
+    for r in smoke:
+        rows.append([r.name, r.status.upper(), r.detail])
+        json_data.append({"check": r.name, "status": r.status.upper(), "detail": r.detail})
+
+    c.output.table(
+        f"Verification: {manifest.instance.name}",
+        [("Check", "cyan"), ("Status", "yellow"), ("Detail", "")],
+        rows,
+        data_for_json=json_data,
+    )
+
+    fail_count = sum(1 for r in rows if r[1] == "FAIL")
+    warn_count = sum(1 for r in rows if r[1] == "WARN")
+    if fail_count:
+        c.output.error(f"{fail_count} check(s) failed, {warn_count} warning(s)")
+        raise typer.Exit(1)
+    elif warn_count:
+        c.output.warn(f"All passed with {warn_count} warning(s)")
+    else:
+        c.output.success("All checks passed")
+
+
 @app.command("list")
 def list_(ctx: typer.Context) -> None:
     """List all instance manifests and their status."""
