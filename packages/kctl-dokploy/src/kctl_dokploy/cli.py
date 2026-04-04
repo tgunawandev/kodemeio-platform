@@ -104,45 +104,88 @@ def main(
     )
 
 
-# Primary command groups
+# ---------------------------------------------------------------------------
+# Top-level command groups (platform-wide resources)
+# ---------------------------------------------------------------------------
 app.add_typer(config_app, name="config")
-app.add_typer(status_app, name="status")
 app.add_typer(projects_app, name="projects")
 app.add_typer(applications_app, name="applications")
 app.add_typer(compose_app, name="compose")
 app.add_typer(servers_app, name="servers")
-app.add_typer(deployments_app, name="deployments")
-app.add_typer(domains_app, name="domains")
-app.add_typer(backups_app, name="backups")
-app.add_typer(env_app, name="env")
 app.add_typer(databases_app, name="databases")
 app.add_typer(registry_app, name="registry")
 app.add_typer(users_app, name="users")
 app.add_typer(git_app, name="git")
-app.add_typer(monitoring_app, name="monitoring")
 app.add_typer(notifications_app, name="notifications")
 app.add_typer(certificates_app, name="certificates")
 app.add_typer(settings_app, name="settings")
 app.add_typer(docker_app, name="docker")
 app.add_typer(dashboard_app, name="dashboard")
 app.add_typer(diagnose_app, name="diagnose")
-app.add_typer(pipeline_app, name="pipeline")
-app.add_typer(setup_app, name="setup")
-app.add_typer(maintenance_app, name="maintenance")
+app.add_typer(deploy_app, name="deploy")
 app.add_typer(report_app, name="report")
-app.add_typer(bulk_app, name="bulk")
 app.add_typer(template_app, name="template")
 app.add_typer(audit_app, name="audit")
-app.add_typer(mounts_app, name="mounts")
-app.add_typer(ports_app, name="ports")
-app.add_typer(security_app, name="security")
-app.add_typer(redirects_app, name="redirects")
-app.add_typer(environments_app, name="environments")
-app.add_typer(schedules_app, name="schedules")
-app.add_typer(cluster_app, name="cluster")
-app.add_typer(deploy_app, name="deploy")
-app.add_typer(patches_app, name="patches")
-app.add_typer(volume_backups_app, name="volume-backups")
+app.add_typer(setup_app, name="setup")
+
+# ---------------------------------------------------------------------------
+# Compose sub-commands (mirrors Dokploy UI tabs)
+# ---------------------------------------------------------------------------
+compose_app.add_typer(backups_app, name="backups")
+compose_app.add_typer(domains_app, name="domains")
+compose_app.add_typer(env_app, name="env")
+compose_app.add_typer(deployments_app, name="deployments")
+compose_app.add_typer(schedules_app, name="schedules")
+compose_app.add_typer(patches_app, name="patches")
+compose_app.add_typer(volume_backups_app, name="volume-backups")
+compose_app.add_typer(mounts_app, name="mounts")
+compose_app.add_typer(ports_app, name="ports")
+compose_app.add_typer(security_app, name="security")
+compose_app.add_typer(redirects_app, name="redirects")
+compose_app.add_typer(bulk_app, name="bulk")
+
+# ---------------------------------------------------------------------------
+# Server sub-commands
+# ---------------------------------------------------------------------------
+servers_app.add_typer(monitoring_app, name="monitoring")
+servers_app.add_typer(cluster_app, name="cluster")
+
+# ---------------------------------------------------------------------------
+# Project sub-commands
+# ---------------------------------------------------------------------------
+projects_app.add_typer(environments_app, name="environments")
+
+# ---------------------------------------------------------------------------
+# Merged groups
+# ---------------------------------------------------------------------------
+# status → absorbed into dashboard (status.health = dashboard.show)
+# pipeline → removed (duplicates compose redeploy + deploy apply)
+# maintenance → absorbed into diagnose
+
+# Merge maintenance commands into diagnose
+diagnose_app.add_typer(maintenance_app, name="maintenance")
+
+# ---------------------------------------------------------------------------
+# Backward compatibility — hidden aliases (old top-level still works)
+# ---------------------------------------------------------------------------
+app.add_typer(backups_app, name="backups", hidden=True)
+app.add_typer(domains_app, name="domains", hidden=True)
+app.add_typer(env_app, name="env", hidden=True)
+app.add_typer(deployments_app, name="deployments", hidden=True)
+app.add_typer(schedules_app, name="schedules", hidden=True)
+app.add_typer(patches_app, name="patches", hidden=True)
+app.add_typer(volume_backups_app, name="volume-backups", hidden=True)
+app.add_typer(mounts_app, name="mounts", hidden=True)
+app.add_typer(ports_app, name="ports", hidden=True)
+app.add_typer(security_app, name="security", hidden=True)
+app.add_typer(redirects_app, name="redirects", hidden=True)
+app.add_typer(bulk_app, name="bulk", hidden=True)
+app.add_typer(monitoring_app, name="monitoring", hidden=True)
+app.add_typer(environments_app, name="environments", hidden=True)
+app.add_typer(cluster_app, name="cluster", hidden=True)
+app.add_typer(pipeline_app, name="pipeline", hidden=True)
+app.add_typer(status_app, name="status", hidden=True)
+app.add_typer(maintenance_app, name="maintenance", hidden=True)
 
 # Hidden aliases for power users
 register_aliases(app)
