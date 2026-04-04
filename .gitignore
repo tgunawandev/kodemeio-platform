@@ -12,6 +12,7 @@ build/
 .env.prod
 .env.prod.*
 # Deploy env files (.env.{tenant}-{type}-{name})
-deploys/env/.env.*
+deploys/env/production/.env.*
+deploys/env/staging/.env.*
 .playwright-mcp/
 .claude/
