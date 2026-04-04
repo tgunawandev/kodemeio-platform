@@ -1056,10 +1056,14 @@ dev = [
     { name = "ruff" },
     { name = "types-pyyaml" },
 ]
+provision = [
+    { name = "kctl-ak" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.0" },
+    { name = "kctl-ak", marker = "extra == 'provision'", editable = "packages/kctl-ak" },
     { name = "kctl-lib", editable = "packages/kctl-lib" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pydantic", specifier = ">=2.10.0" },
@@ -1071,7 +1075,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.15.0" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["dev", "provision"]
 
 [[package]]
 name = "kctl-notion"

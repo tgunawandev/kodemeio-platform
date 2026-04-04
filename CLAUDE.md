@@ -41,7 +41,7 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 - **kctl-gatus** — Gatus health monitoring (8 groups)
 - **kctl-rustdesk** — RustDesk server management (9 groups)
 - **kctl-waha** — WhatsApp HTTP API (8 groups)
-- **kctl-mailcow** — Mailcow mail server management (16 groups)
+- **kctl-mailcow** — Mailcow mail server management (31 groups)
 
 #### Application Management
 - **kctl-odoo** — Odoo 18 ERP management (70+ groups)

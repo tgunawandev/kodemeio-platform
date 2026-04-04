@@ -20,9 +20,10 @@ class TestCLIHelp:
 
 
 class TestCommandGroupsRegistered:
-    """Verify all 16 command groups appear in help."""
+    """Verify all 31 command groups appear in help."""
 
     GROUPS = [
+        # Original 16
         "domains",
         "mailboxes",
         "aliases",
@@ -39,6 +40,24 @@ class TestCommandGroupsRegistered:
         "config",
         "tls",
         "resources",
+        # Phase 1: Authentik integration
+        "identity-provider",
+        "oauth2-clients",
+        "provision",
+        # Phase 2: Security & compliance
+        "fail2ban",
+        "policies",
+        "app-passwords",
+        "password-policy",
+        "domain-admins",
+        "filters",
+        # Phase 3: Routing & advanced
+        "transports",
+        "relay-hosts",
+        "bcc-maps",
+        "alias-domains",
+        "recipient-maps",
+        "rspamd",
     ]
 
     def test_all_groups_in_help(self) -> None:
