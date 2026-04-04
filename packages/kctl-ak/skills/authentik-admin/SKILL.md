@@ -96,18 +96,20 @@ kctl-ak groups delete <identifier> [--force]
 kctl-ak groups add-user <group> <user>
 kctl-ak groups remove-user <group> <user>
 kctl-ak groups members <id|name>
-kctl-ak groups sync [--dry-run] [--no-dry-run] [--file PATH]    # Sync from group-structure.yaml
+kctl-ak groups sync [--dry-run/--no-dry-run] [--prune] [--file PATH]  # 3-phase create/update/prune from group-structure.yaml
 kctl-ak groups export [--format json|yaml]
 ```
 
 ### apps — Application management
 
 ```bash
-kctl-ak apps list
+kctl-ak apps list                                                    # List apps with Group column
 kctl-ak apps get <slug>
 kctl-ak apps create <name> <slug> [--provider ID] [--launch-url URL] [--description TEXT]
 kctl-ak apps update <slug> <field> <value>
 kctl-ak apps delete <slug> [--force]
+kctl-ak apps set-icon <slug> <file-or-url>                           # Upload icon from local file or URL
+kctl-ak apps sync [--dry-run/--no-dry-run] [--prune] [--file PATH]   # 3-phase create/update/prune from app-registry.yaml
 kctl-ak apps launch-urls
 kctl-ak apps access <slug>
 kctl-ak apps audit                           # Show apps with missing providers or no launch URL
@@ -509,5 +511,12 @@ Key endpoints:
 
 ### Missing groups for role provisioning
 1. `kctl-ak users roles --verify` -- check all roles' groups exist
-2. `kctl-ak groups sync --dry-run` -- preview group creation from structure file
-3. `kctl-ak groups sync --no-dry-run` -- create missing groups
+2. `kctl-ak groups sync` -- preview group create/update/prune from structure file
+3. `kctl-ak groups sync --no-dry-run` -- apply group changes
+4. `kctl-ak groups sync --no-dry-run --prune` -- apply changes and delete stale ak-* groups
+
+### Sync apps from registry
+1. `kctl-ak apps sync` -- preview app create/update/prune from app-registry.yaml
+2. `kctl-ak apps sync --no-dry-run` -- apply app changes
+3. `kctl-ak apps sync --no-dry-run --prune` -- apply changes and delete stale managed apps
+4. `kctl-ak apps set-icon <slug> ./icons/app.png` -- upload icon from local file
