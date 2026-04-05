@@ -49,6 +49,7 @@ from kctl_dokploy.commands.patches import app as patches_app
 from kctl_dokploy.commands.volume_backups import app as volume_backups_app
 from kctl_dokploy.core.callbacks import AppContext
 from kctl_dokploy.core.plugins import discover_and_register_plugins
+from kctl_dokploy.commands.doctor_cmd import app as doctor_app
 from kctl_dokploy.commands.skill_cmd import app as skill_app
 
 
@@ -187,6 +188,7 @@ app.add_typer(cluster_app, name="cluster", hidden=True)
 app.add_typer(pipeline_app, name="pipeline", hidden=True)
 app.add_typer(status_app, name="status", hidden=True)
 app.add_typer(maintenance_app, name="maintenance", hidden=True)
+app.add_typer(doctor_app, name="doctor")
 app.add_typer(skill_app, name="skill", hidden=True)
 
 # Hidden aliases for power users
@@ -194,6 +196,44 @@ register_aliases(app)
 
 # Discover and register plugins
 discover_and_register_plugins(app)
+
+
+@app.command("self-update")
+def self_update_cmd(ctx: typer.Context) -> None:
+    """Check for updates and upgrade kctl-dokploy."""
+    actx = ctx.obj
+    out = actx.output
+
+    from kctl_lib.self_update import check_update
+    from kctl_lib.self_update import update as do_update
+
+    latest = check_update("kctl-dokploy", __version__)
+    if latest:
+        out.info(f"Updating to {latest}...")
+        do_update("kctl-dokploy")
+        out.success(f"Updated to {latest}")
+    else:
+        out.success("Already up to date")
+
+
+@app.command()
+def completions(
+    shell: Annotated[str, typer.Argument(help="Shell type: zsh, bash, fish")] = "zsh",
+    install: Annotated[bool, typer.Option("--install", help="Install completions")] = False,
+) -> None:
+    """Generate or install shell completions."""
+    from kctl_lib.completions import get_completion_script, install_completions
+
+    if install:
+        path = install_completions("kctl-dokploy", shell)
+        if path:
+            typer.echo(f"Completions installed to {path}")
+        else:
+            typer.echo(f"Could not install completions for {shell}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        script = get_completion_script("kctl-dokploy", shell)
+        typer.echo(script)
 
 
 def _run() -> None:

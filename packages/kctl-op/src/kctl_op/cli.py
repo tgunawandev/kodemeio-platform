@@ -23,6 +23,7 @@ from kctl_op.commands.vault import app as vault_app
 from kctl_op.core.callbacks import AppContext
 from kctl_lib import handle_cli_error
 from kctl_op.commands.skill_cmd import app as skill_app
+from kctl_op.commands.doctor_cmd import app as doctor_app
 from kctl_op.core.exceptions import (
     KctlError,
 )
@@ -89,6 +90,7 @@ app.add_typer(vault_app, name="vault")
 app.add_typer(projects_app, name="projects")
 app.add_typer(backup_app, name="backup")
 app.add_typer(skill_app, name="skill", hidden=True)
+app.add_typer(doctor_app, name="doctor")
 
 
 # Top-level convenience commands
@@ -135,6 +137,44 @@ def list_items(ctx: typer.Context) -> None:
         rows=rows,
         data_for_json=json_data,
     )
+
+
+@app.command("self-update")
+def self_update_cmd(ctx: typer.Context) -> None:
+    """Check for updates and upgrade kctl-op."""
+    actx = ctx.obj
+    out = actx.output
+
+    from kctl_lib.self_update import check_update
+    from kctl_lib.self_update import update as do_update
+
+    latest = check_update("kctl-op", __version__)
+    if latest:
+        out.info(f"Updating to {latest}...")
+        do_update("kctl-op")
+        out.success(f"Updated to {latest}")
+    else:
+        out.success("Already up to date")
+
+
+@app.command()
+def completions(
+    shell: Annotated[str, typer.Argument(help="Shell type: zsh, bash, fish")] = "zsh",
+    install: Annotated[bool, typer.Option("--install", help="Install completions")] = False,
+) -> None:
+    """Generate or install shell completions."""
+    from kctl_lib.completions import get_completion_script, install_completions
+
+    if install:
+        path = install_completions("kctl-op", shell)
+        if path:
+            typer.echo(f"Completions installed to {path}")
+        else:
+            typer.echo(f"Could not install completions for {shell}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        script = get_completion_script("kctl-op", shell)
+        typer.echo(script)
 
 
 def _run() -> None:

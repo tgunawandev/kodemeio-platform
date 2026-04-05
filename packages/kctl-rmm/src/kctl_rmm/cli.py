@@ -95,6 +95,44 @@ app.add_typer(rustdesk_app, name="rustdesk")
 app.add_typer(skill_app, name="skill", hidden=True)
 
 
+@app.command("self-update")
+def self_update_cmd(ctx: typer.Context) -> None:
+    """Check for updates and upgrade kctl-rmm."""
+    actx = ctx.obj
+    out = actx.output
+
+    from kctl_lib.self_update import check_update
+    from kctl_lib.self_update import update as do_update
+
+    latest = check_update("kctl-rmm", __version__)
+    if latest:
+        out.info(f"Updating to {latest}...")
+        do_update("kctl-rmm")
+        out.success(f"Updated to {latest}")
+    else:
+        out.success("Already up to date")
+
+
+@app.command()
+def completions(
+    shell: Annotated[str, typer.Argument(help="Shell type: zsh, bash, fish")] = "zsh",
+    install: Annotated[bool, typer.Option("--install", help="Install completions")] = False,
+) -> None:
+    """Generate or install shell completions."""
+    from kctl_lib.completions import get_completion_script, install_completions
+
+    if install:
+        path = install_completions("kctl-rmm", shell)
+        if path:
+            typer.echo(f"Completions installed to {path}")
+        else:
+            typer.echo(f"Could not install completions for {shell}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        script = get_completion_script("kctl-rmm", shell)
+        typer.echo(script)
+
+
 def _run() -> None:
     """Entry point with unified kctl-lib error handling."""
     try:

@@ -41,6 +41,7 @@ from kctl_mailcow.commands.sync_jobs import app as sync_jobs_app
 from kctl_mailcow.commands.tls import app as tls_app
 from kctl_mailcow.commands.transports import app as transports_app
 from kctl_mailcow.core.callbacks import AppContext
+from kctl_mailcow.commands.doctor_cmd import app as doctor_app
 from kctl_mailcow.commands.skill_cmd import app as skill_app
 
 
@@ -117,7 +118,46 @@ app.add_typer(bcc_maps_app, name="bcc-maps")
 app.add_typer(alias_domains_app, name="alias-domains")
 app.add_typer(recipient_maps_app, name="recipient-maps")
 app.add_typer(rspamd_app, name="rspamd")
+app.add_typer(doctor_app, name="doctor")
 app.add_typer(skill_app, name="skill", hidden=True)
+
+
+@app.command("self-update")
+def self_update_cmd(ctx: typer.Context) -> None:
+    """Check for updates and upgrade kctl-mailcow."""
+    actx = ctx.obj
+    out = actx.output
+
+    from kctl_lib.self_update import check_update
+    from kctl_lib.self_update import update as do_update
+
+    latest = check_update("kctl-mailcow", __version__)
+    if latest:
+        out.info(f"Updating to {latest}...")
+        do_update("kctl-mailcow")
+        out.success(f"Updated to {latest}")
+    else:
+        out.success("Already up to date")
+
+
+@app.command()
+def completions(
+    shell: Annotated[str, typer.Argument(help="Shell type: zsh, bash, fish")] = "zsh",
+    install: Annotated[bool, typer.Option("--install", help="Install completions")] = False,
+) -> None:
+    """Generate or install shell completions."""
+    from kctl_lib.completions import get_completion_script, install_completions
+
+    if install:
+        path = install_completions("kctl-mailcow", shell)
+        if path:
+            typer.echo(f"Completions installed to {path}")
+        else:
+            typer.echo(f"Could not install completions for {shell}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        script = get_completion_script("kctl-mailcow", shell)
+        typer.echo(script)
 
 
 def _run() -> None:

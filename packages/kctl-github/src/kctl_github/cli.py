@@ -21,6 +21,7 @@ from kctl_github.commands.secrets import app as secrets_app
 from kctl_github.commands.stats import app as stats_app
 from kctl_github.core.callbacks import AppContext
 from kctl_github.core.plugins import discover_and_load_plugins
+from kctl_github.commands.doctor_cmd import app as doctor_app
 from kctl_github.commands.skill_cmd import app as skill_app
 
 
@@ -73,10 +74,49 @@ app.add_typer(secrets_app, name="secrets")
 app.add_typer(labels_app, name="labels")
 app.add_typer(stats_app, name="stats")
 app.add_typer(billing_app, name="billing")
+app.add_typer(doctor_app, name="doctor")
 app.add_typer(skill_app, name="skill", hidden=True)
 
 # Load third-party plugins via entry points
 discover_and_load_plugins(app)
+
+
+@app.command("self-update")
+def self_update_cmd(ctx: typer.Context) -> None:
+    """Check for updates and upgrade kctl-github."""
+    actx = ctx.obj
+    out = actx.output
+
+    from kctl_lib.self_update import check_update
+    from kctl_lib.self_update import update as do_update
+
+    latest = check_update("kctl-github", __version__)
+    if latest:
+        out.info(f"Updating to {latest}...")
+        do_update("kctl-github")
+        out.success(f"Updated to {latest}")
+    else:
+        out.success("Already up to date")
+
+
+@app.command()
+def completions(
+    shell: Annotated[str, typer.Argument(help="Shell type: zsh, bash, fish")] = "zsh",
+    install: Annotated[bool, typer.Option("--install", help="Install completions")] = False,
+) -> None:
+    """Generate or install shell completions."""
+    from kctl_lib.completions import get_completion_script, install_completions
+
+    if install:
+        path = install_completions("kctl-github", shell)
+        if path:
+            typer.echo(f"Completions installed to {path}")
+        else:
+            typer.echo(f"Could not install completions for {shell}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        script = get_completion_script("kctl-github", shell)
+        typer.echo(script)
 
 
 def _run() -> None:

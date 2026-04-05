@@ -22,6 +22,7 @@ from kctl_rustdesk.commands.setup import app as setup_app
 from kctl_rustdesk.commands.users import app as users_app
 from kctl_rustdesk.core.plugins import discover_and_load_plugins
 from kctl_rustdesk.commands.skill_cmd import app as skill_app
+from kctl_rustdesk.commands.doctor_cmd import app as doctor_app
 
 
 def version_callback(value: bool) -> None:
@@ -74,8 +75,47 @@ app.add_typer(backup_app, name="backup")
 app.add_typer(setup_app, name="setup")
 app.add_typer(maintenance_app, name="maintenance")
 app.add_typer(skill_app, name="skill", hidden=True)
+app.add_typer(doctor_app, name="doctor")
 
 discover_and_load_plugins(app)
+
+
+@app.command("self-update")
+def self_update_cmd(ctx: typer.Context) -> None:
+    """Check for updates and upgrade kctl-rustdesk."""
+    actx = ctx.obj
+    out = actx.output
+
+    from kctl_lib.self_update import check_update
+    from kctl_lib.self_update import update as do_update
+
+    latest = check_update("kctl-rustdesk", __version__)
+    if latest:
+        out.info(f"Updating to {latest}...")
+        do_update("kctl-rustdesk")
+        out.success(f"Updated to {latest}")
+    else:
+        out.success("Already up to date")
+
+
+@app.command()
+def completions(
+    shell: Annotated[str, typer.Argument(help="Shell type: zsh, bash, fish")] = "zsh",
+    install: Annotated[bool, typer.Option("--install", help="Install completions")] = False,
+) -> None:
+    """Generate or install shell completions."""
+    from kctl_lib.completions import get_completion_script, install_completions
+
+    if install:
+        path = install_completions("kctl-rustdesk", shell)
+        if path:
+            typer.echo(f"Completions installed to {path}")
+        else:
+            typer.echo(f"Could not install completions for {shell}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        script = get_completion_script("kctl-rustdesk", shell)
+        typer.echo(script)
 
 
 def _run() -> None:

@@ -129,6 +129,19 @@ def get(
     out.detail(f"User: {u['login']}", sections, data_for_json=u)
 
 
+def _resolve_oauth_provider(c, name: str) -> int:
+    """Resolve OAuth provider name to ID (e.g. 'authentik' -> provider id)."""
+    providers = c.search_read(
+        "auth.oauth.provider",
+        domain=[("name", "ilike", name)],
+        fields=["id", "name"],
+        limit=1,
+    )
+    if not providers:
+        raise typer.BadParameter(f"OAuth provider not found: {name}")
+    return providers[0]["id"]
+
+
 @app.command()
 def create(
     ctx: typer.Context,
@@ -136,6 +149,11 @@ def create(
     name: Annotated[str, typer.Option("--name", "-n", help="Full name")] = "",
     email: Annotated[str | None, typer.Option("--email", help="Email address")] = None,
     password: Annotated[str | None, typer.Option("--password", help="Initial password")] = None,
+    oauth_uid: Annotated[str | None, typer.Option("--oauth-uid", help="OAuth/OIDC user UID (for SSO mapping)")] = None,
+    oauth_provider: Annotated[
+        str | None, typer.Option("--oauth-provider", help="OAuth provider name (e.g. 'authentik')")
+    ] = None,
+    groups: Annotated[str | None, typer.Option("--groups", help="Comma-separated group IDs to assign")] = None,
 ) -> None:
     """Create a new user."""
     actx: AppContext = ctx.obj
@@ -147,6 +165,13 @@ def create(
         vals["email"] = email
     if password:
         vals["password"] = password
+    if oauth_uid:
+        vals["oauth_uid"] = oauth_uid
+    if oauth_provider:
+        vals["oauth_provider_id"] = _resolve_oauth_provider(c, oauth_provider)
+    if groups:
+        group_ids = [int(g.strip()) for g in groups.split(",") if g.strip()]
+        vals["groups_id"] = [(6, 0, group_ids)]
 
     user_id = c.create("res.users", vals)
     out.success(f"Created user '{login}' (ID: {user_id})")
@@ -160,6 +185,13 @@ def update(
     email: Annotated[str | None, typer.Option("--email", help="Email")] = None,
     lang: Annotated[str | None, typer.Option("--lang", help="Language code")] = None,
     tz: Annotated[str | None, typer.Option("--tz", help="Timezone")] = None,
+    oauth_uid: Annotated[
+        str | None, typer.Option("--oauth-uid", help="OAuth/OIDC user UID (set empty string to clear)")
+    ] = None,
+    oauth_provider: Annotated[
+        str | None,
+        typer.Option("--oauth-provider", help="OAuth provider name (e.g. 'authentik', empty string to clear)"),
+    ] = None,
 ) -> None:
     """Update an existing user."""
     actx: AppContext = ctx.obj
@@ -176,6 +208,10 @@ def update(
         vals["lang"] = lang
     if tz is not None:
         vals["tz"] = tz
+    if oauth_uid is not None:
+        vals["oauth_uid"] = oauth_uid or False
+    if oauth_provider is not None:
+        vals["oauth_provider_id"] = _resolve_oauth_provider(c, oauth_provider) if oauth_provider else False
 
     if not vals:
         out.warn("No fields to update")

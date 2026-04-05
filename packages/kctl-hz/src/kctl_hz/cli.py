@@ -35,6 +35,7 @@ from kctl_hz.commands.storage_boxes import app as storage_boxes_app
 from kctl_hz.commands.volumes import app as volumes_app
 from kctl_hz.core.callbacks import AppContext
 from kctl_hz.core.plugins import discover_and_load_plugins
+from kctl_hz.commands.doctor_cmd import app as doctor_app
 from kctl_hz.commands.skill_cmd import app as skill_app
 
 
@@ -103,6 +104,7 @@ app.add_typer(labels_app, name="labels")
 app.add_typer(rdns_app, name="rdns")
 app.add_typer(storage_boxes_app, name="storage-boxes")
 app.add_typer(self_test_app, name="self-test")
+app.add_typer(doctor_app, name="doctor")
 app.add_typer(skill_app, name="skill", hidden=True)
 
 # --- Aliases ---
@@ -110,6 +112,44 @@ register_aliases(app)
 
 # --- Plugins ---
 discover_and_load_plugins(app)
+
+
+@app.command("self-update")
+def self_update_cmd(ctx: typer.Context) -> None:
+    """Check for updates and upgrade kctl-hz."""
+    actx = ctx.obj
+    out = actx.output
+
+    from kctl_lib.self_update import check_update
+    from kctl_lib.self_update import update as do_update
+
+    latest = check_update("kctl-hz", __version__)
+    if latest:
+        out.info(f"Updating to {latest}...")
+        do_update("kctl-hz")
+        out.success(f"Updated to {latest}")
+    else:
+        out.success("Already up to date")
+
+
+@app.command()
+def completions(
+    shell: Annotated[str, typer.Argument(help="Shell type: zsh, bash, fish")] = "zsh",
+    install: Annotated[bool, typer.Option("--install", help="Install completions")] = False,
+) -> None:
+    """Generate or install shell completions."""
+    from kctl_lib.completions import get_completion_script, install_completions
+
+    if install:
+        path = install_completions("kctl-hz", shell)
+        if path:
+            typer.echo(f"Completions installed to {path}")
+        else:
+            typer.echo(f"Could not install completions for {shell}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        script = get_completion_script("kctl-hz", shell)
+        typer.echo(script)
 
 
 def _run() -> None:
