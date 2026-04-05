@@ -305,6 +305,9 @@ def apply(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview changes")] = False,
     skip_deploy: Annotated[bool, typer.Option("--skip-deploy", help="Run setup only, skip deploy")] = False,
     skip_verify: Annotated[bool, typer.Option("--skip-verify", help="Skip healthcheck")] = False,
+    skip_preflight: Annotated[
+        bool, typer.Option("--skip-preflight", help="Skip preflight checks (emergency only)")
+    ] = False,
 ) -> None:
     """All-in-one: setup + deploy + post-deploy in sequence."""
     c: AppContext = ctx.obj
@@ -312,7 +315,14 @@ def apply(
     mode = " [dry-run]" if dry_run else ""
     c.output.info(f"Applying manifest: {manifest.instance.name}{mode}")
 
-    deployer = Deployer(manifest=manifest, dry_run=dry_run)
+    deployer = Deployer(manifest=manifest, dry_run=dry_run, skip_preflight=skip_preflight)
+
+    # Stage 0: Preflight
+    deployer.phase_preflight()
+    if any(r.action == "failed" and r.phase == "preflight" for r in deployer.results):
+        _print_summary(c, f"Preflight Failed: {manifest.instance.name}", deployer.results)
+        c.output.error("Preflight failed — fix issues before deploying.")
+        sys.exit(1)
 
     # Stage 1: Setup
     deployer.phase_dns()

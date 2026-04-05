@@ -73,6 +73,7 @@ class Deployer:
 
     manifest: DeployManifest
     dry_run: bool = False
+    skip_preflight: bool = False
 
     # Populated during execution
     results: list[PhaseResult] = field(default_factory=list)
@@ -243,6 +244,29 @@ class Deployer:
         except Exception:
             pass
         return None
+
+    # ------------------------------------------------------------------
+    # Phase preflight — pre-deploy gate checks
+    # ------------------------------------------------------------------
+
+    def phase_preflight(self) -> None:
+        """Run preflight checks before deployment. Aborts if any gate fails."""
+        if self.skip_preflight:
+            self._record_phase("preflight", "skipped", "Skipped via --skip-preflight")
+            return
+
+        from kctl_dokploy.core.preflight import run_preflight
+
+        client = self._get_client()
+        results = run_preflight(self.manifest, client=client)
+        failures = [r for r in results if r.failed]
+
+        if failures:
+            details = "; ".join(f"{r.gate}: {r.message}" for r in failures)
+            self._record_phase("preflight", "failed", f"{len(failures)} gate(s) failed — {details}")
+        else:
+            warns = sum(1 for r in results if r.status == "warn")
+            self._record_phase("preflight", "passed", f"10 gates checked ({warns} warnings)")
 
     # ------------------------------------------------------------------
     # Phase 0b — Pre-validate (type-aware)
@@ -1168,11 +1192,16 @@ class Deployer:
     # ------------------------------------------------------------------
 
     def run_all(self) -> list[PhaseResult]:
-        """Execute all 14 phases in order and return the accumulated results.
+        """Execute all phases in order and return the accumulated results.
 
         Phase 0 (validate) and Phase 0b (pre_validate) run first and fail fast
         on invalid manifests or type-specific validation errors.
         """
+        self.phase_preflight()
+        # Abort if preflight failed
+        if any(r.action == "failed" and r.phase == "preflight" for r in self.results):
+            return self.results
+
         self.phase_validate()
 
         # Abort if validation failed

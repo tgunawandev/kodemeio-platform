@@ -589,9 +589,9 @@ class TestPhasePostDeploy:
 
 class TestRunAll:
     def test_returns_14_results(self) -> None:
-        """run_all must produce one result per execution phase (14 phases: validate + pre_validate + 12)."""
+        """run_all must produce one result per execution phase (14 phases: validate + pre_validate + 12). Uses skip_preflight to isolate the original phase set."""
         manifest = _make_manifest()
-        deployer = Deployer(manifest=manifest, dry_run=True)
+        deployer = Deployer(manifest=manifest, dry_run=True, skip_preflight=True)
 
         # Provide enough mock responses to feed every subprocess call
         generic = _mock_proc(0, json.dumps([]))
@@ -600,8 +600,9 @@ class TestRunAll:
             results = deployer.run_all()
 
         phases = [r.phase for r in results]
-        assert len(results) == 14
+        assert len(results) == 15  # preflight (skipped) + validate + pre_validate + 12
         expected_phases = [
+            "preflight",
             "validate",
             "pre_validate",
             "dns",
