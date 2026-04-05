@@ -84,6 +84,22 @@ Roles are defined in `roles/*.yaml`. Each maps to a set of Authentik groups.
 | `devops` | DevOps engineer | Mattermost + Grafana admin + N8N |
 | `mattermost-user` | Chat only | Mattermost |
 
+### provision — Cross-system user provisioning (Authentik + Mailcow + Odoo)
+
+```bash
+kctl-ak provision onboard <email> --name "Full Name" --company mac [--dry-run]   # Create user across AK + Mailcow + Odoo
+kctl-ak provision offboard <email> [--dry-run]                                   # Disable user across all systems
+kctl-ak provision status <email>                                                 # Check user status across all systems
+kctl-ak provision sync --company mac [--dry-run]                                 # Poll HRMS, reconcile against Authentik
+kctl-ak provision sync --all [--dry-run]                                         # Sync all companies
+```
+
+Provisioning chain steps (onboard): Authentik user → Mailcow mailbox → Odoo portal users → Welcome email.
+Deprovisioning chain steps (offboard): Disable AK user → Kill sessions → Disable mailbox → Deactivate Odoo users.
+
+Config: `provision-config.yaml` (companies, domains, HRMS sources, Odoo targets).
+Secrets via env vars: `MAILCOW_API_KEY`, `ODOO_<SLUG>_DB`, `ODOO_<SLUG>_KEY`.
+
 ### groups — Group management and hierarchy
 
 ```bash
