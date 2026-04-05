@@ -137,6 +137,20 @@ def _gate_dns(manifest: DeployManifest, client: Any, ssh_available: bool) -> Gat
         return GateResult("dns", "fail", f"DNS lookup failed for {manifest.domain.host}")
 
     if server_ip and resolved_ip != server_ip:
+        # Check if resolved IP is a Cloudflare proxy IP (proxied = orange cloud)
+        # Cloudflare uses 104.16-31.x.x and 172.64-71.x.x ranges
+        octets = resolved_ip.split(".")
+        is_cf_proxy = False
+        if len(octets) == 4:
+            first, second = int(octets[0]), int(octets[1])
+            is_cf_proxy = (first == 104 and 16 <= second <= 31) or (first == 172 and 64 <= second <= 71)
+
+        if is_cf_proxy:
+            return GateResult(
+                "dns",
+                "pass",
+                f"DNS OK: {manifest.domain.host} → Cloudflare proxy (origin: {server_ip})",
+            )
         return GateResult(
             "dns",
             "fail",
@@ -231,7 +245,7 @@ def _gate_compose_assignment(manifest: DeployManifest, client: Any, ssh_availabl
     try:
         projects = client.get("/project.all")
         target_project = None
-        for p in projects:
+        for p in projects if isinstance(projects, list) else []:
             if p.get("name", "").lower() == manifest.project.lower():
                 target_project = p
                 break
@@ -246,15 +260,19 @@ def _gate_compose_assignment(manifest: DeployManifest, client: Any, ssh_availabl
         for env in target_project.get("environments", []):
             for compose in env.get("compose", []):
                 if compose.get("name") == manifest.instance.name:
-                    if manifest.server:
+                    compose_id = compose.get("composeId", "")
+                    if manifest.server and compose_id:
+                        # Use compose.one for authoritative serverId (project.all may be stale)
+                        compose_detail = client.get("/compose.one", params={"composeId": compose_id})
+                        actual_server_id = compose_detail.get("serverId") if isinstance(compose_detail, dict) else None
+
                         servers = client.get("/server.all")
                         target_server_id = None
-                        for s in servers:
+                        for s in servers if isinstance(servers, list) else []:
                             if s.get("name") == manifest.server:
                                 target_server_id = s.get("serverId")
                                 break
-                        compose_server_id = compose.get("serverId")
-                        if target_server_id and compose_server_id != target_server_id:
+                        if target_server_id and actual_server_id != target_server_id:
                             return GateResult(
                                 "compose_assignment",
                                 "fail",
