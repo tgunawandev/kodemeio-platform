@@ -31,6 +31,7 @@ from kctl_ak.commands.stages import app as stages_app
 from kctl_ak.commands.system import app as system_app
 from kctl_ak.commands.tokens import app as tokens_app
 from kctl_ak.commands.users import app as users_app
+from kctl_ak.commands.provision import app as provision_app
 from kctl_ak.core.callbacks import AppContext
 from kctl_ak.commands.skill_cmd import app as skill_app
 
@@ -97,6 +98,7 @@ app.add_typer(outposts_app, name="outposts")
 app.add_typer(brands_app, name="brands")
 app.add_typer(notifications_app, name="notifications")
 app.add_typer(system_app, name="system")
+app.add_typer(provision_app, name="provision")
 app.add_typer(skill_app, name="skill", hidden=True)
 
 
