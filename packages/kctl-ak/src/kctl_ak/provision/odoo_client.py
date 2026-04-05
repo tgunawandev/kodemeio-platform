@@ -58,7 +58,7 @@ class OdooProvisionClient:
     def _authenticate(self) -> int:
         if self._uid is not None:
             return self._uid
-        self._uid = self._jsonrpc(
+        result = self._jsonrpc(
             f"{self._base_url}/jsonrpc",
             {
                 "service": "common",
@@ -66,8 +66,9 @@ class OdooProvisionClient:
                 "args": [self._database, self._username, self._api_key, {}],
             },
         )
-        if not self._uid:
+        if not result:
             raise RuntimeError(f"Odoo authentication failed for {self._username}")
+        self._uid = result
         return self._uid
 
     def _execute_kw(self, model: str, method: str, args: list[Any], kwargs: dict[str, Any] | None = None) -> Any:
@@ -82,22 +83,22 @@ class OdooProvisionClient:
         )
 
     def user_exists(self, email: str) -> bool:
-        """Check if a res.users record with this login exists."""
+        """Check if a res.users record with this login exists (including archived)."""
         results = self._execute_kw(
             "res.users",
             "search_read",
             [[["login", "=", email]]],
-            {"fields": ["id", "login", "active"], "limit": 1},
+            {"fields": ["id", "login", "active"], "limit": 1, "context": {"active_test": False}},
         )
         return bool(results)
 
     def get_user(self, email: str) -> dict[str, Any] | None:
-        """Get user by login email, or None."""
+        """Get user by login email (including archived), or None."""
         results = self._execute_kw(
             "res.users",
             "search_read",
             [[["login", "=", email]]],
-            {"fields": ["id", "login", "name", "active"], "limit": 1},
+            {"fields": ["id", "login", "name", "active"], "limit": 1, "context": {"active_test": False}},
         )
         return results[0] if results else None
 

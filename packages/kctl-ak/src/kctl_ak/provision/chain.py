@@ -145,7 +145,8 @@ class ProvisionChain:
             if mailbox and str(mailbox.get("active")) != "1":
 
                 def _enable() -> None:
-                    mc.enable_mailbox(email)
+                    if not mc.enable_mailbox(email):
+                        raise RuntimeError("Mailcow enable_mailbox returned failure")
 
                 if self._retry(_enable, step, result):
                     result.add(step, StepStatus.SUCCESS, "re-enabled")
@@ -156,7 +157,8 @@ class ProvisionChain:
         quota = self.config.defaults.mailbox_quota
 
         def _create() -> None:
-            mc.create_mailbox(email=email, name=name, quota=quota)
+            if not mc.create_mailbox(email=email, name=name, quota=quota):
+                raise RuntimeError("Mailcow create_mailbox returned failure")
 
         if self._retry(_create, step, result):
             result.add(step, StepStatus.SUCCESS, f"created ({quota // (1024 * 1024)}MB quota)")
@@ -198,7 +200,8 @@ class ProvisionChain:
                 if user and not user.get("active"):
 
                     def _activate(o: OdooProvisionClient = odoo, e: str = email) -> None:
-                        o.activate_user(e)
+                        if not o.activate_user(e):
+                            raise RuntimeError("Odoo activate_user returned failure")
 
                     if self._retry(_activate, step, result):
                         result.add(step, StepStatus.SUCCESS, "reactivated")
@@ -305,34 +308,36 @@ class ProvisionChain:
             result.add(step, StepStatus.SUCCESS, "mailbox disabled")
 
     def _step_odoo_deactivate(self, email: str, result: ChainResult) -> None:
-        domain = email.split("@", 1)[1]
-        for code, cfg in self.config.companies.items():
-            if cfg.domain != domain:
+        try:
+            company_code, company_cfg = self._company_config(email)
+        except ValueError as e:
+            result.add("Odoo deactivate", StepStatus.FAILED, str(e))
+            return
+        for target in company_cfg.odoo_targets:
+            step = f"Odoo {target}"
+            if self.dry_run:
+                result.add(step, StepStatus.SKIPPED, "dry-run")
                 continue
-            for target in cfg.odoo_targets:
-                step = f"Odoo {target}"
-                if self.dry_run:
-                    result.add(step, StepStatus.SKIPPED, "dry-run")
-                    continue
 
-                creds = self.odoo_credentials.get(target)
-                if not creds:
-                    result.add(step, StepStatus.SKIPPED, "no credentials")
-                    continue
+            creds = self.odoo_credentials.get(target)
+            if not creds:
+                result.add(step, StepStatus.SKIPPED, "no credentials")
+                continue
 
-                odoo = OdooProvisionClient(
-                    base_url=f"https://{target}",
-                    database=creds["database"],
-                    username=creds.get("username", "admin"),
-                    api_key=creds["api_key"],
-                )
+            odoo = OdooProvisionClient(
+                base_url=f"https://{target}",
+                database=creds["database"],
+                username=creds.get("username", "admin"),
+                api_key=creds["api_key"],
+            )
 
-                if not odoo.user_exists(email):
-                    result.add(step, StepStatus.SKIPPED, "user not found")
-                    continue
+            if not odoo.user_exists(email):
+                result.add(step, StepStatus.SKIPPED, "user not found")
+                continue
 
-                def _deactivate(o: OdooProvisionClient = odoo, e: str = email) -> None:
-                    o.deactivate_user(e)
+            def _deactivate(o: OdooProvisionClient = odoo, e: str = email) -> None:
+                if not o.deactivate_user(e):
+                    raise RuntimeError("Odoo deactivate_user returned failure")
 
-                if self._retry(_deactivate, step, result):
-                    result.add(step, StepStatus.SUCCESS, "user deactivated")
+            if self._retry(_deactivate, step, result):
+                result.add(step, StepStatus.SUCCESS, "user deactivated")

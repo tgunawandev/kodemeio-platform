@@ -17,4 +17,7 @@ def load_provision_config(path: Path) -> ProvisionConfig:
     with open(path) as f:
         data = yaml.safe_load(f)
 
+    if not isinstance(data, dict):
+        raise ValueError(f"Invalid provision config: expected YAML mapping, got {type(data).__name__}")
+
     return ProvisionConfig(**data)
