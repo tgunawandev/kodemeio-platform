@@ -70,10 +70,63 @@ class Diagnosis:
         }
 
 
-def _get_deployment_info(client: Any, compose_id: str) -> tuple[str, str, str]:
-    """Get latest deployment status, title, and log content.
+def _get_build_log_via_ssh(client: Any, compose_id: str, log_path: str) -> str:
+    """Read build log content from server via SSH.
 
-    Returns (status, title, log_text).
+    Falls back gracefully if SSH is unavailable.
+    """
+    if not log_path:
+        return ""
+
+    import subprocess
+
+    # Get server IP for this compose
+    try:
+        compose = client.get("/compose.one", params={"composeId": compose_id})
+        if not isinstance(compose, dict):
+            return ""
+        server_id = compose.get("serverId")
+        if not server_id:
+            return ""
+
+        servers = client.get("/server.all")
+        server_ip = ""
+        if isinstance(servers, list):
+            for s in servers:
+                if s.get("serverId") == server_id:
+                    server_ip = s.get("ipAddress", "")
+                    break
+
+        if not server_ip:
+            return ""
+
+        result = subprocess.run(
+            [
+                "ssh",
+                "-o",
+                "ConnectTimeout=5",
+                "-o",
+                "StrictHostKeyChecking=no",
+                f"root@{server_ip}",
+                f"tail -100 {log_path}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            return result.stdout
+        return f"(SSH failed: {result.stderr.strip()[:200]})"
+    except subprocess.TimeoutExpired:
+        return "(SSH timeout reading build log)"
+    except Exception as e:
+        return f"(Failed to read build log: {e})"
+
+
+def _get_deployment_info(client: Any, compose_id: str) -> tuple[str, str, str]:
+    """Get latest deployment status, title, and log path.
+
+    Returns (status, title, log_path).
     """
     try:
         deps = client.get("/deployment.allByCompose", params={"composeId": compose_id})
@@ -87,8 +140,7 @@ def _get_deployment_info(client: Any, compose_id: str) -> tuple[str, str, str]:
         status = latest.get("status", "unknown")
         title = latest.get("title", "")
 
-        # Try to get log content — logPath is a server file path, not directly readable
-        # But some deployments store inline log content
+        # logPath is a server file path — needs SSH to read
         log = latest.get("logPath", "")
 
         return status, title, log
@@ -393,6 +445,12 @@ def diagnose(
 
     # Step 2: Get deployment info
     dep_status, dep_title, dep_log = _get_deployment_info(client, compose_id)
+
+    # If build failed, try to get actual build log via SSH
+    if dep_status == "error" and dep_log:
+        build_log = _get_build_log_via_ssh(client, compose_id, dep_log)
+        if build_log:
+            dep_log = build_log
 
     # Step 3: Get container info + logs
     containers = _get_containers(client, compose_id)
