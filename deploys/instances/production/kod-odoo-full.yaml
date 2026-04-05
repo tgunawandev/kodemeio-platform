@@ -16,16 +16,16 @@ domain:
   https: true
   cert: letsencrypt
 database:
-  name: odoo_full
+  name: kod_odoo_full
   user: odoo
 env_file: ../../env/production/.env.kod-odoo-full
 env_overrides:
   COMPOSE_PROJECT_NAME: kod-odoo-full
   TENANT: kod
-  PGDATABASE: odoo_full
+  PGDATABASE: kod_odoo_full
   PGUSER: odoo
   PGHOST: '10.0.0.3'
-  ODOO_DB_FILTER: ^odoo_full$
+  ODOO_DB_FILTER: ^kod_odoo_full$
   DOMAIN: kod-odoo-full.kodeme.io
   ODOO_WORKERS: '6'
   ODOO_MAX_CRON_THREADS: '2'

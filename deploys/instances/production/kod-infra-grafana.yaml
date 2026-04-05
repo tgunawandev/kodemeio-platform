@@ -1,0 +1,22 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-grafana
+  description: "Grafana monitoring stack (Prometheus, Loki, AlertManager)"
+
+project: kod
+server: kod-stg-01
+
+source_overrides:
+  repo: kodemeio-grafana
+  compose_path: ./docker-compose.prod.yml
+
+domain:
+  host: grafana.kodeme.io
+  port: 3000
+  service: grafana
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-grafana
