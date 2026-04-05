@@ -108,16 +108,15 @@ app.add_typer(custom_hostnames_app, name="custom-hostnames")
 app.add_typer(load_balancers_app, name="load-balancers")
 app.add_typer(spectrum_app, name="spectrum")
 app.add_typer(waiting_rooms_app, name="waiting-rooms")
-app.add_typer(skill_app, name="skill", hidden=True)
-
 # Load plugins from entry points
 discover_and_load_plugins(app)
 
-# Register short aliases
+# Register short aliases and skill generation
 from kctl_cf.commands.aliases import register_aliases  # noqa: E402
-from kctl_cf.commands.skill_cmd import app as skill_app
+from kctl_cf.commands.skill_cmd import app as skill_app  # noqa: E402
 
 register_aliases(app)
+app.add_typer(skill_app, name="skill", hidden=True)
 
 
 def _run() -> None:
