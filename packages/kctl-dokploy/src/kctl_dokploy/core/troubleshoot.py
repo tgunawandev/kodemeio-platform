@@ -148,6 +148,32 @@ def _get_deployment_info(client: Any, compose_id: str) -> tuple[str, str, str]:
         return "error", f"Failed to fetch deployments: {e}", ""
 
 
+def _get_container_logs_ssh(server_ip: str, container_name: str, tail: int = 50) -> str:
+    """Fetch container logs via SSH (fallback when API doesn't work for remote servers)."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            [
+                "ssh",
+                "-o",
+                "ConnectTimeout=5",
+                "-o",
+                "StrictHostKeyChecking=no",
+                f"root@{server_ip}",
+                f"docker logs --tail {tail} {container_name} 2>&1",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+        return result.stderr.strip() if result.stderr.strip() else ""
+    except Exception:
+        return ""
+
+
 def _get_containers(client: Any, compose_id: str) -> list[ContainerInfo]:
     """Get container status and logs for a compose service."""
     containers: list[ContainerInfo] = []
@@ -163,6 +189,23 @@ def _get_containers(client: Any, compose_id: str) -> list[ContainerInfo]:
 
         if not app_name:
             return containers
+
+        # Resolve server IP for SSH fallback
+        server_ip = ""
+        if server_id:
+            server_data = compose.get("server", {})
+            if isinstance(server_data, dict):
+                server_ip = server_data.get("ipAddress", "")
+            if not server_ip:
+                try:
+                    servers = client.get("/server.all")
+                    if isinstance(servers, list):
+                        for s in servers:
+                            if s.get("serverId") == server_id:
+                                server_ip = s.get("ipAddress", "")
+                                break
+                except Exception:
+                    pass
 
         # Get all containers, optionally filtered by server
         params: dict[str, str] = {}
@@ -181,23 +224,32 @@ def _get_containers(client: Any, compose_id: str) -> list[ContainerInfo]:
             state = ct.get("state", "unknown")
             status = ct.get("status", "")
 
-            # Fetch container logs via API
+            # Only fetch logs for crashed/restarting containers (not running ones — saves time)
             log_text = ""
-            try:
-                log_data = client.post(
-                    "/docker.getContainerLogs",
-                    json={"containerId": name, "tail": 50},
-                )
-                if isinstance(log_data, dict):
-                    log_text = str(log_data.get("logs", log_data.get("data", "")))
-                elif isinstance(log_data, str):
-                    log_text = log_data
-                elif isinstance(log_data, list):
-                    log_text = "\n".join(str(line) for line in log_data)
-                else:
-                    log_text = str(log_data) if log_data else ""
-            except Exception:
-                log_text = "(failed to fetch logs)"
+            if state in ("exited", "dead", "restarting"):
+                # Try API first
+                try:
+                    log_data = client.post(
+                        "/docker.getContainerLogs",
+                        json={"containerId": name, "tail": 50},
+                    )
+                    if isinstance(log_data, dict):
+                        log_text = str(log_data.get("logs", log_data.get("data", "")))
+                    elif isinstance(log_data, str):
+                        log_text = log_data
+                    elif isinstance(log_data, list):
+                        log_text = "\n".join(str(line) for line in log_data)
+                    else:
+                        log_text = str(log_data) if log_data else ""
+                except Exception:
+                    log_text = ""
+
+                # SSH fallback if API failed and we have server IP
+                if not log_text and server_ip:
+                    log_text = _get_container_logs_ssh(server_ip, name, tail=50)
+
+                if not log_text:
+                    log_text = "(no logs available)"
 
             containers.append(
                 ContainerInfo(
@@ -286,7 +338,12 @@ def _classify_error(
         )
 
     # Check 3: Containers crashed/restarting
-    crashed = [c for c in containers if c.state in ("exited", "dead")]
+    # Exclude init containers that exited cleanly (exit code 0) — these are normal
+    crashed = [
+        c
+        for c in containers
+        if c.state in ("exited", "dead") and "Exited (0)" not in c.status  # exit code 0 = normal completion
+    ]
     restarting = [c for c in containers if c.state == "restarting"]
 
     if crashed or restarting:

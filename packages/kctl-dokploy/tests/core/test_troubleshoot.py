@@ -140,6 +140,8 @@ class TestDiagnose:
             ],
             # compose.one (step 3: _get_containers)
             {"name": "my-svc", "appName": "my-svc", "serverId": "srv1"},
+            # server.all (step 3: resolve server IP for SSH fallback)
+            [{"serverId": "srv1", "ipAddress": "1.2.3.4"}],
             # docker.getContainers (step 3)
             [
                 {"name": "my-svc-web-1", "state": "exited", "status": "Exited (1)"},

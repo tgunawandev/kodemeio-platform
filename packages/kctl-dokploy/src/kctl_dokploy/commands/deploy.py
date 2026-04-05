@@ -144,11 +144,7 @@ def preflight(
 
     api_client = None
     try:
-        from kctl_dokploy.core.client import DokployClient
-        from kctl_lib.config import load_config
-
-        cfg = load_config("dokploy", profile=c.profile)
-        api_client = DokployClient(url=cfg["url"], api_key=cfg["api_key"])
+        api_client = c.client
     except Exception:
         pass
 
@@ -208,11 +204,7 @@ def preflight_all(
 
     api_client = None
     try:
-        from kctl_dokploy.core.client import DokployClient
-        from kctl_lib.config import load_config
-
-        cfg = load_config("dokploy", profile=c.profile)
-        api_client = DokployClient(url=cfg["url"], api_key=cfg["api_key"])
+        api_client = c.client
     except Exception:
         pass
 
@@ -280,11 +272,7 @@ def troubleshoot(
 
     # Get API client
     try:
-        from kctl_dokploy.core.client import DokployClient
-        from kctl_lib.config import load_config
-
-        cfg = load_config("dokploy", profile=c.profile)
-        api_client = DokployClient(url=cfg["url"], api_key=cfg["api_key"])
+        api_client = c.client
     except Exception as exc:
         c.output.error(f"Cannot connect to Dokploy: {exc}")
         raise typer.Exit(1) from exc
