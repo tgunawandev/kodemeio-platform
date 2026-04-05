@@ -284,3 +284,124 @@ def sync(
                 skip_count += 1
 
         c.output.success(f"{code}: {new_count} new, {archive_count} archived, {skip_count} unchanged")
+
+
+@app.command("setup-webhook")
+def setup_webhook(
+    ctx: typer.Context,
+    company: Annotated[str | None, typer.Option("--company", "-c", help="Company code (mac/tpp/kod)")] = None,
+    all_companies: Annotated[bool, typer.Option("--all", help="Setup for all companies with HRMS")] = False,
+    check: Annotated[bool, typer.Option("--check", help="Check webhook status without changes")] = False,
+    remove: Annotated[bool, typer.Option("--remove", help="Remove webhook automation")] = False,
+    ak_sync_url: Annotated[
+        str, typer.Option("--url", help="ak-sync webhook URL")
+    ] = "https://ak-sync.kodeme.io/webhook/odoo-hrms",
+) -> None:
+    """Setup Odoo HRMS automated action to fire webhooks to ak-sync."""
+    c: AppContext = ctx.obj
+    config_path = _resolve_config_path()
+    config = load_provision_config(config_path)
+
+    webhook_secret = os.getenv("WEBHOOK_SECRET", "")
+    hmac_key = os.getenv("ODOO_WEBHOOK_HMAC_KEY", "")
+
+    if not check and not remove and (not webhook_secret or not hmac_key):
+        c.output.error("WEBHOOK_SECRET and ODOO_WEBHOOK_HMAC_KEY env vars required")
+        raise typer.Exit(1)
+
+    companies_to_setup: list[str] = []
+    if all_companies:
+        companies_to_setup = [code for code, cfg in config.companies.items() if cfg.hrms]
+    elif company:
+        if company not in config.companies:
+            c.output.error(f"Unknown company: {company}")
+            raise typer.Exit(1)
+        if not config.companies[company].hrms:
+            c.output.error(f"Company {company} has no HRMS configured")
+            raise typer.Exit(1)
+        companies_to_setup = [company]
+    else:
+        c.output.error("Specify --company or --all")
+        raise typer.Exit(1)
+
+    from kctl_ak.provision.webhook_setup import (
+        AUTOMATION_NAME,
+        generate_webhook_code,
+        build_automation_vals,
+        find_existing_automation,
+        create_automation,
+        update_automation,
+        delete_automation,
+        resolve_model_id,
+        resolve_field_id,
+    )
+
+    rows: list[list[str]] = []
+
+    for code in companies_to_setup:
+        cfg = config.companies[code]
+        profile = f"{code}-hrms"
+
+        if check:
+            try:
+                existing = find_existing_automation(profile)
+                if existing:
+                    active = "active" if existing.get("active") else "inactive"
+                    has_url = ak_sync_url in (existing.get("code") or "")
+                    status = f"configured ({active})" if has_url else f"configured ({active}, URL mismatch)"
+                    rows.append([code.upper(), cfg.hrms or "", f"[green]{status}[/green]"])
+                else:
+                    rows.append([code.upper(), cfg.hrms or "", "[red]not configured[/red]"])
+            except Exception as e:
+                rows.append([code.upper(), cfg.hrms or "", f"[red]error: {e}[/red]"])
+            continue
+
+        if remove:
+            try:
+                existing = find_existing_automation(profile)
+                if existing:
+                    delete_automation(profile, existing["id"])
+                    c.output.success(f"{code}: webhook automation removed")
+                else:
+                    c.output.info(f"{code}: no automation found, nothing to remove")
+            except Exception as e:
+                c.output.error(f"{code}: failed to remove: {e}")
+            continue
+
+        # Setup or update
+        try:
+            c.output.info(f"{code}: resolving model IDs on {cfg.hrms}...")
+            model_id = resolve_model_id(profile, "hr.employee")
+            field_id = resolve_field_id(profile, "hr.employee", "active")
+
+            webhook_code = generate_webhook_code(
+                webhook_url=ak_sync_url,
+                webhook_secret=webhook_secret,
+                hmac_key=hmac_key,
+                company_code=code,
+                hrms_domain=cfg.hrms or "",
+            )
+
+            vals = build_automation_vals(
+                model_id=model_id,
+                active_field_id=field_id,
+                code=webhook_code,
+            )
+
+            existing = find_existing_automation(profile)
+            if existing:
+                update_automation(profile, existing["id"], vals)
+                c.output.success(f"{code}: webhook automation updated (id: {existing['id']})")
+            else:
+                record_id = create_automation(profile, vals)
+                c.output.success(f"{code}: webhook automation created (id: {record_id})")
+
+        except Exception as e:
+            c.output.error(f"{code}: setup failed: {e}")
+
+    if check and rows:
+        c.output.table(
+            "Webhook Status",
+            [("Company", "cyan"), ("HRMS Instance", ""), ("Status", "")],
+            rows,
+        )
