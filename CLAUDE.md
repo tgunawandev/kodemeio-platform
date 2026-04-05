@@ -153,6 +153,10 @@ kctl-dokploy deploy apply-all -d deploys/instances/production/
 # Batch deploy all staging
 kctl-dokploy deploy apply-all -d deploys/instances/staging/
 
+# Troubleshoot failed deployment (auto-runs on deploy failure too)
+kctl-dokploy deploy troubleshoot -f <manifest>         # Diagnose by manifest
+kctl-dokploy deploy troubleshoot --compose <id>        # Diagnose by compose ID
+
 # Staged deployment (for troubleshooting)
 kctl-dokploy deploy setup -f <manifest>   # Stage 1: DNS + DB + Compose + Env + Domain
 kctl-dokploy deploy run -f <manifest>     # Stage 2: Deploy + Verify healthcheck
