@@ -11,7 +11,7 @@ source_overrides:
   compose_path: apps/api/ak-sync/docker-compose.yml
 project: kod
 environment: production
-server: kodeme-service
+server: kod-stg-01
 healthcheck:
   path: /health
   port: 3030
@@ -31,6 +31,6 @@ env_overrides:
   NODE_ENV: production
   PORT: '3030'
   TZ: Asia/Jakarta
-  PROVISION_CONFIG: /app/config/provision-config.yaml
+  PROVISION_CONFIG: ./config/provision-config.yaml
 backup:
   enabled: false
