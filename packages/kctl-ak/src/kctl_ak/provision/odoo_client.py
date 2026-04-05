@@ -20,7 +20,7 @@ class OdooProvisionClient:
         database: str,
         username: str = "admin",
         api_key: str = "",
-        timeout: float = 15.0,
+        timeout: float = 30.0,
         _transport: httpx.BaseTransport | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")

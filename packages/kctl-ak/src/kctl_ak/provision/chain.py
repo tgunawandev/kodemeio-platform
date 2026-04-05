@@ -6,6 +6,8 @@ import os
 import time
 from typing import Any
 
+import httpx
+
 from kctl_ak.core.client import AuthentikClient
 from kctl_ak.models.provision import (
     ChainResult,
@@ -15,6 +17,31 @@ from kctl_ak.models.provision import (
 )
 from kctl_ak.provision.mailcow_client import MailcowProvisionClient
 from kctl_ak.provision.odoo_client import OdooProvisionClient
+
+
+def _send_telegram_notification(result: ChainResult) -> None:
+    """Send provisioning result to Telegram admin chat (best-effort, never raises)."""
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
+    if not bot_token or not chat_id:
+        return
+
+    icon = "\u2705" if result.success else "\u274c"
+    action = result.action.upper()
+    steps_text = "\n".join(
+        f"  {'✅' if s.status == StepStatus.SUCCESS else '⏭️' if s.status == StepStatus.SKIPPED else '❌'} {s.name}: {s.detail}"
+        for s in result.steps
+    )
+    text = f"{icon} *{action}* `{result.email}`\n\n{steps_text}"
+
+    try:
+        httpx.post(
+            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+            json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+            timeout=5,
+        )
+    except Exception:
+        pass  # Best-effort, never fail the chain for a notification
 
 
 class ProvisionChain:
@@ -88,6 +115,10 @@ class ProvisionChain:
         # Step 4: Welcome email (recovery link)
         if user_id and not self.dry_run:
             self._step_welcome_email(user_id, result)
+
+        # Notify admin via Telegram
+        if not self.dry_run:
+            _send_telegram_notification(result)
 
         return result
 
@@ -245,6 +276,10 @@ class ProvisionChain:
 
         # Step 4: Deactivate Odoo
         self._step_odoo_deactivate(email, result)
+
+        # Notify admin via Telegram
+        if not self.dry_run:
+            _send_telegram_notification(result)
 
         return result
 
