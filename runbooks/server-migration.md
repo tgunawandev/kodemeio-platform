@@ -121,7 +121,6 @@ kctl-dokploy deploy apply \
 kctl-ak health --profile new-server
 
 # 3. Core monitoring services
-kctl-dokploy deploy apply -f deploys/instances/kodeme.io-infra-gatus.yaml --profile new-server
 kctl-dokploy deploy apply -f deploys/instances/kodeme.io-infra-glitchtip.yaml --profile new-server
 
 # 4. Remaining infrastructure
@@ -157,7 +156,7 @@ kctl-odoo health --profile new-server
 kctl-odoo e2e test login --profile new-server
 
 # Check all healthchecks pass
-kctl-gatus dashboard --profile new-server
+kctl-grafana dashboard list --profile new-server
 ```
 
 ## Phase 6: DNS Cutover
@@ -199,8 +198,8 @@ kctl-cf ssl check --domain kodeme.io
 kctl-cf ssl check --domain auth.kodeme.io
 kctl-cf ssl check --domain odoo.kodeme.io
 
-# 3. Check all services via Gatus (now running on new server)
-kctl-gatus dashboard
+# 3. Check all services via Grafana
+kctl-grafana dashboard list
 
 # 4. Confirm no errors in app logs
 kctl-dokploy services logs -s kodemeio-odoo-full --tail 50

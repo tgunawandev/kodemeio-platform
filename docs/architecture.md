@@ -4,7 +4,7 @@ Single monorepo workspace: `kctl-lib` shared library + 21 CLI tools.
 
 ## CLI Ecosystem
 
-22 packages total, all sharing `kctl-lib` as their foundation.
+21 packages total, all sharing `kctl-lib` as their foundation.
 
 ### Shared Library
 
@@ -12,7 +12,7 @@ Single monorepo workspace: `kctl-lib` shared library + 21 CLI tools.
 |---------|---------|------|-------|
 | kctl-lib | v0.4.0 | Published | 247 |
 
-### Infrastructure & Ops (9 CLIs)
+### Infrastructure & Ops (8 CLIs)
 
 | CLI | Target | Groups |
 |-----|--------|--------|
@@ -22,7 +22,6 @@ Single monorepo workspace: `kctl-lib` shared library + 21 CLI tools.
 | kctl-cf | Cloudflare DNS/CDN/WAF | 27 |
 | kctl-ak | Authentik SSO/identity | 24 |
 | kctl-grafana | Grafana monitoring platform | 11 |
-| kctl-gatus | Gatus health monitoring | 8 |
 | kctl-rustdesk | RustDesk server management | 9 |
 | kctl-waha | WhatsApp HTTP API | 8 |
 
@@ -66,7 +65,6 @@ kctl-lib v0.4.0 (PyPI)
   │   ├── kctl-cf
   │   ├── kctl-ak
   │   ├── kctl-grafana
-  │   ├── kctl-gatus
   │   ├── kctl-rustdesk
   │   └── kctl-waha
   │
@@ -183,7 +181,6 @@ class CloudflareClient(APIClient):
 | kctl-odoo | JSON-RPC | Odoo XML-RPC/JSON-RPC protocol |
 | kctl-op | subprocess | Delegates to `op` CLI binary |
 | kctl-linear | GraphQL | GraphQL over HTTP (not REST) |
-| kctl-gatus | Custom auth | Non-standard auth scheme |
 | kctl-rmm | Custom auth | Non-standard auth scheme |
 
 ## kctl-lib Modules

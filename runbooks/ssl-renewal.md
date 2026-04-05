@@ -139,8 +139,8 @@ kctl-cf ssl check --domain grafana.kodeme.io
 curl -sI https://kodeme.io | head -5
 # Should return HTTP/2 200 with no SSL errors
 
-# Check Gatus SSL monitors
-kctl-gatus dashboard
+# Check Grafana SSL monitors
+kctl-grafana dashboard list
 # All SSL checks should be green
 ```
 

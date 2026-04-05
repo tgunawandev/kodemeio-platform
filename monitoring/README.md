@@ -6,19 +6,17 @@ Declarative monitoring configuration for the Kodemeio platform. All configs are 
 
 | Tool | Purpose | CLI | URL |
 |------|---------|-----|-----|
-| Gatus | Uptime & health checks | `kctl-gatus` | gatus.kodeme.io |
-| Grafana | Dashboards & visualization | `kctl-grafana` | grafana.kodeme.io |
+| Grafana | Dashboards, visualization & uptime | `kctl-grafana` | grafana.kodeme.io |
 | GlitchTip | Error tracking & DSN keys | `kctl-glitchtip` | glitchtip.kodeme.io |
 | Prometheus | Metrics collection & alerting | (via Grafana) | prometheus.kodeme.io |
+
+> **Note:** Uptime and health check monitoring is handled by Grafana (via `kctl-grafana`). Gatus has been removed.
 
 ## Directory Structure
 
 ```
 monitoring/
 ├── README.md                              # This file
-├── gatus/
-│   ├── endpoints.yaml                     # All monitored endpoints (30+)
-│   └── alerting.yaml                      # Alert channels and thresholds
 ├── grafana/
 │   ├── dashboards/
 │   │   └── platform-overview.json         # Main platform dashboard
@@ -41,10 +39,6 @@ Apply all monitoring configs in one shot:
 Or apply individual components:
 
 ```bash
-# Gatus endpoints only
-kctl-gatus endpoints list
-# (Gatus reads its own config.yaml — this file documents what should be configured)
-
 # Grafana dashboards
 kctl-grafana dashboard import monitoring/grafana/dashboards/platform-overview.json
 
@@ -84,7 +78,6 @@ kctl-grafana alert list
 |---------|-----|-----------------|
 | Authentik SSO | auth.kodeme.io | /-/health/ready/ |
 | Grafana | grafana.kodeme.io | /api/health |
-| Gatus | gatus.kodeme.io | /health |
 | GlitchTip | glitchtip.kodeme.io | /_health/ |
 | Mailcow | mail.kodeme.io | / |
 | WAHA | waha.kodeme.io | /api/health |
@@ -116,10 +109,9 @@ All 6 domains are verified via DNS resolution checks.
 
 ## Adding a New Service
 
-1. Add the endpoint to `gatus/endpoints.yaml`
-2. Add a panel to the Grafana dashboard if needed
-3. Add alert rules in `alerts/rules.yaml` if the service has Prometheus metrics
-4. Run `./monitoring/scripts/apply-monitoring.sh`
+1. Add a panel to the Grafana dashboard if needed
+2. Add alert rules in `alerts/rules.yaml` if the service has Prometheus metrics
+3. Run `./monitoring/scripts/apply-monitoring.sh`
 
 ## Maintenance
 

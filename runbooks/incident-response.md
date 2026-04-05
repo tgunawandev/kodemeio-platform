@@ -22,7 +22,7 @@ When you receive an alert:
 
 ```bash
 # First: establish what is currently failing
-kctl-gatus dashboard
+kctl-grafana dashboard list
 
 # Check overall service health
 kctl-dokploy services list
@@ -177,7 +177,7 @@ After any incident, confirm recovery is complete:
 
 ```bash
 # All services healthy
-kctl-gatus dashboard
+kctl-grafana dashboard list
 
 # No elevated error rates
 kctl-sentry issues list --project <project> --unresolved --limit 10

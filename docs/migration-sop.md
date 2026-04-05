@@ -380,7 +380,7 @@ Wait 48 hours of stable operation before running cleanup. This is the buffer for
 ### Soak period checks
 
 During the 48h soak:
-- [ ] Monitor error rates in Gatus: `kctl-gatus dashboard`
+- [ ] Monitor error rates in Grafana: `kctl-grafana dashboard list`
 - [ ] Check Sentry for new errors: `kctl-sentry issues list --project mac`
 - [ ] Confirm OIDC SSO login works for React PWAs
 - [ ] Confirm backups are running on the new server

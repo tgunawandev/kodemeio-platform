@@ -57,7 +57,6 @@ jobs:
           - kctl-claude
           - kctl-claw
           - kctl-dokploy
-          - kctl-gatus
           - kctl-github
           - kctl-glitchtip
           - kctl-grafana

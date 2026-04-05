@@ -3,7 +3,7 @@
 Auto-generated on 2026-04-02.
 Regenerate with: `uv run python scripts/generate-cli-docs.py`
 
-**22 CLIs** | **518 command groups** | **~2635 total commands**
+**21 CLIs** | **511 command groups** | **~2609 total commands**
 
 | CLI | Groups | Commands | Reference |
 |-----|--------|----------|-----------|
@@ -13,7 +13,6 @@ Regenerate with: `uv run python scripts/generate-cli-docs.py`
 | `kctl-claude` | 11 | ~32 | [kctl-claude.md](kctl-claude.md) |
 | `kctl-claw` | 37 | ~160 | [kctl-claw.md](kctl-claw.md) |
 | `kctl-dokploy` | 48 | ~264 | [kctl-dokploy.md](kctl-dokploy.md) |
-| `kctl-gatus` | 7 | ~26 | [kctl-gatus.md](kctl-gatus.md) |
 | `kctl-github` | 10 | ~38 | [kctl-github.md](kctl-github.md) |
 | `kctl-glitchtip` | 10 | ~49 | [kctl-glitchtip.md](kctl-glitchtip.md) |
 | `kctl-grafana` | 11 | ~32 | [kctl-grafana.md](kctl-grafana.md) |

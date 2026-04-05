@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-# All 22 downstream CLI packages in the workspace (excludes kctl-lib itself).
+# All 21 downstream CLI packages in the workspace (excludes kctl-lib itself).
 ALL_PACKAGES = [
     "kctl_ak",
     "kctl_api",
@@ -12,7 +12,6 @@ ALL_PACKAGES = [
     "kctl_claude",
     "kctl_claw",
     "kctl_dokploy",
-    "kctl_gatus",
     "kctl_github",
     "kctl_glitchtip",
     "kctl_grafana",

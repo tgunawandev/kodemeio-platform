@@ -149,8 +149,8 @@ kctl-pg databases list
 # 5. Authentik login works
 # Open auth.kodeme.io — login page should load
 
-# 6. Gatus shows green for all services
-kctl-gatus dashboard
+# 6. Grafana shows green for all services
+kctl-grafana dashboard list
 ```
 
 ## Post-Recovery

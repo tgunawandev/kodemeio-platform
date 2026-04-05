@@ -158,8 +158,8 @@ kctl-ak audit logins --failed --limit 10
 # 4. All outposts healthy
 kctl-ak outposts list
 
-# 5. Gatus shows auth.kodeme.io as green
-kctl-gatus dashboard
+# 5. Grafana shows auth.kodeme.io as green
+kctl-grafana dashboard list
 ```
 
 ## Escalation

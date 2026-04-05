@@ -37,7 +37,7 @@ Past incidents are documented in [incidents/](incidents/). Filename convention: 
 
 ```bash
 # Are services healthy?
-kctl-gatus dashboard
+kctl-grafana dashboard list
 
 # Check a specific service
 kctl-dokploy services logs -s <service-name> --tail 50

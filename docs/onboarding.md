@@ -94,8 +94,7 @@ kctl-dokploy health          # Deployment platform
 kctl-pg health               # PostgreSQL
 kctl-ak health               # Authentik SSO
 kctl-odoo health             # Odoo ERP
-kctl-gatus health            # Health monitoring
-kctl-grafana status          # Grafana dashboards
+kctl-grafana status          # Grafana dashboards & health monitoring
 ```
 
 ## Step 5: Understand the Architecture
@@ -170,7 +169,6 @@ kodemeio-platform/
 | Dokploy | dokploy.kodeme.io | API key |
 | Authentik | auth.kodeme.io | OIDC / API key |
 | Grafana | grafana.kodeme.io | Authentik SSO |
-| Gatus | gatus.kodeme.io | Public (read-only) |
 | GlitchTip | glitchtip.kodeme.io | Authentik SSO |
 | Odoo | odoo.kodeme.io | Authentik SSO / API key |
 | PostgreSQL | 10.0.0.3:5432 | Private network only |

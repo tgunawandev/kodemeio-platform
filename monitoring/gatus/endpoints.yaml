@@ -2,8 +2,8 @@
 # Kodemeio Platform — All monitored services
 #
 # This file defines all health check endpoints for the Gatus uptime monitor.
-# Apply via: kctl-gatus (Gatus reads its own config; this file serves as the
-# source-of-truth for what SHOULD be configured).
+# Gatus reads its own config.yaml on the server; this file serves as the
+# source-of-truth for what SHOULD be configured.
 #
 # Gatus config path (on server): /config/config.yaml
 # Docs: https://gatus.io/docs
@@ -212,19 +212,6 @@ endpoints:
         failure-threshold: 3
         success-threshold: 2
       - type: slack
-        enabled: true
-        failure-threshold: 3
-        success-threshold: 2
-
-  - name: "Gatus"
-    group: "infrastructure"
-    url: "https://gatus.kodeme.io/health"
-    interval: 60s
-    conditions:
-      - "[STATUS] == 200"
-      - "[RESPONSE_TIME] < 3000"
-    alerts:
-      - type: telegram
         enabled: true
         failure-threshold: 3
         success-threshold: 2

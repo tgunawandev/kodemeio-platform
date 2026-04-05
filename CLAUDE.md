@@ -24,9 +24,9 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 
 ## Architecture
 
-`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **22 CLI tools**, all consolidated into this single workspace.
+`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **21 CLI tools**, all consolidated into this single workspace.
 
-### Workspace Members (22 packages)
+### Workspace Members (21 packages)
 
 #### Shared Library
 - **kctl-lib** — Shared CLI infrastructure (v0.4.0, published to PyPI)
@@ -39,7 +39,6 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 - **kctl-cf** — Cloudflare DNS/CDN/WAF (27 groups)
 - **kctl-ak** — Authentik SSO/identity (24 groups)
 - **kctl-grafana** — Grafana monitoring platform (11 groups)
-- **kctl-gatus** — Gatus health monitoring (8 groups)
 - **kctl-rustdesk** — RustDesk server management (9 groups)
 - **kctl-waha** — WhatsApp HTTP API (8 groups)
 - **kctl-mailcow** — Mailcow mail server management (31 groups)
@@ -59,7 +58,7 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 - **kctl-telegram** — Telegram bot platform (7 groups)
 - **kctl-notion** — Notion wiki/database management (7 groups)
 
-Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-lib; exceptions are kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-gatus and kctl-mdm (custom auth).
+Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-lib; exceptions are kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-mdm (custom auth).
 
 ## Key Paths
 
@@ -72,7 +71,6 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, kee
 | `packages/kctl-claw/` | AI agent gateway CLI |
 | `packages/kctl-cf/` | Cloudflare DNS/CDN/WAF CLI |
 | `packages/kctl-dokploy/` | Dokploy deployment CLI |
-| `packages/kctl-gatus/` | Gatus health monitoring CLI |
 | `packages/kctl-github/` | GitHub cross-repo management CLI |
 | `packages/kctl-grafana/` | Grafana monitoring CLI |
 | `packages/kctl-hz/` | Hetzner Cloud infrastructure CLI |

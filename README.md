@@ -36,7 +36,7 @@ Shared core library for all `kctl-*` CLI tools.
 | `kctl_lib.monitor_base` | `health_check_url()`, `ssl_check()`, `dns_check()` |
 | `kctl_lib.skill_generator` | Typer app introspection → SKILL.md auto-generation |
 
-**Used by:** 21 kctl-* CLI tools across kodemeio-app, kodemeio-core, and kodemeio-saas
+**Used by:** 20 kctl-* CLI tools across kodemeio-app, kodemeio-core, and kodemeio-saas
 
 ## CLI Ecosystem
 
@@ -60,7 +60,6 @@ Shared core library for all `kctl-*` CLI tools.
 | kctl-redis | kodemeio-redis | Redis cache & message broker | 16 |
 | kctl-cf | kodemeio-cloudflare | Cloudflare DNS/CDN/WAF | 27 |
 | kctl-ak | kodemeio-authentik | Authentik SSO/identity | 24 |
-| kctl-gatus | kodemeio-gatus | Gatus health monitoring | 8 |
 | kctl-mdm | kodemeio-headwind | Headwind MDM device management | 12 |
 | kctl-waha | kodemeio-waha | WhatsApp HTTP API | 8 |
 | kctl-grafana | kodemeio-grafana | Grafana monitoring platform | 11 |
@@ -96,7 +95,7 @@ class MyServiceClient(APIClient):
 
 Override hooks: `_unwrap_response()`, `_map_error()`, `_is_retryable()`, `_build_auth_header()`
 
-**Exceptions:** kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-1password (subprocess), kctl-linear (GraphQL), kctl-gatus/kctl-mdm (custom auth)
+**Exceptions:** kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-1password (subprocess), kctl-linear (GraphQL), kctl-mdm (custom auth)
 
 ## Templates
 

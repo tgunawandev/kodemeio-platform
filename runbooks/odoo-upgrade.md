@@ -177,8 +177,8 @@ kctl-odoo e2e test login
 # Check all menus load without errors
 kctl-odoo e2e test --smoke
 
-# Confirm service shows healthy in Gatus
-kctl-gatus dashboard
+# Confirm service shows healthy in Grafana
+kctl-grafana dashboard list
 ```
 
 ## Escalation
