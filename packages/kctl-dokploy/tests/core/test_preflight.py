@@ -102,3 +102,20 @@ class TestGateEnvSync:
         m = DeployManifest(env_file=str(env_file))
         r = _gate_env_sync(m, None, False)
         assert r.status == "pass"
+
+
+def test_run_preflight_with_gate_filter():
+    """run_preflight with gates filter only runs specified gates."""
+    manifest = DeployManifest(server="x", project="x")
+    results = run_preflight(manifest, client=None, ssh_available=False, gates=["dns", "ssl"])
+    assert len(results) == 2
+    gate_names = {r.gate for r in results}
+    assert gate_names == {"dns", "ssl"}
+
+
+def test_run_preflight_with_invalid_gate_filter():
+    """run_preflight with no matching gates returns error."""
+    manifest = DeployManifest()
+    results = run_preflight(manifest, client=None, ssh_available=False, gates=["nonexistent"])
+    assert len(results) == 1
+    assert results[0].failed

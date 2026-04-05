@@ -427,6 +427,7 @@ def run_preflight(
     manifest: DeployManifest,
     client: Any = None,
     ssh_available: bool = True,
+    gates: list[str] | None = None,
 ) -> list[GateResult]:
     """Run all preflight gates and return results.
 
@@ -434,12 +435,22 @@ def run_preflight(
         manifest: Resolved deploy manifest.
         client: DokployClient or None — Dokploy API client for remote checks.
         ssh_available: Whether SSH is available for remote checks.
+        gates: Optional list of gate names to run. If None or empty, runs all gates.
+            Valid names: server_connectivity, firewall, dns, image_pull, database,
+            compose_assignment, env_sync, source_config, network, ssl.
 
     Returns:
         List of GateResult, one per gate.
     """
+    active_gates = _GATES
+    if gates:
+        gate_set = set(gates)
+        active_gates = [g for g in _GATES if g.__name__.replace("_gate_", "") in gate_set]
+        if not active_gates:
+            return [GateResult("filter", "fail", f"No matching gates for: {', '.join(gates)}")]
+
     results: list[GateResult] = []
-    for gate_fn in _GATES:
+    for gate_fn in active_gates:
         try:
             result = gate_fn(manifest, client, ssh_available)
         except Exception as exc:

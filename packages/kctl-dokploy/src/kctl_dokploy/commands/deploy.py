@@ -128,11 +128,14 @@ def validate(
 def preflight(
     ctx: typer.Context,
     file: Annotated[Path, typer.Option("--file", "-f", help="Manifest YAML file", exists=True)] = ...,  # type: ignore[assignment]
+    gates: Annotated[str | None, typer.Option("--gates", "-g", help="Comma-separated gate names to run")] = None,
 ) -> None:
     """Run preflight checks before deployment.
 
     Validates server connectivity, firewall, DNS, database auth,
     env file sync, and more. Any FAIL blocks deployment.
+
+    Use --gates to run only specific checks, e.g. --gates dns,ssl
     """
     from kctl_dokploy.core.preflight import run_preflight
 
@@ -149,7 +152,8 @@ def preflight(
     except Exception:
         pass
 
-    results = run_preflight(manifest, client=api_client)
+    gate_list = [g.strip() for g in gates.split(",")] if gates else None
+    results = run_preflight(manifest, client=api_client, gates=gate_list)
 
     # Build display
     status_icons = {"pass": "✓", "warn": "⚠", "fail": "✗"}
@@ -187,10 +191,12 @@ def preflight_all(
         Path, typer.Option("--dir", "-d", help="Directory with manifest YAML files", exists=True)
     ] = ...,  # type: ignore[assignment]
     server: Annotated[str | None, typer.Option("--server", "-s", help="Filter by server name")] = None,
+    gates: Annotated[str | None, typer.Option("--gates", "-g", help="Comma-separated gate names to run")] = None,
 ) -> None:
     """Run preflight checks on all manifests in a directory.
 
     Use --server to filter to manifests targeting a specific server.
+    Use --gates to run only specific checks, e.g. --gates dns,ssl
     """
     c: AppContext = ctx.obj
     manifests = sorted(directory.glob("*.yaml"))
@@ -210,6 +216,7 @@ def preflight_all(
     except Exception:
         pass
 
+    gate_list = [g.strip() for g in gates.split(",")] if gates else None
     total_pass = 0
     total_fail = 0
     total_warn = 0
@@ -225,7 +232,7 @@ def preflight_all(
         if server and manifest.server != server:
             continue
 
-        results = run_preflight(manifest, client=api_client)
+        results = run_preflight(manifest, client=api_client, gates=gate_list)
         failures = [r for r in results if r.failed]
         warns = [r for r in results if r.status == "warn"]
 
