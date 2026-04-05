@@ -68,6 +68,8 @@ def create(
     interval: Annotated[int, typer.Option("--interval", help="Check interval in seconds")] = 60,
     monitor_type: Annotated[str, typer.Option("--type", help="Monitor type (e.g. Ping, GET)")] = "Ping",
     expected_status: Annotated[int, typer.Option("--expected-status", help="Expected HTTP status code")] = 200,
+    timeout: Annotated[int, typer.Option("--timeout", help="Request timeout in seconds")] = 20,
+    project: Annotated[int | None, typer.Option("--project", help="Associated project ID")] = None,
 ) -> None:
     """Create an uptime monitor."""
     actx: AppContext = ctx.obj
@@ -75,14 +77,17 @@ def create(
 
     org_slug = org or _get_org_slug(actx)
 
-    # Try project-based endpoint first, then org-based
     payload: dict = {
         "name": name,
         "url": url,
         "interval": interval,
-        "monitor_type": monitor_type,
-        "expected_status": expected_status,
+        "monitorType": monitor_type,
+        "expectedStatus": expected_status,
+        "expectedBody": "",
+        "timeout": timeout,
     }
+    if project is not None:
+        payload["project"] = project
 
     result = c.post(f"organizations/{org_slug}/monitors/", data=payload)
     out.success(f"Monitor '{name}' created")

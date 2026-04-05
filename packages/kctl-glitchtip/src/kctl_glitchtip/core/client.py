@@ -17,7 +17,7 @@ class GlitchTipClient(APIClient):
     """Synchronous client for GlitchTip Sentry-compatible API."""
 
     AUTH_HEADER = "Authorization"
-    AUTH_PREFIX = "Token"
+    AUTH_PREFIX = "Bearer"
     API_PREFIX = "/api/0"
 
     def __init__(
