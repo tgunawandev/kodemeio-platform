@@ -17,19 +17,67 @@ kctl-claude doctor
 kctl-claude env list
 ```
 
-## Commands
+## Command Groups
 
 | Group | Description |
 |-------|-------------|
-| `config` | Profile and connection management |
-| `api` | Claude API key and SDK management |
-| `backup` | Configuration backup and restore |
-| `doctor` | Diagnostic checks |
-| `env` | Environment and settings management |
-| `setup` | Initial setup and onboarding |
-| `status` | Environment status overview |
-| `sync` | Config sync across machines |
-| `verify` | Installation and config verification |
+| `config` | Manage CLI configuration and profiles |
+| `api` | SDK REST API operations |
+| `backup` | Backup and restore Claude Code runtime |
+| `doctor` | Diagnostics and health checks |
+| `env` | Environment file management |
+| `setup` | Setup Claude Code on local, VPS, or Docker |
+| `status` | Status dashboard and health checks |
+| `sync` | Sync config between local `~/.claude` and repo |
+| `verify` | Verify Claude Code config completeness |
+
+Top-level commands: `completions`, `update`
+
+## Configuration
+
+Config lives in `~/.config/kodemeio/config.yaml` under the `claude` service key.
+
+```bash
+# Initialize a profile
+kctl-claude config init
+
+# Add a named profile
+kctl-claude config add work --url https://api.anthropic.com --api-key $ANTHROPIC_API_KEY
+
+# Switch active profile
+kctl-claude config use work
+
+# Show current profile (secrets masked)
+kctl-claude config show
+```
+
+## Global Options
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--json` | | Output as JSON |
+| `--quiet` | `-q` | Suppress info messages |
+| `--verbose` | `-v` | Show debug output |
+| `--version` | `-V` | Show version and exit |
+
+## Shell Completions
+
+```bash
+# Generate completions (prints to stdout)
+kctl-claude completions zsh
+kctl-claude completions bash
+kctl-claude completions fish
+
+# Install completions automatically
+kctl-claude completions zsh --install
+kctl-claude completions bash --install
+```
+
+## Self-Update
+
+```bash
+kctl-claude update
+```
 
 ## Development
 

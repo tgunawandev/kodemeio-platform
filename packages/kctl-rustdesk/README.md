@@ -17,19 +17,51 @@ kctl-rustdesk dashboard
 kctl-rustdesk peers list
 ```
 
-## Commands
+## Command Groups
 
 | Group | Description |
 |-------|-------------|
-| `config` | Profile and connection management |
-| `audit` | Audit log inspection |
-| `backup` | Server backup operations |
-| `dashboard` | Server overview and statistics |
-| `health` | Health checks |
-| `maintenance` | Server maintenance tasks |
-| `peers` | Peer/device management |
-| `setup` | Initial server setup |
-| `users` | User management |
+| `config` | Manage CLI configuration and profiles |
+| `health` | Health checks for RustDesk server |
+| `dashboard` | System overview dashboard |
+| `peers` | Manage RustDesk peers (devices) |
+| `users` | Manage RustDesk users |
+| `audit` | Audit logs and connection history |
+| `backup` | Backup and restore RustDesk server data |
+| `setup` | Server setup and configuration |
+| `maintenance` | Maintenance and operational tasks |
+
+## Global Options
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--json` | | Output as JSON |
+| `--quiet` | `-q` | Suppress info messages |
+| `--format` | `-f` | Output format: pretty, json, csv, yaml |
+| `--no-header` | | Omit column headers |
+| `--profile` | `-p` | Config profile |
+| `--host` | | Server host override |
+| `--version` | `-V` | Show version and exit |
+
+## Configuration
+
+Config lives in `~/.config/kodemeio/config.yaml` under the `rustdesk` service key.
+
+```bash
+# Initialize default profile
+kctl-rustdesk config init
+
+# Add a named profile
+kctl-rustdesk config add prod \
+  --host https://rustdesk.example.com \
+  --api-key $RUSTDESK_API_KEY
+
+# Switch active profile
+kctl-rustdesk config use prod
+
+# Show current profile (key masked)
+kctl-rustdesk config show
+```
 
 ## Development
 

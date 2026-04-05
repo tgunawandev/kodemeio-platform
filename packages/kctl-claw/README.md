@@ -41,6 +41,8 @@ kctl-claw backup create
 
 ## Command Groups
 
+### Core Operations
+
 | Group | Description |
 |---|---|
 | `agents` | Manage OpenClaw agents |
@@ -60,20 +62,45 @@ kctl-claw backup create
 | `telegram` | Manage Telegram bot configuration |
 | `trading` | Trading bot operations (JournaltxDevBot) |
 
+### Diagnostics & Debugging (SP6)
+
+| Group | Description |
+|---|---|
+| `agents-test` | Run agent integration and regression tests |
+| `config-drift` | Detect and reconcile config drift between environments |
+| `cron-debug` | Debug and inspect cron job execution |
+| `docker` | Docker container and image management |
+| `doctor` | Diagnose environment, config, and connectivity issues |
+| `lint` | Lint OpenClaw configs, manifests, and skill definitions |
+| `mcp-test` | Test MCP server connectivity and tool invocations |
+| `monitor` | Real-time gateway metrics and uptime monitoring |
+| `pipeline` | Manage and inspect agent execution pipelines |
+| `prompts` | Manage and preview system prompts |
+| `skills-test` | Run skill unit and integration tests |
+| `test` | General test runner for OpenClaw components |
+
 Run `kctl-claw <group> --help` for subcommands within each group.
 
 ## Global Options
 
-| Flag | Short | Description |
-|---|---|---|
-| `--json` | | Output as JSON |
-| `--quiet` | `-q` | Suppress info messages |
-| `--format` | `-f` | Output format: `pretty` / `json` / `csv` / `yaml` |
-| `--no-header` | | Omit table headers |
-| `--profile` | `-p` | Config profile name |
-| `--root` | | Project root override |
-| `--live` | | Push config changes and trigger reload |
-| `--version` | `-V` | Show version |
+| Flag | Short | Default | Description |
+|---|---|---|---|
+| `--json` | | false | Output as JSON |
+| `--quiet` | `-q` | false | Suppress info messages |
+| `--format` | `-f` | `pretty` | Output format: `pretty` / `json` / `csv` / `yaml` |
+| `--no-header` | | false | Omit table headers |
+| `--profile` | `-p` | | Config profile name |
+| `--root` | | | Project root override (overrides auto-detection) |
+| `--live` | | false | Push config changes and trigger reload |
+| `--version` | `-V` | | Show version and exit |
+
+All options apply globally before the subcommand and can be combined:
+
+```bash
+kctl-claw --json --profile staging agents list
+kctl-claw --format yaml health check
+kctl-claw --quiet --no-header cron list
+```
 
 ## Aliases
 
@@ -112,6 +139,49 @@ profiles:
 ```
 
 Switch profiles with `--profile` or the `KCTL_CLAW_PROFILE` environment variable. The project root is also auto-detected by walking up from the current directory looking for `config/openclaw.json`.
+
+### Config Subcommands
+
+```bash
+kctl-claw config init        # Create initial profile interactively
+kctl-claw config show        # Show current profile (secrets masked)
+kctl-claw config validate    # Validate config file syntax and required fields
+kctl-claw config profiles    # List all available profiles
+kctl-claw config current     # Print active profile name
+kctl-claw config add         # Add a new profile
+kctl-claw config use         # Switch default profile
+kctl-claw config set         # Set a single config key
+kctl-claw config remove      # Delete a profile
+```
+
+## Shell Completions
+
+Install shell completions for faster command entry:
+
+```bash
+# Zsh
+kctl-claw --install-completion zsh
+# Then add to ~/.zshrc:
+source ~/.zsh_completions/_kctl-claw
+
+# Bash
+kctl-claw --install-completion bash
+# Then add to ~/.bashrc:
+source ~/.bash_completions/kctl-claw
+
+# Fish
+kctl-claw --install-completion fish
+```
+
+After installing, restart your shell or source your rc file. Tab-completion covers command groups, subcommands, and common flag values.
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `KCTL_CLAW_PROFILE` | Override active profile (equivalent to `--profile`) |
+| `OPENCLAW_GATEWAY_TOKEN` | Gateway API token (referenced in config via `${...}`) |
+| `OPENCLAW_STAGING_TOKEN` | Staging gateway token |
 
 ## Development
 
