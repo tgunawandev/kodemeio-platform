@@ -1,0 +1,44 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-notify
+  description: "Multi-tenant notification dispatch service (FCM + SSE + Telegram)"
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-react
+  branch: main
+  compose_path: apps/api/notify/docker-compose.yml
+
+project: kod
+environment: production
+server: kod-stg-01
+
+healthcheck:
+  path: /health
+  port: 3020
+  expected_status: 200
+  timeout: 60
+  interval: 10
+
+dns:
+  zone: kodeme.io
+  name: notify
+
+domain:
+  host: notify.kodeme.io
+  port: 3020
+  service: notify
+  https: true
+
+env_file: ../../env/production/.env.kod-infra-notify
+
+env_overrides:
+  NODE_ENV: production
+  PORT: "3020"
+  TZ: Asia/Jakarta
+
+backup:
+  enabled: false

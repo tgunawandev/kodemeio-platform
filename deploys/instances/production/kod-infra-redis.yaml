@@ -1,0 +1,19 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-redis
+  description: "Shared Redis 7 for kodemeio services"
+
+project: kod
+environment: production
+server: kod-stg-01
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-redis
+  branch: main
+  compose_path: ./docker-compose.prod.yml
+
+env_file: ../../env/production/.env.kod-infra-redis
