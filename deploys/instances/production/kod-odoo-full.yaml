@@ -1,8 +1,9 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
 kind: instance
 extends: ../../bases/odoo.yaml
 instance:
   name: kod-odoo-full
-  description: Kodemeio — Full Odoo (all modules, all PWA apps)
+  description: KOD — Full Odoo (all modules, all PWA apps)
 project: kod
 environment: production
 server: kod-stg-01

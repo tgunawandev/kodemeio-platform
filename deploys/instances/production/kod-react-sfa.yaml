@@ -1,0 +1,26 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/react-pwa.yaml
+instance:
+  name: kod-react-sfa
+  description: KOD — SFA PWA
+project: kod
+environment: production
+server: kod-stg-01
+source_overrides:
+  compose_path: compose/docker-compose.sfa.yml
+dns:
+  zone: kodeme.io
+  name: kod-sfa
+domain:
+  host: kod-sfa.kodeme.io
+  port: 80
+  service: sfa
+  https: true
+env_file: ../../env/production/.env.kod-react-sfa
+env_overrides:
+  VITE_SFA_APP_NAME: KOD SFA
+  VITE_SFA_API_BASE_URL: https://kod-odoo-full.kodeme.io/sfa/api
+  VITE_AUTH_MODE: native
+  VITE_SFA_OIDC_CLIENT_ID: ''
+  VITE_SFA_OIDC_REDIRECT_URI: ''

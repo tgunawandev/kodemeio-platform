@@ -1,0 +1,26 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/react-pwa.yaml
+instance:
+  name: kod-react-dms
+  description: KOD — DMS PWA
+project: kod
+environment: production
+server: kod-stg-01
+source_overrides:
+  compose_path: compose/docker-compose.dms.yml
+dns:
+  zone: kodeme.io
+  name: kod-dms
+domain:
+  host: kod-dms.kodeme.io
+  port: 80
+  service: dms
+  https: true
+env_file: ../../env/production/.env.kod-react-dms
+env_overrides:
+  VITE_DMS_APP_NAME: KOD DMS
+  VITE_DMS_API_BASE_URL: https://kod-odoo-full.kodeme.io/dms/api
+  VITE_AUTH_MODE: native
+  VITE_DMS_OIDC_CLIENT_ID: ''
+  VITE_DMS_OIDC_REDIRECT_URI: ''

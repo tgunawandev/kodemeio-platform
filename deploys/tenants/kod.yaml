@@ -5,6 +5,10 @@ tenant:
   domain: kodeme.io
 
 environments:
+  production:
+    server: kod-stg-01
+    dns_prefix: ""
+    db_prefix: ""
   staging:
     server: kod-stg-01
     dns_prefix: "stg-"
