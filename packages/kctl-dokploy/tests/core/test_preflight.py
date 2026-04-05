@@ -31,7 +31,7 @@ def test_run_preflight_returns_results():
         project="test",
         environment="production",
     )
-    # With no real connections, all gates should fail or be skipped
+    # With ssh_available=False and client=None, gates return fail/warn/pass depending on config
     results = run_preflight(manifest, client=None, ssh_available=False)
     assert isinstance(results, list)
     assert len(results) == 10

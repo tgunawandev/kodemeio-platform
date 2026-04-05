@@ -156,6 +156,11 @@ kctl-dokploy deploy setup -f <manifest>   # Stage 1: DNS + DB + Compose + Env + 
 kctl-dokploy deploy run -f <manifest>     # Stage 2: Deploy + Verify healthcheck
 kctl-dokploy deploy post -f <manifest>    # Stage 3: Backup + Schedules + Post-deploy
 
+# Preflight checks (pre-deploy validation)
+kctl-dokploy deploy preflight -f <manifest>                   # Single manifest
+kctl-dokploy deploy preflight-all -d deploys/instances/production/  # All production
+kctl-dokploy deploy preflight-all -d deploys/instances/production/ --server mac-prod-01  # Filter by server
+
 # Preview / status
 kctl-dokploy deploy status -f <manifest>  # Dry-run all phases
 
@@ -165,10 +170,11 @@ cd deploys && python generate.py -t mac     # Generate single tenant
 cd deploys && python generate.py --dry-run  # Preview
 ```
 
-### 12-Phase Pipeline
+### 13-Phase Pipeline
 
 | # | Phase | CLI Used | Description |
 |---|-------|----------|-------------|
+| 0 | Preflight | kctl-dokploy | 10 gates: server, firewall, DNS, image pull, DB, compose, env sync (OIDC), source, network, SSL |
 | 1 | DNS | kctl-cf | Create/verify DNS record |
 | 2 | Database | kctl-pg | Create database + user |
 | 3 | Registry | kctl-dokploy | Ensure container registry access |

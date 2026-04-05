@@ -137,14 +137,16 @@ kctl-dokploy deploy apply -f deploys/instances/production/mac-react-sfa.yaml  # 
 kctl-dokploy deploy apply -f deploys/instances/staging/mac-react-sfa.yaml     # Staging
 kctl-dokploy deploy apply-all -d deploys/instances/production/                # All production
 kctl-dokploy deploy apply-all -d deploys/instances/staging/                   # All staging
+kctl-dokploy deploy preflight -f <manifest>                                   # Pre-deploy validation
+kctl-dokploy deploy preflight-all -d deploys/instances/production/            # Batch preflight
 kctl-dokploy deploy status -f <manifest>                                      # Dry-run preview
 ```
 
-### 12-Phase Pipeline
+### 13-Phase Pipeline
 
-DNS → Database → Registry → Compose → Environment → Domain → Deploy → Verify → Backup → Schedules → Post-deploy
+Preflight → DNS → Database → Registry → Compose → Environment → Domain → Deploy → Verify → Backup → Schedules → Post-deploy
 
-Uses: kctl-cf (DNS), kctl-pg (DB), kctl-dokploy (compose/env/domain/deploy), kctl-odoo (post-deploy bundles)
+Uses: kctl-cf (DNS), kctl-pg (DB), kctl-dokploy (compose/env/domain/deploy/preflight), kctl-odoo (post-deploy bundles)
 
 ### Naming Convention
 
