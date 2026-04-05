@@ -16,3 +16,4 @@ deploys/env/production/.env.*
 deploys/env/staging/.env.*
 .playwright-mcp/
 .claude/
+.worktrees/
