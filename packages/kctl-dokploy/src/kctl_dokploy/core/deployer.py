@@ -266,7 +266,7 @@ class Deployer:
             self._record_phase("preflight", "failed", f"{len(failures)} gate(s) failed — {details}")
         else:
             warns = sum(1 for r in results if r.status == "warn")
-            self._record_phase("preflight", "passed", f"10 gates checked ({warns} warnings)")
+            self._record_phase("preflight", "passed", f"{len(results)} gates checked ({warns} warnings)")
 
     # ------------------------------------------------------------------
     # Phase 0b — Pre-validate (type-aware)

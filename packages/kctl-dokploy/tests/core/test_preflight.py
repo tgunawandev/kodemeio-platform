@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
-
 from kctl_dokploy.core.preflight import GateResult, _gate_env_sync, run_preflight
 from kctl_dokploy.core.manifest import DeployManifest
 

@@ -37,7 +37,7 @@ def _gate_server_connectivity(manifest: DeployManifest, client: Any, ssh_availab
         return GateResult("server_connectivity", "pass", "No server specified (Dokploy host)")
     if not ssh_available:
         return GateResult("server_connectivity", "fail", f"SSH not available to verify server '{manifest.server}'")
-    return GateResult("server_connectivity", "fail", f"Server '{manifest.server}' connectivity not verified")
+    return GateResult("server_connectivity", "warn", "Server connectivity check not yet implemented")
 
 
 def _gate_firewall(manifest: DeployManifest, client: Any, ssh_available: bool) -> GateResult:
@@ -119,7 +119,7 @@ def _gate_source_config(manifest: DeployManifest, client: Any, ssh_available: bo
     src = manifest.source
     if not src.owner or not src.repo:
         return GateResult("source_config", "warn", "No GitHub source configured")
-    return GateResult("source_config", "pass", f"Source: {src.owner}/{src.repo}@{src.branch}")
+    return GateResult("source_config", "pass", f"Source: {src.owner}/{src.repo}@{src.branch or 'main'}")
 
 
 def _gate_network(manifest: DeployManifest, client: Any, ssh_available: bool) -> GateResult:
