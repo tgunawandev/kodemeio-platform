@@ -197,3 +197,90 @@ def status(
                 sections.append((f"Odoo {target}", [("Status", "no credentials")]))
 
     c.output.detail(f"Provision Status: {email}", sections)
+
+
+@app.command()
+def sync(
+    ctx: typer.Context,
+    company: Annotated[str | None, typer.Option("--company", "-c", help="Company code (mac/tpp/kod)")] = None,
+    all_companies: Annotated[bool, typer.Option("--all", help="Sync all companies")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen")] = True,
+) -> None:
+    """Poll HRMS and reconcile users across systems."""
+    c: AppContext = ctx.obj
+    config_path = _resolve_config_path()
+    config = load_provision_config(config_path)
+
+    companies_to_sync: list[str] = []
+    if all_companies:
+        companies_to_sync = [code for code, cfg in config.companies.items() if cfg.hrms]
+    elif company:
+        if company not in config.companies:
+            c.output.error(f"Unknown company: {company}")
+            raise typer.Exit(1)
+        if not config.companies[company].hrms:
+            c.output.error(f"Company {company} has no HRMS configured")
+            raise typer.Exit(1)
+        companies_to_sync = [company]
+    else:
+        c.output.error("Specify --company or --all")
+        raise typer.Exit(1)
+
+    for code in companies_to_sync:
+        cfg = config.companies[code]
+        slug = cfg.hrms.replace(".", "_").replace("-", "_").upper() if cfg.hrms else ""
+        db = os.getenv(f"ODOO_{slug}_DB", "")
+        key = os.getenv(f"ODOO_{slug}_KEY", "")
+
+        if not db or not key:
+            c.output.warn(f"Skipping {code}: HRMS credentials not configured (need ODOO_{slug}_DB and ODOO_{slug}_KEY)")
+            continue
+
+        c.output.info(f"Syncing {code} from {cfg.hrms}...")
+
+        from kctl_ak.provision.odoo_client import OdooProvisionClient
+
+        hrms = OdooProvisionClient(base_url=f"https://{cfg.hrms}", database=db, api_key=key)
+
+        # Fetch all employees with email
+        employees = hrms._execute_kw(
+            "hr.employee",
+            "search_read",
+            [[["active", "in", [True, False]]]],
+            {"fields": ["name", "work_email", "active"], "limit": 0},
+        )
+
+        # Fetch all Authentik users with this company's domain
+        ak_users_data = c.client.get("core/users/", params={"search": f"@{cfg.domain}", "page_size": 500})
+        ak_users = {
+            u["email"]: u for u in ak_users_data.get("results", []) if u.get("email", "").endswith(f"@{cfg.domain}")
+        }
+
+        chain = _build_chain(ctx, dry_run)
+
+        new_count = 0
+        archive_count = 0
+        skip_count = 0
+
+        for emp in employees:
+            email = emp.get("work_email", "")
+            if not email or not email.endswith(f"@{cfg.domain}"):
+                continue
+
+            emp_active = emp.get("active", True)
+            ak_user = ak_users.pop(email, None)
+
+            if emp_active and not ak_user:
+                c.output.info(f"  NEW: {email} ({emp.get('name', '')})")
+                if not dry_run:
+                    chain.onboard(email=email, name=emp.get("name", ""), company=code)
+                new_count += 1
+            elif not emp_active and ak_user and ak_user.get("is_active"):
+                c.output.info(f"  ARCHIVE: {email}")
+                if not dry_run:
+                    chain.offboard(email=email)
+                archive_count += 1
+            else:
+                skip_count += 1
+
+        c.output.success(f"{code}: {new_count} new, {archive_count} archived, {skip_count} unchanged")
