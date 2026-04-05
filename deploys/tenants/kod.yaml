@@ -1,0 +1,19 @@
+tenant:
+  code: kod
+  name: "Kodemeio"
+  short_name: "KOD"
+  domain: kodeme.io
+
+environments:
+  staging:
+    server: kod-stg-01
+    dns_prefix: "stg-"
+    db_prefix: "stg_"
+    auto_deploy: true
+
+odoo:
+  - profile: full
+    short: full
+    description: "Full Odoo (all modules, all PWA apps)"
+    workers: 6
+    apps: [bia, dms, eam, hrm, lfa, mrp, saas, sfa, shop, tms, tms-parent, tpm, wms]
