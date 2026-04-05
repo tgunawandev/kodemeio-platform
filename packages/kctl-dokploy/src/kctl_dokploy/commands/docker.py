@@ -14,13 +14,25 @@ app = typer.Typer(help="Docker container and resource management.")
 @app.command()
 def containers(
     ctx: typer.Context,
-    server_id: Annotated[str | None, typer.Option("--server", "-s", help="Server ID or name")] = None,
+    server: Annotated[str | None, typer.Option("--server", "-s", help="Server name or ID to filter containers")] = None,
 ) -> None:
     """List Docker containers."""
     c: AppContext = ctx.obj
     payload: dict = {}
-    if server_id:
-        payload["serverId"] = server_id
+    if server:
+        # Resolve server name to serverId if it doesn't look like a UUID
+        resolved_id = server
+        if not server.startswith("server-") and "-" not in server[:8]:
+            try:
+                servers = c.client.get("/server.all")
+                if isinstance(servers, list):
+                    for s in servers:
+                        if s.get("name") == server:
+                            resolved_id = s.get("serverId", server)
+                            break
+            except Exception:
+                pass
+        payload["serverId"] = resolved_id
     try:
         data = c.client.get("/docker.getContainers", params=payload)
     except Exception:

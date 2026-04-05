@@ -70,57 +70,24 @@ class Diagnosis:
         }
 
 
-def _get_build_log_via_ssh(client: Any, compose_id: str, log_path: str) -> str:
-    """Read build log content from server via SSH.
-
-    Falls back gracefully if SSH is unavailable.
-    """
-    if not log_path:
-        return ""
-
+def _get_build_log_cli(compose_id: str) -> str:
+    """Fetch build/deployment log via kctl-dokploy deployments logs."""
     import subprocess
 
-    # Get server IP for this compose
     try:
-        compose = client.get("/compose.one", params={"composeId": compose_id})
-        if not isinstance(compose, dict):
-            return ""
-        server_id = compose.get("serverId")
-        if not server_id:
-            return ""
-
-        servers = client.get("/server.all")
-        server_ip = ""
-        if isinstance(servers, list):
-            for s in servers:
-                if s.get("serverId") == server_id:
-                    server_ip = s.get("ipAddress", "")
-                    break
-
-        if not server_ip:
-            return ""
-
         result = subprocess.run(
-            [
-                "ssh",
-                "-o",
-                "ConnectTimeout=5",
-                "-o",
-                "StrictHostKeyChecking=no",
-                f"root@{server_ip}",
-                f"tail -100 {log_path}",
-            ],
+            ["kctl-dokploy", "deployments", "logs", "--compose", compose_id],
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=30,
         )
-        if result.returncode == 0:
-            return result.stdout
-        return f"(SSH failed: {result.stderr.strip()[:200]})"
-    except subprocess.TimeoutExpired:
-        return "(SSH timeout reading build log)"
-    except Exception as e:
-        return f"(Failed to read build log: {e})"
+        if result.returncode == 0 and result.stdout.strip():
+            # Return last 50 lines
+            lines = result.stdout.strip().splitlines()
+            return "\n".join(lines[-50:])
+        return ""
+    except (subprocess.TimeoutExpired, Exception):
+        return ""
 
 
 def _get_deployment_info(client: Any, compose_id: str) -> tuple[str, str, str]:
@@ -148,29 +115,20 @@ def _get_deployment_info(client: Any, compose_id: str) -> tuple[str, str, str]:
         return "error", f"Failed to fetch deployments: {e}", ""
 
 
-def _get_container_logs_ssh(server_ip: str, container_name: str, tail: int = 50) -> str:
-    """Fetch container logs via SSH (fallback when API doesn't work for remote servers)."""
+def _get_container_logs_cli(compose_id: str, service: str = "", tail: int = 50) -> str:
+    """Fetch container logs via kctl-dokploy compose service-logs.
+
+    Uses the CLI command which handles SSH internally for remote servers.
+    """
     import subprocess
 
+    cmd = ["kctl-dokploy", "compose", "service-logs", compose_id, "--tail", str(tail)]
+    if service:
+        cmd.extend(["--service", service])
     try:
-        result = subprocess.run(
-            [
-                "ssh",
-                "-o",
-                "ConnectTimeout=5",
-                "-o",
-                "StrictHostKeyChecking=no",
-                f"root@{server_ip}",
-                f"docker logs --tail {tail} {container_name} 2>&1",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-        return result.stderr.strip() if result.stderr.strip() else ""
-    except Exception:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        return result.stdout.strip() if result.returncode == 0 else result.stderr.strip()
+    except (subprocess.TimeoutExpired, Exception):
         return ""
 
 
@@ -190,23 +148,6 @@ def _get_containers(client: Any, compose_id: str) -> list[ContainerInfo]:
         if not app_name:
             return containers
 
-        # Resolve server IP for SSH fallback
-        server_ip = ""
-        if server_id:
-            server_data = compose.get("server", {})
-            if isinstance(server_data, dict):
-                server_ip = server_data.get("ipAddress", "")
-            if not server_ip:
-                try:
-                    servers = client.get("/server.all")
-                    if isinstance(servers, list):
-                        for s in servers:
-                            if s.get("serverId") == server_id:
-                                server_ip = s.get("ipAddress", "")
-                                break
-                except Exception:
-                    pass
-
         # Get all containers, optionally filtered by server
         params: dict[str, str] = {}
         if server_id:
@@ -224,30 +165,13 @@ def _get_containers(client: Any, compose_id: str) -> list[ContainerInfo]:
             state = ct.get("state", "unknown")
             status = ct.get("status", "")
 
-            # Only fetch logs for crashed/restarting containers (not running ones — saves time)
+            # Fetch logs for crashed/restarting containers via CLI
             log_text = ""
             if state in ("exited", "dead", "restarting"):
-                # Try API first
-                try:
-                    log_data = client.post(
-                        "/docker.getContainerLogs",
-                        json={"containerId": name, "tail": 50},
-                    )
-                    if isinstance(log_data, dict):
-                        log_text = str(log_data.get("logs", log_data.get("data", "")))
-                    elif isinstance(log_data, str):
-                        log_text = log_data
-                    elif isinstance(log_data, list):
-                        log_text = "\n".join(str(line) for line in log_data)
-                    else:
-                        log_text = str(log_data) if log_data else ""
-                except Exception:
-                    log_text = ""
-
-                # SSH fallback if API failed and we have server IP
-                if not log_text and server_ip:
-                    log_text = _get_container_logs_ssh(server_ip, name, tail=50)
-
+                # Extract service name from container name (e.g. "compose-xxx-sfa-1" -> "sfa")
+                parts = name.split("-")
+                service_hint = parts[-2] if len(parts) >= 2 else ""
+                log_text = _get_container_logs_cli(compose_id, service=service_hint)
                 if not log_text:
                     log_text = "(no logs available)"
 
@@ -503,9 +427,9 @@ def diagnose(
     # Step 2: Get deployment info
     dep_status, dep_title, dep_log = _get_deployment_info(client, compose_id)
 
-    # If build failed, try to get actual build log via SSH
-    if dep_status == "error" and dep_log:
-        build_log = _get_build_log_via_ssh(client, compose_id, dep_log)
+    # If build failed, try to get actual build log via CLI
+    if dep_status == "error":
+        build_log = _get_build_log_cli(compose_id)
         if build_log:
             dep_log = build_log
 

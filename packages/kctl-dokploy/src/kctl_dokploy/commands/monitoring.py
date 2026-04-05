@@ -113,26 +113,70 @@ def container_logs(
     ctx: typer.Context,
     container_name: Annotated[str, typer.Argument(help="Docker container name")],
     tail: Annotated[int, typer.Option("--tail", "-n", help="Number of lines to show")] = 100,
+    server: Annotated[str | None, typer.Option("--server", "-s", help="Server name (for remote containers)")] = None,
 ) -> None:
     """Show logs from a Docker container."""
     c: AppContext = ctx.obj
-    data = c.client.post(
-        "/docker.getContainerLogs",
-        json={
-            "containerId": container_name,
-            "tail": tail,
-        },
-    )
-    if c.json_mode:
-        c.output.raw_json(data)
-        return
-    if isinstance(data, dict):
-        logs = data.get("logs", data.get("data", ""))
-    elif isinstance(data, str):
-        logs = data
-    else:
-        logs = str(data)
-    if isinstance(logs, list):
-        logs = "\n".join(str(line) for line in logs)
-    c.output.header(f"Logs: {container_name} (tail {tail})")
-    c.output.text(str(logs))
+
+    # Try API first
+    try:
+        payload: dict = {"containerId": container_name, "tail": tail}
+        if server:
+            # Resolve server name to serverId
+            servers = c.client.get("/server.all")
+            for s in servers if isinstance(servers, list) else []:
+                if s.get("name") == server:
+                    payload["serverId"] = s.get("serverId", "")
+                    break
+        data = c.client.post("/docker.getContainerLogs", json=payload)
+        if c.json_mode:
+            c.output.raw_json(data)
+            return
+        if isinstance(data, dict):
+            logs = data.get("logs", data.get("data", ""))
+        elif isinstance(data, str):
+            logs = data
+        else:
+            logs = str(data)
+        if isinstance(logs, list):
+            logs = "\n".join(str(line) for line in logs)
+        c.output.header(f"Logs: {container_name} (tail {tail})")
+        c.output.text(str(logs))
+    except Exception:
+        # API failed — fall back to SSH for remote servers
+        if server:
+            try:
+                servers = c.client.get("/server.all")
+            except Exception:
+                servers = []
+            server_ip = ""
+            for s in servers if isinstance(servers, list) else []:
+                if s.get("name") == server:
+                    server_ip = s.get("ipAddress", "")
+                    break
+            if server_ip:
+                import subprocess
+
+                try:
+                    result = subprocess.run(
+                        [
+                            "ssh",
+                            "-o",
+                            "ConnectTimeout=5",
+                            "-o",
+                            "StrictHostKeyChecking=no",
+                            f"root@{server_ip}",
+                            f"docker logs --tail {tail} {container_name} 2>&1",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    logs = result.stdout if result.returncode == 0 else f"SSH failed: {result.stderr}"
+                except (subprocess.TimeoutExpired, Exception) as e:
+                    logs = f"SSH failed: {e}"
+                c.output.header(f"Logs: {container_name} (tail {tail}, via SSH)")
+                c.output.text(logs)
+                return
+        c.output.error("Failed to fetch container logs (API and SSH both failed)")
+        raise typer.Exit(1)

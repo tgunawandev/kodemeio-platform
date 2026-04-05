@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from kctl_dokploy.core.troubleshoot import (
     ContainerInfo,
@@ -124,7 +124,8 @@ class TestDiagnose:
         assert result.error_type == ErrorType.BUILD_FAILED
         assert result.compose_id == "abc123"
 
-    def test_diagnose_runtime_crash(self):
+    @patch("kctl_dokploy.core.troubleshoot._get_container_logs_cli", return_value="ECONNREFUSED 5432")
+    def test_diagnose_runtime_crash(self, _mock_logs):
         client = MagicMock()
         client.get.side_effect = [
             # compose.one (step 1)
@@ -140,14 +141,11 @@ class TestDiagnose:
             ],
             # compose.one (step 3: _get_containers)
             {"name": "my-svc", "appName": "my-svc", "serverId": "srv1"},
-            # server.all (step 3: resolve server IP for SSH fallback)
-            [{"serverId": "srv1", "ipAddress": "1.2.3.4"}],
             # docker.getContainers (step 3)
             [
                 {"name": "my-svc-web-1", "state": "exited", "status": "Exited (1)"},
             ],
         ]
-        client.post.return_value = "ECONNREFUSED 5432"
 
         result = diagnose(client, "xyz")
         assert result.error_type == ErrorType.RUNTIME_CRASH
