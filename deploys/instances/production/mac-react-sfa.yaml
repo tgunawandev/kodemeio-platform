@@ -3,6 +3,7 @@ extends: ../../bases/react-pwa.yaml
 instance:
   name: mac-react-sfa
   description: MAC — SFA PWA
+server: mac-prod-01
 project: mac
 source_overrides:
   compose_path: compose/docker-compose.sfa.yml
@@ -15,9 +16,6 @@ domain:
   service: sfa
   https: true
 env_file: ../../env/production/.env.mac-react-sfa
-env_overrides:
-  VITE_SFA_APP_NAME: MAC SFA
-  VITE_SFA_API_BASE_URL: https://mac-odoo-dist.mandiriagro.com/sfa/api
-  VITE_AUTH_MODE: native
-  VITE_SFA_OIDC_CLIENT_ID: ''
-  VITE_SFA_OIDC_REDIRECT_URI: ''
+env_overrides: {}
+# All env vars come from env_file above — no overrides needed
+# The .env file has correct OIDC credentials for production

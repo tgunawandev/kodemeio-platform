@@ -276,32 +276,43 @@ def _gate_compose_assignment(manifest: DeployManifest, client: Any, ssh_availabl
 
 
 def _gate_env_sync(manifest: DeployManifest, client: Any, ssh_available: bool) -> GateResult:
-    """Gate 7: Verify local env file exists, and OIDC credentials are valid."""
-    if not manifest.env_file:
-        return GateResult("env_sync", "pass", "No env_file specified")
+    """Gate 7: Verify env is valid after merging env_file + env_defaults + env_overrides.
 
-    env_path = pathlib.Path(manifest.env_file)
-    if not env_path.exists():
-        return GateResult("env_sync", "fail", f"Local env file not found: {manifest.env_file}")
+    Checks the FINAL merged env (same merge order as the deployer) to catch
+    cases where env_overrides wipe credentials that exist in the env_file.
+    """
+    # Build merged env (same order as deployer: env_file → env_defaults → env_overrides)
+    merged: dict[str, str] = {}
 
-    # Parse env file
-    env_vars: dict[str, str] = {}
-    for line in env_path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        env_vars[key.strip()] = value.strip()
+    # Layer 1: env_file
+    if manifest.env_file:
+        env_path = pathlib.Path(manifest.env_file)
+        if not env_path.exists():
+            return GateResult("env_sync", "fail", f"Local env file not found: {manifest.env_file}")
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            merged[key.strip()] = value.strip()
 
-    # Check OIDC credentials if auth mode is oidc
-    auth_mode = env_vars.get("VITE_AUTH_MODE", "")
+    # Layer 2: env_defaults (from base manifest)
+    merged.update(manifest.env_defaults)
+
+    # Layer 3: env_overrides (highest priority — can wipe env_file values!)
+    merged.update(manifest.env_overrides)
+
+    if not merged:
+        return GateResult("env_sync", "pass", "No env vars configured")
+
+    # Check OIDC credentials in the FINAL merged env
+    auth_mode = merged.get("VITE_AUTH_MODE", "")
     if auth_mode == "oidc":
-        # Find any OIDC_CLIENT_ID and OIDC_REDIRECT_URI vars
-        client_id_keys = [k for k in env_vars if "OIDC_CLIENT_ID" in k]
-        redirect_keys = [k for k in env_vars if "OIDC_REDIRECT_URI" in k]
+        client_id_keys = [k for k in merged if "OIDC_CLIENT_ID" in k]
+        redirect_keys = [k for k in merged if "OIDC_REDIRECT_URI" in k]
 
-        empty_client_ids = [k for k in client_id_keys if not env_vars[k]]
-        empty_redirects = [k for k in redirect_keys if not env_vars[k]]
+        empty_client_ids = [k for k in client_id_keys if not merged[k]]
+        empty_redirects = [k for k in redirect_keys if not merged[k]]
 
         if empty_client_ids or empty_redirects:
             missing = empty_client_ids + empty_redirects
@@ -311,7 +322,32 @@ def _gate_env_sync(manifest: DeployManifest, client: Any, ssh_available: bool) -
                 f"OIDC auth mode but empty credentials: {', '.join(missing)}",
             )
 
-    return GateResult("env_sync", "pass", f"Env file valid: {env_path.name} ({len(env_vars)} vars)")
+    # Check for env_overrides that wipe env_file values (dangerous pattern)
+    if manifest.env_file and manifest.env_overrides:
+        env_path = pathlib.Path(manifest.env_file)
+        if env_path.exists():
+            file_vars: dict[str, str] = {}
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                file_vars[key.strip()] = value.strip()
+
+            wiped = []
+            for key, override_val in manifest.env_overrides.items():
+                file_val = file_vars.get(key, "")
+                if file_val and not override_val:
+                    wiped.append(key)
+            if wiped:
+                return GateResult(
+                    "env_sync",
+                    "fail",
+                    f"env_overrides wipe env_file values: {', '.join(wiped)}",
+                )
+
+    env_source = pathlib.Path(manifest.env_file).name if manifest.env_file else "defaults"
+    return GateResult("env_sync", "pass", f"Env valid: {env_source} ({len(merged)} vars merged)")
 
 
 def _gate_source_config(manifest: DeployManifest, client: Any, ssh_available: bool) -> GateResult:
