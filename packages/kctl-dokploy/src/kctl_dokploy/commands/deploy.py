@@ -180,6 +180,72 @@ def preflight(
         c.output.success("PREFLIGHT PASSED: all gates clear")
 
 
+@app.command(name="preflight-all")
+def preflight_all(
+    ctx: typer.Context,
+    directory: Annotated[
+        Path, typer.Option("--dir", "-d", help="Directory with manifest YAML files", exists=True)
+    ] = ...,  # type: ignore[assignment]
+    server: Annotated[str | None, typer.Option("--server", "-s", help="Filter by server name")] = None,
+) -> None:
+    """Run preflight checks on all manifests in a directory.
+
+    Use --server to filter to manifests targeting a specific server.
+    """
+    c: AppContext = ctx.obj
+    manifests = sorted(directory.glob("*.yaml"))
+    if not manifests:
+        c.output.warn(f"No manifests found in {directory}")
+        raise typer.Exit(0)
+
+    from kctl_dokploy.core.preflight import run_preflight
+
+    api_client = None
+    try:
+        from kctl_dokploy.core.client import DokployClient
+        from kctl_lib.config import load_config
+
+        cfg = load_config("dokploy", profile=c.profile)
+        api_client = DokployClient(url=cfg["url"], api_key=cfg["api_key"])
+    except Exception:
+        pass
+
+    total_pass = 0
+    total_fail = 0
+    total_warn = 0
+
+    for mf in manifests:
+        try:
+            manifest = load_and_resolve(mf)
+        except Exception as exc:
+            c.output.error(f"{mf.name}: Failed to load — {exc}")
+            total_fail += 1
+            continue
+
+        if server and manifest.server != server:
+            continue
+
+        results = run_preflight(manifest, client=api_client)
+        failures = [r for r in results if r.failed]
+        warns = [r for r in results if r.status == "warn"]
+
+        if failures:
+            c.output.error(f"✗ {manifest.instance.name}: {len(failures)} FAIL")
+            for f in failures:
+                c.output.info(f"    {f.gate}: {f.message}")
+            total_fail += 1
+        elif warns:
+            c.output.warn(f"⚠ {manifest.instance.name}: {len(warns)} warnings")
+            total_warn += 1
+        else:
+            c.output.success(f"✓ {manifest.instance.name}")
+            total_pass += 1
+
+    c.output.info(f"\nResults: {total_pass} pass, {total_warn} warn, {total_fail} fail")
+    if total_fail > 0:
+        raise typer.Exit(1)
+
+
 # ---------------------------------------------------------------------------
 # Stage: setup (DNS + DB + compose + env + domain)
 # ---------------------------------------------------------------------------
