@@ -1,0 +1,41 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-claw
+  description: "Claw AI Agent Gateway (5 Telegram bots, 17 MCP servers)"
+
+project: kod
+environment: staging
+server: kod-stg-01
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-claw
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+dns:
+  zone: kodeme.io
+  name: claw
+
+domain:
+  host: claw.kodeme.io
+  port: 18789
+  service: claw-gateway
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/staging/.env.kod-infra-claw
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: kod-infra-claw
+  CLAW_DOMAIN: claw.kodeme.io
+  TZ: Asia/Jakarta
+
+healthcheck:
+  path: /
+  port: 18789
+  expected_status: 200
+  timeout: 60
+  interval: 30

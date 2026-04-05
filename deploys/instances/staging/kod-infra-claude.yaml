@@ -1,0 +1,32 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-claude
+  description: "Claude Code remote dev environment (7 repos, 15 kctl CLIs, SDK API)"
+
+project: kod
+environment: staging
+server: kod-stg-01
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-claude
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+env_file: ../../env/staging/.env.kod-infra-claude
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: kod-infra-claude
+  REPOS_BASE_PATH: /opt/repos
+  SSH_KEYS_PATH: /root/.ssh
+  SECRETS_PATH: /opt/kodemeio-claude-secrets
+  ENABLE_SDK_API: "false"
+  MAX_CONCURRENT: "3"
+  TZ: Asia/Jakarta
+
+healthcheck:
+  test: ["CMD", "bash", "/usr/local/bin/health.sh"]
+  interval: 60
+  timeout: 10
