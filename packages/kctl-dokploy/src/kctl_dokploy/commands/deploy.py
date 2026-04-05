@@ -120,6 +120,67 @@ def validate(
 
 
 # ---------------------------------------------------------------------------
+# Preflight checks
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def preflight(
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Option("--file", "-f", help="Manifest YAML file", exists=True)] = ...,  # type: ignore[assignment]
+) -> None:
+    """Run preflight checks before deployment.
+
+    Validates server connectivity, firewall, DNS, database auth,
+    env file sync, and more. Any FAIL blocks deployment.
+    """
+    from kctl_dokploy.core.preflight import run_preflight
+
+    c: AppContext = ctx.obj
+    manifest = _load(file, c)
+
+    api_client = None
+    try:
+        from kctl_dokploy.core.client import DokployClient
+        from kctl_lib.config import load_config
+
+        cfg = load_config("dokploy", profile=c.profile)
+        api_client = DokployClient(url=cfg["url"], api_key=cfg["api_key"])
+    except Exception:
+        pass
+
+    results = run_preflight(manifest, client=api_client)
+
+    # Build display
+    status_icons = {"pass": "✓", "warn": "⚠", "fail": "✗"}
+    rows = []
+    json_data = []
+    for r in results:
+        icon = status_icons.get(r.status, "?")
+        rows.append([f"{icon} Gate: {r.gate}", r.status.upper(), r.message])
+        json_data.append({"gate": r.gate, "status": r.status, "message": r.message})
+
+    server_info = manifest.server or "(Dokploy host)"
+    c.output.table(
+        f"Preflight: {manifest.instance.name} → {server_info}",
+        [("Gate", "cyan"), ("Status", ""), ("Details", "dim")],
+        rows,
+        data_for_json=json_data,
+    )
+
+    failures = [r for r in results if r.failed]
+    warns = [r for r in results if r.status == "warn"]
+
+    if failures:
+        c.output.error(f"PREFLIGHT FAILED: {len(failures)} gate(s) failed")
+        raise typer.Exit(1)
+    elif warns:
+        c.output.warn(f"PREFLIGHT PASSED with {len(warns)} warning(s)")
+    else:
+        c.output.success("PREFLIGHT PASSED: all gates clear")
+
+
+# ---------------------------------------------------------------------------
 # Stage: setup (DNS + DB + compose + env + domain)
 # ---------------------------------------------------------------------------
 
