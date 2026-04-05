@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import sys
 from typing import Annotated
 
@@ -132,6 +134,39 @@ def list_items(ctx: typer.Context) -> None:
         rows=rows,
         data_for_json=json_data,
     )
+
+
+# ---------------------------------------------------------------------------
+# Skill generation
+# ---------------------------------------------------------------------------
+skill_app = typer.Typer(help="Skill management", hidden=True)
+
+
+@skill_app.command()
+def generate(
+    output_dir: Annotated[
+        str,
+        typer.Option("--output", "-o", help="Output directory"),
+    ] = str(Path.home() / ".claude" / "skills" / "1password-admin"),
+) -> None:
+    """Regenerate SKILL.md from current CLI commands."""
+    from kctl_lib.skill_generator import generate_skill
+
+    out_path = Path(output_dir)
+    extra = Path(__file__).parent / "SKILL.extra.md"
+    content = generate_skill(
+        app,
+        "kctl-op",
+        "1password-admin",
+        "1Password secret management via kctl-op CLI",
+        output_dir=out_path,
+        extra_file=extra if extra.exists() else None,
+    )
+    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
+    print(f"Commands: {content.count('|') // 2} entries")
+
+
+app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from typing import Annotated
 
 import typer
@@ -87,6 +89,39 @@ app.add_typer(annotation_app, name="annotation")
 app.add_typer(user_app, name="user")
 app.add_typer(backup_app, name="backup")
 app.add_typer(selftest_app, name="selftest")
+
+
+# ---------------------------------------------------------------------------
+# Skill generation
+# ---------------------------------------------------------------------------
+skill_app = typer.Typer(help="Skill management", hidden=True)
+
+
+@skill_app.command()
+def generate(
+    output_dir: Annotated[
+        str,
+        typer.Option("--output", "-o", help="Output directory"),
+    ] = str(Path.home() / ".claude" / "skills" / "grafana-admin"),
+) -> None:
+    """Regenerate SKILL.md from current CLI commands."""
+    from kctl_lib.skill_generator import generate_skill
+
+    out_path = Path(output_dir)
+    extra = Path(__file__).parent / "SKILL.extra.md"
+    content = generate_skill(
+        app,
+        "kctl-grafana",
+        "grafana-admin",
+        "Grafana monitoring platform administration via kctl-grafana CLI",
+        output_dir=out_path,
+        extra_file=extra if extra.exists() else None,
+    )
+    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
+    print(f"Commands: {content.count('|') // 2} entries")
+
+
+app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

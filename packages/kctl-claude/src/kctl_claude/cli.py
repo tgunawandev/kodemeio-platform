@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import sys
 from typing import Annotated
 
@@ -119,6 +121,39 @@ def update_cmd(ctx: typer.Context) -> None:
         out.success(f"Updated to {latest}")
     else:
         out.success("Already up to date")
+
+
+# ---------------------------------------------------------------------------
+# Skill generation
+# ---------------------------------------------------------------------------
+skill_app = typer.Typer(help="Skill management", hidden=True)
+
+
+@skill_app.command()
+def generate(
+    output_dir: Annotated[
+        str,
+        typer.Option("--output", "-o", help="Output directory"),
+    ] = str(Path.home() / ".claude" / "skills" / "claude-admin"),
+) -> None:
+    """Regenerate SKILL.md from current CLI commands."""
+    from kctl_lib.skill_generator import generate_skill
+
+    out_path = Path(output_dir)
+    extra = Path(__file__).parent / "SKILL.extra.md"
+    content = generate_skill(
+        app,
+        "kctl-claude",
+        "claude-admin",
+        "Claude Code environment management via kctl-claude CLI",
+        output_dir=out_path,
+        extra_file=extra if extra.exists() else None,
+    )
+    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
+    print(f"Commands: {content.count('|') // 2} entries")
+
+
+app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:
