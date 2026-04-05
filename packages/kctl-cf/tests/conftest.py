@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
+from typer.testing import CliRunner
 
+from kctl_cf.core.callbacks import AppContext
+from kctl_cf.core.client import CloudflareClient
 from kctl_cf.core.output import Output
+
+
+@pytest.fixture
+def runner() -> CliRunner:
+    """Typer CLI test runner."""
+    return CliRunner()
 
 
 @pytest.fixture
@@ -55,4 +65,30 @@ def _make_ctx(actx: MagicMock) -> MagicMock:
     """Create a mock typer.Context wrapping an AppContext."""
     ctx = MagicMock()
     ctx.obj = actx
+    return ctx
+
+
+@pytest.fixture
+def mock_config(tmp_path: Path):
+    """Redirect kctl-lib config to a temp directory."""
+    config_dir = tmp_path / "kodemeio"
+    config_dir.mkdir(parents=True)
+    config_file = config_dir / "config.yaml"
+    config_file.write_text("default_profile: default\nprofiles: {}\n")
+    with patch("kctl_lib.config.CONFIG_FILE", config_file):
+        yield config_file
+
+
+@pytest.fixture
+def mock_output() -> Output:
+    """Output instance in quiet/JSON mode for test assertions."""
+    return Output(json_mode=True, quiet=True, format="json")
+
+
+@pytest.fixture
+def mock_context(mock_client: MagicMock, mock_output: Output) -> AppContext:
+    """AppContext with mocked client and output."""
+    ctx = AppContext(quiet=True)
+    ctx._client = mock_client
+    ctx._output = mock_output
     return ctx
