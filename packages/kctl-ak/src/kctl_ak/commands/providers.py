@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -190,6 +190,46 @@ def oauth2_delete(
     c = ctx.obj
     c.client.delete(f"providers/oauth2/{id_}/")
     c.output.success(f"Deleted OAuth2 provider {id_}")
+
+
+@oauth2_app.command("update")
+def oauth2_update(
+    ctx: typer.Context,
+    provider_id: Annotated[int, typer.Argument(help="Provider ID")],
+    client_type: Annotated[
+        str | None, typer.Option("--client-type", help="Client type: public or confidential")
+    ] = None,
+    name: Annotated[str | None, typer.Option("--name", help="Provider name")] = None,
+    redirect_uris: Annotated[str | None, typer.Option("--redirect-uri", help="Redirect URI")] = None,
+) -> None:
+    """Update an OAuth2 provider."""
+    c = ctx.obj
+
+    payload: dict[str, Any] = {}
+    if client_type is not None:
+        if client_type not in ("public", "confidential"):
+            c.output.error("client_type must be 'public' or 'confidential'")
+            raise typer.Exit(1)
+        payload["client_type"] = client_type
+    if name is not None:
+        payload["name"] = name
+    if redirect_uris is not None:
+        payload["redirect_uris"] = redirect_uris
+
+    if not payload:
+        c.output.error("No fields to update. Use --client-type, --name, or --redirect-uri")
+        raise typer.Exit(1)
+
+    result = c.client.patch(f"providers/oauth2/{provider_id}/", json=payload)
+
+    if c.output.json_mode:
+        c.output.raw_json(result)
+        return
+
+    c.output.success(f"Provider {provider_id} updated")
+    if isinstance(result, dict):
+        c.output.info(f"  Name: {result.get('name', '?')}")
+        c.output.info(f"  Client type: {result.get('client_type', '?')}")
 
 
 # ── LDAP ────────────────────────────────────────────────────────────
