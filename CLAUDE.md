@@ -241,12 +241,27 @@ Source: `kodemeio-odoo` repo → `compose/odoo.prod.yml` (4 containers: init →
 ### Config Subcommands (all CLIs)
 init, add, use, show, validate, remove, set, profiles, current
 
+### Standard Commands (all 22 CLIs, since Quality Sweep 2026-04-06)
+| Command | Purpose |
+|---------|---------|
+| `config init` | Interactive profile setup |
+| `doctor` | Diagnostic checks (API/SSH connectivity, auth, config) |
+| `self-update` | Check PyPI for updates and upgrade via `uv tool` |
+| `completions [zsh\|bash\|fish] [--install]` | Generate/install shell completions |
+| `skill generate` | Auto-generate SKILL.md from Typer introspection |
+
 ### Command Naming
 | Concern | Name |
 |---------|------|
 | Code generation | `scaffold` |
 | Diagnostics | `doctor` |
 | Cleanup | `clean` |
+
+### Quality Baseline (all CLIs)
+- README.md ≥ 40 lines (proportional to CLI size)
+- SKILL.md present in `skills/<name>-admin/`
+- conftest.py with standard fixtures (runner, mock_client, mock_config, mock_output, mock_context)
+- E2E scaffolding for 5 critical CLIs: odoo, dokploy, react, pg, ak
 
 ## Deploy Manifest Naming
 
