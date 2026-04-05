@@ -1,0 +1,19 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: mac-infra-redis
+  description: "MAC dedicated Redis 7.2 cache & message broker"
+
+project: mac
+environment: production
+server: mac-prod-01
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-redis
+  branch: main
+  compose_path: ./docker-compose.prod.yml
+
+env_file: ../../env/production/.env.mac-infra-redis

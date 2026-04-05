@@ -35,6 +35,7 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 - **kctl-dokploy** — Dokploy deployment platform (37 groups)
 - **kctl-hz** — Hetzner Cloud infrastructure (24 groups)
 - **kctl-pg** — PostgreSQL administration (24 groups)
+- **kctl-redis** — Redis cache & message broker (16 groups)
 - **kctl-cf** — Cloudflare DNS/CDN/WAF (27 groups)
 - **kctl-ak** — Authentik SSO/identity (24 groups)
 - **kctl-grafana** — Grafana monitoring platform (11 groups)
@@ -58,7 +59,7 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 - **kctl-telegram** — Telegram bot platform (7 groups)
 - **kctl-notion** — Notion wiki/database management (7 groups)
 
-Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-lib; exceptions are kctl-pg (psycopg/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-gatus and kctl-mdm (custom auth).
+Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-lib; exceptions are kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-gatus and kctl-mdm (custom auth).
 
 ## Key Paths
 
@@ -81,13 +82,14 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, kee
 | `packages/kctl-odoo/` | Odoo 18 ERP management CLI |
 | `packages/kctl-op/` | 1Password secret management CLI |
 | `packages/kctl-pg/` | PostgreSQL administration CLI |
+| `packages/kctl-redis/` | Redis cache & message broker CLI |
 | `packages/kctl-react/` | React PWA monorepo CLI |
 | `packages/kctl-rustdesk/` | RustDesk server management CLI |
 | `packages/kctl-sentry/` | Sentry error tracking CLI |
 | `packages/kctl-telegram/` | Telegram bot platform CLI |
 | `packages/kctl-waha/` | WhatsApp HTTP API CLI |
 | `deploys/bases/` | Deployment base templates (odoo, react-pwa, nextjs, fastapi, infra) |
-| `deploys/instances/production/` | Production instance manifests (34 services) |
+| `deploys/instances/production/` | Production instance manifests (35 services) |
 | `deploys/instances/staging/` | Staging instance manifests (17 services — mac + tpp) |
 | `deploys/env/production/` | Production .env files (gitignored) |
 | `deploys/env/staging/` | Staging .env files (gitignored) |

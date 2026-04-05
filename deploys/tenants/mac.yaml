@@ -35,3 +35,4 @@ web:
 
 services:
   notify: true
+  redis: true

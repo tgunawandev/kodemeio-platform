@@ -57,6 +57,7 @@ Shared core library for all `kctl-*` CLI tools.
 | kctl-dokploy | kodemeio-dokploy | Dokploy deployment platform | 37 |
 | kctl-hz | kodemeio-hetzner | Hetzner Cloud infrastructure | 24 |
 | kctl-pg | kodemeio-postgres | PostgreSQL administration | 24 |
+| kctl-redis | kodemeio-redis | Redis cache & message broker | 16 |
 | kctl-cf | kodemeio-cloudflare | Cloudflare DNS/CDN/WAF | 27 |
 | kctl-ak | kodemeio-authentik | Authentik SSO/identity | 24 |
 | kctl-gatus | kodemeio-gatus | Gatus health monitoring | 8 |
@@ -95,7 +96,7 @@ class MyServiceClient(APIClient):
 
 Override hooks: `_unwrap_response()`, `_map_error()`, `_is_retryable()`, `_build_auth_header()`
 
-**Exceptions:** kctl-pg (psycopg/SSH), kctl-odoo (JSON-RPC), kctl-1password (subprocess), kctl-linear (GraphQL), kctl-gatus/kctl-mdm (custom auth)
+**Exceptions:** kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-1password (subprocess), kctl-linear (GraphQL), kctl-gatus/kctl-mdm (custom auth)
 
 ## Templates
 
