@@ -76,13 +76,42 @@ def _gate_compose_assignment(manifest: DeployManifest, client: Any, ssh_availabl
 
 
 def _gate_env_sync(manifest: DeployManifest, client: Any, ssh_available: bool) -> GateResult:
-    """Gate 7: Verify local env file exists and matches Dokploy."""
+    """Gate 7: Verify local env file exists, and OIDC credentials are valid."""
     if not manifest.env_file:
         return GateResult("env_sync", "pass", "No env_file specified")
+
     env_path = pathlib.Path(manifest.env_file)
     if not env_path.exists():
         return GateResult("env_sync", "fail", f"Local env file not found: {manifest.env_file}")
-    return GateResult("env_sync", "pass", f"Local env file exists: {env_path.name}")
+
+    # Parse env file
+    env_vars: dict[str, str] = {}
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        env_vars[key.strip()] = value.strip()
+
+    # Check OIDC credentials if auth mode is oidc
+    auth_mode = env_vars.get("VITE_AUTH_MODE", "")
+    if auth_mode == "oidc":
+        # Find any OIDC_CLIENT_ID and OIDC_REDIRECT_URI vars
+        client_id_keys = [k for k in env_vars if "OIDC_CLIENT_ID" in k]
+        redirect_keys = [k for k in env_vars if "OIDC_REDIRECT_URI" in k]
+
+        empty_client_ids = [k for k in client_id_keys if not env_vars[k]]
+        empty_redirects = [k for k in redirect_keys if not env_vars[k]]
+
+        if empty_client_ids or empty_redirects:
+            missing = empty_client_ids + empty_redirects
+            return GateResult(
+                "env_sync",
+                "fail",
+                f"OIDC auth mode but empty credentials: {', '.join(missing)}",
+            )
+
+    return GateResult("env_sync", "pass", f"Env file valid: {env_path.name} ({len(env_vars)} vars)")
 
 
 def _gate_source_config(manifest: DeployManifest, client: Any, ssh_available: bool) -> GateResult:
