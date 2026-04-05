@@ -257,7 +257,7 @@ Stacks: `react`, `nextjs`, `odoo`, `hono`, `fastapi`, `infra`
 Examples:
 - `mac-react-sfa.yaml` — MAC SFA PWA
 - `tpp-odoo-trad.yaml` — Pakerti Trading Odoo
-- `kod-infra-gatus.yaml` — Kodemeio Gatus monitoring
+- `kod-infra-grafana.yaml` — Kodemeio Grafana monitoring
 
 Dokploy projects use tenant codes: `mac`, `tpp`, `kod`, `tgw`, `tkz`, `pro`, `kid`
 
