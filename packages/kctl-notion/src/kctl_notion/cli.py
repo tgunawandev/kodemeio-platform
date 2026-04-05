@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from typing import Annotated
 
@@ -19,6 +18,7 @@ from kctl_notion.commands.search import search as search_cmd
 from kctl_notion.commands.users import app as users_app
 from kctl_notion.core.callbacks import AppContext
 from kctl_notion.core.plugins import discover_and_load_plugins
+from kctl_notion.commands.skill_cmd import app as skill_app
 
 
 def version_callback(value: bool) -> None:
@@ -67,42 +67,10 @@ app.add_typer(pages_app, name="pages")
 app.add_typer(databases_app, name="databases")
 app.add_typer(blocks_app, name="blocks")
 app.add_typer(users_app, name="users")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 # Load third-party plugins via entry points
 discover_and_load_plugins(app)
-
-
-# ---------------------------------------------------------------------------
-# Skill generation
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "notion-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-notion",
-        "notion-admin",
-        "Notion wiki management via kctl-notion CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

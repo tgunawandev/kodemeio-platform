@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from typing import Annotated
 
@@ -22,6 +21,7 @@ from kctl_glitchtip.commands.uptime import app as uptime_app
 from kctl_glitchtip.commands.users import app as users_app
 from kctl_glitchtip.core.callbacks import AppContext
 from kctl_glitchtip.core.plugins import discover_and_load_plugins
+from kctl_glitchtip.commands.skill_cmd import app as skill_app
 
 
 def version_callback(value: bool) -> None:
@@ -77,42 +77,10 @@ app.add_typer(health_app, name="health")
 app.add_typer(alerts_app, name="alerts")
 app.add_typer(config_app, name="config")
 app.add_typer(uptime_app, name="uptime")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 # Load third-party plugins via entry points
 discover_and_load_plugins(app)
-
-
-# ---------------------------------------------------------------------------
-# Skill generation
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "glitchtip-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-glitchtip",
-        "glitchtip-admin",
-        "GlitchTip error tracking administration via kctl-glitchtip CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

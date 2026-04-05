@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import sys
 from typing import Annotated
@@ -21,6 +20,7 @@ from kctl_claude.commands.sync_cmd import app as sync_app
 from kctl_claude.commands.verify_cmd import app as verify_app
 from kctl_claude.core.callbacks import AppContext
 from kctl_claude.core.plugins import ENTRY_POINT_GROUP, discover_and_load_plugins
+from kctl_claude.commands.skill_cmd import app as skill_app
 
 app = typer.Typer(
     name="kctl-claude",
@@ -40,6 +40,7 @@ app.add_typer(env_app, name="env")
 app.add_typer(backup_app, name="backup")
 app.add_typer(setup_app, name="setup")
 app.add_typer(doctor_app, name="doctor")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 # Discover and load plugins
 discover_and_load_plugins(app, ENTRY_POINT_GROUP)
@@ -121,39 +122,6 @@ def update_cmd(ctx: typer.Context) -> None:
         out.success(f"Updated to {latest}")
     else:
         out.success("Already up to date")
-
-
-# ---------------------------------------------------------------------------
-# Skill generation
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "claude-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-claude",
-        "claude-admin",
-        "Claude Code environment management via kctl-claude CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

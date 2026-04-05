@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import sys
 from typing import Annotated
@@ -23,6 +22,7 @@ from kctl_op.commands.sync_cmd import pull_app, push_app
 from kctl_op.commands.vault import app as vault_app
 from kctl_op.core.callbacks import AppContext
 from kctl_lib import handle_cli_error
+from kctl_op.commands.skill_cmd import app as skill_app
 from kctl_op.core.exceptions import (
     KctlError,
 )
@@ -88,6 +88,7 @@ app.add_typer(diff_app, name="diff")
 app.add_typer(vault_app, name="vault")
 app.add_typer(projects_app, name="projects")
 app.add_typer(backup_app, name="backup")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 
 # Top-level convenience commands
@@ -134,39 +135,6 @@ def list_items(ctx: typer.Context) -> None:
         rows=rows,
         data_for_json=json_data,
     )
-
-
-# ---------------------------------------------------------------------------
-# Skill generation
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "1password-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-op",
-        "1password-admin",
-        "1Password secret management via kctl-op CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

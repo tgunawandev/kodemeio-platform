@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from typing import Annotated
 
 import typer
@@ -33,7 +31,7 @@ from kctl_claw.commands.monitor_cmd import app as monitor_app
 from kctl_claw.commands.pipeline import app as pipeline_app
 from kctl_claw.commands.prompts import app as prompts_app
 from kctl_claw.commands.security import app as security_app
-from kctl_claw.commands.skill_cmd import app as skill_cmd_app
+from kctl_claw.commands.skill_cmd import app as skill_app
 from kctl_claw.commands.skills import app as skills_app
 from kctl_claw.commands.skills_test import app as skills_test_app
 from kctl_claw.commands.status import app as status_app
@@ -103,7 +101,7 @@ app.add_typer(security_app, name="security")
 app.add_typer(skills_app, name="skills")
 app.add_typer(status_app, name="status")
 app.add_typer(telegram_app, name="telegram")
-app.add_typer(skill_cmd_app, name="skill")
+app.add_typer(skill_app, name="skill", hidden=True)
 app.add_typer(trading_app, name="trading")
 
 # New command groups (SP6)
@@ -121,39 +119,6 @@ app.add_typer(skills_test_app, name="skills-test")
 app.add_typer(test_app, name="test")
 
 register_aliases(app)
-
-
-# ---------------------------------------------------------------------------
-# Skill generation
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "claw-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-claw",
-        "claw-admin",
-        "OpenClaw AI agent gateway management via kctl-claw CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

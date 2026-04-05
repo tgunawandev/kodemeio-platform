@@ -24,6 +24,7 @@ from kctl_redis.commands.query import app as query_app
 from kctl_redis.commands.replication import app as replication_app
 from kctl_redis.commands.server import app as server_app
 from kctl_redis.commands.streams import app as streams_app
+from kctl_redis.commands.skill_cmd import app as skill_app
 from kctl_redis.core.callbacks import AppContext
 from kctl_redis.core.exceptions import KctlError
 
@@ -89,6 +90,7 @@ app.add_typer(streams_app, name="streams")
 app.add_typer(performance_app, name="performance")
 app.add_typer(backup_app, name="backup")
 app.add_typer(maintenance_app, name="maintenance")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 
 def _run() -> None:

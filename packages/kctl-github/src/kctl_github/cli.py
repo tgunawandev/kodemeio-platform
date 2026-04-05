@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from typing import Annotated
 
@@ -22,6 +21,7 @@ from kctl_github.commands.secrets import app as secrets_app
 from kctl_github.commands.stats import app as stats_app
 from kctl_github.core.callbacks import AppContext
 from kctl_github.core.plugins import discover_and_load_plugins
+from kctl_github.commands.skill_cmd import app as skill_app
 
 
 def version_callback(value: bool) -> None:
@@ -73,42 +73,10 @@ app.add_typer(secrets_app, name="secrets")
 app.add_typer(labels_app, name="labels")
 app.add_typer(stats_app, name="stats")
 app.add_typer(billing_app, name="billing")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 # Load third-party plugins via entry points
 discover_and_load_plugins(app)
-
-
-# ---------------------------------------------------------------------------
-# Skill generation
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "github-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-github",
-        "github-admin",
-        "GitHub cross-repo management via kctl-github CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

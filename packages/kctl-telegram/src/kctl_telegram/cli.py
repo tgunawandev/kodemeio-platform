@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from typing import Annotated
 
@@ -18,6 +17,7 @@ from kctl_telegram.commands.health import app as health_app
 from kctl_telegram.commands.messages import app as messages_app
 from kctl_telegram.core.callbacks import AppContext
 from kctl_telegram.core.exceptions import KctlError
+from kctl_telegram.commands.skill_cmd import app as skill_app
 
 
 def version_callback(value: bool) -> None:
@@ -70,39 +70,7 @@ app.add_typer(bots_app, name="bots")
 app.add_typer(groups_app, name="groups")
 app.add_typer(messages_app, name="messages")
 app.add_typer(chatwoot_app, name="chatwoot")
-
-
-# ---------------------------------------------------------------------------
-# Skill generation
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "telegram-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-telegram",
-        "telegram-admin",
-        "Telegram bot platform administration via kctl-telegram CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 
 def _run() -> None:

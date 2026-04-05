@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from typing import Annotated
 
@@ -109,47 +108,16 @@ app.add_typer(custom_hostnames_app, name="custom-hostnames")
 app.add_typer(load_balancers_app, name="load-balancers")
 app.add_typer(spectrum_app, name="spectrum")
 app.add_typer(waiting_rooms_app, name="waiting-rooms")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 # Load plugins from entry points
 discover_and_load_plugins(app)
 
 # Register short aliases
 from kctl_cf.commands.aliases import register_aliases  # noqa: E402
+from kctl_cf.commands.skill_cmd import app as skill_app
 
 register_aliases(app)
-
-
-# ---------------------------------------------------------------------------
-# Skill generation
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "cloudflare-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-cf",
-        "cloudflare-admin",
-        "Cloudflare DNS/CDN/WAF administration via kctl-cf CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

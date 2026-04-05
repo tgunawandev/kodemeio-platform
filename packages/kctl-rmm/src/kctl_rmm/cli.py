@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from typing import Annotated
 
@@ -29,6 +28,7 @@ from kctl_rmm.commands.software import app as software_app
 from kctl_rmm.commands.tasks import app as tasks_app
 from kctl_rmm.commands.winupdates import app as winupdates_app
 from kctl_rmm.core.callbacks import AppContext
+from kctl_rmm.commands.skill_cmd import app as skill_app
 
 
 def version_callback(value: bool) -> None:
@@ -92,39 +92,7 @@ app.add_typer(checks_app, name="checks")
 app.add_typer(winupdates_app, name="winupdates")
 app.add_typer(linux_app, name="linux")
 app.add_typer(rustdesk_app, name="rustdesk")
-
-
-# ---------------------------------------------------------------------------
-# Skill generation
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "rmm-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-rmm",
-        "rmm-admin",
-        "Tactical RMM remote monitoring via kctl-rmm CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 
 def _run() -> None:

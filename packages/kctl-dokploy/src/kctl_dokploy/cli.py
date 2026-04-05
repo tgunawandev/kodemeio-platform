@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -50,6 +49,7 @@ from kctl_dokploy.commands.patches import app as patches_app
 from kctl_dokploy.commands.volume_backups import app as volume_backups_app
 from kctl_dokploy.core.callbacks import AppContext
 from kctl_dokploy.core.plugins import discover_and_register_plugins
+from kctl_dokploy.commands.skill_cmd import app as skill_app
 
 
 def version_callback(value: bool) -> None:
@@ -187,44 +187,13 @@ app.add_typer(cluster_app, name="cluster", hidden=True)
 app.add_typer(pipeline_app, name="pipeline", hidden=True)
 app.add_typer(status_app, name="status", hidden=True)
 app.add_typer(maintenance_app, name="maintenance", hidden=True)
+app.add_typer(skill_app, name="skill", hidden=True)
 
 # Hidden aliases for power users
 register_aliases(app)
 
 # Discover and register plugins
 discover_and_register_plugins(app)
-
-# ---------------------------------------------------------------------------
-# Skill management
-# ---------------------------------------------------------------------------
-skill_app = typer.Typer(help="Skill management", hidden=True)
-
-
-@skill_app.command()
-def generate(
-    output_dir: Annotated[
-        str,
-        typer.Option("--output", "-o", help="Output directory"),
-    ] = str(Path.home() / ".claude" / "skills" / "dokploy-admin"),
-) -> None:
-    """Regenerate SKILL.md from current CLI commands."""
-    from kctl_lib.skill_generator import generate_skill
-
-    out_path = Path(output_dir)
-    extra = Path(__file__).parent / "SKILL.extra.md"
-    content = generate_skill(
-        app,
-        "kctl-dokploy",
-        "dokploy-admin",
-        "Dokploy deployment platform administration via kctl-dokploy CLI",
-        output_dir=out_path,
-        extra_file=extra if extra.exists() else None,
-    )
-    print(f"Generated SKILL.md at {out_path / 'SKILL.md'}")
-    print(f"Commands: {content.count('|') // 2} entries")
-
-
-app.add_typer(skill_app, name="skill")
 
 
 def _run() -> None:

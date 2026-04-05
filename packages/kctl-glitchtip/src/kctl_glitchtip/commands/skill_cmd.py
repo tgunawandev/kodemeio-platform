@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 
-from kctl_claw.core.callbacks import AppContext
+from kctl_glitchtip.core.callbacks import AppContext
 
 app = typer.Typer(help="Claude Code skill management.")
 
@@ -22,18 +22,18 @@ def generate(
     """Auto-generate SKILL.md from CLI command registry.
 
     Examples:
-        kctl-claw skill generate
-        kctl-claw skill generate --install
-        kctl-claw skill generate --check
+        kctl-glitchtip skill generate
+        kctl-glitchtip skill generate --install
+        kctl-glitchtip skill generate --check
     """
     actx: AppContext = ctx.obj
     out = actx.output
     from kctl_lib.skill_generator import check_stale, generate_skill
 
-    from kctl_claw.cli import app as cli_app
+    from kctl_glitchtip.cli import app as cli_app
 
-    skill_name = "claw-admin"
-    description = "OpenClaw AI agent gateway management via kctl-claw CLI"
+    skill_name = "glitchtip-admin"
+    description = "GlitchTip error tracking administration via kctl-glitchtip CLI"
 
     # Determine output directory
     if output:
@@ -50,7 +50,7 @@ def generate(
         is_stale, reason = check_stale(cli_app, skill_file)
         if is_stale:
             out.warn(f"SKILL.md is stale: {reason}")
-            out.info("Run: kctl-claw skill generate")
+            out.info("Run: kctl-glitchtip skill generate")
             raise typer.Exit(1)
         out.success(f"SKILL.md is up to date: {reason}")
         return
@@ -60,7 +60,7 @@ def generate(
 
     generate_skill(
         cli_app,
-        "kctl-claw",
+        "kctl-glitchtip",
         skill_name,
         description,
         output_dir=output_dir,
