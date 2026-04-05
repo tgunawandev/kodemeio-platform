@@ -632,3 +632,12 @@ def list_(ctx: typer.Context) -> None:
         [("File", "dim"), ("Instance", "cyan"), ("Type", ""), ("Domain", "green")],
         rows,
     )
+
+
+# ---------------------------------------------------------------------------
+# Migrate sub-app
+# ---------------------------------------------------------------------------
+
+from kctl_dokploy.commands.migrate import app as migrate_app  # noqa: E402
+
+app.add_typer(migrate_app, name="migrate", help="Server-to-server migration pipeline.")
