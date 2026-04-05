@@ -10,6 +10,10 @@ environment: production
 server: mac-prod-01
 
 source_overrides:
-  repo: kodemeio-postgres-16
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-postgres
+  branch: main
+  compose_path: ./docker-compose.prod.yml
 
 env_file: ../../env/production/.env.mac-infra-postgres

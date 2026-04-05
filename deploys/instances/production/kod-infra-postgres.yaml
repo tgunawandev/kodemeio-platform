@@ -8,6 +8,6 @@ instance:
 project: kod
 
 source_overrides:
-  repo: kodemeio-postgres-16
+  repo: kodemeio-postgres
 
 env_file: ../../env/production/.env.kod-infra-postgres
