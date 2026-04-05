@@ -27,14 +27,10 @@ domain:
   port: 3020
   service: notify
   https: true
+env_file: ../../env/production/.env.mac-hono-notify
 env_overrides:
   NODE_ENV: production
   PORT: '3020'
-  DATABASE_URL: postgresql://kodemeio:${DB_PASSWORD}@postgres:5432/kodemeio
-  REDIS_URL: redis://redis:6379
-  DISPATCH_SECRET: ${DISPATCH_SECRET}
-  JWT_SECRET: ${JWT_SECRET}
-  ALLOWED_ORIGINS: https://mac-bia.mandiriagro.com,https://mac-wms.mandiriagro.com,https://mac-hrm.mandiriagro.com
-  FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}
+  TZ: Asia/Jakarta
 backup:
   enabled: false
