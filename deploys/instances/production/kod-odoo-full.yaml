@@ -1,21 +1,33 @@
 kind: instance
 extends: ../../bases/odoo.yaml
-
 instance:
   name: kod-odoo-full
-  description: "Kodemeio — Full Odoo (all modules)"
-
+  description: Kodemeio — Full Odoo (all modules, all PWA apps)
 project: kod
-
+environment: production
+server: kod-stg-01
 dns:
   zone: kodeme.io
-  name: odoo
-
+  name: kod-odoo-full
 domain:
-  host: odoo.kodeme.io
+  host: kod-odoo-full.kodeme.io
   port: 8069
-  service: odoo
+  service: odoo-web
   https: true
   cert: letsencrypt
-
+database:
+  name: odoo_full
+  user: odoo
 env_file: ../../env/production/.env.kod-odoo-full
+env_overrides:
+  COMPOSE_PROJECT_NAME: kod-odoo-full
+  TENANT: kod
+  PGDATABASE: odoo_full
+  PGUSER: odoo
+  PGHOST: '10.0.0.3'
+  ODOO_DB_FILTER: ^odoo_full$
+  DOMAIN: kod-odoo-full.kodeme.io
+  ODOO_WORKERS: '6'
+  ODOO_MAX_CRON_THREADS: '2'
+post_deploy:
+  odoo_profile: profile-full
