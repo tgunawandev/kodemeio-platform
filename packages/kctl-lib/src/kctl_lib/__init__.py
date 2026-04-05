@@ -18,6 +18,8 @@ Public API:
     - testing: Test fixtures (optional dependency)
     - api_client: Base APIClient for httpx-based CLIs
     - async_api_client: Base AsyncAPIClient for async CLIs
+    - ssh: SSH command execution (ssh_run, scp_download, scp_upload)
+    - ssh_tunnel: SSHTunnel context manager for database access
 """
 
 __version__ = "0.4.0"

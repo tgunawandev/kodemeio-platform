@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Annotated
 
 import typer
 
+from kctl_lib.ssh import scp_download, scp_upload, ssh_run
 from kctl_redis.core.callbacks import AppContext
 from kctl_redis.core.config import ServiceConfig, resolve_connection
 
@@ -61,27 +61,21 @@ def dump(
         output_path = f"dump-{timestamp}.rdb"
 
     cfg = _resolve_ssh_config(app_ctx)
-    ssh_key_path = str(Path(cfg.ssh_key).expanduser())
     remote_path = "/data/dump.rdb"
-    scp_target = f"{cfg.ssh_user}@{cfg.ssh_host}:{remote_path}"
-
-    scp_cmd = [
-        "scp",
-        "-i",
-        ssh_key_path,
-        "-P",
-        str(cfg.ssh_port),
-        "-o",
-        "StrictHostKeyChecking=accept-new",
-        scp_target,
-        output_path,
-    ]
 
     out.info(f"Downloading RDB from {cfg.ssh_host}...")
-    result = subprocess.run(scp_cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        out.error(f"SCP failed: {result.stderr}")
-        raise typer.Exit(1)
+    try:
+        scp_download(
+            cfg.ssh_host,
+            remote_path,
+            output_path,
+            user=cfg.ssh_user,
+            port=cfg.ssh_port,
+            ssh_key=cfg.ssh_key,
+        )
+    except Exception as e:
+        out.error(f"SCP failed: {e}")
+        raise typer.Exit(1) from e
 
     out.success(f"Backup saved to {output_path}")
     app_ctx.close()
@@ -102,29 +96,23 @@ def restore(
         raise typer.Exit(1)
 
     cfg = _resolve_ssh_config(app_ctx)
-    ssh_key_path = str(Path(cfg.ssh_key).expanduser())
     remote_path = "/data/dump.rdb"
-    scp_target = f"{cfg.ssh_user}@{cfg.ssh_host}:{remote_path}"
 
     typer.confirm("This will overwrite the remote dump.rdb. Redis must be restarted to load it. Continue?", abort=True)
 
-    scp_cmd = [
-        "scp",
-        "-i",
-        ssh_key_path,
-        "-P",
-        str(cfg.ssh_port),
-        "-o",
-        "StrictHostKeyChecking=accept-new",
-        str(local),
-        scp_target,
-    ]
-
     out.info(f"Uploading {file_path} to {cfg.ssh_host}...")
-    result = subprocess.run(scp_cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        out.error(f"SCP failed: {result.stderr}")
-        raise typer.Exit(1)
+    try:
+        scp_upload(
+            cfg.ssh_host,
+            str(local),
+            remote_path,
+            user=cfg.ssh_user,
+            port=cfg.ssh_port,
+            ssh_key=cfg.ssh_key,
+        )
+    except Exception as e:
+        out.error(f"SCP failed: {e}")
+        raise typer.Exit(1) from e
 
     out.success(f"Uploaded {file_path}. Restart Redis to load the restored data.")
     app_ctx.close()
@@ -140,24 +128,17 @@ def list_backups(
     out = app_ctx.output
 
     cfg = _resolve_ssh_config(app_ctx)
-    ssh_key_path = str(Path(cfg.ssh_key).expanduser())
 
-    ssh_cmd = [
-        "ssh",
-        "-i",
-        ssh_key_path,
-        "-p",
-        str(cfg.ssh_port),
-        "-o",
-        "StrictHostKeyChecking=accept-new",
-        f"{cfg.ssh_user}@{cfg.ssh_host}",
+    result = ssh_run(
+        cfg.ssh_host,
         f"ls -lhtr {remote_dir}/*.rdb 2>/dev/null || echo '(no backups found)'",
-    ]
-
-    result = subprocess.run(ssh_cmd, capture_output=True, text=True)
-    if result.returncode != 0:
+        user=cfg.ssh_user,
+        port=cfg.ssh_port,
+        ssh_key=cfg.ssh_key,
+    )
+    if not result.ok:
         out.error(f"SSH failed: {result.stderr}")
         raise typer.Exit(1)
 
-    out.text(result.stdout.strip())
+    out.text(result.stdout)
     app_ctx.close()

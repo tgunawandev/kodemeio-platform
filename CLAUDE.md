@@ -229,6 +229,8 @@ Source: `kodemeio-odoo` repo → `compose/odoo.prod.yml` (4 containers: init →
 | `self_update.py` | PyPI version check + uv tool upgrade |
 | `doctor_base.py` | `DoctorCheck` protocol + `run_doctor()` + 4 built-in checks (Python, uv, git, Docker) |
 | `monitor_base.py` | `health_check_url()`, `ssl_check()`, `dns_check()` |
+| `ssh.py` | `ssh_run()`, `scp_download()`, `scp_upload()` — standardized SSH command execution with `SSHResult` |
+| `ssh_tunnel.py` | `SSHTunnel` — context manager wrapping `SSHTunnelForwarder` for database CLIs |
 | `api_client.py` | `APIClient` — sync HTTP base client with retry, auth header, error mapping |
 | `async_api_client.py` | `AsyncAPIClient` — async HTTP base client with retry, auth header, error mapping |
 | `skill_generator.py` | `SkillGenerator` — Typer app introspection → SKILL.md auto-generation (`skill generate`) |

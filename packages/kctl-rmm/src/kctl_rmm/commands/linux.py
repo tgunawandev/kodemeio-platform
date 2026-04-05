@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
-import subprocess
 from typing import Annotated
 
 import typer
 
+from kctl_lib.ssh import ssh_run
 from kctl_rmm.core.callbacks import AppContext
 from kctl_rmm.core.config import resolve_connection, resolve_mesh_url
 
 SCRIPT_URL = "https://raw.githubusercontent.com/netvolt/LinuxRMM-Script/main/rmmagent-linux.sh"
 
 app = typer.Typer(help="Linux agent management (install/update/uninstall via LinuxRMM-Script).")
+
+
+def _parse_ssh_target(ssh_host: str) -> tuple[str, str]:
+    """Parse 'user@host' into (user, host). Defaults to 'root' if no user."""
+    if "@" in ssh_host:
+        user, host = ssh_host.split("@", 1)
+        return user, host
+    return "root", ssh_host
 
 
 def _pick_site(c: AppContext, client_name: str | None, site_name: str | None) -> tuple[int, int, str, str]:
@@ -166,9 +174,9 @@ def install(
         if not typer.confirm(f"Run install on {ssh_host}?"):
             raise typer.Exit(0)
 
-        ssh_cmd = ["ssh", "-p", str(ssh_port), "-o", "StrictHostKeyChecking=accept-new", ssh_host, install_cmd]
-        result = subprocess.run(ssh_cmd, text=True)
-        if result.returncode == 0:
+        user, host = _parse_ssh_target(ssh_host)
+        result = ssh_run(host, install_cmd, user=user, port=ssh_port, capture=False)
+        if result.ok:
             c.output.success(f"Agent installed on {ssh_host}")
         else:
             c.output.error(f"Install failed on {ssh_host} (exit code {result.returncode})")
@@ -208,9 +216,9 @@ def update(
         if not typer.confirm(f"Run update on {ssh_host}?"):
             raise typer.Exit(0)
 
-        ssh_cmd = ["ssh", "-p", str(ssh_port), "-o", "StrictHostKeyChecking=accept-new", ssh_host, update_cmd]
-        result = subprocess.run(ssh_cmd, text=True)
-        if result.returncode == 0:
+        user, host = _parse_ssh_target(ssh_host)
+        result = ssh_run(host, update_cmd, user=user, port=ssh_port, capture=False)
+        if result.ok:
             c.output.success(f"Agent updated on {ssh_host}")
         else:
             c.output.error(f"Update failed on {ssh_host} (exit code {result.returncode})")
@@ -270,9 +278,9 @@ def uninstall(
         if not typer.confirm(f"Uninstall agent on {ssh_host}? This cannot be undone."):
             raise typer.Exit(0)
 
-        ssh_cmd = ["ssh", "-p", str(ssh_port), "-o", "StrictHostKeyChecking=accept-new", ssh_host, uninstall_cmd]
-        result = subprocess.run(ssh_cmd, text=True)
-        if result.returncode == 0:
+        user, host = _parse_ssh_target(ssh_host)
+        result = ssh_run(host, uninstall_cmd, user=user, port=ssh_port, capture=False)
+        if result.ok:
             c.output.success(f"Agent uninstalled from {ssh_host}")
             c.output.warn("Remember to delete the agent from TRMM and MeshCentral dashboards.")
         else:
@@ -300,9 +308,9 @@ def status(
         "systemctl status tacticalagent --no-pager 2>/dev/null || true"
     )
 
-    ssh_cmd = ["ssh", "-p", str(ssh_port), "-o", "StrictHostKeyChecking=accept-new", ssh_host, check_cmd]
+    user, host = _parse_ssh_target(ssh_host)
     c.output.info(f"Checking agent status on {ssh_host}:{ssh_port} ...")
-    result = subprocess.run(ssh_cmd, text=True, capture_output=True)
+    result = ssh_run(host, check_cmd, user=user, port=ssh_port)
 
     if result.returncode == 255:
         c.output.error(f"SSH connection failed to {ssh_host}:{ssh_port}")
@@ -310,5 +318,5 @@ def status(
 
     c.output.header(f"Agent Status: {ssh_host}")
     c.output.text(result.stdout)
-    if result.stderr.strip():
-        c.output.warn(result.stderr.strip())
+    if result.stderr:
+        c.output.warn(result.stderr)

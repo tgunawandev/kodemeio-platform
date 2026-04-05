@@ -6,12 +6,11 @@ using sshtunnel + redis-py with connection pooling.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import redis
-from sshtunnel import SSHTunnelForwarder
 
+from kctl_lib.ssh_tunnel import SSHTunnel
 from kctl_redis.core.config import ServiceConfig
 from kctl_redis.core.exceptions import (
     AuthenticationError,
@@ -37,27 +36,27 @@ class RedisClient:
             )
 
         self._config = config
-        self._tunnel: SSHTunnelForwarder | None = None
+        self._tunnel: SSHTunnel | None = None
         self._redis: redis.Redis | None = None  # type: ignore[type-arg]
 
     def connect(self) -> None:
         """Open SSH tunnel and connect to Redis."""
         cfg = self._config
-        ssh_key = str(Path(cfg.ssh_key).expanduser()) if cfg.ssh_key else None
 
+        self._tunnel = SSHTunnel(
+            ssh_host=cfg.ssh_host,
+            ssh_port=cfg.ssh_port,
+            ssh_user=cfg.ssh_user,
+            ssh_key=cfg.ssh_key,
+            remote_host=cfg.host,
+            remote_port=cfg.port,
+        )
         try:
-            self._tunnel = SSHTunnelForwarder(
-                (cfg.ssh_host, cfg.ssh_port),
-                ssh_username=cfg.ssh_user,
-                ssh_pkey=ssh_key,
-                remote_bind_address=(cfg.host, cfg.port),
-                local_bind_address=("127.0.0.1",),
-            )
             self._tunnel.start()
         except Exception as e:
             raise SSHTunnelError(cfg.ssh_host, e) from e
 
-        local_port = self._tunnel.local_bind_port
+        local_port = self._tunnel.local_port
 
         try:
             self._redis = redis.Redis(

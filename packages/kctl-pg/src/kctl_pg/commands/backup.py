@@ -8,33 +8,23 @@ from typing import Annotated
 
 import typer
 
+from kctl_lib.ssh import _build_ssh_base, ssh_run
 from kctl_pg.core.callbacks import AppContext
 from kctl_pg.core.config import resolve_connection
 
 app = typer.Typer(help="Backup and restore databases via SSH.")
 
 
-def _ssh_cmd(config, command: str) -> list[str]:
-    """Build SSH command list."""
-    ssh_key = str(Path(config.ssh_key).expanduser()) if config.ssh_key else None
-    cmd = [
-        "ssh",
-        "-o",
-        "StrictHostKeyChecking=accept-new",
-        "-p",
-        str(config.ssh_port),
-    ]
-    if ssh_key:
-        cmd.extend(["-i", ssh_key])
-    cmd.append(f"{config.ssh_user}@{config.ssh_host}")
-    cmd.append(command)
-    return cmd
-
-
 def _get_container_name(config) -> str:
     """Get the PostgreSQL Docker container name on the remote host."""
-    cmd = _ssh_cmd(config, "docker ps --format '{{.Names}}' | grep -i postgres | head -1")
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    result = ssh_run(
+        config.ssh_host,
+        "docker ps --format '{{.Names}}' | grep -i postgres | head -1",
+        user=config.ssh_user,
+        port=config.ssh_port,
+        ssh_key=config.ssh_key,
+        timeout=30,
+    )
     name = result.stdout.strip()
     if not name:
         return "kodemeio-postgres"
@@ -77,7 +67,8 @@ def dump(
     out.info(f"Dumping '{database}' from {config.ssh_host} (container: {container})...")
 
     remote_cmd = f"docker exec {container} pg_dump -U {config.user} -F {format_} {database}"
-    ssh = _ssh_cmd(config, remote_cmd)
+    ssh = _build_ssh_base(config.ssh_host, config.ssh_user, config.ssh_port, config.ssh_key)
+    ssh.append(remote_cmd)
 
     with open(output, "wb") as f:
         proc = subprocess.run(ssh, stdout=f, stderr=subprocess.PIPE, timeout=3600)
@@ -122,10 +113,16 @@ def restore(
     if create:
         out.info(f"Creating database '{database}'...")
         create_cmd = f"docker exec {container} createdb -U {config.user} {database}"
-        ssh_create = _ssh_cmd(config, create_cmd)
-        proc = subprocess.run(ssh_create, capture_output=True, text=True, timeout=30)
-        if proc.returncode != 0 and "already exists" not in proc.stderr:
-            out.error(f"createdb failed: {proc.stderr.strip()}")
+        result = ssh_run(
+            config.ssh_host,
+            create_cmd,
+            user=config.ssh_user,
+            port=config.ssh_port,
+            ssh_key=config.ssh_key,
+            timeout=30,
+        )
+        if not result.ok and "already exists" not in result.stderr:
+            out.error(f"createdb failed: {result.stderr}")
             raise typer.Exit(1)
 
     out.info(f"Restoring '{database}' from {input_file}...")
@@ -135,7 +132,8 @@ def restore(
         restore_opts += " --clean"
 
     remote_cmd = f"docker exec -i {container} pg_restore {restore_opts}"
-    ssh = _ssh_cmd(config, remote_cmd)
+    ssh = _build_ssh_base(config.ssh_host, config.ssh_user, config.ssh_port, config.ssh_key)
+    ssh.append(remote_cmd)
 
     with open(input_file, "rb") as f:
         proc = subprocess.run(ssh, stdin=f, stderr=subprocess.PIPE, timeout=3600)
@@ -163,11 +161,17 @@ def list_(ctx: typer.Context) -> None:
 
     # Check for pgBackRest backups
     remote_cmd = f"docker exec {container} sh -c 'command -v pgbackrest >/dev/null 2>&1 && pgbackrest info --output=json || echo null'"
-    ssh = _ssh_cmd(config, remote_cmd)
-    proc = subprocess.run(ssh, capture_output=True, text=True, timeout=30)
+    result = ssh_run(
+        config.ssh_host,
+        remote_cmd,
+        user=config.ssh_user,
+        port=config.ssh_port,
+        ssh_key=config.ssh_key,
+        timeout=30,
+    )
 
-    if proc.returncode == 0 and proc.stdout.strip() != "null":
+    if result.ok and result.stdout != "null":
         out.info("pgBackRest backups:")
-        out.text(proc.stdout)
+        out.text(result.stdout)
     else:
         out.info("No pgBackRest configured. Use 'kctl-pg backup dump' for manual backups.")

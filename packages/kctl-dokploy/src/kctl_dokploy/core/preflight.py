@@ -50,36 +50,14 @@ def _gate_server_connectivity(manifest: DeployManifest, client: Any, ssh_availab
         return GateResult("server_connectivity", "fail", msg)
 
     if ssh_available:
-        try:
-            proc = subprocess.run(
-                ["ssh", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no", f"root@{ip}", "docker --version"],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-        except subprocess.TimeoutExpired:
-            return GateResult("server_connectivity", "fail", f"SSH to {ip} timed out")
-        if proc.returncode != 0:
+        from kctl_lib.ssh import ssh_run
+
+        result = ssh_run(ip, "docker --version", timeout=15, connect_timeout=5)
+        if not result.ok:
             return GateResult("server_connectivity", "fail", f"SSH to {ip} failed or Docker not installed")
 
-        try:
-            proc2 = subprocess.run(
-                [
-                    "ssh",
-                    "-o",
-                    "ConnectTimeout=5",
-                    "-o",
-                    "StrictHostKeyChecking=no",
-                    f"root@{ip}",
-                    "docker network inspect dokploy-network",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-        except subprocess.TimeoutExpired:
-            return GateResult("server_connectivity", "fail", f"SSH network check on {ip} timed out")
-        if proc2.returncode != 0:
+        result2 = ssh_run(ip, "docker network inspect dokploy-network", timeout=15, connect_timeout=5)
+        if not result2.ok:
             return GateResult(
                 "server_connectivity",
                 "fail",
