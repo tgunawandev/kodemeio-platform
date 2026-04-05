@@ -839,6 +839,7 @@ class Deployer:
         code, out = self._run_kctl(["kctl-dokploy", "compose", "redeploy", "--", self._compose_id])
         if code != 0:
             self._record_phase("deploy", "failed", f"Redeploy trigger failed: {out}")
+            self._auto_diagnose("deploy")
             return
 
         # Poll Dokploy deployment status — fail fast if deployment errors
@@ -855,11 +856,13 @@ class Deployer:
                 if status == "error":
                     title = deploys[0].get("title", "")[:80]
                     self._record_phase("deploy", "failed", f"Deployment error: {title}")
+                    self._auto_diagnose("deploy")
                     return
                 # status is "running" or "queued" — keep waiting
             time.sleep(10)
 
         self._record_phase("deploy", "failed", f"Deployment timed out after {self.manifest.healthcheck.timeout}s")
+        self._auto_diagnose("deploy")
 
     # ------------------------------------------------------------------
     # Phase 8 — Verify (healthcheck)
@@ -927,6 +930,67 @@ class Deployer:
             time.sleep(hc.interval)
 
         self._record_phase("verify", "failed", f"Healthcheck timed out after {hc.timeout}s: {last_error}")
+        self._auto_diagnose("verify")
+
+    # ------------------------------------------------------------------
+    # Auto-diagnosis helper
+    # ------------------------------------------------------------------
+
+    def _auto_diagnose(self, failed_phase: str) -> None:
+        """Automatically diagnose deployment failure and record findings.
+
+        Called when phase_deploy or phase_verify fails. Uses the Dokploy API
+        to gather container status, logs, and health info, then records
+        the diagnosis as additional phase results.
+        """
+        if not self._compose_id:
+            return
+
+        client = self._get_client()
+        if not client:
+            return
+
+        try:
+            from kctl_dokploy.core.troubleshoot import diagnose
+
+            domain = self.manifest.domain.host if self.manifest.domain else ""
+            hc = self.manifest.healthcheck
+
+            result = diagnose(
+                client=client,
+                compose_id=self._compose_id,
+                domain=domain,
+                health_path=hc.path,
+                expected_status=hc.expected_status,
+            )
+
+            # Record diagnosis as a phase result
+            diag_lines = [f"[{result.error_type.value.upper()}] {result.summary}"]
+
+            # Add container info
+            for c in result.containers:
+                state_icon = "✓" if c.state == "running" else "✗"
+                diag_lines.append(f"  {state_icon} {c.name}: {c.state} ({c.status})")
+                if c.logs and c.state in ("exited", "dead", "restarting"):
+                    # Last 5 lines of logs for crashed containers
+                    for log_line in c.logs.strip().splitlines()[-5:]:
+                        diag_lines.append(f"    | {log_line}")
+
+            # Add build log excerpt if available
+            if result.deployment_log and result.deployment_status == "error":
+                diag_lines.append("  Build log (last lines):")
+                for log_line in str(result.deployment_log).strip().splitlines()[-5:]:
+                    diag_lines.append(f"    | {log_line}")
+
+            # Add suggestions
+            if result.suggestions:
+                diag_lines.append("  Suggested fixes:")
+                for s in result.suggestions:
+                    diag_lines.append(f"    → {s}")
+
+            self._record_phase("diagnosis", "info", "\n".join(diag_lines))
+        except Exception as e:
+            self._record_phase("diagnosis", "info", f"Auto-diagnosis failed: {e}")
 
     # ------------------------------------------------------------------
     # Phase 9 — Backup

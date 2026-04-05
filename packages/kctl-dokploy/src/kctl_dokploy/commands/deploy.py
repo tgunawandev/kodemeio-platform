@@ -254,6 +254,139 @@ def preflight_all(
 
 
 # ---------------------------------------------------------------------------
+# Troubleshoot
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def troubleshoot(
+    ctx: typer.Context,
+    file: Annotated[Path | None, typer.Option("--file", "-f", help="Manifest YAML file", exists=True)] = None,
+    compose_id: Annotated[str | None, typer.Option("--compose", "-c", help="Compose service ID")] = None,
+) -> None:
+    """Diagnose why a deployment failed.
+
+    Checks deployment status, container logs, health endpoints, and
+    classifies the error with suggested fixes. Provide either a manifest
+    file or a compose ID.
+    """
+    from kctl_dokploy.core.troubleshoot import diagnose
+
+    c: AppContext = ctx.obj
+
+    if not file and not compose_id:
+        c.output.error("Provide --file or --compose")
+        raise typer.Exit(1)
+
+    # Get API client
+    try:
+        from kctl_dokploy.core.client import DokployClient
+        from kctl_lib.config import load_config
+
+        cfg = load_config("dokploy", profile=c.profile)
+        api_client = DokployClient(url=cfg["url"], api_key=cfg["api_key"])
+    except Exception as exc:
+        c.output.error(f"Cannot connect to Dokploy: {exc}")
+        raise typer.Exit(1) from exc
+
+    # Resolve compose_id from manifest if needed
+    domain = ""
+    health_path = "/"
+    expected_status = 200
+    if file:
+        manifest = _load(file, c)
+        domain = manifest.domain.host if manifest.domain else ""
+        health_path = manifest.healthcheck.path
+        expected_status = manifest.healthcheck.expected_status
+
+        if not compose_id:
+            # Find compose by instance name
+            try:
+                projects = api_client.get("/project.all")
+                for p in projects if isinstance(projects, list) else []:
+                    if p.get("name", "").lower() == manifest.project.lower():
+                        for env in p.get("environments", []):
+                            for comp in env.get("compose", []):
+                                if comp.get("name") == manifest.instance.name:
+                                    compose_id = comp.get("composeId")
+                                    break
+            except Exception:
+                pass
+
+        if not compose_id:
+            c.output.error(
+                f"Cannot find compose service for '{manifest.instance.name}' in project '{manifest.project}'"
+            )
+            raise typer.Exit(1)
+
+    result = diagnose(
+        client=api_client,
+        compose_id=compose_id,
+        domain=domain,
+        health_path=health_path,
+        expected_status=expected_status,
+    )
+
+    # Display diagnosis
+    status_icon = {
+        "build_failed": "🔨",
+        "runtime_crash": "💥",
+        "health_timeout": "⏱",
+        "config_error": "⚙",
+        "not_deployed": "○",
+        "unknown": "?",
+    }
+    icon = status_icon.get(result.error_type.value, "?")
+
+    rows = []
+    json_data = result.to_dict()
+
+    rows.append(["Error Type", f"{icon} {result.error_type.value.upper()}"])
+    rows.append(["Summary", result.summary])
+    rows.append(["Deploy Status", result.deployment_status])
+    rows.append(["Health", result.health_status])
+
+    c.output.table(
+        f"Diagnosis: {result.service_name}",
+        [("Check", "cyan"), ("Result", "")],
+        rows,
+        data_for_json=json_data,
+    )
+
+    # Containers
+    if result.containers:
+        ct_rows = []
+        for ct in result.containers:
+            state_icon = "✓" if ct.state == "running" else "✗"
+            ct_rows.append([f"{state_icon} {ct.name}", ct.state, ct.status])
+        c.output.table(
+            "Containers",
+            [("Name", "cyan"), ("State", ""), ("Status", "dim")],
+            ct_rows,
+        )
+
+    # Container logs for crashed containers
+    for ct in result.containers:
+        if ct.logs and ct.state in ("exited", "dead", "restarting"):
+            c.output.header(f"Logs: {ct.name}")
+            c.output.text(ct.logs[-2000:])  # Last 2000 chars
+
+    # Build log if available
+    if result.deployment_log and result.deployment_status == "error":
+        c.output.header("Build Log (last lines)")
+        c.output.text(str(result.deployment_log)[-2000:])
+
+    # Suggestions
+    if result.suggestions:
+        c.output.header("Suggested Fixes")
+        for i, s in enumerate(result.suggestions, 1):
+            c.output.text(f"  {i}. {s}")
+
+    if result.error_type.value != "unknown":
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
 # Stage: setup (DNS + DB + compose + env + domain)
 # ---------------------------------------------------------------------------
 
