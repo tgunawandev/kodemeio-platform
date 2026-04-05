@@ -1,0 +1,26 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/react-pwa.yaml
+instance:
+  name: kod-react-tpm
+  description: KOD — TPM PWA
+project: kod
+environment: staging
+server: kod-stg-01
+source_overrides:
+  compose_path: compose/docker-compose.tpm.yml
+dns:
+  zone: kodeme.io
+  name: stg-kod-tpm
+domain:
+  host: stg-kod-tpm.kodeme.io
+  port: 80
+  service: tpm
+  https: true
+env_file: ../../env/staging/.env.kod-react-tpm
+env_overrides:
+  VITE_TPM_APP_NAME: KOD TPM
+  VITE_TPM_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/tpm/api
+  VITE_AUTH_MODE: native
+  VITE_TPM_OIDC_CLIENT_ID: ''
+  VITE_TPM_OIDC_REDIRECT_URI: ''

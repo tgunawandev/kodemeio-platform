@@ -1,0 +1,32 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/odoo.yaml
+instance:
+  name: kod-odoo-full
+  description: KOD — Full Odoo (all modules, all PWA apps)
+project: kod
+environment: staging
+server: kod-stg-01
+dns:
+  zone: kodeme.io
+  name: stg-kod-odoo-full
+domain:
+  host: stg-kod-odoo-full.kodeme.io
+  port: 8069
+  service: odoo-web
+  https: true
+  cert: letsencrypt
+database:
+  name: stg_kod_odoo_full
+  user: odoo
+env_file: ../../env/staging/.env.kod-odoo-full
+env_overrides:
+  COMPOSE_PROJECT_NAME: kod-odoo-full
+  TENANT: kod
+  PGDATABASE: stg_kod_odoo_full
+  PGUSER: odoo
+  ODOO_DB_FILTER: ^stg_kod_odoo_full$
+  DOMAIN: stg-kod-odoo-full.kodeme.io
+  ODOO_WORKERS: '6'
+post_deploy:
+  odoo_profile: profile-full

@@ -1,0 +1,26 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/react-pwa.yaml
+instance:
+  name: kod-react-shop
+  description: KOD — SHOP PWA
+project: kod
+environment: staging
+server: kod-stg-01
+source_overrides:
+  compose_path: compose/docker-compose.shop.yml
+dns:
+  zone: kodeme.io
+  name: stg-kod-shop
+domain:
+  host: stg-kod-shop.kodeme.io
+  port: 80
+  service: shop
+  https: true
+env_file: ../../env/staging/.env.kod-react-shop
+env_overrides:
+  VITE_SHOP_APP_NAME: KOD SHOP
+  VITE_SHOP_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/shop/api
+  VITE_AUTH_MODE: native
+  VITE_SHOP_OIDC_CLIENT_ID: ''
+  VITE_SHOP_OIDC_REDIRECT_URI: ''

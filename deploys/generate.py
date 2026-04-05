@@ -71,7 +71,7 @@ def gen_react_pwa(
     display = tenant.get("short_name", tenant["name"])
     domain = tenant["domain"]
     short = odoo_entry["short"]
-    app_upper = app.upper()
+    app_upper = app.upper().replace("-", "_")
 
     yaml_filename = f"{code}-react-{app}.yaml"
     env_filename = f".env.{code}-react-{app}"

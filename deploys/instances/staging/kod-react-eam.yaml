@@ -1,0 +1,26 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/react-pwa.yaml
+instance:
+  name: kod-react-eam
+  description: KOD — EAM PWA
+project: kod
+environment: staging
+server: kod-stg-01
+source_overrides:
+  compose_path: compose/docker-compose.eam.yml
+dns:
+  zone: kodeme.io
+  name: stg-kod-eam
+domain:
+  host: stg-kod-eam.kodeme.io
+  port: 80
+  service: eam
+  https: true
+env_file: ../../env/staging/.env.kod-react-eam
+env_overrides:
+  VITE_EAM_APP_NAME: KOD EAM
+  VITE_EAM_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/eam/api
+  VITE_AUTH_MODE: native
+  VITE_EAM_OIDC_CLIENT_ID: ''
+  VITE_EAM_OIDC_REDIRECT_URI: ''

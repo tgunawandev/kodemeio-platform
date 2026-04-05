@@ -1,0 +1,26 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/react-pwa.yaml
+instance:
+  name: kod-react-mrp
+  description: KOD — MRP PWA
+project: kod
+environment: staging
+server: kod-stg-01
+source_overrides:
+  compose_path: compose/docker-compose.mrp.yml
+dns:
+  zone: kodeme.io
+  name: stg-kod-mrp
+domain:
+  host: stg-kod-mrp.kodeme.io
+  port: 80
+  service: mrp
+  https: true
+env_file: ../../env/staging/.env.kod-react-mrp
+env_overrides:
+  VITE_MRP_APP_NAME: KOD MRP
+  VITE_MRP_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/mrp/api
+  VITE_AUTH_MODE: native
+  VITE_MRP_OIDC_CLIENT_ID: ''
+  VITE_MRP_OIDC_REDIRECT_URI: ''

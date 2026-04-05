@@ -1,0 +1,26 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/react-pwa.yaml
+instance:
+  name: kod-react-tms-parent
+  description: KOD — TMS_PARENT PWA
+project: kod
+environment: staging
+server: kod-stg-01
+source_overrides:
+  compose_path: compose/docker-compose.tms-parent.yml
+dns:
+  zone: kodeme.io
+  name: stg-kod-tms-parent
+domain:
+  host: stg-kod-tms-parent.kodeme.io
+  port: 80
+  service: tms-parent
+  https: true
+env_file: ../../env/staging/.env.kod-react-tms-parent
+env_overrides:
+  VITE_TMS_PARENT_APP_NAME: KOD TMS_PARENT
+  VITE_TMS_PARENT_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/tms-parent/api
+  VITE_AUTH_MODE: native
+  VITE_TMS_PARENT_OIDC_CLIENT_ID: ''
+  VITE_TMS_PARENT_OIDC_REDIRECT_URI: ''
