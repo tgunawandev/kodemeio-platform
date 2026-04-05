@@ -95,6 +95,8 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, kee
 | `templates/kctl-cli/` | Copier template for new CLIs |
 | `docs/cli-standards.md` | CLI naming and option standards |
 | `docs/architecture.md` | Platform architecture |
+| `docs/migration-sop.md` | Server migration runbook |
+| `deploys/migrations/` | Migration manifest YAML files |
 | `.github/workflows/ci.yml` | CI: test + lint on push/PR |
 | `.github/workflows/publish.yml` | Auto-publish to PyPI on v* tag |
 
@@ -160,6 +162,17 @@ kctl-dokploy deploy post -f <manifest>    # Stage 3: Backup + Schedules + Post-d
 kctl-dokploy deploy preflight -f <manifest>                   # Single manifest
 kctl-dokploy deploy preflight-all -d deploys/instances/production/  # All production
 kctl-dokploy deploy preflight-all -d deploys/instances/production/ --server mac-prod-01  # Filter by server
+
+# Preflight with specific gates
+kctl-dokploy deploy preflight -f <manifest> --gates dns,database,env_sync
+
+# Server migration
+kctl-dokploy deploy migrate validate -f deploys/migrations/mac-to-dedicated.yaml
+kctl-dokploy deploy migrate plan -f deploys/migrations/mac-to-dedicated.yaml
+kctl-dokploy deploy migrate apply -f deploys/migrations/mac-to-dedicated.yaml
+kctl-dokploy deploy migrate apply -f deploys/migrations/mac-to-dedicated.yaml --resume
+kctl-dokploy deploy migrate rollback -f deploys/migrations/mac-to-dedicated.yaml
+kctl-dokploy deploy migrate cleanup -f deploys/migrations/mac-to-dedicated.yaml
 
 # Preview / status
 kctl-dokploy deploy status -f <manifest>  # Dry-run all phases

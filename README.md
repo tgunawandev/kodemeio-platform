@@ -138,7 +138,10 @@ kctl-dokploy deploy apply -f deploys/instances/staging/mac-react-sfa.yaml     # 
 kctl-dokploy deploy apply-all -d deploys/instances/production/                # All production
 kctl-dokploy deploy apply-all -d deploys/instances/staging/                   # All staging
 kctl-dokploy deploy preflight -f <manifest>                                   # Pre-deploy validation
+kctl-dokploy deploy preflight -f <manifest> --gates dns,database              # Specific gates
 kctl-dokploy deploy preflight-all -d deploys/instances/production/            # Batch preflight
+kctl-dokploy deploy migrate plan -f deploys/migrations/mac-to-dedicated.yaml  # Migration dry-run
+kctl-dokploy deploy migrate apply -f deploys/migrations/mac-to-dedicated.yaml # Execute migration
 kctl-dokploy deploy status -f <manifest>                                      # Dry-run preview
 ```
 
