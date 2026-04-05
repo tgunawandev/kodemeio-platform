@@ -6,7 +6,7 @@ instance:
   description: Pakerti — BIA PWA
 project: tpp
 environment: production
-server: tpp-prod-01
+server: kod-prod-01
 source_overrides:
   compose_path: compose/docker-compose.bia.yml
 dns:
@@ -21,6 +21,3 @@ env_file: ../../env/production/.env.tpp-react-bia
 env_overrides:
   VITE_BIA_APP_NAME: Pakerti BIA
   VITE_BIA_API_BASE_URL: https://tpp-odoo-trad.pakerti.com/bia/api
-  VITE_AUTH_MODE: native
-  VITE_BIA_OIDC_CLIENT_ID: ''
-  VITE_BIA_OIDC_REDIRECT_URI: ''

@@ -36,5 +36,3 @@ env_overrides:
   JWT_SECRET: ${JWT_SECRET}
   ALLOWED_ORIGINS: https://stg-tpp-sfa.pakerti.com,https://stg-tpp-bia.pakerti.com,https://stg-tpp-wms.pakerti.com,https://stg-tpp-hrm.pakerti.com
   FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}
-backup:
-  enabled: false

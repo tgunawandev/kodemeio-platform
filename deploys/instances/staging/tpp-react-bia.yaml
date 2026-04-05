@@ -21,6 +21,3 @@ env_file: ../../env/staging/.env.tpp-react-bia
 env_overrides:
   VITE_BIA_APP_NAME: Pakerti BIA
   VITE_BIA_API_BASE_URL: https://stg-tpp-odoo-trad.pakerti.com/bia/api
-  VITE_AUTH_MODE: native
-  VITE_BIA_OIDC_CLIENT_ID: ''
-  VITE_BIA_OIDC_REDIRECT_URI: ''

@@ -6,7 +6,7 @@ instance:
   description: Pakerti — HRMS (employees, attendance, payroll, leaves, expenses)
 project: tpp
 environment: production
-server: tpp-prod-01
+server: kod-prod-01
 dns:
   zone: pakerti.com
   name: tpp-odoo-hrms

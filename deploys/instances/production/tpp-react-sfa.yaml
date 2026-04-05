@@ -6,7 +6,7 @@ instance:
   description: Pakerti — SFA PWA
 project: tpp
 environment: production
-server: tpp-prod-01
+server: kod-prod-01
 source_overrides:
   compose_path: compose/docker-compose.sfa.yml
 dns:
@@ -21,6 +21,3 @@ env_file: ../../env/production/.env.tpp-react-sfa
 env_overrides:
   VITE_SFA_APP_NAME: Pakerti SFA
   VITE_SFA_API_BASE_URL: https://tpp-odoo-trad.pakerti.com/sfa/api
-  VITE_AUTH_MODE: native
-  VITE_SFA_OIDC_CLIENT_ID: ''
-  VITE_SFA_OIDC_REDIRECT_URI: ''

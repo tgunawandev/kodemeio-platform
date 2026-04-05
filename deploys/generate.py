@@ -107,20 +107,19 @@ def gen_react_pwa(
             "env_overrides": {
                 f"VITE_{app_upper}_APP_NAME": f"{display} {app_upper}",
                 f"VITE_{app_upper}_API_BASE_URL": f"https://{dns_prefix}{code}-odoo-{short}.{domain}/{app}/api",
-                "VITE_AUTH_MODE": "native",
-                f"VITE_{app_upper}_OIDC_CLIENT_ID": "",
-                f"VITE_{app_upper}_OIDC_REDIRECT_URI": "",
             },
         }
     )
 
+    host = f"{dns_prefix}{code}-{app}.{domain}"
+    slug = f"{code}-react-{app}"
     env_content = (
         f"VITE_{app_upper}_APP_NAME={display} {app_upper}\n"
         f"VITE_{app_upper}_API_BASE_URL=https://{dns_prefix}{code}-odoo-{short}.{domain}/{app}/api\n"
-        f"VITE_AUTH_MODE=native\n"
-        f"VITE_OIDC_AUTHORITY=\n"
+        f"VITE_AUTH_MODE=oidc\n"
+        f"VITE_OIDC_AUTHORITY=https://auth.kodeme.io/application/o/{slug}/\n"
         f"VITE_{app_upper}_OIDC_CLIENT_ID=\n"
-        f"VITE_{app_upper}_OIDC_REDIRECT_URI=\n"
+        f"VITE_{app_upper}_OIDC_REDIRECT_URI=https://{host}/auth/callback\n"
         f"VITE_{app_upper}_THEME={app}\n"
     )
 
@@ -576,9 +575,11 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
 
 
 def is_secret_env(path: Path) -> bool:
-    """Check if a .env file likely contains secrets (Odoo, Notify)."""
+    """Check if a .env file likely contains secrets (Odoo, Notify, React PWA with OIDC)."""
     name = path.name
-    return name.startswith(".env.") and ("-odoo-" in name or "-hono-notify" in name)
+    return name.startswith(".env.") and (
+        "-odoo-" in name or "-hono-notify" in name or "-react-" in name
+    )
 
 
 def main() -> None:

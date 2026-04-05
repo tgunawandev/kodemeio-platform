@@ -11,8 +11,8 @@ source_overrides:
   branch: main
   compose_path: apps/api/notify/docker-compose.yml
 project: mac
-environment: staging
-server: mac-stg-01
+environment: production
+server: mac-prod-01
 healthcheck:
   path: /health
   port: 3020
@@ -21,9 +21,9 @@ healthcheck:
   interval: 10
 dns:
   zone: mandiriagro.com
-  name: stg-mac-notify
+  name: mac-notify
 domain:
-  host: stg-mac-notify.mandiriagro.com
+  host: mac-notify.mandiriagro.com
   port: 3020
   service: notify
   https: true
@@ -34,5 +34,5 @@ env_overrides:
   REDIS_URL: redis://redis:6379
   DISPATCH_SECRET: ${DISPATCH_SECRET}
   JWT_SECRET: ${JWT_SECRET}
-  ALLOWED_ORIGINS: https://stg-mac-bia.mandiriagro.com,https://stg-mac-wms.mandiriagro.com,https://stg-mac-hrm.mandiriagro.com
+  ALLOWED_ORIGINS: https://mac-bia.mandiriagro.com,https://mac-wms.mandiriagro.com,https://mac-hrm.mandiriagro.com
   FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}

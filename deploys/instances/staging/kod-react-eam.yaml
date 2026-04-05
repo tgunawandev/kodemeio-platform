@@ -21,6 +21,3 @@ env_file: ../../env/staging/.env.kod-react-eam
 env_overrides:
   VITE_EAM_APP_NAME: KOD EAM
   VITE_EAM_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/eam/api
-  VITE_AUTH_MODE: native
-  VITE_EAM_OIDC_CLIENT_ID: ''
-  VITE_EAM_OIDC_REDIRECT_URI: ''

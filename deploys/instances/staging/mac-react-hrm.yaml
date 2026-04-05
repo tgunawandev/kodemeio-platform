@@ -21,6 +21,3 @@ env_file: ../../env/staging/.env.mac-react-hrm
 env_overrides:
   VITE_HRM_APP_NAME: MAC HRM
   VITE_HRM_API_BASE_URL: https://stg-mac-odoo-hrms.mandiriagro.com/hrm/api
-  VITE_AUTH_MODE: native
-  VITE_HRM_OIDC_CLIENT_ID: ''
-  VITE_HRM_OIDC_REDIRECT_URI: ''

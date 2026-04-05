@@ -21,6 +21,3 @@ env_file: ../../env/production/.env.kod-react-dms
 env_overrides:
   VITE_DMS_APP_NAME: KOD DMS
   VITE_DMS_API_BASE_URL: https://kod-odoo-full.kodeme.io/dms/api
-  VITE_AUTH_MODE: native
-  VITE_DMS_OIDC_CLIENT_ID: ''
-  VITE_DMS_OIDC_REDIRECT_URI: ''

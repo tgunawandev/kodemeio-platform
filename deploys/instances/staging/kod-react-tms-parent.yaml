@@ -21,6 +21,3 @@ env_file: ../../env/staging/.env.kod-react-tms-parent
 env_overrides:
   VITE_TMS_PARENT_APP_NAME: KOD TMS_PARENT
   VITE_TMS_PARENT_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/tms-parent/api
-  VITE_AUTH_MODE: native
-  VITE_TMS_PARENT_OIDC_CLIENT_ID: ''
-  VITE_TMS_PARENT_OIDC_REDIRECT_URI: ''

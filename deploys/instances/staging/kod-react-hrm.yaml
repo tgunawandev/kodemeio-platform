@@ -21,6 +21,3 @@ env_file: ../../env/staging/.env.kod-react-hrm
 env_overrides:
   VITE_HRM_APP_NAME: KOD HRM
   VITE_HRM_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/hrm/api
-  VITE_AUTH_MODE: native
-  VITE_HRM_OIDC_CLIENT_ID: ''
-  VITE_HRM_OIDC_REDIRECT_URI: ''

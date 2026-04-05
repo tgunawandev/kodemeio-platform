@@ -21,6 +21,3 @@ env_file: ../../env/staging/.env.tpp-react-sfa
 env_overrides:
   VITE_SFA_APP_NAME: Pakerti SFA
   VITE_SFA_API_BASE_URL: https://stg-tpp-odoo-trad.pakerti.com/sfa/api
-  VITE_AUTH_MODE: native
-  VITE_SFA_OIDC_CLIENT_ID: ''
-  VITE_SFA_OIDC_REDIRECT_URI: ''

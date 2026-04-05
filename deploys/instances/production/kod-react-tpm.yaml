@@ -21,6 +21,3 @@ env_file: ../../env/production/.env.kod-react-tpm
 env_overrides:
   VITE_TPM_APP_NAME: KOD TPM
   VITE_TPM_API_BASE_URL: https://kod-odoo-full.kodeme.io/tpm/api
-  VITE_AUTH_MODE: native
-  VITE_TPM_OIDC_CLIENT_ID: ''
-  VITE_TPM_OIDC_REDIRECT_URI: ''
