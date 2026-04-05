@@ -1,0 +1,15 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: mac-infra-postgres
+  description: "MAC dedicated PostgreSQL 16 database"
+
+project: mac
+environment: production
+server: mac-prod-01
+
+source_overrides:
+  repo: kodemeio-postgres-16
+
+env_file: ../../env/production/.env.mac-infra-postgres
