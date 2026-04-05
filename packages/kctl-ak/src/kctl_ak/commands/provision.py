@@ -29,8 +29,21 @@ def _resolve_config_path() -> Path:
     )
 
 
-def _print_result(output: Any, result: ChainResult) -> None:
-    """Print chain result as a formatted step list."""
+def _print_result(c: AppContext, result: ChainResult) -> None:
+    """Print chain result as formatted step list or JSON."""
+    if c.json_mode:
+        import json as _json
+
+        data = {
+            "email": result.email,
+            "action": result.action,
+            "success": result.success,
+            "steps": [{"name": s.name, "status": s.status.value, "detail": s.detail} for s in result.steps],
+        }
+        print(_json.dumps(data, indent=2))
+        return
+
+    output = c.output
     status_icons = {
         StepStatus.SUCCESS: "[green]\u2705[/green]",
         StepStatus.SKIPPED: "[dim]\u23ed\ufe0f [/dim]",
@@ -92,7 +105,7 @@ def onboard(
 
     chain = _build_chain(ctx, dry_run)
     result = chain.onboard(email=email, name=name, company=company)
-    _print_result(c.output, result)
+    _print_result(c, result)
 
     if not result.success:
         raise typer.Exit(1)
@@ -108,7 +121,7 @@ def offboard(
     c: AppContext = ctx.obj
     chain = _build_chain(ctx, dry_run)
     result = chain.offboard(email=email)
-    _print_result(c.output, result)
+    _print_result(c, result)
 
     if not result.success:
         raise typer.Exit(1)
