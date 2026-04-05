@@ -34,7 +34,7 @@ def list_(
         enabled = "yes" if b.get("enabled", False) else "no"
         dest = b.get("destinationId", b.get("destination", "-"))
         if isinstance(dest, str) and len(dest) > 16:
-            dest = dest + "..."
+            dest = dest[:16] + "..."
         rows.append([bid, status, schedule, enabled, str(dest)])
     c.output.table(
         "Backups",
@@ -97,6 +97,81 @@ def create(
         c.output.raw_json(result)
 
 
+@app.command()
+def get(
+    ctx: typer.Context,
+    backup_id: Annotated[str, typer.Argument(help="Backup config ID")],
+) -> None:
+    """Get details for a backup configuration."""
+    c: AppContext = ctx.obj
+    data = c.client.get("/backup.one", params={"backupId": backup_id})
+    if not isinstance(data, dict):
+        c.output.error(f"Backup '{backup_id}' not found")
+        raise typer.Exit(1)
+    sections = [
+        (
+            "Backup",
+            [
+                ("ID", data.get("backupId", "")),
+                ("Schedule", data.get("schedule", "-")),
+                ("Prefix", data.get("prefix", "-")),
+                ("Database", data.get("database", "-")),
+                ("DB Type", data.get("databaseType", "-")),
+                ("Backup Type", data.get("backupType", "-")),
+                ("Destination ID", data.get("destinationId", "-")),
+                ("Enabled", str(data.get("enabled", "-"))),
+                ("Created", data.get("createdAt", "-")),
+            ],
+        ),
+    ]
+    c.output.detail(f"Backup: {data.get('backupId', '')}", sections, data_for_json=data)
+
+
+@app.command("update")
+def update(
+    ctx: typer.Context,
+    backup_id: Annotated[str, typer.Argument(help="Backup config ID")],
+    schedule: Annotated[str | None, typer.Option("--schedule", "-s", help="New cron schedule")] = None,
+    prefix: Annotated[str | None, typer.Option("--prefix", help="New backup file prefix")] = None,
+    enabled: Annotated[bool | None, typer.Option("--enabled/--disabled", help="Enable or disable")] = None,
+    destination_id: Annotated[str | None, typer.Option("--destination", "-d", help="New destination ID")] = None,
+) -> None:
+    """Update a backup configuration."""
+    c: AppContext = ctx.obj
+    payload: dict = {"backupId": backup_id}
+    if schedule is not None:
+        payload["schedule"] = schedule
+    if prefix is not None:
+        payload["prefix"] = prefix
+    if enabled is not None:
+        payload["enabled"] = enabled
+    if destination_id is not None:
+        payload["destinationId"] = destination_id
+    if len(payload) == 1:
+        c.output.error("Nothing to update. Provide at least one option.")
+        raise typer.Exit(1)
+    result = c.client.post("/backup.update", json=payload)
+    c.output.success(f"Backup '{backup_id}' updated")
+    if c.json_mode:
+        c.output.raw_json(result)
+
+
+@app.command("remove")
+def remove(
+    ctx: typer.Context,
+    backup_id: Annotated[str, typer.Argument(help="Backup config ID to remove")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
+) -> None:
+    """Remove a backup configuration (destructive)."""
+    c: AppContext = ctx.obj
+    if not force:
+        typer.confirm(f"Remove backup config '{backup_id}'? This cannot be undone.", abort=True)
+    result = c.client.post("/backup.remove", json={"backupId": backup_id})
+    c.output.success(f"Backup config '{backup_id}' removed")
+    if c.json_mode:
+        c.output.raw_json(result)
+
+
 @app.command("run")
 def run_backup(
     ctx: typer.Context,
@@ -114,6 +189,7 @@ def run_backup(
         "mongo": "/backup.manualBackupMongo",
         "compose": "/backup.manualBackupCompose",
         "web-server": "/backup.manualBackupWebServer",
+        "libsql": "/backup.manualBackupLibsql",
     }
     endpoint = endpoint_map.get(backup_type)
     if not endpoint:
@@ -126,24 +202,85 @@ def run_backup(
         c.output.raw_json(result)
 
 
-@app.command()
+@app.command("list-files")
+def list_files(
+    ctx: typer.Context,
+    destination_id: Annotated[str, typer.Option("--destination", "-d", help="S3 destination ID")],
+    search: Annotated[str, typer.Option("--search", "-s", help="Search filter (e.g. database name or prefix)")] = "",
+    server_id: Annotated[str | None, typer.Option("--server", help="Server ID (for remote servers)")] = None,
+) -> None:
+    """List backup files stored in an S3 destination."""
+    c: AppContext = ctx.obj
+    params: dict = {"destinationId": destination_id, "search": search}
+    if server_id:
+        params["serverId"] = server_id
+    data = c.client.get("/backup.listBackupFiles", params=params)
+    if not isinstance(data, list):
+        data = []
+    rows = []
+    for f in data:
+        if isinstance(f, str):
+            rows.append([f])
+        elif isinstance(f, dict):
+            rows.append([f.get("name", f.get("key", str(f)))])
+    c.output.table(
+        "Backup Files",
+        [("File", "cyan")],
+        rows,
+        data_for_json=data,
+    )
+
+
+@app.command("restore")
 def restore(
     ctx: typer.Context,
-    backup_id: Annotated[str, typer.Argument(help="Backup ID to restore from")],
+    backup_file: Annotated[str, typer.Argument(help="Backup file name (from 'list-files')")],
+    destination_id: Annotated[str, typer.Option("--destination", "-d", help="S3 destination ID")],
+    database_id: Annotated[str, typer.Option("--database-id", help="Database resource ID")],
+    database_name: Annotated[str, typer.Option("--database-name", help="Database name to restore into")],
+    database_type: Annotated[
+        str, typer.Option("--type", "-t", help="Database type: postgres, mysql, mariadb, mongo")
+    ] = "postgres",
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
 ) -> None:
-    """Restore from a backup snapshot (destructive)."""
+    """Restore from a backup file (destructive).
+
+    NOTE: Dokploy restore uses WebSocket streaming. This command initiates the
+    restore via the API. Monitor progress in the Dokploy UI or check logs after.
+    """
     c: AppContext = ctx.obj
     if not force:
         typer.confirm(
-            f"Restore from backup '{backup_id}'? This will overwrite the current state.",
+            f"Restore '{backup_file}' into database '{database_name}'? This will overwrite current data.",
             abort=True,
         )
-    c.output.info(f"Restoring from backup '{backup_id}'...")
-    result = c.client.post("/rollback.rollback", json={"backupId": backup_id})
-    c.output.success(f"Restore initiated from backup '{backup_id}'")
-    if c.json_mode:
-        c.output.raw_json(result)
+    c.output.info(f"Initiating restore of '{backup_file}'...")
+    # Dokploy restore is a tRPC subscription (WebSocket). We call via HTTP POST
+    # which triggers the restore but cannot stream logs. Check Dokploy UI for progress.
+    payload = {
+        "backupFile": backup_file,
+        "destinationId": destination_id,
+        "databaseId": database_id,
+        "databaseName": database_name,
+        "databaseType": database_type,
+        "backupType": "database",
+    }
+    try:
+        result = c.client.post("/backup.restoreBackupWithLogs", json=payload)
+        c.output.success(f"Restore initiated for '{backup_file}' — check Dokploy UI for progress")
+        if c.json_mode:
+            c.output.raw_json(result)
+    except Exception as exc:
+        # Subscription endpoints may not respond to HTTP POST — this is expected
+        error_msg = str(exc)
+        if "subscription" in error_msg.lower() or "upgrade" in error_msg.lower() or "405" in error_msg:
+            c.output.warn(
+                "Restore requires WebSocket (Dokploy subscription). "
+                "Use the Dokploy UI to restore, or use kctl-pg for direct PostgreSQL restore."
+            )
+        else:
+            c.output.error(f"Restore failed: {exc}")
+            raise typer.Exit(1)
 
 
 @app.command()

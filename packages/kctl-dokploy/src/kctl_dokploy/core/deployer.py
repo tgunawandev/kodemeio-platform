@@ -1128,14 +1128,25 @@ class Deployer:
             self._record_phase("volume_backups", "skipped", "No compose_id — skipping volume backups")
             return
 
+        # Check existing volume backups to avoid duplicates
+        existing: list | dict = self._run_kctl_json(
+            ["kctl-dokploy", "volume-backups", "list", "--resource-id", self._compose_id, "--type", "compose"]
+        )
+        existing_names = {b.get("name", "") for b in (existing if isinstance(existing, list) else [])}
+
         created: list[str] = []
         failed: list[str] = []
         for vb in vbs:
+            vb_name = f"vb-{vb.service or 'default'}-{self._compose_id[:8]}"
+            if vb_name in existing_names:
+                continue
             destination_id = self._resolve_destination_id(vb.destination) if vb.destination else ""
             cmd = [
                 "kctl-dokploy",
                 "volume-backups",
                 "create",
+                "--name",
+                vb_name,
                 "--compose",
                 self._compose_id,
                 "--schedule",

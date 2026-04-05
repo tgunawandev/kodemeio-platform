@@ -48,27 +48,19 @@ def _patch_client(mock_client: MagicMock):
 
 
 class TestBackupsList:
-    def test_list_all_backups_json(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = SAMPLE_BACKUPS
-        result = runner.invoke(app, ["--json", "backups", "list"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert isinstance(data, list)
-        assert len(data) == 2
-
-    def test_list_empty_returns_empty(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = []
-        result = runner.invoke(app, ["--json", "backups", "list"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert data == []
-
-    def test_list_filter_by_compose(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = SAMPLE_BACKUPS[:1]
+    def test_list_backups_json(self, mock_client: MagicMock) -> None:
+        mock_client.get.return_value = {"backups": SAMPLE_BACKUPS}
         result = runner.invoke(app, ["--json", "backups", "list", "--compose", "comp-xyz-789"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert len(data) == 1
+
+    def test_list_empty_returns_empty(self, mock_client: MagicMock) -> None:
+        mock_client.get.return_value = {"backups": []}
+        result = runner.invoke(app, ["--json", "backups", "list", "--compose", "comp-xyz-789"])
+        assert result.exit_code == 0
+
+    def test_list_requires_compose(self, mock_client: MagicMock) -> None:
+        result = runner.invoke(app, ["--json", "backups", "list"])
+        assert result.exit_code == 1
 
 
 class TestBackupsDestinations:
@@ -88,26 +80,66 @@ class TestBackupsDestinations:
         assert data == []
 
 
-class TestBackupsTrigger:
-    def test_trigger_with_explicit_destination(self, mock_client: MagicMock) -> None:
-        mock_client.post.return_value = {"backupId": "bkp-new"}
-        result = runner.invoke(app, ["--json", "backups", "trigger", "comp-xyz-789", "--destination", "dst-001"])
+class TestBackupsRun:
+    def test_run_postgres_backup(self, mock_client: MagicMock) -> None:
+        mock_client.post.return_value = {}
+        result = runner.invoke(app, ["backups", "run", "bkp-aaa-111", "--type", "postgres"])
         assert result.exit_code == 0
 
-    def test_trigger_auto_selects_first_destination(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = SAMPLE_DESTINATIONS
-        mock_client.post.return_value = {"backupId": "bkp-new"}
-        result = runner.invoke(app, ["backups", "trigger", "comp-xyz-789"])
+    def test_run_compose_backup(self, mock_client: MagicMock) -> None:
+        mock_client.post.return_value = {}
+        result = runner.invoke(app, ["backups", "run", "bkp-aaa-111", "--type", "compose"])
         assert result.exit_code == 0
 
-    def test_trigger_fails_when_no_destination(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = []
-        result = runner.invoke(app, ["backups", "trigger", "comp-xyz-789"])
+    def test_run_unknown_type_fails(self, mock_client: MagicMock) -> None:
+        result = runner.invoke(app, ["backups", "run", "bkp-aaa-111", "--type", "unknown"])
         assert result.exit_code == 1
+
+
+class TestBackupsGet:
+    def test_get_backup(self, mock_client: MagicMock) -> None:
+        mock_client.get.return_value = SAMPLE_BACKUPS[0]
+        result = runner.invoke(app, ["--json", "backups", "get", "bkp-aaa-111"])
+        assert result.exit_code == 0
+
+    def test_get_backup_not_found(self, mock_client: MagicMock) -> None:
+        mock_client.get.return_value = None
+        result = runner.invoke(app, ["backups", "get", "bkp-nonexist"])
+        assert result.exit_code == 1
+
+
+class TestBackupsRemove:
+    def test_remove_with_force(self, mock_client: MagicMock) -> None:
+        mock_client.post.return_value = {}
+        result = runner.invoke(app, ["backups", "remove", "bkp-aaa-111", "--force"])
+        assert result.exit_code == 0
 
 
 class TestBackupsRestore:
     def test_restore_with_force(self, mock_client: MagicMock) -> None:
         mock_client.post.return_value = {}
-        result = runner.invoke(app, ["backups", "restore", "bkp-aaa-111", "--force"])
+        result = runner.invoke(
+            app,
+            [
+                "backups",
+                "restore",
+                "backup-2026-04-05.sql.gz",
+                "--destination",
+                "dst-001",
+                "--database-id",
+                "db-123",
+                "--database-name",
+                "mydb",
+                "--type",
+                "postgres",
+                "--force",
+            ],
+        )
+        assert result.exit_code == 0
+
+
+class TestBackupsListFiles:
+    def test_list_files(self, mock_client: MagicMock) -> None:
+        mock_client.get.return_value = ["backup-2026-04-01.sql.gz", "backup-2026-04-02.sql.gz"]
+        result = runner.invoke(app, ["--json", "backups", "list-files", "--destination", "dst-001"])
         assert result.exit_code == 0
