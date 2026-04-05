@@ -187,11 +187,15 @@ class ProvisionChain:
 
         quota = self.config.defaults.mailbox_quota
 
-        def _create() -> None:
-            if not mc.create_mailbox(email=email, name=name, quota=quota):
-                raise RuntimeError("Mailcow create_mailbox returned failure")
+        def _create_or_enable() -> None:
+            if mc.create_mailbox(email=email, name=name, quota=quota):
+                return
+            # Creation failed — mailbox may exist in soft-deleted state. Try enable.
+            if mc.enable_mailbox(email):
+                return
+            raise RuntimeError("Mailcow create and enable both failed")
 
-        if self._retry(_create, step, result):
+        if self._retry(_create_or_enable, step, result):
             result.add(step, StepStatus.SUCCESS, f"created ({quota // (1024 * 1024)}MB quota)")
 
     def _step_odoo_sync(
