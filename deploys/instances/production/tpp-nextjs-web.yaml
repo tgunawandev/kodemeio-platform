@@ -8,7 +8,7 @@ source_overrides:
   compose_path: compose/docker-compose.pakerti.yml
 project: tpp
 environment: production
-server: kod-prod-01
+server: tpp-prod-01
 dns:
   zone: pakerti.com
   name: '@'

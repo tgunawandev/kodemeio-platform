@@ -1,0 +1,19 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-postgres
+  description: "TPP dedicated PostgreSQL 16 database"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-postgres
+  branch: main
+  compose_path: ./docker-compose.prod.yml
+
+env_file: ../../env/production/.env.tpp-infra-postgres
