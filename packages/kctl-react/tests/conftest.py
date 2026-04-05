@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
+from kctl_lib.docker import DockerManager
+from kctl_lib.output import Output
+from typer.testing import CliRunner
+
+from kctl_react.core.callbacks import AppContext
 
 
 @pytest.fixture(autouse=True)
@@ -255,3 +261,33 @@ def mock_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr("kctl_react.core.config.CONFIG_FILE", config_file)
 
     return config_file
+
+
+@pytest.fixture
+def runner() -> CliRunner:
+    """Typer CLI test runner."""
+    return CliRunner()
+
+
+@pytest.fixture
+def mock_output() -> Output:
+    """Output instance with quiet mode for testing."""
+    return Output(json_mode=False, quiet=True, format="pretty")
+
+
+@pytest.fixture
+def mock_context(mock_monorepo: Path, mock_output: Output) -> AppContext:
+    """AppContext pointed at a temporary monorepo with mocked output."""
+    ctx = AppContext(quiet=True)
+    ctx._project_root = mock_monorepo
+    ctx._output = mock_output
+    return ctx
+
+
+@pytest.fixture
+def mock_docker_manager() -> MagicMock:
+    """Mock DockerManager spec'd to the real class."""
+    mgr = MagicMock(spec=DockerManager)
+    mgr.ps.return_value = []
+    mgr.logs.return_value = ""
+    return mgr

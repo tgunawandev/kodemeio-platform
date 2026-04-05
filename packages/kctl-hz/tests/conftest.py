@@ -2,12 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
+from typer.testing import CliRunner
 
 from kctl_hz.core.callbacks import AppContext
+from kctl_hz.core.client import HetznerCloudClient
+from kctl_lib.output import Output
+
+
+@pytest.fixture
+def runner() -> CliRunner:
+    """Typer CLI test runner."""
+    return CliRunner()
 
 
 @pytest.fixture
@@ -38,6 +48,12 @@ def mock_dns_client() -> MagicMock:
 
 
 @pytest.fixture
+def mock_client(mock_cloud_client: MagicMock) -> MagicMock:
+    """Standard mock_client alias — wraps mock_cloud_client (HetznerCloudClient)."""
+    return mock_cloud_client
+
+
+@pytest.fixture
 def make_actx(mock_cloud_client: MagicMock, mock_dns_client: MagicMock) -> Any:
     """Factory to create an AppContext with mocked clients.
 
@@ -58,3 +74,30 @@ def make_actx(mock_cloud_client: MagicMock, mock_dns_client: MagicMock) -> Any:
         return actx
 
     return _make
+
+
+@pytest.fixture
+def mock_config(tmp_path: Path):
+    """Redirect kctl-lib config to a temp directory."""
+    config_dir = tmp_path / "kodemeio"
+    config_dir.mkdir(parents=True)
+    config_file = config_dir / "config.yaml"
+    config_file.write_text("default_profile: default\nprofiles: {}\n")
+    with patch("kctl_lib.config.CONFIG_FILE", config_file):
+        yield config_file
+
+
+@pytest.fixture
+def mock_output() -> Output:
+    """Output instance in quiet/JSON mode for test assertions."""
+    return Output(json_mode=True, quiet=True, format="json")
+
+
+@pytest.fixture
+def mock_context(mock_cloud_client: MagicMock, mock_dns_client: MagicMock, mock_output: Output) -> AppContext:
+    """AppContext with mocked cloud + DNS clients and output."""
+    ctx = AppContext(quiet=True)
+    ctx._client = mock_cloud_client
+    ctx._dns_client = mock_dns_client
+    ctx._output = mock_output
+    return ctx

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from kctl_lib.output import Output
+from typer.testing import CliRunner
 
 from kctl_notion.core.callbacks import AppContext
 from kctl_notion.core.client import NotionClient
@@ -195,3 +198,33 @@ def mock_users_list():
         "has_more": False,
         "next_cursor": None,
     }
+
+
+@pytest.fixture
+def runner() -> CliRunner:
+    """Typer CLI test runner."""
+    return CliRunner()
+
+
+@pytest.fixture
+def mock_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Redirect config loading to a temporary directory."""
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config_file = config_dir / "config.yaml"
+    monkeypatch.setenv("KCTL_CONFIG_DIR", str(config_dir))
+    return config_file
+
+
+@pytest.fixture
+def mock_output() -> Output:
+    """Output instance with quiet mode for testing."""
+    return Output(json_mode=False, quiet=True, format="pretty")
+
+
+@pytest.fixture
+def mock_context(mock_client):
+    """Alias for mock_app_context — AppContext with mocked client."""
+    ctx = AppContext(json_mode=False, quiet=True)
+    ctx._client = mock_client
+    return ctx

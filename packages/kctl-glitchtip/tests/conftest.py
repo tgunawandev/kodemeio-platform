@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 from kctl_lib.output import Output
@@ -46,3 +47,14 @@ def mock_context(mock_client: MagicMock, mock_output: Output) -> AppContext:
 def cli_app():
     """Return the Typer app for testing."""
     return app
+
+
+@pytest.fixture
+def mock_config(tmp_path: Path):
+    """Redirect kctl-lib config to a temp directory."""
+    config_dir = tmp_path / "kodemeio"
+    config_dir.mkdir(parents=True)
+    config_file = config_dir / "config.yaml"
+    config_file.write_text("default_profile: default\nprofiles: {}\n")
+    with patch("kctl_lib.config.CONFIG_FILE", config_file):
+        yield config_file

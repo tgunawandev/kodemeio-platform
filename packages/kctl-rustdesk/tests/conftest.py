@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -45,6 +46,29 @@ def mock_context(mock_executor: MagicMock, mock_output: Output) -> AppContext:
     ctx._executor = mock_executor
     ctx._output = mock_output
     return ctx
+
+
+@pytest.fixture
+def mock_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Redirect config loading to a temporary directory."""
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    config_file = config_dir / "config.yaml"
+    monkeypatch.setenv("KCTL_CONFIG_DIR", str(config_dir))
+    return config_file
+
+
+@pytest.fixture
+def mock_client() -> MagicMock:
+    """Alias for mock_executor — the 'client' for rustdesk is the executor."""
+    executor = MagicMock(spec=RustDeskExecutor)
+    executor.is_remote = False
+    executor.hbbs_container = "kodemeio-rustdesk-hbbs-1"
+    executor.hbbr_container = "kodemeio-rustdesk-hbbr-1"
+    executor.DB_PATH = "/root/db_v2.sqlite3"
+    executor.KEY_PUB_PATH = "/root/id_ed25519.pub"
+    executor.KEY_PRIV_PATH = "/root/id_ed25519"
+    return executor
 
 
 @pytest.fixture
