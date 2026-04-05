@@ -10,7 +10,9 @@ from kctl_lib.config import (
     get_all_services_in_profile,
     get_default_profile,
     get_profile_names,
+    load_raw_config,
     remove_profile,
+    save_raw_config,
     set_default_profile,
 )
 from kctl_lib.config import get_service_config as _get_service_config
@@ -30,9 +32,11 @@ __all__ = [
     "get_default_profile",
     "get_profile_names",
     "get_service_config",
+    "load_raw_config",
     "remove_profile",
     "resolve_active_profile_name",
     "resolve_connection",
+    "save_raw_config",
     "set_default_profile",
     "set_service_config",
 ]
