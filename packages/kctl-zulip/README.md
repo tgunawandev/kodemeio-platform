@@ -23,7 +23,7 @@ uv tool install ./packages/kctl-zulip
 kctl-zulip config init
 
 # 2. Check server health
-kctl-zulip health check
+kctl-zulip health
 
 # 3. List users
 kctl-zulip users list
@@ -115,9 +115,9 @@ kctl-zulip config init
 
 # Manual profile
 kctl-zulip config add production \
-  --set url=https://zulip.kodeme.io \
-  --set email=bot@kodeme.io \
-  --set api_key=YOUR_API_KEY
+  --url https://zulip.kodeme.io \
+  --email bot@kodeme.io \
+  --api-key YOUR_API_KEY
 
 # Switch profiles
 kctl-zulip config use production
@@ -131,7 +131,7 @@ Each profile can target a different Zulip instance. Use `--profile` to
 override the active profile for a single command:
 
 ```bash
-kctl-zulip --profile staging health check
+kctl-zulip --profile staging health
 kctl-zulip --profile production users list --json
 ```
 

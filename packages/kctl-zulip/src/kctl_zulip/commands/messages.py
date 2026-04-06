@@ -40,24 +40,26 @@ def list_(
     data = c.client.get("messages", params=params)
     messages = data.get("messages", [])
 
+    import re
+
     rows = []
     for m in messages:
         recipient = m.get("display_recipient", "")
         if not isinstance(recipient, str):
             recipient = "(DM)"
-        # Strip HTML tags for display
-        import re
         content_raw = re.sub(r"<[^>]+>", "", m.get("content", "")).strip()
         if len(content_raw) > 60:
             content_raw = content_raw[:60] + "..."
-        rows.append([
-            str(m.get("id", "")),
-            str(m.get("sender_full_name", "")),
-            str(recipient),
-            str(m.get("subject", "")),
-            content_raw,
-            str(m.get("timestamp", "")),
-        ])
+        rows.append(
+            [
+                str(m.get("id", "")),
+                str(m.get("sender_full_name", "")),
+                str(recipient),
+                str(m.get("subject", "")),
+                content_raw,
+                str(m.get("timestamp", "")),
+            ]
+        )
 
     title = "Messages"
     if stream:
@@ -78,8 +80,12 @@ def send(
     ctx: typer.Context,
     content: Annotated[str, typer.Argument(help="Message content")],
     stream: Annotated[Optional[str], typer.Option("--stream", "-s", help="Stream name (for channel messages)")] = None,
-    topic: Annotated[Optional[str], typer.Option("--topic", "-t", help="Topic name (required for channel messages)")] = None,
-    to: Annotated[Optional[str], typer.Option("--to", help="Comma-separated user IDs or emails (for direct messages)")] = None,
+    topic: Annotated[
+        Optional[str], typer.Option("--topic", "-t", help="Topic name (required for channel messages)")
+    ] = None,
+    to: Annotated[
+        Optional[str], typer.Option("--to", help="Comma-separated user IDs or emails (for direct messages)")
+    ] = None,
 ) -> None:
     """Send a message to a stream/topic or as a direct message."""
     c: AppContext = ctx.obj

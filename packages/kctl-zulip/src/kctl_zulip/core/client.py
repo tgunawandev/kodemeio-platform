@@ -1,6 +1,11 @@
 """Zulip API client using httpx.
 
 Zulip uses HTTP Basic auth (email:api_key) and REST at /api/v1/.
+
+Note: This does NOT subclass kctl-lib's APIClient because Zulip requires
+HTTP Basic auth (email:api_key tuple), form-data POST by default, and has
+a unique error envelope (HTTP 200 with result=error). Similar to kctl-odoo
+(JSON-RPC) and kctl-op (subprocess) which also use custom clients.
 """
 
 from __future__ import annotations

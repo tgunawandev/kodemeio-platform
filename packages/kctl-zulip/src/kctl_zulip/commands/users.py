@@ -14,15 +14,14 @@ app = typer.Typer(help="User management.")
 @app.command("list")
 def list_(
     ctx: typer.Context,
-    include_deactivated: Annotated[bool, typer.Option("--include-deactivated", help="Include deactivated users")] = False,
+    include_deactivated: Annotated[
+        bool, typer.Option("--include-deactivated", help="Include deactivated users")
+    ] = False,
 ) -> None:
     """List all users."""
     c: AppContext = ctx.obj
 
-    if include_deactivated:
-        data = c.client.get("users", params={"include_custom_profile_fields": "false"})
-    else:
-        data = c.client.get("users", params={"include_custom_profile_fields": "false"})
+    data = c.client.get("users", params={"include_custom_profile_fields": "false"})
 
     members = data.get("members", [])
     if not include_deactivated:
@@ -33,7 +32,7 @@ def list_(
             str(m["user_id"]),
             m.get("email", ""),
             m.get("full_name", ""),
-            m.get("role", 400).__class__.__name__ != "int" and str(m.get("role", "")) or _role_name(m.get("role", 400)),
+            _role_name(m.get("role", 400)),
             "yes" if m.get("is_active", True) else "no",
             "yes" if m.get("is_bot", False) else "no",
         ]
@@ -69,20 +68,26 @@ def get(
     c.output.detail(
         f"User: {user.get('full_name', '')}",
         [
-            ("Identity", [
-                ("ID", str(user.get("user_id", ""))),
-                ("Email", user.get("email", "")),
-                ("Name", user.get("full_name", "")),
-                ("Delivery Email", user.get("delivery_email", "")),
-            ]),
-            ("Status", [
-                ("Role", _role_name(user.get("role", 400))),
-                ("Active", str(user.get("is_active", True))),
-                ("Bot", str(user.get("is_bot", False))),
-                ("Bot Type", str(user.get("bot_type", "")) if user.get("is_bot") else "N/A"),
-                ("Timezone", user.get("timezone", "")),
-                ("Date Joined", user.get("date_joined", "")),
-            ]),
+            (
+                "Identity",
+                [
+                    ("ID", str(user.get("user_id", ""))),
+                    ("Email", user.get("email", "")),
+                    ("Name", user.get("full_name", "")),
+                    ("Delivery Email", user.get("delivery_email", "")),
+                ],
+            ),
+            (
+                "Status",
+                [
+                    ("Role", _role_name(user.get("role", 400))),
+                    ("Active", str(user.get("is_active", True))),
+                    ("Bot", str(user.get("is_bot", False))),
+                    ("Bot Type", str(user.get("bot_type", "")) if user.get("is_bot") else "N/A"),
+                    ("Timezone", user.get("timezone", "")),
+                    ("Date Joined", user.get("date_joined", "")),
+                ],
+            ),
         ],
         data_for_json=user,
     )
@@ -99,22 +104,30 @@ def create(
     """Create a new user."""
     c: AppContext = ctx.obj
 
-    result = c.client.post("users", data={
-        "email": email,
-        "password": password,
-        "full_name": full_name,
-        "role": str(_role_id(role)),
-    })
+    result = c.client.post(
+        "users",
+        data={
+            "email": email,
+            "password": password,
+            "full_name": full_name,
+            "role": str(_role_id(role)),
+        },
+    )
 
     user_id = result.get("user_id", "")
     c.output.detail(
         "User Created",
-        [("Details", [
-            ("ID", str(user_id)),
-            ("Email", email),
-            ("Name", full_name),
-            ("Role", role),
-        ])],
+        [
+            (
+                "Details",
+                [
+                    ("ID", str(user_id)),
+                    ("Email", email),
+                    ("Name", full_name),
+                    ("Role", role),
+                ],
+            )
+        ],
         data_for_json=result,
     )
 
