@@ -363,7 +363,7 @@ def current(ctx: typer.Context) -> None:
     out = actx.output
 
     active = resolve_active_profile_name(actx.profile)
-    svc = get_service_config(active)
+    get_service_config(active)
 
     resolved_url, resolved_email, resolved_key = resolve_connection(
         profile_name=actx.profile,

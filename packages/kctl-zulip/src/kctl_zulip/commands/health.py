@@ -8,7 +8,6 @@ import typer
 from typing import Annotated
 
 from kctl_zulip.core.callbacks import AppContext
-from kctl_lib.exceptions import KctlError
 
 app = typer.Typer(help="Health checks and diagnostics.")
 

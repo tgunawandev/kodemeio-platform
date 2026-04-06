@@ -63,7 +63,7 @@ def create(
     if message:
         payload["message"] = message
 
-    result = c.client.post("invites", data=payload)
+    c.client.post("invites", data=payload)
     c.output.success(f"Invitations sent to {len(email_list)} email(s)")
 
 

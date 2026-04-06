@@ -89,7 +89,7 @@ def create(
     if members:
         member_ids = [int(m.strip()) for m in members.split(",") if m.strip()]
 
-    result = c.client.post("user_groups/create", data={
+    c.client.post("user_groups/create", data={
         "name": name,
         "description": description,
         "members": json.dumps(member_ids),

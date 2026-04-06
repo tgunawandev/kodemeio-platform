@@ -50,7 +50,6 @@ def mute_topic(
 ) -> None:
     """Mute a topic."""
     c: AppContext = ctx.obj
-    import json
 
     c.client.patch(
         "users/me/subscriptions/muted_topics",
