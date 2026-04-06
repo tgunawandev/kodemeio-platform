@@ -1,0 +1,21 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-collabora
+  description: "Collabora Online document editing (WOPI)"
+
+project: kod
+
+source_overrides:
+  repo: kodemeio-opencloud
+  compose_path: ./docker-compose.prod.yml
+
+domain:
+  host: collabora.kodeme.io
+  port: 9980
+  service: collabora
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-opencloud
