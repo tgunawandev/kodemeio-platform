@@ -24,9 +24,9 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 
 ## Architecture
 
-`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **21 CLI tools**, all consolidated into this single workspace.
+`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **22 CLI tools**, all consolidated into this single workspace.
 
-### Workspace Members (21 packages)
+### Workspace Members (22 packages)
 
 #### Shared Library
 - **kctl-lib** — Shared CLI infrastructure (v0.4.0, published to PyPI)
@@ -57,6 +57,7 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 - **kctl-claude** — Claude Code environment management (8 groups)
 - **kctl-telegram** — Telegram bot platform (7 groups)
 - **kctl-notion** — Notion wiki/database management (7 groups)
+- **kctl-zulip** — Zulip team chat administration (22 groups)
 
 Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-lib; exceptions are kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-mdm (custom auth).
 
@@ -86,6 +87,7 @@ Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, kee
 | `packages/kctl-sentry/` | Sentry error tracking CLI |
 | `packages/kctl-telegram/` | Telegram bot platform CLI |
 | `packages/kctl-waha/` | WhatsApp HTTP API CLI |
+| `packages/kctl-zulip/` | Zulip team chat CLI |
 | `deploys/bases/` | Deployment base templates (odoo, react-pwa, nextjs, fastapi, infra) |
 | `deploys/instances/production/` | Production instance manifests (35 services) |
 | `deploys/instances/staging/` | Staging instance manifests (17 services — mac + tpp) |
