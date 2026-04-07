@@ -1,0 +1,18 @@
+Dear Hetzner Support Team,
+
+I hope this message finds you well. I would like to kindly request the removal of the SMTP port restriction (port 25) on our server tpp-prod-01 (IP: 178.104.127.104) in the TPP project.
+
+We are setting up a self-hosted mail server using Mailcow for our company domain idtpp.com (PT Pakerti). This will be used exclusively for legitimate business email communications for our internal team.
+
+We have already configured the following to ensure responsible mail server operation:
+- DNS records (MX, SPF, DMARC) for idtpp.com via Cloudflare
+- Reverse DNS (PTR) will be set to mail.idtpp.com once the port is unblocked
+- DKIM signing will be enabled upon Mailcow setup
+- The server is used solely for our business infrastructure (ERP, internal apps, and now email)
+
+We would greatly appreciate it if you could unblock the SMTP ports (25, 465, 587) for this server at your earliest convenience.
+
+Thank you very much for your time and assistance.
+
+Best regards,
+Tri Gunawan

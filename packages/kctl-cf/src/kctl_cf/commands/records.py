@@ -57,19 +57,24 @@ def create(
     content: Annotated[str, typer.Option("--content", help="Record content")],
     ttl: Annotated[int, typer.Option("--ttl", help="TTL in seconds (1=auto)")] = 1,
     proxied: Annotated[bool, typer.Option("--proxied/--no-proxied", help="Cloudflare proxy")] = False,
+    priority: Annotated[
+        int | None, typer.Option("--priority", help="Record priority (required for MX records)")
+    ] = None,
     zone: Annotated[str | None, typer.Option("--zone", help="Zone name")] = None,
 ) -> None:
     """Create a DNS record."""
     c: AppContext = ctx.obj
     zone = resolve_zone(c, zone)
     zone_id = c.client.get_zone_id(zone)
-    payload = {
+    payload: dict = {
         "type": record_type.upper(),
         "name": name,
         "content": content,
         "ttl": ttl,
         "proxied": proxied,
     }
+    if priority is not None:
+        payload["priority"] = priority
     result = c.client.post(f"/zones/{zone_id}/dns_records", json=payload)
     rec_id = result.get("id", "") if isinstance(result, dict) else ""
     c.output.success(f"DNS record created: {rec_id}")

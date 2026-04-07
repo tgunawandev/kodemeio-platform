@@ -1,0 +1,32 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-mailcow
+  description: "TPP Mailcow mail server"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  repo: kodemeio-mailcow
+  branch: "master"
+
+dns:
+  zone: idtpp.com
+  name: mail
+
+domain:
+  host: mail.idtpp.com
+  port: 8080
+  service: nginx-mailcow
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-mailcow
+
+env_overrides:
+  MAILCOW_HOSTNAME: mail.idtpp.com
+  COMPOSE_PROJECT_NAME: tpp-infra-mailcow
+  TZ: Asia/Jakarta

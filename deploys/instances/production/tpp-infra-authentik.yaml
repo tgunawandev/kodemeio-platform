@@ -1,0 +1,34 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-authentik
+  description: "TPP Authentik SSO/Identity Provider"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  repo: kodemeio-authentik
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: auth
+
+domain:
+  host: auth.idtpp.com
+  port: 9000
+  service: server
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-authentik
+
+env_overrides:
+  AUTHENTIK_POSTGRESQL__HOST: postgresql
+  AUTHENTIK_POSTGRESQL__NAME: authentik
+  AUTHENTIK_POSTGRESQL__USER: authentik
+  COMPOSE_PROJECT_NAME: tpp-infra-authentik
+  TZ: Asia/Jakarta
