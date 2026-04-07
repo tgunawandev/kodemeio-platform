@@ -1,0 +1,19 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-redis
+  description: "Shared Redis 7 for TPP services"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-redis
+  branch: main
+  compose_path: ./docker-compose.prod.yml
+
+env_file: ../../env/production/.env.tpp-infra-redis
