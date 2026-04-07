@@ -6,7 +6,7 @@ instance:
   description: KOD — TMS_PARENT PWA
 project: kod
 environment: production
-server: kod-stg-01
+server: kod-prod-02
 source_overrides:
   compose_path: compose/docker-compose.tms-parent.yml
 dns:

@@ -6,7 +6,7 @@ instance:
   description: KOD — SAAS PWA
 project: kod
 environment: staging
-server: kod-stg-01
+server: kod-prod-02
 source_overrides:
   compose_path: compose/docker-compose.saas.yml
 dns:

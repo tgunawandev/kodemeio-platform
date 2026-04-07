@@ -5,17 +5,17 @@ instance:
   name: tpp-nextjs-web
   description: Pakerti company website
 source_overrides:
-  compose_path: compose/docker-compose.pakerti.yml
+  compose_path: compose/docker-compose.idtpp.yml
 project: tpp
 environment: production
 server: kod-prod-01
 dns:
-  zone: pakerti.com
+  zone: idtpp.com
   name: '@'
 domain:
-  host: pakerti.com
+  host: idtpp.com
   port: 3000
-  service: pakerti-web
+  service: idtpp-web
   https: true
   cert: letsencrypt
 env_file: ../../env/production/.env.tpp-nextjs-web

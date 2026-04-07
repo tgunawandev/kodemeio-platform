@@ -10,14 +10,14 @@ server: kod-prod-01
 source_overrides:
   compose_path: compose/docker-compose.bia.yml
 dns:
-  zone: pakerti.com
+  zone: idtpp.com
   name: tpp-bia
 domain:
-  host: tpp-bia.pakerti.com
+  host: tpp-bia.idtpp.com
   port: 80
   service: bia
   https: true
 env_file: ../../env/production/.env.tpp-react-bia
 env_overrides:
   VITE_BIA_APP_NAME: Pakerti BIA
-  VITE_BIA_API_BASE_URL: https://tpp-odoo-trad.pakerti.com/bia/api
+  VITE_BIA_API_BASE_URL: https://tpp-odoo-trad.idtpp.com/bia/api

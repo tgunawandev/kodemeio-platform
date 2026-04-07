@@ -138,7 +138,7 @@ Each gate returns PASS, WARN, or FAIL. Any FAIL blocks deployment.
 ```bash
 # Migrate a single tenant to a new server
 kctl-dokploy deploy migrate \
-  --from kod-stg-01 \
+  --from kod-prod-02 \
   --to mac-prod-01 \
   --tenant mac \
   -d deploys/instances/production/
@@ -183,7 +183,7 @@ Step 12: VERIFY_URLS    HTTP health check on every domain (curl -k https://...)
 {
   "id": "migrate-mac-20260405-021500",
   "tenant": "mac",
-  "from_server": "kod-stg-01",
+  "from_server": "kod-prod-02",
   "to_server": "mac-prod-01",
   "status": "in_progress",
   "current_step": 8,
@@ -293,10 +293,10 @@ Instead of passing flags, migrations are defined declaratively:
 # deploys/migrations/mac-to-dedicated.yaml
 kind: migration
 name: mac-to-dedicated
-description: "Migrate MAC tenant from kod-stg-01 to mac-prod-01"
+description: "Migrate MAC tenant from kod-prod-02 to mac-prod-01"
 
 source:
-  server: kod-stg-01
+  server: kod-prod-02
   postgres_profile: kodemeio    # kctl-pg profile for source
 
 target:

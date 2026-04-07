@@ -6,18 +6,18 @@ instance:
   description: Pakerti — HRM PWA
 project: tpp
 environment: staging
-server: kod-stg-01
+server: kod-prod-02
 source_overrides:
   compose_path: compose/docker-compose.hrm.yml
 dns:
-  zone: pakerti.com
+  zone: idtpp.com
   name: stg-tpp-hrm
 domain:
-  host: stg-tpp-hrm.pakerti.com
+  host: stg-tpp-hrm.idtpp.com
   port: 80
   service: hrm
   https: true
 env_file: ../../env/staging/.env.tpp-react-hrm
 env_overrides:
   VITE_HRM_APP_NAME: Pakerti HRM
-  VITE_HRM_API_BASE_URL: https://stg-tpp-odoo-hrms.pakerti.com/hrm/api
+  VITE_HRM_API_BASE_URL: https://stg-tpp-odoo-hrms.idtpp.com/hrm/api

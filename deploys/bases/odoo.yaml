@@ -7,7 +7,7 @@
 # Examples:
 #   kod-odoo-full         → odoo_full_kod         → odoo.kodeme.io
 #   mac-odoo-dist         → odoo_dist_mac         → mac-odoo-dist.mandiriagro.com
-#   tpp-odoo-trad         → odoo_trad_tpp         → tpp-odoo-trad.pakerti.com
+#   tpp-odoo-trad         → odoo_trad_tpp         → tpp-odoo-trad.idtpp.com
 
 kind: base
 type: odoo

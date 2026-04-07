@@ -10,14 +10,14 @@ server: kod-prod-01
 source_overrides:
   compose_path: compose/docker-compose.wms.yml
 dns:
-  zone: pakerti.com
+  zone: idtpp.com
   name: tpp-wms
 domain:
-  host: tpp-wms.pakerti.com
+  host: tpp-wms.idtpp.com
   port: 80
   service: wms
   https: true
 env_file: ../../env/production/.env.tpp-react-wms
 env_overrides:
   VITE_WMS_APP_NAME: Pakerti WMS
-  VITE_WMS_API_BASE_URL: https://tpp-odoo-trad.pakerti.com/wms/api
+  VITE_WMS_API_BASE_URL: https://tpp-odoo-trad.idtpp.com/wms/api

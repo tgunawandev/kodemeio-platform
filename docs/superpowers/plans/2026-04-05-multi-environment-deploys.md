@@ -448,7 +448,7 @@ environments:
     db_prefix: ""
     auto_deploy: false
   staging:
-    server: kod-stg-01
+    server: kod-prod-02
     dns_prefix: "stg-"
     db_prefix: "stg_"
     auto_deploy: true

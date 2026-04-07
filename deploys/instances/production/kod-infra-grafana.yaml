@@ -6,7 +6,7 @@ instance:
   description: "Grafana monitoring stack (Prometheus, Loki, AlertManager)"
 
 project: kod
-server: kod-stg-01
+server: kod-prod-02
 
 source_overrides:
   repo: kodemeio-grafana

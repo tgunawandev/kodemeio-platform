@@ -138,7 +138,7 @@ Each tenant can define production + staging environments. The deployer targets t
 
 Server mapping:
 - **mac**: `mac-prod-01` / `mac-stg-01` (dedicated)
-- **kod, tpp, tkz, pro, tgw, kid**: `kod-prod-01` / `kod-stg-01` (shared)
+- **kod, tpp, tkz, pro, tgw, kid**: `kod-prod-01` / `kod-prod-02` (shared)
 
 ### Deploy Commands
 

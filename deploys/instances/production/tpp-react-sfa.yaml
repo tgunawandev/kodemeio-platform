@@ -10,14 +10,14 @@ server: kod-prod-01
 source_overrides:
   compose_path: compose/docker-compose.sfa.yml
 dns:
-  zone: pakerti.com
+  zone: idtpp.com
   name: tpp-sfa
 domain:
-  host: tpp-sfa.pakerti.com
+  host: tpp-sfa.idtpp.com
   port: 80
   service: sfa
   https: true
 env_file: ../../env/production/.env.tpp-react-sfa
 env_overrides:
   VITE_SFA_APP_NAME: Pakerti SFA
-  VITE_SFA_API_BASE_URL: https://tpp-odoo-trad.pakerti.com/sfa/api
+  VITE_SFA_API_BASE_URL: https://tpp-odoo-trad.idtpp.com/sfa/api

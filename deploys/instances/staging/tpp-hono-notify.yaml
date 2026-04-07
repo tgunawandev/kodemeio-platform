@@ -12,7 +12,7 @@ source_overrides:
   compose_path: apps/api/notify/docker-compose.yml
 project: tpp
 environment: staging
-server: kod-stg-01
+server: kod-prod-02
 healthcheck:
   path: /health
   port: 3020
@@ -20,10 +20,10 @@ healthcheck:
   timeout: 60
   interval: 10
 dns:
-  zone: pakerti.com
+  zone: idtpp.com
   name: stg-tpp-notify
 domain:
-  host: stg-tpp-notify.pakerti.com
+  host: stg-tpp-notify.idtpp.com
   port: 3020
   service: notify
   https: true
@@ -34,5 +34,5 @@ env_overrides:
   REDIS_URL: redis://redis:6379
   DISPATCH_SECRET: ${DISPATCH_SECRET}
   JWT_SECRET: ${JWT_SECRET}
-  ALLOWED_ORIGINS: https://stg-tpp-sfa.pakerti.com,https://stg-tpp-bia.pakerti.com,https://stg-tpp-wms.pakerti.com,https://stg-tpp-hrm.pakerti.com
+  ALLOWED_ORIGINS: https://stg-tpp-sfa.idtpp.com,https://stg-tpp-bia.idtpp.com,https://stg-tpp-wms.idtpp.com,https://stg-tpp-hrm.idtpp.com
   FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}

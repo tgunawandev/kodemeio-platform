@@ -24,7 +24,7 @@ Dokploy already supports environments per project (e.g., `production` + `staging
 | Tenant | Production Server | Staging Server |
 |--------|------------------|----------------|
 | mac | `mac-prod-01` | `mac-stg-01` |
-| kod, tpp, tkz, pro, tgw, kid | `kod-prod-01` | `kod-stg-01` |
+| kod, tpp, tkz, pro, tgw, kid | `kod-prod-01` | `kod-prod-02` |
 
 Future tenants will get dedicated server pairs. Until then, they share `kod-*` servers.
 
@@ -184,7 +184,7 @@ env_overrides:
 
 ### Infrastructure services
 
-Infrastructure services (`kod-infra-*`) are **production only** — they are not generated for staging. Staging apps on `kod-stg-01` share production infrastructure (authentik, postgres, gatus, etc.) running on `kod-prod-01`.
+Infrastructure services (`kod-infra-*`) are **production only** — they are not generated for staging. Staging apps on `kod-prod-02` share production infrastructure (authentik, postgres, gatus, etc.) running on `kod-prod-01`.
 
 Exception: if a staging server needs its own PostgreSQL, it gets a `kod-infra-postgres` instance in the staging manifests.
 
@@ -366,4 +366,4 @@ deploys/env/staging/.env.*
 
 - **Path changes break CI** — CI workflow references `deploys/instances/` must be updated to `deploys/instances/production/`
 - **Staging env files need real values** — copying from production and changing URLs is manual work per service; secrets must be rotated for staging
-- **Shared infrastructure** — staging services on `kod-stg-01` need network access to production postgres on `kod-prod-01` (or their own postgres instance)
+- **Shared infrastructure** — staging services on `kod-prod-02` need network access to production postgres on `kod-prod-01` (or their own postgres instance)

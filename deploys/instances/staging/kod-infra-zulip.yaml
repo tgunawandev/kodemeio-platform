@@ -1,0 +1,42 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-zulip
+  description: "Zulip team chat (Redis, RabbitMQ, Memcached, Authentik OIDC, S3)"
+
+project: kod
+environment: staging
+server: kod-prod-02
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-zulip
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+dns:
+  zone: kodeme.io
+  name: stg-zulip
+
+domain:
+  host: stg-zulip.kodeme.io
+  port: 80
+  service: zulip
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/staging/.env.kod-infra-zulip
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: kod-infra-zulip
+  DOMAIN: stg-zulip.kodeme.io
+  TENANT: kodemeio
+  TZ: Asia/Jakarta
+
+healthcheck:
+  path: /api/v1/server_settings
+  port: 80
+  expected_status: 200
+  timeout: 120
+  interval: 30

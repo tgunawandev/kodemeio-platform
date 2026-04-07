@@ -12,17 +12,17 @@ server: kod-prod-01
 healthcheck:
   port: 3000
 dns:
-  zone: pakerti.com
+  zone: idtpp.com
   name: tpp-careers
 domain:
-  host: tpp-careers.pakerti.com
+  host: tpp-careers.idtpp.com
   port: 3000
   service: careers
   https: true
 env_overrides:
-  NEXT_PUBLIC_SITE_URL: https://tpp-careers.pakerti.com
+  NEXT_PUBLIC_SITE_URL: https://tpp-careers.idtpp.com
   NEXT_PUBLIC_SITE_NAME: Pakerti
-  NEXT_PUBLIC_COMPANY_WEBSITE: https://pakerti.com
-  NEXT_PUBLIC_API_URL: https://tpp-odoo-hrms.pakerti.com
-  NEXT_PUBLIC_RECRUITMENT_API_URL: https://tpp-odoo-hrms.pakerti.com/recruitment/api
-  API_URL: https://tpp-odoo-hrms.pakerti.com
+  NEXT_PUBLIC_COMPANY_WEBSITE: https://idtpp.com
+  NEXT_PUBLIC_API_URL: https://tpp-odoo-hrms.idtpp.com
+  NEXT_PUBLIC_RECRUITMENT_API_URL: https://tpp-odoo-hrms.idtpp.com/recruitment/api
+  API_URL: https://tpp-odoo-hrms.idtpp.com

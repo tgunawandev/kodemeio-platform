@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deploy all 13 React PWA apps (bia, dms, eam, hrm, lfa, mrp, saas, sfa, shop, tms, tms-parent, tpm, wms) to the `kod` tenant on `kod-stg-01` server as staging instances.
+**Goal:** Deploy all 13 React PWA apps (bia, dms, eam, hrm, lfa, mrp, saas, sfa, shop, tms, tms-parent, tpm, wms) to the `kod` tenant on `kod-prod-02` server as staging instances.
 
 **Architecture:** Create a `kod.yaml` tenant definition, generate staging manifests via `generate.py`, create missing docker-compose files for the 9 apps that lack them, and create `.env` files for each app. All apps point to `kod-odoo-full.kodeme.io` as backend API. DNS pattern: `stg-kod-{app}.kodeme.io`.
 
@@ -12,7 +12,7 @@
 
 ## Pre-Requisites
 
-- `kod-stg-01` server is accessible and has Dokploy agent running
+- `kod-prod-02` server is accessible and has Dokploy agent running
 - `kod-odoo-full.kodeme.io` Odoo backend is deployed (confirmed: exists at `deploys/instances/production/kod-odoo-full.yaml`)
 - Cloudflare zone `kodeme.io` is configured in kctl-cf
 
@@ -164,7 +164,7 @@ tenant:
 
 environments:
   staging:
-    server: kod-stg-01
+    server: kod-prod-02
     dns_prefix: "stg-"
     db_prefix: "stg_"
     auto_deploy: true
@@ -263,7 +263,7 @@ instance:
   description: KOD — SFA PWA
 project: kod
 environment: staging
-server: kod-stg-01
+server: kod-prod-02
 source_overrides:
   compose_path: compose/docker-compose.sfa.yml
 dns:
@@ -317,7 +317,7 @@ If a staging Odoo manifest was created and is not wanted, remove it.
 cd /home/tgunawan/project/00-new-projects/kodemeio-app/kodemeio-platform
 git add deploys/instances/staging/kod-react-*.yaml
 git add deploys/env/staging/.env.kod-react-*
-git commit -m "feat(deploy): add 13 kod-react staging manifests for kod-stg-01"
+git commit -m "feat(deploy): add 13 kod-react staging manifests for kod-prod-02"
 ```
 
 ---
@@ -329,7 +329,7 @@ git commit -m "feat(deploy): add 13 kod-react staging manifests for kod-stg-01"
 - [ ] **Step 1: Run preflight checks on all manifests**
 
 ```bash
-kctl-dokploy deploy preflight-all -d deploys/instances/staging/ --server kod-stg-01
+kctl-dokploy deploy preflight-all -d deploys/instances/staging/ --server kod-prod-02
 ```
 
 Expected: All 13 kod-react manifests pass preflight gates. Fix any failures before proceeding.
@@ -397,4 +397,4 @@ Check for unstaged changes and commit if needed.
 1. **tms-parent hyphen in app name** — The generator uses `app.upper()` for env var prefix. `tms-parent` → `TMS-PARENT` which is invalid in env vars. May need to handle this edge case in `generate.py` or override manually.
 2. **Backend API readiness** — All apps point to `stg-kod-odoo-full.kodeme.io` which doesn't exist yet (only production `kod-odoo-full.kodeme.io` exists). The generator will create a staging Odoo manifest too, but it would need to be deployed first for the React apps to work.
 3. **9 new compose files** — Need to be committed to `kodemeio-react` repo and pushed before Dokploy can build from GitHub source.
-4. **Resource limits** — 13 apps x 256MB = ~3.3GB RAM on kod-stg-01. Verify server has capacity.
+4. **Resource limits** — 13 apps x 256MB = ~3.3GB RAM on kod-prod-02. Verify server has capacity.

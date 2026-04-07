@@ -20,10 +20,10 @@ healthcheck:
   timeout: 60
   interval: 10
 dns:
-  zone: pakerti.com
+  zone: idtpp.com
   name: tpp-notify
 domain:
-  host: tpp-notify.pakerti.com
+  host: tpp-notify.idtpp.com
   port: 3020
   service: notify
   https: true
@@ -34,5 +34,5 @@ env_overrides:
   REDIS_URL: redis://redis:6379
   DISPATCH_SECRET: ${DISPATCH_SECRET}
   JWT_SECRET: ${JWT_SECRET}
-  ALLOWED_ORIGINS: https://tpp-sfa.pakerti.com,https://tpp-bia.pakerti.com,https://tpp-wms.pakerti.com,https://tpp-hrm.pakerti.com
+  ALLOWED_ORIGINS: https://tpp-sfa.idtpp.com,https://tpp-bia.idtpp.com,https://tpp-wms.idtpp.com,https://tpp-hrm.idtpp.com
   FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}

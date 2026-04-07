@@ -6,6 +6,7 @@ instance:
   description: "OpenCloud file management & collaboration platform"
 
 project: kod
+server: kod-prod-02
 
 source_overrides:
   repo: kodemeio-opencloud

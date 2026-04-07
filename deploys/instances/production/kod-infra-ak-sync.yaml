@@ -11,7 +11,7 @@ source_overrides:
   compose_path: apps/api/ak-sync/docker-compose.yml
 project: kod
 environment: production
-server: kod-stg-01
+server: kod-prod-02
 healthcheck:
   path: /health
   port: 3030

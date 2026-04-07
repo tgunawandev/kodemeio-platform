@@ -2,7 +2,7 @@ tenant:
   code: tpp
   name: "Pakerti"
   short_name: "Pakerti"
-  domain: pakerti.com
+  domain: idtpp.com
 
 environments:
   production:
@@ -11,7 +11,7 @@ environments:
     db_prefix: ""
     auto_deploy: false
   staging:
-    server: kod-stg-01
+    server: kod-prod-02
     dns_prefix: "stg-"
     db_prefix: "stg_"
     auto_deploy: true
@@ -30,7 +30,7 @@ odoo:
 
 web:
   corporate:
-    compose_brand: pakerti
+    compose_brand: idtpp
   careers: true
 
 services:

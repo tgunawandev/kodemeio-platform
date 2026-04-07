@@ -10,14 +10,14 @@ server: kod-prod-01
 source_overrides:
   compose_path: compose/docker-compose.hrm.yml
 dns:
-  zone: pakerti.com
+  zone: idtpp.com
   name: tpp-hrm
 domain:
-  host: tpp-hrm.pakerti.com
+  host: tpp-hrm.idtpp.com
   port: 80
   service: hrm
   https: true
 env_file: ../../env/production/.env.tpp-react-hrm
 env_overrides:
   VITE_HRM_APP_NAME: Pakerti HRM
-  VITE_HRM_API_BASE_URL: https://tpp-odoo-hrms.pakerti.com/hrm/api
+  VITE_HRM_API_BASE_URL: https://tpp-odoo-hrms.idtpp.com/hrm/api

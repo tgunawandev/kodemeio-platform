@@ -2,7 +2,7 @@
 
 > Last updated: 2026-04-05 | Owner: Platform team
 
-Standard operating procedure for migrating a tenant from one server to another using `kctl-dokploy deploy migrate`. Uses the MAC migration (`kod-stg-01` → `mac-prod-01`) as the running example.
+Standard operating procedure for migrating a tenant from one server to another using `kctl-dokploy deploy migrate`. Uses the MAC migration (`kod-prod-02` → `mac-prod-01`) as the running example.
 
 ---
 
@@ -57,7 +57,7 @@ For the MAC migration, you need:
 | Tenant | Production Server | Staging Server |
 |--------|-----------------|----------------|
 | mac | `mac-prod-01` (91.98.80.207) | `mac-stg-01` |
-| kod, tpp, tkz, pro, tgw, kid | `kod-prod-01` (49.13.116.191) | `kod-stg-01` |
+| kod, tpp, tkz, pro, tgw, kid | `kod-prod-01` (49.13.116.191) | `kod-prod-02` |
 
 ### Access Verification
 
@@ -82,10 +82,10 @@ Migration manifests live in `deploys/migrations/`. Convention: `{tenant}-to-{tar
 # deploys/migrations/mac-to-dedicated.yaml
 kind: migration
 name: mac-to-dedicated
-description: "Migrate MAC tenant from kod-stg-01 to mac-prod-01"
+description: "Migrate MAC tenant from kod-prod-02 to mac-prod-01"
 
 source:
-  server: kod-stg-01
+  server: kod-prod-02
   postgres_profile: kodemeio    # kctl-pg profile for source postgres
 
 target:
@@ -531,7 +531,7 @@ State is persisted to disk so migrations survive network interruptions and can b
 {
   "id": "migrate-mac-20260405-021500",
   "tenant": "mac",
-  "from_server": "kod-stg-01",
+  "from_server": "kod-prod-02",
   "to_server": "mac-prod-01",
   "status": "in_progress",
   "current_step": 8,
