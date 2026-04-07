@@ -15,5 +15,6 @@ build/
 deploys/env/production/.env.*
 deploys/env/staging/.env.*
 .playwright-mcp/
+.playwright-cli/
 .claude/
 .worktrees/
