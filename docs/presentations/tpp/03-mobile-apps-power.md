@@ -187,4 +187,4 @@ Semua ini terjadi di **satu sumber data — Odoo** — tidak ada rekonsiliasi, t
 ---
 
 *Dokumen ini merupakan bagian dari presentasi platform digital TPP.*
-*© 2026 Kodemeio. Confidential — untuk internal TPP.*
+*Confidential — untuk internal TPP.*

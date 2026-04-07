@@ -22,9 +22,9 @@
 
 ### Mengapa Ini Bukan Janji / Why This Is Not a Promise
 
-> "Setiap modul di atas sudah teruji dan berjalan di perusahaan lain dalam ekosistem Kodemeio. Aktivasi = konfigurasi dan training, bukan development dari nol. Timeline: minggu, bukan bulan."
+> "Setiap modul di atas sudah teruji dan berjalan di perusahaan lain. Aktivasi = konfigurasi dan training, bukan development dari nol. Timeline: minggu, bukan bulan."
 >
-> "Every module above is already tested and running at other companies in the Kodemeio ecosystem. Activation = configuration and training, not development from scratch. Timeline: weeks, not months."
+> "Every module above is already tested and running at other companies. Activation = configuration and training, not development from scratch. Timeline: weeks, not months."
 
 ---
 

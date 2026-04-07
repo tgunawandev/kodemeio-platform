@@ -30,7 +30,7 @@ Fondasi teknologi yang tidak terlihat tapi selalu bekerja — melindungi data, m
 
 **Perbandingan situasi sebelum dan sesudah:**
 
-| Kondisi | Risiko | Dengan Kodemeio |
+| Kondisi | Risiko | Dengan Platform Ini |
 |---------|--------|-----------------|
 | Accurate di 1 komputer | Hard disk rusak = data hilang permanen | Backup otomatis harian, recovery kapan saja |
 | Google Sheets | Google bisa ubah kebijakan, naikkan harga, tutup akun sewaktu-waktu | Data di server dedicated TPP sendiri |

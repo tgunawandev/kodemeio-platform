@@ -277,4 +277,4 @@ Yang ada:
 ---
 
 *Dokumen ini bagian dari presentasi platform digital TPP (idtpp.com)*
-*Disiapkan oleh tim Kodemeio — kodeme.io*
+*Disiapkan oleh tim teknologi TPP*

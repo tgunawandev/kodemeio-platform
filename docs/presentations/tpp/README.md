@@ -5,15 +5,15 @@
 
 ## Tentang Presentasi Ini / About This Presentation
 
-Dokumen ini menyajikan gambaran lengkap platform teknologi Kodemeio yang dibangun khusus untuk TPP — perusahaan import & trading yang beroperasi di idtpp.com. Dari ERP hingga aplikasi mobile, dari email perusahaan hingga keamanan data, semua terintegrasi dalam satu ekosistem.
+Dokumen ini menyajikan gambaran lengkap platform teknologi enterprise yang dibangun khusus untuk TPP — perusahaan import & trading yang beroperasi di idtpp.com. Dari ERP hingga aplikasi mobile, dari email perusahaan hingga keamanan data, semua terintegrasi dalam satu ekosistem.
 
-This document presents a complete overview of the Kodemeio technology platform built specifically for TPP — an import & trading company operating at idtpp.com. From ERP to mobile apps, from company email to data security, everything is integrated into one ecosystem.
+This document presents a complete overview of the enterprise technology platform built specifically for TPP — an import & trading company operating at idtpp.com. From ERP to mobile apps, from company email to data security, everything is integrated into one ecosystem.
 
 ## Daftar Isi / Table of Contents
 
 | # | Section | Deskripsi |
 |---|---------|-----------|
-| 00 | [Cover & Executive Summary](00-cover-executive-summary.md) | Ringkasan eksekutif platform Kodemeio untuk TPP |
+| 00 | [Cover & Executive Summary](00-cover-executive-summary.md) | Ringkasan eksekutif platform untuk TPP |
 | 01 | [Before & After](01-before-after.md) | Perbandingan sebelum dan sesudah transformasi digital |
 | 02 | [Odoo — Single Source of Truth](02-odoo-single-source-of-truth.md) | ERP sebagai satu sumber kebenaran data + laporan + anggaran |
 | 03 | [Power of Mobile Apps](03-mobile-apps-power.md) | 4 aplikasi mobile untuk operasional harian |
@@ -36,6 +36,6 @@ This document presents a complete overview of the Kodemeio technology platform b
 
 - **Perusahaan:** TPP (idtpp.com)
 - **Industri:** Import & Trading
-- **Platform:** Kodemeio Enterprise Technology
+- **Platform:** Enterprise Technology Platform
 - **Layanan aktif:** 13 production + 9 staging
 - **Tanggal:** April 2026

@@ -54,7 +54,7 @@ DKIM/SPF/DMARC adalah protokol standar yang membuktikan kepada server email pene
 
 ### Pilar 2: Team Chat — Zulip
 
-**Platform: Zulip (zulip.kodeme.io)**
+**Platform: Zulip**
 
 #### Komunikasi yang Terorganisir, Bukan Satu Grup Besar
 

@@ -108,7 +108,7 @@
 
 ### Langkah Selanjutnya / Next Steps
 
-Untuk diskusi lebih lanjut tentang aktivasi modul tambahan atau pertanyaan teknis, hubungi tim Kodemeio.
+Untuk diskusi lebih lanjut tentang aktivasi modul tambahan atau pertanyaan teknis, hubungi tim teknologi kami.
 
-> **Kodemeio** — Platform digital yang dibangun khusus untuk bisnis Indonesia yang siap tumbuh.
+> Platform digital yang dibangun khusus untuk bisnis Indonesia yang siap tumbuh.
 > idtpp.com is live. Your platform is ready. Let's grow.

@@ -1,7 +1,7 @@
 # Transformasi Digital TPP
 ## Enterprise Technology Platform — Dibangun untuk Import & Trading
 
-**idtpp.com · Powered by Kodemeio · April 2026**
+**idtpp.com · April 2026**
 
 ---
 

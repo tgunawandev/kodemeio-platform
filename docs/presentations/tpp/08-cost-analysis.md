@@ -22,7 +22,7 @@ Berapa biaya jika TPP membeli semua kemampuan ini sebagai layanan SaaS terpisah?
 | Website + Careers Portal | WordPress managed hosting | $100 – $300 |
 | **Total (12+ vendor terpisah)** | | **$6,150 – $16,000/bulan** |
 | | | **~Rp 100 juta – 260 juta/bulan** |
-| **Kodemeio Platform** | **1 platform terintegrasi** | **[Harga kontrak TPP]** |
+| **Platform Terintegrasi** | **1 platform terintegrasi** | **[Harga kontrak TPP]** |
 
 > *Catatan: Masukkan harga kontrak TPP aktual untuk perbandingan langsung.*
 
@@ -44,9 +44,9 @@ Harga langganan hanyalah permulaan. Biaya nyata jauh lebih besar:
 
 ---
 
-### 3. Keunggulan Biaya Kodemeio / Kodemeio Cost Advantages
+### 3. Keunggulan Biaya Platform / Platform Cost Advantages
 
-| Faktor | 12 SaaS Terpisah | Kodemeio Platform |
+| Faktor | 12 SaaS Terpisah | Platform Terintegrasi |
 |--------|-----------------|-------------------|
 | Model biaya | Per-user, naik terus | Infrastruktur tetap |
 | Biaya lisensi | Setiap platform berbayar | Open source (Odoo Community + OCA) |
@@ -73,13 +73,13 @@ Harga langganan hanyalah permulaan. Biaya nyata jauh lebih besar:
 >
 > **Versus satu paket all-in-one** yang lebih murah, lebih lengkap, dan jauh lebih mudah dikelola.
 >
-> Itulah perbedaan antara 12 SaaS terpisah dan Kodemeio Platform.
+> Itulah perbedaan antara 12 SaaS terpisah dan satu platform terintegrasi.
 
 ---
 
 ### 5. Total Cost of Ownership — Perbandingan 3 Tahun / 3-Year TCO Comparison
 
-| Komponen Biaya | 12 SaaS Terpisah (3 tahun) | Kodemeio (3 tahun) |
+| Komponen Biaya | 12 SaaS Terpisah (3 tahun) | Platform Ini (3 tahun) |
 |---------------|---------------------------|-------------------|
 | Biaya langganan | $221K – $576K | [Kontrak TPP × 36 bulan] |
 | Biaya integrasi | $50K – $150K | $0 (sudah terintegrasi native) |
@@ -90,7 +90,7 @@ Harga langganan hanyalah permulaan. Biaya nyata jauh lebih besar:
 
 *Konversi: $1 USD ≈ Rp 16.300 (kurs referensi April 2026)*
 
-| | 12 SaaS Terpisah (3 tahun) | Kodemeio (3 tahun) |
+| | 12 SaaS Terpisah (3 tahun) | Platform Ini (3 tahun) |
 |--|--|--|
 | **Total estimasi (IDR)** | **Rp 4,7 miliar – Rp 12,7 miliar** | **[Kontrak TPP × 36]** |
 
@@ -98,7 +98,7 @@ Harga langganan hanyalah permulaan. Biaya nyata jauh lebih besar:
 
 ### Kesimpulan / Closing
 
-> **Kodemeio bukan hanya lebih murah — Kodemeio menghilangkan kompleksitas.**
+> **Platform ini bukan hanya lebih murah — platform ini menghilangkan kompleksitas.**
 >
 > Satu platform. Satu partner. Satu investasi yang melindungi bisnis Anda dari vendor lock-in, kenaikan harga tak terduga, dan fragmentasi data yang menggerogoti produktivitas.
 >

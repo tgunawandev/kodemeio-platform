@@ -19,7 +19,7 @@ Namun ada batas yang tidak bisa dilompati oleh WhatsApp, Gmail, dan spreadsheet 
 
 ## Perbandingan Lengkap / Full Comparison
 
-| **Aspek** | **Sekarang (Before)** | **Dengan Kodemeio (After)** | **Dampak Bisnis (Impact)** |
+| **Aspek** | **Sekarang (Before)** | **Sesudah (After)** | **Dampak Bisnis (Impact)** |
 |---|---|---|---|
 | **Komunikasi Tim** | **WhatsApp** — pesan bisnis campur personal, riwayat hilang saat karyawan resign, tidak ada channel terstruktur, tidak ada arsip pencarian | **Zulip** — channel per topik (supplier, PO, gudang), riwayat permanen, pencarian instan, akses dikontrol HRD | Tidak ada lagi informasi kritis yang hilang saat karyawan keluar. Komunikasi bisnis sepenuhnya teraudit |
 | **Email Bisnis** | **@gmail.com** — dikirim ke supplier & customer, tidak ada identitas perusahaan, tidak bisa dikontrol jika karyawan keluar | **@idtpp.com via Mailcow** — email profesional, admin kontrol penuh, SSO login, anti-spam enterprise, backup otomatis | Supplier dan customer melihat perusahaan yang serius. Akses email langsung dicabut saat karyawan resign |

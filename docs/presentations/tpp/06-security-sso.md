@@ -6,7 +6,7 @@
 
 ### 1. Single Sign-On (SSO) — Satu Login untuk Semua
 
-Dengan Kodemeio, setiap karyawan TPP hanya perlu **satu username dan satu password** untuk mengakses seluruh ekosistem digital perusahaan:
+Dengan Platform Ini, setiap karyawan TPP hanya perlu **satu username dan satu password** untuk mengakses seluruh ekosistem digital perusahaan:
 
 - Odoo Trading ✓
 - Odoo HRMS ✓
@@ -26,7 +26,7 @@ Tidak ada lagi sticky note di meja, tidak ada lagi "lupa password" yang menghamb
 
 ### 2. Karyawan Resign? Satu Klik. Selesai.
 
-Ini adalah fitur yang paling dirasakan manfaatnya oleh manajemen. Mari kita bandingkan situasi nyata yang terjadi hari ini versus dengan Kodemeio.
+Ini adalah fitur yang paling dirasakan manfaatnya oleh manajemen. Mari kita bandingkan situasi nyata yang terjadi hari ini versus dengan platform ini.
 
 #### Sekarang — Tanpa SSO
 
@@ -40,11 +40,11 @@ Saat karyawan resign atau diberhentikan, ini yang harus dilakukan secara manual:
 
 **Hasil:** Proses berhari-hari. Manual. Tidak pernah tuntas. Risiko kebocoran data nyata — dan tidak bisa diaudit.
 
-#### Dengan Kodemeio SSO
+#### Dengan Platform Ini SSO
 
 Saat karyawan resign atau diberhentikan:
 
-1. Admin menonaktifkan 1 akun di Authentik (sistem SSO Kodemeio)
+1. Admin menonaktifkan 1 akun di Authentik (sistem SSO)
 2. **Dalam hitungan detik** — akses ke seluruh 9 sistem langsung terputus
 3. Email @idtpp.com: tidak bisa login
 4. Zulip Chat: tidak bisa masuk
@@ -99,7 +99,7 @@ Setiap karyawan memiliki credential sendiri. Jika terjadi masalah, accountabilit
 
 ### 5. Before vs After — Ringkasan
 
-| Aspek | Sekarang | Dengan Kodemeio |
+| Aspek | Sekarang | Dengan Platform Ini |
 |---|---|---|
 | Jumlah password per orang | 4+ password berbeda | 1 (SSO) |
 | Proses offboarding karyawan | Berhari-hari, manual, tidak tuntas | Detik, otomatis, tuntas |
