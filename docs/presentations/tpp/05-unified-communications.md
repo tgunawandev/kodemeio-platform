@@ -204,14 +204,170 @@ Chat bisa dihapus — oleh siapapun, kapanpun. Tidak ada backup bisnis, tidak ad
 
 ---
 
+### Pilar 4: Integrasi Mendalam dengan Odoo — Komunikasi yang Hidup
+
+**Inilah yang membedakan platform ini dari sekadar "punya email dan chat."**
+
+Semua kanal komunikasi — email, Zulip, Telegram, bahkan WhatsApp — terhubung langsung ke Odoo. Bukan koneksi manual, bukan copy-paste. Otomatis, real-time, dan cerdas.
+
+*This is what separates this platform from just "having email and chat." Every communication channel — email, Zulip, Telegram, even WhatsApp — connects directly to Odoo. Not manually, not copy-paste. Automatic, real-time, and intelligent.*
+
+---
+
+#### Odoo → Zulip: Notifikasi Bisnis Otomatis
+
+Ketika sesuatu terjadi di Odoo, Zulip langsung tahu — tanpa ada orang yang perlu mengirim pesan manual.
+
+| Event di Odoo | Notifikasi di Zulip | Stream / Topic |
+|--------------|---------------------|----------------|
+| **Sales Order dikonfirmasi** | "SO-2026-0042 confirmed — Rp 180 juta — Customer: PT ABC" | `#odoo-notifications` > Sales |
+| **Invoice diposting** | "INV-2026-0128 posted — Rp 95 juta — Due: 2026-05-07" | `#odoo-notifications` > Invoice |
+| **Pengiriman selesai** | "Delivery DO-0089 completed — 50 cartons to PT ABC" | `#odoo-notifications` > Delivery |
+| **Purchase Order di-approve** | "PO-2026-0015 approved — Rp 320 juta — Vendor: Shanghai Trading" | `#odoo-notifications` > Purchase |
+| **Approval menunggu** | DM langsung ke reviewer: "PO-0015 needs your approval — Rp 320 juta" | Direct Message |
+
+**Fitur lanjutan:**
+- **Daily Digest**: Setiap pagi, ringkasan otomatis di Zulip — berapa approval yang menunggu, berapa invoice yang overdue
+- **Overdue Invoice Alert**: Tabel otomatis dikirim ke stream Finance — siapa yang belum bayar, berapa lama, total outstanding
+- **Approval Workflow Integration**: Ketika PO butuh persetujuan, reviewer mendapat DM di Zulip. Bisa approve langsung. Jika reviewer tidak tersedia — delegasi otomatis ke atasan
+
+---
+
+#### Odoo → Telegram: Alert Cerdas untuk Management
+
+Tidak semua notifikasi perlu masuk Zulip. Yang penting dan mendesak dikirim langsung ke Telegram management.
+
+| Event di Odoo | Alert Telegram |
+|--------------|----------------|
+| Sales order besar dikonfirmasi | "Sales Alert: SO baru Rp 450 juta dari PT XYZ — confirmed" |
+| Invoice posted | "Finance: Invoice INV-0128 posted — Rp 95 juta — due 30 hari" |
+| Delivery selesai | "Logistics: DO-0089 delivered — 50 cartons to PT ABC" |
+| PO menunggu approval > 24 jam | "Action Required: PO-0015 Rp 320 juta — pending > 24 hours" |
+
+**Cara kerjanya:**
+- Odoo mendeteksi perubahan status (misalnya: SO dari draft → confirmed)
+- Rule otomatis mengevaluasi: apakah event ini perlu dikirim ke Telegram?
+- Jika ya, pesan dikirim dalam detik — langsung ke HP management
+- Setiap rule bisa dikonfigurasi: model mana, status apa, kirim ke siapa
+
+*Odoo detects a state change. Rules automatically evaluate whether the event warrants a Telegram alert. If yes, the message arrives on management's phone within seconds.*
+
+---
+
+#### Odoo → Email (@idtpp.com): Transaksional Otomatis
+
+Odoo mengirim email transaksional melalui server Mailcow @idtpp.com — bukan melalui pihak ketiga.
+
+| Email Otomatis | Penerima | Trigger |
+|---------------|----------|---------|
+| Quotation PDF | Customer | Sales order created |
+| Invoice PDF | Customer | Invoice posted |
+| Payment confirmation | Customer | Payment received |
+| Delivery notification | Customer | Stock picking validated |
+| PO confirmation | Supplier | Purchase order confirmed |
+
+- Semua email keluar dengan domain @idtpp.com — profesional dan konsisten
+- DKIM/SPF/DMARC memastikan email tidak masuk spam
+- Email history tersimpan di server — audit trail lengkap
+
+---
+
+#### Odoo → WhatsApp: Notifikasi Customer Otomatis
+
+Untuk customer yang sudah terbiasa dengan WhatsApp, sistem bisa mengirim notifikasi otomatis:
+
+| Trigger di Odoo | Pesan WhatsApp ke Customer |
+|----------------|---------------------------|
+| **Invoice jatuh tempo** | "Yth. Bapak/Ibu {nama}, invoice {no_invoice} sejumlah {amount} telah jatuh tempo. Mohon untuk segera melakukan pembayaran. Terima kasih — TPP" |
+| **Quotation dikirim** | "Yth. {nama}, quotation {no_SO} senilai {amount} telah kami kirimkan. Silakan review. — TPP" |
+| **Pengiriman dalam perjalanan** | "Yth. {nama}, pesanan {no_SO} sedang dikirim via {carrier}. No. resi: {tracking}. — TPP" |
+
+**Fitur anti-deteksi:**
+- Pesan dikirim dengan pola manusiawi — bukan blast massal
+- Typing indicator muncul dulu, delay proporsional dengan panjang pesan
+- Rate-limited: maksimum 1 pesan per 30 detik
+- "Sistem mengirim seperti manusia — bukan robot"
+
+---
+
+#### WhatsApp → Odoo: Customer Inquiry Otomatis
+
+Ketika customer mengirim pesan WhatsApp yang mengandung kata kunci bisnis (nomor SO, nomor invoice, "order status", "delivery", "payment"), sistem secara otomatis:
+
+1. Menerima pesan via WAHA (WhatsApp API self-hosted)
+2. Mengklasifikasikan pesan: apakah bisnis atau umum?
+3. Jika bisnis → diteruskan ke Odoo untuk ditindaklanjuti
+4. Semua pesan → masuk ke platform customer service (Chatwoot) untuk ditangani agent
+
+**Alur lengkap:**
+```
+Customer WhatsApp
+    ↓
+WAHA (WhatsApp API — server sendiri, bukan Meta cloud)
+    ↓
+Bridge Service (klasifikasi otomatis)
+    ├── Selalu → Chatwoot (agent bisa reply dari dashboard)
+    └── Jika bisnis → Odoo (create lead / update record)
+    
+Agent reply di Chatwoot
+    ↓
+Bridge Service (anti-deteksi: typing, delay, kirim)
+    ↓
+Customer menerima di WhatsApp
+    (terlihat seperti pesan biasa, bukan bot)
+```
+
+---
+
+#### Satu Ekosistem, Semua Terhubung
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     ODOO (ERP)                          │
+│         Satu Sumber Kebenaran untuk Semua Data          │
+│                                                         │
+│  Sales ─── Purchase ─── Inventory ─── Finance ─── HR   │
+└───┬──────────┬──────────────┬──────────────┬────────────┘
+    │          │              │              │
+    ▼          ▼              ▼              ▼
+┌────────┐ ┌────────┐ ┌──────────┐ ┌────────────────┐
+│ Zulip  │ │Telegram│ │  Email   │ │   WhatsApp     │
+│        │ │  Bots  │ │@idtpp.com│ │  (via WAHA)    │
+│ Team   │ │        │ │          │ │                │
+│ Chat   │ │ Alert  │ │Transak-  │ │ Customer       │
+│ +Notif │ │ Cerdas │ │ sional   │ │ Notification   │
+│ +Digest│ │ ke Mgmt│ │ Otomatis │ │ + Inquiry      │
+└────────┘ └────────┘ └──────────┘ └────────────────┘
+    │          │              │              │
+    └──────────┴──────────────┴──────────────┘
+                      │
+              Semua terintegrasi
+              Semua otomatis
+              Semua tercatat
+```
+
+**Yang tidak bisa dilakukan WhatsApp + Gmail:**
+- Mengirim notifikasi otomatis saat SO confirmed ❌
+- Mengirim daily digest pending approval ❌
+- Meneruskan inquiry customer ke ERP secara otomatis ❌
+- Mengirim invoice reminder terjadwal ❌
+- Mencatat semua komunikasi bisnis dalam audit trail ❌
+
+**Yang bisa dilakukan platform ini:**
+- Semua hal di atas ✅ — otomatis, tercatat, dan terkontrol
+
+---
+
 ### Penutup
 
 Tidak ada yang salah dengan cara TPP berkomunikasi selama ini — WhatsApp membawa perusahaan sampai ke titik ini. Yang perlu diubah adalah menyesuaikan alat komunikasi dengan skala bisnis yang akan datang.
 
 *There is nothing wrong with how TPP has communicated so far — WhatsApp brought the company to where it is today. What needs to change is aligning the communication tools with the scale of business that is coming.*
 
-Sistem komunikasi terpadu ini — email @idtpp.com, Zulip, dan Telegram alerts — dirancang bukan untuk menggantikan cara kerja tim, melainkan untuk memberikan fondasi yang aman, terstruktur, dan sepenuhnya milik perusahaan.
+Platform ini bukan hanya "punya email dan chat" — ini adalah **ekosistem komunikasi yang hidup**, terhubung langsung ke jantung operasional bisnis di Odoo. Setiap transaksi menghasilkan notifikasi yang tepat, ke orang yang tepat, di kanal yang tepat — otomatis.
+
+*This is not just "having email and chat" — this is a **living communication ecosystem**, connected directly to the heart of business operations in Odoo. Every transaction generates the right notification, to the right person, on the right channel — automatically.*
 
 ---
 
-> **"Dari komunikasi yang tersebar dan rentan, menjadi komunikasi yang terstruktur, aman, dan sepenuhnya milik perusahaan."**
+> **"Dari komunikasi yang tersebar dan rentan, menjadi ekosistem komunikasi yang hidup, terintegrasi, dan sepenuhnya milik perusahaan."**
