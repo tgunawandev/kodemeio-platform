@@ -1,0 +1,41 @@
+# Transformasi Digital PT Pakerti Trading
+
+> Materi presentasi eksekutif untuk jajaran direksi PT Pakerti Trading.
+> Executive presentation materials for PT Pakerti Trading leadership.
+
+## Tentang Presentasi Ini / About This Presentation
+
+Dokumen ini menyajikan gambaran lengkap platform teknologi Kodemeio yang dibangun khusus untuk PT Pakerti Trading — perusahaan import & trading yang beroperasi di idtpp.com. Dari ERP hingga aplikasi mobile, dari email perusahaan hingga keamanan data, semua terintegrasi dalam satu ekosistem.
+
+This document presents a complete overview of the Kodemeio technology platform built specifically for PT Pakerti Trading — an import & trading company operating at idtpp.com. From ERP to mobile apps, from company email to data security, everything is integrated into one ecosystem.
+
+## Daftar Isi / Table of Contents
+
+| # | Section | Deskripsi |
+|---|---------|-----------|
+| 00 | [Cover & Executive Summary](00-cover-executive-summary.md) | Ringkasan eksekutif platform Kodemeio untuk TPP |
+| 01 | [Before & After](01-before-after.md) | Perbandingan sebelum dan sesudah transformasi digital |
+| 02 | [Odoo — Single Source of Truth](02-odoo-single-source-of-truth.md) | ERP sebagai satu sumber kebenaran data + laporan + anggaran |
+| 03 | [Power of Mobile Apps](03-mobile-apps-power.md) | 4 aplikasi mobile untuk operasional harian |
+| 04 | [HRMS Advantage](04-hrms-advantage.md) | Keunggulan sistem HR & payroll dengan kepatuhan Indonesia |
+| 05 | [Unified Communications](05-unified-communications.md) | Email perusahaan, team chat, dan notifikasi otomatis |
+| 06 | [Security & SSO](06-security-sso.md) | Keamanan data dan akses terpusat |
+| 07 | [Cloud Foundation](07-cloud-foundation.md) | Infrastruktur cloud, backup, dan monitoring 24/7 |
+| 08 | [Cost Analysis](08-cost-analysis.md) | Analisis biaya vs solusi SaaS terpisah |
+| 09 | [What's Next](09-whats-next.md) | Modul yang siap diaktifkan |
+| 10 | [Platform Summary](10-platform-summary.md) | Ringkasan platform dan angka-angka kunci |
+
+## Catatan Penggunaan / Usage Notes
+
+- Setiap file = satu bagian presentasi, diurutkan 00-10
+- Bilingual: header English, penjelasan Bahasa Indonesia
+- Untuk konversi PPTX: setiap `##` = slide baru, setiap `###` = bagian dalam slide
+- Untuk NotebookLM: upload semua file sebagai sumber terpisah
+
+## Konteks / Context
+
+- **Perusahaan:** PT Pakerti Trading (idtpp.com)
+- **Industri:** Import & Trading
+- **Platform:** Kodemeio Enterprise Technology
+- **Layanan aktif:** 13 production + 9 staging
+- **Tanggal:** April 2026
