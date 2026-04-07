@@ -1,0 +1,42 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-zulip
+  description: "TPP Zulip team chat"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-zulip
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+dns:
+  zone: idtpp.com
+  name: zulip
+
+domain:
+  host: zulip.idtpp.com
+  port: 80
+  service: zulip
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-zulip
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-zulip
+  DOMAIN: zulip.idtpp.com
+  TENANT: tpp
+  TZ: Asia/Jakarta
+
+healthcheck:
+  path: /api/v1/server_settings
+  port: 80
+  expected_status: 200
+  timeout: 120
+  interval: 30
