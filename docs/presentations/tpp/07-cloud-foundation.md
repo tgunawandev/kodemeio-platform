@@ -11,7 +11,7 @@ Fondasi teknologi yang tidak terlihat tapi selalu bekerja — melindungi data, m
 | Komponen | Manfaat untuk TPP |
 |----------|-------------------|
 | **Hetzner Cloud** | Data center Eropa, sertifikasi ISO 27001, uptime SLA 99.9% — standar yang sama digunakan bank dan perusahaan Fortune 500 |
-| **Server dedicated** | Database TPP tidak dicampur dengan perusahaan lain — performa terjamin, data terisolasi |
+| **Database dedicated** | Instance database TPP sepenuhnya terisolasi — tidak dicampur dengan perusahaan lain, performa terjamin |
 | **Connection pooling (PgBouncer)** | Tetap cepat dan responsif walau 50+ user akses sistem secara bersamaan |
 | **Staging environment** | Uji setiap perubahan dengan aman sebelum diterapkan ke production — tidak ada "coba-coba" di sistem live |
 
@@ -33,7 +33,7 @@ Fondasi teknologi yang tidak terlihat tapi selalu bekerja — melindungi data, m
 | Kondisi | Risiko | Dengan Platform Ini |
 |---------|--------|-----------------|
 | Accurate di 1 komputer | Hard disk rusak = data hilang permanen | Backup otomatis harian, recovery kapan saja |
-| Google Sheets | Google bisa ubah kebijakan, naikkan harga, tutup akun sewaktu-waktu | Data di server dedicated TPP sendiri |
+| Google Sheets | Google bisa ubah kebijakan, naikkan harga, tutup akun sewaktu-waktu | Data di database dedicated TPP sendiri |
 | Tanpa backup strategy | Tidak ada jalan kembali jika terjadi kesalahan | 30 hari retensi, point-in-time recovery |
 
 > **Prinsip sederhana:** Data Anda adalah milik Anda. Bukan milik Google, bukan milik vendor software, bukan milik siapapun selain TPP.
@@ -46,7 +46,7 @@ Fondasi teknologi yang tidak terlihat tapi selalu bekerja — melindungi data, m
 
 Sistem monitoring berjalan penuh waktu, mengawasi seluruh infrastruktur TPP secara otomatis:
 
-- **Grafana dashboards** — Kesehatan semua 13 layanan TPP dalam satu tampilan. Tim engineering bisa melihat kondisi sistem secara real-time kapanpun dibutuhkan.
+- **Grafana dashboards** — Kesehatan semua 14 layanan TPP dalam satu tampilan. Tim engineering bisa melihat kondisi sistem secara real-time kapanpun dibutuhkan.
 - **Prometheus metrics** — CPU, memory, disk, dan response time semua terukur dan tercatat. Anomali terdeteksi otomatis.
 - **Loki logs** — Log aplikasi yang bisa dicari — untuk troubleshooting cepat jika ada insiden.
 - **GlitchTip error tracking** — Tim engineering tahu ada error di aplikasi sebelum user melaporkannya.
@@ -65,7 +65,7 @@ Gambaran sederhana bagaimana semua lapisan bekerja bersama melindungi bisnis TPP
 Internet
   └── Cloudflare (CDN + proteksi DDoS)
         └── Traefik (reverse proxy + SSL otomatis)
-              ├── 13 layanan TPP
+              ├── 14 layanan TPP
               │     (Odoo ERP, apps, email, chat, dll.)
               │       ├── PostgreSQL 16 (database dedicated)
               │       ├── Redis (cache untuk performa)
@@ -82,11 +82,11 @@ Setiap lapisan memiliki peran spesifik:
 |---------|-------|
 | **Cloudflare** | Pintu masuk pertama — blokir serangan sebelum sampai ke server |
 | **Traefik** | Pengatur lalu lintas — arahkan request ke layanan yang tepat, SSL otomatis |
-| **13 layanan TPP** | Aplikasi bisnis yang berjalan — Odoo, email, chat, dan lainnya |
-| **Database dedicated** | Penyimpanan data utama — dedicated untuk TPP, tidak dibagi |
+| **14 layanan TPP** | Aplikasi bisnis yang berjalan — Odoo, email, chat, dan lainnya |
+| **Database dedicated** | Penyimpanan data utama — instance terisolasi khusus TPP, tidak dibagi |
 | **Backup S3** | Salinan data terenkripsi di lokasi terpisah — jaring pengaman terakhir |
 | **Monitoring stack** | Pengawas 24/7 — deteksi dan alerting otomatis |
 
 ---
 
-**Data Anda dilindungi berlapis — dari server dedicated, backup otomatis, sampai monitoring 24/7. Bisnis bisa fokus pada operasional, bukan khawatir soal teknologi.**
+**Data Anda dilindungi berlapis — dari database dedicated, backup otomatis, sampai monitoring 24/7. Bisnis bisa fokus pada operasional, bukan khawatir soal teknologi.**

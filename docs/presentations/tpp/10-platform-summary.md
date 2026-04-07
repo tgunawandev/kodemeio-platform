@@ -8,7 +8,7 @@
 
 ```
 ┌─────────────────────────────┬─────────────────────────────┐
-│  13 Layanan Terintegrasi    │  9 Layanan Staging          │
+│  14 Layanan Terintegrasi    │  9 Layanan Staging          │
 │  (Production)               │  (Testing Environment)      │
 ├─────────────────────────────┼─────────────────────────────┤
 │  4 Aplikasi Mobile          │  2 Sistem ERP               │
@@ -30,7 +30,7 @@
 
 ---
 
-### 13 Layanan Production / 13 Production Services
+### 14 Layanan Production / 14 Production Services
 
 | # | Layanan | Fungsi |
 |---|---------|--------|
@@ -46,7 +46,8 @@
 | 10 | **Authentik SSO** | Single Sign-On untuk semua sistem |
 | 11 | **Mailcow** | Email @idtpp.com — anti-spam, anti-virus |
 | 12 | **PostgreSQL** | Database dedicated (tidak shared) |
-| 13 | **Alloy** | Agent monitoring untuk Grafana |
+| 13 | **Redis** | Cache & queue untuk performa aplikasi |
+| 14 | **Alloy** | Agent monitoring untuk Grafana |
 
 **Plus shared platform:** Grafana (monitoring), GlitchTip (error tracking), Redis (cache), Zulip (team chat), Telegram bots (alerts)
 
@@ -78,8 +79,8 @@
 
 ```
                     ╔══════════════════╗
-         ┌──────────║   KODEMEIO       ║──────────┐
-         │          ║   PLATFORM       ║          │
+         ┌──────────║   PLATFORM       ║──────────┐
+         │          ║   TERINTEGRASI   ║          │
     [SFA/WMS]  ════ ║                  ║ ════  [Odoo ERP]
     [HRM/BIA]  ════ ║  Data Terpusat   ║ ════  [Mailcow]
     [Website]  ════ ║  Real-time       ║ ════  [Zulip]

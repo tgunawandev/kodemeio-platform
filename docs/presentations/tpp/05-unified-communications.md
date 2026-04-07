@@ -126,7 +126,7 @@ Reorder diperlukan sebelum akhir minggu.
 ```
 SYSTEM ALERT
 Backup completed successfully
-All 13 services backed up — 2026-04-07 02:00 WIB
+All 14 services backed up — 2026-04-07 02:00 WIB
 Storage used: 84 GB | Status: OK
 ```
 
@@ -294,28 +294,23 @@ Untuk customer yang sudah terbiasa dengan WhatsApp, sistem bisa mengirim notifik
 
 Ketika customer mengirim pesan WhatsApp yang mengandung kata kunci bisnis (nomor SO, nomor invoice, "order status", "delivery", "payment"), sistem secara otomatis:
 
-1. Menerima pesan via WAHA (WhatsApp API self-hosted)
+1. Menerima pesan via WAHA (WhatsApp API self-hosted — server sendiri, bukan Meta cloud)
 2. Mengklasifikasikan pesan: apakah bisnis atau umum?
-3. Jika bisnis → diteruskan ke Odoo untuk ditindaklanjuti
-4. Semua pesan → masuk ke platform customer service (Chatwoot) untuk ditangani agent
+3. Jika bisnis → diteruskan ke Odoo untuk ditindaklanjuti (create lead / update record)
 
 **Alur lengkap:**
 ```
 Customer WhatsApp
     ↓
-WAHA (WhatsApp API — server sendiri, bukan Meta cloud)
+WAHA (WhatsApp API — server sendiri)
     ↓
 Bridge Service (klasifikasi otomatis)
-    ├── Selalu → Chatwoot (agent bisa reply dari dashboard)
-    └── Jika bisnis → Odoo (create lead / update record)
+    └── Jika kata kunci bisnis terdeteksi → Odoo (create lead / update record)
     
-Agent reply di Chatwoot
-    ↓
-Bridge Service (anti-deteksi: typing, delay, kirim)
-    ↓
-Customer menerima di WhatsApp
-    (terlihat seperti pesan biasa, bukan bot)
+Odoo memproses inquiry → Tim sales/CS ditugaskan otomatis
 ```
+
+**Siap diaktifkan:** Platform customer service (Chatwoot) juga tersedia untuk TPP — memungkinkan agent membalas WhatsApp customer dari satu dashboard terpusat, tanpa perlu buka WhatsApp di HP. Aktivasi sesuai kebutuhan.
 
 ---
 

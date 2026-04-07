@@ -117,7 +117,7 @@ Data Karyawan → Absensi → Cuti → Penggajian → Slip Gaji
 
 ---
 
-## C. Custom Reporting Engine — 15+ Modul Laporan
+## C. Custom Reporting Engine — 15 Modul Laporan
 
 > **"Google Sheets = ketik manual, data kemarin, formula bisa rusak. Odoo Reports = data real-time, otomatis, akurat, bisa dijadwalkan."**
 

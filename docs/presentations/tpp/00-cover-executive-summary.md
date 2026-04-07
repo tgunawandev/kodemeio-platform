@@ -19,7 +19,7 @@ TPP now runs on a complete, purpose-built enterprise technology platform designe
 
 | | | |
 |:---:|:---:|:---:|
-| **13** | **4** | **2** |
+| **14** | **4** | **2** |
 | Layanan Terintegrasi | Aplikasi Mobile | Sistem ERP |
 | *Integrated Services* | *Mobile Apps* | *(Trading + HRMS)* |
 | **15** | **1** | **24/7** |

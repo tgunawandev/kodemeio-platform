@@ -27,7 +27,7 @@ Teknologinya disebut **PWA (Progressive Web App)** — bekerja seperti website, 
 ---
 
 ## Aplikasi 1: SFA — Sales Force Automation
-### `sfa.idtpp.com`
+### `tpp-sfa.idtpp.com`
 
 **Untuk tim sales yang bekerja di lapangan setiap hari.**
 *For the sales team that works in the field every day.*
@@ -59,7 +59,7 @@ TPP bergerak di trading & distribusi — jaringan partner dan customer tersebar.
 ---
 
 ## Aplikasi 2: WMS — Warehouse Management System
-### `wms.idtpp.com`
+### `tpp-wms.idtpp.com`
 
 **Untuk operasional gudang yang akurat dan cepat — khususnya penerimaan container import.**
 *For warehouse operations that are accurate and fast — especially for receiving import containers.*
@@ -92,7 +92,7 @@ TPP menerima container impor secara reguler — volume dan akurasi penerimaan ad
 ---
 
 ## Aplikasi 3: HRM — Human Resource Management
-### `hrm.idtpp.com`
+### `tpp-hrm.idtpp.com`
 
 **Untuk manajemen SDM yang transparan, efisien, dan bebas dari "titip absen".**
 *For HR management that is transparent, efficient, and free from proxy check-ins.*
@@ -123,7 +123,7 @@ TPP menerima container impor secara reguler — volume dan akurasi penerimaan ad
 ---
 
 ## Aplikasi 4: BIA — Business Intelligence & Analytics
-### `bia.idtpp.com`
+### `tpp-bia.idtpp.com`
 
 **Dashboard eksekutif real-time — keputusan berdasarkan data, bukan feeling.**
 *Real-time executive dashboard — decisions based on data, not gut feeling.*
