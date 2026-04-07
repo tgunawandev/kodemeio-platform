@@ -1,13 +1,13 @@
-# Transformasi Digital PT Pakerti Trading
+# Transformasi Digital TPP
 
-> Materi presentasi eksekutif untuk jajaran direksi PT Pakerti Trading.
-> Executive presentation materials for PT Pakerti Trading leadership.
+> Materi presentasi eksekutif untuk jajaran direksi TPP.
+> Executive presentation materials for TPP leadership.
 
 ## Tentang Presentasi Ini / About This Presentation
 
-Dokumen ini menyajikan gambaran lengkap platform teknologi Kodemeio yang dibangun khusus untuk PT Pakerti Trading — perusahaan import & trading yang beroperasi di idtpp.com. Dari ERP hingga aplikasi mobile, dari email perusahaan hingga keamanan data, semua terintegrasi dalam satu ekosistem.
+Dokumen ini menyajikan gambaran lengkap platform teknologi Kodemeio yang dibangun khusus untuk TPP — perusahaan import & trading yang beroperasi di idtpp.com. Dari ERP hingga aplikasi mobile, dari email perusahaan hingga keamanan data, semua terintegrasi dalam satu ekosistem.
 
-This document presents a complete overview of the Kodemeio technology platform built specifically for PT Pakerti Trading — an import & trading company operating at idtpp.com. From ERP to mobile apps, from company email to data security, everything is integrated into one ecosystem.
+This document presents a complete overview of the Kodemeio technology platform built specifically for TPP — an import & trading company operating at idtpp.com. From ERP to mobile apps, from company email to data security, everything is integrated into one ecosystem.
 
 ## Daftar Isi / Table of Contents
 
@@ -34,7 +34,7 @@ This document presents a complete overview of the Kodemeio technology platform b
 
 ## Konteks / Context
 
-- **Perusahaan:** PT Pakerti Trading (idtpp.com)
+- **Perusahaan:** TPP (idtpp.com)
 - **Industri:** Import & Trading
 - **Platform:** Kodemeio Enterprise Technology
 - **Layanan aktif:** 13 production + 9 staging

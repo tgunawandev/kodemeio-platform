@@ -1,5 +1,5 @@
 # Odoo: Satu Sumber Kebenaran untuk Bisnis TPP
-## Single Source of Truth — PT Pakerti Trading (idtpp.com)
+## Single Source of Truth — TPP (idtpp.com)
 
 ---
 
@@ -276,5 +276,5 @@ Yang ada:
 
 ---
 
-*Dokumen ini bagian dari presentasi platform digital PT Pakerti Trading (idtpp.com)*
+*Dokumen ini bagian dari presentasi platform digital TPP (idtpp.com)*
 *Disiapkan oleh tim Kodemeio — kodeme.io*

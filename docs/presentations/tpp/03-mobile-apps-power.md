@@ -186,5 +186,5 @@ Semua ini terjadi di **satu sumber data — Odoo** — tidak ada rekonsiliasi, t
 
 ---
 
-*Dokumen ini merupakan bagian dari presentasi platform digital TPP — PT Pakerti Trading.*
+*Dokumen ini merupakan bagian dari presentasi platform digital TPP.*
 *© 2026 Kodemeio. Confidential — untuk internal TPP.*
