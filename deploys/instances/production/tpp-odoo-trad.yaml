@@ -29,4 +29,6 @@ env_overrides:
   DOMAIN: tpp-odoo-trad.idtpp.com
   ODOO_WORKERS: '4'
 post_deploy:
-  odoo_profile: profile-trading
+  odoo_profile: profile-erp
+  odoo_install_bundle: private-retail:analytics
+  recipe: trading

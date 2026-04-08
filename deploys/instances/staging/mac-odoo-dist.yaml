@@ -29,4 +29,6 @@ env_overrides:
   DOMAIN: stg-mac-odoo-dist.mandiriagro.com
   ODOO_WORKERS: '2'
 post_deploy:
-  odoo_profile: profile-distribution
+  odoo_profile: profile-erp
+  odoo_install_bundle: private-field-ops,private-desktop-apps:dms,private-retail:shop,analytics
+  recipe: distribution

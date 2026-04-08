@@ -30,3 +30,5 @@ env_overrides:
   ODOO_WORKERS: '2'
 post_deploy:
   odoo_profile: profile-hrms
+  odoo_install_bundle: ''
+  recipe: hrms
