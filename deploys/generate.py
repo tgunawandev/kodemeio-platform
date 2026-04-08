@@ -25,6 +25,53 @@ ENV_DIR = DEPLOY_DIR / "env"
 HEADER = "# GENERATED FROM tenants/{code}.yaml — DO NOT EDIT\n"
 
 # ---------------------------------------------------------------------------
+# Recipe table — maps high-level recipe names (used in tenants/*.yaml under
+# `odoo:` entries as `recipe: <name>`) to (profile, extras) pairs that
+# materialize as ODOO_DEPLOY_PROFILE + ODOO_INSTALL_BUNDLE in generated env files.
+#
+# Single source of truth — must stay in sync with:
+#   kodemeio-odoo/install/README.md
+#   kodemeio-odoo/.env.example
+#   kodemeio-odoo/scripts/verify-profile-migration.sh
+# ---------------------------------------------------------------------------
+ODOO_RECIPES: dict[str, tuple[str, str]] = {
+    # recipe_name: (profile, extras_csv_for_ODOO_INSTALL_BUNDLE)
+    "erp": ("erp", ""),
+    "hrms": ("hrms", ""),
+    "distribution": ("erp", "private-field-ops,private-desktop-apps:dms,private-retail:shop,analytics"),
+    "manufacturing": ("erp", "private-mrp,private-sfa,private-desktop-apps:tpm,private-retail:analytics"),
+    "retail": ("erp", "oca-pos,private-retail"),
+    "trading": ("erp", "private-retail:analytics"),
+    "distribution-hrms": (
+        "erp",
+        "private-field-ops,private-desktop-apps:dms,private-retail:shop,analytics,private-hr-full",
+    ),
+    "manufacturing-hrms": (
+        "erp",
+        "private-mrp,private-sfa,private-desktop-apps:tpm,private-retail:analytics,private-hr-full",
+    ),
+    "retail-hrms": ("erp", "oca-pos,private-retail,private-hr-full"),
+    "full": (
+        "erp",
+        "core-hr,core-maintenance,core-fleet,oca-report,oca-hr,oca-maintenance,oca-pos,oca-saas,private-finance-hr,private-form,private-sfa,private-lfa,private-mrp,private-hrm,private-desktop-apps,private-retail,private-asset,private-recruitment,private-saas",
+    ),
+}
+
+
+def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
+    """Resolve a tenant `recipe:` (preferred) or legacy `profile:` value to
+    (deploy_profile, install_bundle_extras).
+
+    Accepts both new recipe names (`distribution`, `manufacturing`, …) and
+    legacy profile names (same strings, since recipes are named after the
+    profiles they replace) so old tenant YAMLs keep working during rollout.
+    """
+    if recipe_or_profile not in ODOO_RECIPES:
+        raise ValueError(f"Unknown odoo recipe {recipe_or_profile!r}. Valid: {sorted(ODOO_RECIPES.keys())}")
+    return ODOO_RECIPES[recipe_or_profile]
+
+
+# ---------------------------------------------------------------------------
 # Naming convention: {tenant}-{stack}-{app}
 #
 #   Filename:      {tenant}-{stack}-{app}.yaml
@@ -39,9 +86,7 @@ HEADER = "# GENERATED FROM tenants/{code}.yaml — DO NOT EDIT\n"
 
 
 def yaml_dump(data: dict) -> str:
-    return yaml.dump(
-        data, default_flow_style=False, sort_keys=False, allow_unicode=True
-    )
+    return yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
 
 def load_tenant(path: Path) -> dict:
@@ -141,9 +186,12 @@ def gen_odoo(
     code = tenant["code"]
     display = tenant.get("short_name", tenant["name"])
     domain = tenant["domain"]
-    profile = odoo_entry["profile"]
+    # Accept new `recipe:` key (preferred) or legacy `profile:` key.
+    # Both resolve through ODOO_RECIPES, so legacy tenant YAMLs keep working.
+    recipe_name = odoo_entry.get("recipe") or odoo_entry["profile"]
+    deploy_profile, install_extras = resolve_recipe(recipe_name)
     short = odoo_entry["short"]
-    description = odoo_entry.get("description", profile)
+    description = odoo_entry.get("description", recipe_name)
     workers = odoo_entry.get("workers", 4)
     db_name = f"{db_prefix}{code}_odoo_{short}"
     dns_name = f"{dns_prefix}{code}-odoo-{short}"
@@ -192,7 +240,9 @@ def gen_odoo(
                 "ODOO_WORKERS": str(workers),
             },
             "post_deploy": {
-                "odoo_profile": f"profile-{profile}",
+                "odoo_profile": f"profile-{deploy_profile}",
+                "odoo_install_bundle": install_extras,
+                "recipe": recipe_name,
             },
         }
     )
@@ -202,7 +252,9 @@ def gen_odoo(
         f"# {display} {description} — {env_name.title()} Environment\n"
         f"# =============================================================================\n"
         f"# Instance: {host}\n"
-        f"# Profile:  {profile}\n"
+        f"# Recipe:   {recipe_name}\n"
+        f"# Profile:  {deploy_profile}\n"
+        f"# Extras:   {install_extras or '(none)'}\n"
         f"# =============================================================================\n"
         f"\n"
         f"# PROJECT IDENTIFICATION\n"
@@ -233,8 +285,9 @@ def gen_odoo(
         f"ODOO_SERVER_WIDE_MODULES=base,web,bus,bus_alt_connection,session_db,dbfilter_from_header\n"
         f"\n"
         f"# DEPLOY PROFILE\n"
-        f"ODOO_DEPLOY_PROFILE={profile}\n"
-        f"ODOO_RUN_UPDATE=false\n"
+        f"ODOO_DEPLOY_PROFILE={deploy_profile}\n"
+        + (f"ODOO_INSTALL_BUNDLE={install_extras}\n" if install_extras else "")
+        + f"ODOO_RUN_UPDATE=false\n"
         f"\n"
         f"# WORKERS\n"
         f"ODOO_WORKERS={workers}\n"
@@ -324,9 +377,7 @@ def gen_nextjs_corporate(
         }
     )
 
-    env_content = (
-        f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{host}\nTZ=Asia/Jakarta\n"
-    )
+    env_content = f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{host}\nTZ=Asia/Jakarta\n"
 
     return yaml_filename, yaml_dump(instance), env_filename, env_content
 
@@ -530,9 +581,7 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         # --- React PWAs + Odoo instances ---
         for odoo_entry in raw.get("odoo", []):
             # Odoo instance
-            y_name, y_content, e_name, e_content = gen_odoo(
-                t, odoo_entry, env_name, server, dns_prefix, db_prefix
-            )
+            y_name, y_content, e_name, e_content = gen_odoo(t, odoo_entry, env_name, server, dns_prefix, db_prefix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -548,26 +597,20 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         web = raw.get("web", {})
         if "corporate" in web:
             t["_web_corporate_brand"] = web["corporate"]["compose_brand"]
-            y_name, y_content, e_name, e_content = gen_nextjs_corporate(
-                t, env_name, server, dns_prefix
-            )
+            y_name, y_content, e_name, e_content = gen_nextjs_corporate(t, env_name, server, dns_prefix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
         # --- Next.js careers ---
         if web.get("careers"):
-            y_name, y_content, e_name, e_content = gen_nextjs_careers(
-                t, env_name, server, dns_prefix
-            )
+            y_name, y_content, e_name, e_content = gen_nextjs_careers(t, env_name, server, dns_prefix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
         # --- Notify ---
         services = raw.get("services", {})
         if services.get("notify"):
-            y_name, y_content, e_name, e_content = gen_notify(
-                t, env_name, server, dns_prefix
-            )
+            y_name, y_content, e_name, e_content = gen_notify(t, env_name, server, dns_prefix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -577,24 +620,14 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
 def is_secret_env(path: Path) -> bool:
     """Check if a .env file likely contains secrets (Odoo, Notify, React PWA with OIDC)."""
     name = path.name
-    return name.startswith(".env.") and (
-        "-odoo-" in name or "-hono-notify" in name or "-react-" in name
-    )
+    return name.startswith(".env.") and ("-odoo-" in name or "-hono-notify" in name or "-react-" in name)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate deploy instances from tenant manifests"
-    )
-    parser.add_argument(
-        "--tenant", "-t", help="Generate for a single tenant (e.g., mac)"
-    )
-    parser.add_argument(
-        "--dry-run", "-n", action="store_true", help="Preview without writing"
-    )
-    parser.add_argument(
-        "--diff", "-d", action="store_true", help="Show diff vs existing files"
-    )
+    parser = argparse.ArgumentParser(description="Generate deploy instances from tenant manifests")
+    parser.add_argument("--tenant", "-t", help="Generate for a single tenant (e.g., mac)")
+    parser.add_argument("--dry-run", "-n", action="store_true", help="Preview without writing")
+    parser.add_argument("--diff", "-d", action="store_true", help="Show diff vs existing files")
     args = parser.parse_args()
 
     if args.tenant:
@@ -628,9 +661,7 @@ def main() -> None:
             if args.diff and example_path.exists():
                 old = example_path.read_text().splitlines(keepends=True)
                 new = content.splitlines(keepends=True)
-                diff = difflib.unified_diff(
-                    old, new, fromfile=str(example_path), tofile=str(example_path)
-                )
+                diff = difflib.unified_diff(old, new, fromfile=str(example_path), tofile=str(example_path))
                 sys.stdout.writelines(diff)
             if not args.dry_run:
                 example_path.write_text(content)
@@ -646,9 +677,7 @@ def main() -> None:
             if args.diff:
                 old = existing.splitlines(keepends=True)
                 new = content.splitlines(keepends=True)
-                diff = difflib.unified_diff(
-                    old, new, fromfile=str(path), tofile=str(path)
-                )
+                diff = difflib.unified_diff(old, new, fromfile=str(path), tofile=str(path))
                 sys.stdout.writelines(diff)
 
         if args.dry_run:
@@ -659,9 +688,7 @@ def main() -> None:
         wrote += 1
 
     action = "Would write" if args.dry_run else "Wrote"
-    print(
-        f"\nDone. {action}: {wrote}, Skipped (secrets): {skipped}, Unchanged: {unchanged}"
-    )
+    print(f"\nDone. {action}: {wrote}, Skipped (secrets): {skipped}, Unchanged: {unchanged}")
 
 
 if __name__ == "__main__":
