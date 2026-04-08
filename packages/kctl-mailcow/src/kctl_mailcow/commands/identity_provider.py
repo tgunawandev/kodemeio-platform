@@ -30,13 +30,15 @@ def get(ctx: typer.Context) -> None:
             "Identity Provider",
             [
                 ("Auth Source", str(item.get("authsource", ""))),
-                ("Server URL", str(item.get("server_url", ""))),
                 ("Client ID", str(item.get("client_id", ""))),
                 ("Authorize URL", str(item.get("authorize_url", ""))),
                 ("Token URL", str(item.get("token_url", ""))),
                 ("Userinfo URL", str(item.get("userinfo_url", ""))),
-                ("Scopes", str(item.get("scopes", ""))),
+                # Mailcow uses client_scopes; older versions used scopes
+                ("Scopes", str(item.get("client_scopes") or item.get("scopes", ""))),
                 ("Redirect URI", str(item.get("redirect_url", ""))),
+                ("Login Provisioning", "yes" if item.get("login_provisioning") else "no"),
+                ("Ignore SSL Errors", "yes" if item.get("ignore_ssl_error") else "no"),
             ],
         )
     ]
@@ -46,36 +48,69 @@ def get(ctx: typer.Context) -> None:
 @app.command("set")
 def set_(
     ctx: typer.Context,
-    server_url: Annotated[str, typer.Option("--server-url", help="OIDC provider URL (e.g. https://auth.kodeme.io)")],
+    server_url: Annotated[
+        str,
+        typer.Option(
+            "--server-url",
+            help="OIDC provider URL (e.g. https://auth.kodeme.io/application/o/<slug>/)",
+        ),
+    ],
     client_id: Annotated[str, typer.Option("--client-id", help="OAuth2 client ID")],
     client_secret: Annotated[
-        str, typer.Option("--client-secret", help="OAuth2 client secret", prompt=True, hide_input=True)
+        str,
+        typer.Option("--client-secret", help="OAuth2 client secret", prompt=True, hide_input=True),
     ],
-    redirect_url: Annotated[str | None, typer.Option("--redirect-uri", help="Redirect URI")] = None,
-    authorize_url: Annotated[str | None, typer.Option("--authorize-url", help="Authorization endpoint")] = None,
-    token_url: Annotated[str | None, typer.Option("--token-url", help="Token endpoint")] = None,
-    userinfo_url: Annotated[str | None, typer.Option("--userinfo-url", help="Userinfo endpoint")] = None,
+    authorize_url: Annotated[str, typer.Option("--authorize-url", help="Authorization endpoint")],
+    token_url: Annotated[str, typer.Option("--token-url", help="Token endpoint")],
+    userinfo_url: Annotated[str, typer.Option("--userinfo-url", help="Userinfo endpoint")],
+    redirect_url: Annotated[str, typer.Option("--redirect-uri", help="Redirect URI (Mailcow base URL)")],
     scopes: Annotated[str, typer.Option("--scopes", help="OAuth2 scopes")] = "openid profile email",
+    authsource: Annotated[
+        str,
+        typer.Option("--authsource", help="Mailcow auth source type (generic-oidc, keycloak, ldap, etc.)"),
+    ] = "generic-oidc",
+    login_provisioning: Annotated[
+        bool,
+        typer.Option(
+            "--login-provisioning/--no-login-provisioning",
+            help="Auto-create mailbox on first SSO login",
+        ),
+    ] = True,
+    ignore_ssl_error: Annotated[
+        bool,
+        typer.Option("--ignore-ssl-error/--verify-ssl", help="Ignore TLS verification errors"),
+    ] = False,
 ) -> None:
-    """Configure external OIDC identity provider for Mailcow admin SSO."""
+    """Configure external OIDC identity provider for Mailcow admin/user SSO.
+
+    Mailcow's edit endpoint is "set or replace" — partial updates are not
+    supported. Always pass all required URLs.
+
+    Example:
+      kctl-mailcow identity-provider set \\
+        --server-url https://auth.idtpp.com/application/o/mailcow/ \\
+        --client-id <id> --client-secret <secret> \\
+        --authorize-url https://auth.idtpp.com/application/o/authorize/ \\
+        --token-url https://auth.idtpp.com/application/o/token/ \\
+        --userinfo-url https://auth.idtpp.com/application/o/userinfo/ \\
+        --redirect-uri https://mail.idtpp.com/
+    """
     c: AppContext = ctx.obj
-    payload: dict = {
-        "authsource": "oidc",
+    attr = {
+        "authsource": authsource,
         "server_url": server_url,
         "client_id": client_id,
         "client_secret": client_secret,
-        "scopes": scopes,
+        "redirect_url": redirect_url,
+        "authorize_url": authorize_url,
+        "token_url": token_url,
+        "userinfo_url": userinfo_url,
+        "client_scopes": scopes,
+        "login_provisioning": "1" if login_provisioning else "0",
+        "ignore_ssl_error": "1" if ignore_ssl_error else "0",
     }
-    if redirect_url:
-        payload["redirect_url"] = redirect_url
-    if authorize_url:
-        payload["authorize_url"] = authorize_url
-    if token_url:
-        payload["token_url"] = token_url
-    if userinfo_url:
-        payload["userinfo_url"] = userinfo_url
-
-    result = c.client.mc_edit("identity-provider", payload)
+    # Mailcow edit API expects {"attr": {...}} envelope (no items needed for IdP)
+    result = c.client.mc_edit("identity-provider", {"attr": attr})
     handle_result(c, result, "Identity provider configured")
 
 
