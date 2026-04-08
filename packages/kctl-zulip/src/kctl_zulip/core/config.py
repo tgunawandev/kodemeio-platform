@@ -40,6 +40,14 @@ class ServiceConfig(BaseModel):
     email: str = ""
     api_key: str = ""
 
+    # Server-side admin (SSH + docker exec) — for realm CRUD and ops
+    # the Zulip REST API does not support.
+    ssh_host: str = ""
+    ssh_port: int = 22
+    ssh_user: str = "root"
+    ssh_key: str = ""
+    container_filter: str = "ancestor=zulip/docker-zulip"
+
 
 class ConfigFile(BaseModel):
     default_profile: str = "default"

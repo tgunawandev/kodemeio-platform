@@ -177,7 +177,9 @@ def remove(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Profile name to remove")],
     force: Annotated[bool, typer.Option("--force", help="Skip confirmation")] = False,
-    service_only: Annotated[bool, typer.Option("--service-only", help="Only remove zulip config, keep other services")] = False,
+    service_only: Annotated[
+        bool, typer.Option("--service-only", help="Only remove zulip config, keep other services")
+    ] = False,
 ) -> None:
     """Remove a profile or just its Zulip config."""
     actx: AppContext = ctx.obj
@@ -235,12 +237,17 @@ def show(ctx: typer.Context) -> None:
 
     sections: list[tuple[str, list[tuple[str, str]]]] = []
 
-    sections.append(("General", [
-        ("Config file", str(CONFIG_FILE)),
-        ("Default profile", default),
-        ("Total profiles", str(len(profiles))),
-        ("This CLI", f"kctl-zulip -> service key: {SERVICE_KEY}"),
-    ]))
+    sections.append(
+        (
+            "General",
+            [
+                ("Config file", str(CONFIG_FILE)),
+                ("Default profile", default),
+                ("Total profiles", str(len(profiles))),
+                ("This CLI", f"kctl-zulip -> service key: {SERVICE_KEY}"),
+            ],
+        )
+    )
 
     for pname in profiles:
         marker = " [green](default)[/green]" if pname == default else ""
@@ -268,7 +275,9 @@ def set_(
     ctx: typer.Context,
     key: Annotated[str, typer.Argument(help="Config key (e.g. url, email, api_key, or default_profile)")],
     value: Annotated[str, typer.Argument(help="Value to set")],
-    profile_arg: Annotated[Optional[str], typer.Option("--profile-name", help="Target profile (default: active)")] = None,
+    profile_arg: Annotated[
+        Optional[str], typer.Option("--profile-name", help="Target profile (default: active)")
+    ] = None,
 ) -> None:
     """Set a configuration value for the current service.
 
@@ -289,17 +298,74 @@ def set_(
     pname = profile_arg or resolve_active_profile_name(actx.profile)
     svc = get_service_config(pname)
 
-    valid_fields = {"url", "email", "api_key"}
+    valid_fields = {
+        "url",
+        "email",
+        "api_key",
+        "ssh_host",
+        "ssh_port",
+        "ssh_user",
+        "ssh_key",
+        "container_filter",
+    }
     if key not in valid_fields:
         out.error(f"Unknown key: {key}")
         out.info(f"Valid keys: {', '.join(sorted(valid_fields))}, default_profile")
         raise typer.Exit(1)
 
-    setattr(svc, key, value)
+    coerced: str | int = int(value) if key == "ssh_port" else value
+    setattr(svc, key, coerced)
     set_service_config(pname, svc)
 
-    display = _mask_secret(value) if "key" in key else value
+    display = _mask_secret(value) if "key" in key and key != "ssh_key" else str(coerced)
     out.success(f"[{pname}] {SERVICE_KEY}.{key} = {display}")
+
+
+@app.command("set-ssh")
+def set_ssh(
+    ctx: typer.Context,
+    host: Annotated[str, typer.Option("--host", help="SSH host (public IP or DNS)")],
+    user: Annotated[str, typer.Option("--user", help="SSH user")] = "root",
+    port: Annotated[int, typer.Option("--port", help="SSH port")] = 22,
+    ssh_key: Annotated[Optional[str], typer.Option("--key", help="SSH private key path")] = None,
+    container_filter: Annotated[
+        str,
+        typer.Option(
+            "--container-filter",
+            help="Docker filter to find Zulip server container",
+        ),
+    ] = "ancestor=zulip/docker-zulip",
+    profile_arg: Annotated[
+        Optional[str], typer.Option("--profile-name", help="Target profile (default: active)")
+    ] = None,
+) -> None:
+    """Configure SSH access for server-side admin operations.
+
+    Required for `realm create`, `realm list`, `realm delete`, and other
+    operations not supported by the Zulip REST API.
+
+    Example:
+      kctl-zulip config set-ssh --host 178.104.127.104 --user root
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    pname = profile_arg or resolve_active_profile_name(actx.profile)
+    svc = get_service_config(pname)
+    svc.ssh_host = host
+    svc.ssh_user = user
+    svc.ssh_port = port
+    if ssh_key:
+        svc.ssh_key = ssh_key
+    svc.container_filter = container_filter
+    set_service_config(pname, svc)
+
+    out.success(f"SSH configured for profile '{pname}'")
+    out.kv("Host", host)
+    out.kv("User", user)
+    out.kv("Port", str(port))
+    out.kv("Key", ssh_key or "(default)")
+    out.kv("Container filter", container_filter)
 
 
 @app.command()
@@ -338,15 +404,17 @@ def profiles(ctx: typer.Context) -> None:
         other_str = ", ".join(other_services) if other_services else "[dim]-[/dim]"
 
         rows.append([pname, svc.url or "-", conn_status, other_str, status_marker])
-        json_data.append({
-            "name": pname,
-            "zulip_url": svc.url,
-            "connected": bool(svc.url) and ok,
-            "version": version if svc.url and ok else None,
-            "other_services": other_services,
-            "active": is_active,
-            "default": pname == default,
-        })
+        json_data.append(
+            {
+                "name": pname,
+                "zulip_url": svc.url,
+                "connected": bool(svc.url) and ok,
+                "version": version if svc.url and ok else None,
+                "other_services": other_services,
+                "active": is_active,
+                "default": pname == default,
+            }
+        )
 
     out.table(
         "Profiles",
@@ -372,7 +440,9 @@ def current(ctx: typer.Context) -> None:
         api_key_override=actx.api_key_override,
     )
 
-    ok, version = _test_connection(resolved_url, resolved_email, resolved_key) if resolved_url else (False, "not configured")
+    ok, version = (
+        _test_connection(resolved_url, resolved_email, resolved_key) if resolved_url else (False, "not configured")
+    )
 
     source = "config default"
     if actx.profile:
@@ -381,41 +451,46 @@ def current(ctx: typer.Context) -> None:
         source = "KCTL_ZULIP_PROFILE env var"
 
     sections: list[tuple[str, list[tuple[str, str]]]] = [
-        ("Active Connection", [
-            ("Profile", active),
-            ("Service", SERVICE_KEY),
-            ("Source", source),
-            ("URL", resolved_url or "[red]not set[/red]"),
-            ("Email", resolved_email or "[red]not set[/red]"),
-            ("API Key", _mask_secret(resolved_key)),
-            ("Status", f"[green]Connected -- Zulip {version}[/green]" if ok else f"[red]{version}[/red]"),
-        ]),
+        (
+            "Active Connection",
+            [
+                ("Profile", active),
+                ("Service", SERVICE_KEY),
+                ("Source", source),
+                ("URL", resolved_url or "[red]not set[/red]"),
+                ("Email", resolved_email or "[red]not set[/red]"),
+                ("API Key", _mask_secret(resolved_key)),
+                ("Status", f"[green]Connected -- Zulip {version}[/green]" if ok else f"[red]{version}[/red]"),
+            ],
+        ),
     ]
 
     # Other services in this profile
     all_services = get_all_services_in_profile(active)
     other = {k: v for k, v in all_services.items() if k != SERVICE_KEY and isinstance(v, dict)}
     if other:
-        sections.append(("Other Services in Profile", [
-            (svc_name, v.get("url", "(no url)")) for svc_name, v in other.items()
-        ]))
+        sections.append(
+            ("Other Services in Profile", [(svc_name, v.get("url", "(no url)")) for svc_name, v in other.items()])
+        )
 
     # Other profiles
     all_profiles = [p for p in get_profile_names() if p != active]
     if all_profiles:
-        sections.append(("Other Profiles", [
-            (p, get_service_config(p).url or "(no zulip)") for p in all_profiles
-        ]))
+        sections.append(("Other Profiles", [(p, get_service_config(p).url or "(no zulip)") for p in all_profiles]))
 
-    out.detail("Current Profile", sections, data_for_json={
-        "profile": active,
-        "service": SERVICE_KEY,
-        "source": source,
-        "url": resolved_url,
-        "email": resolved_email,
-        "connected": ok,
-        "version": version if ok else None,
-    })
+    out.detail(
+        "Current Profile",
+        sections,
+        data_for_json={
+            "profile": active,
+            "service": SERVICE_KEY,
+            "source": source,
+            "url": resolved_url,
+            "email": resolved_email,
+            "connected": ok,
+            "version": version if ok else None,
+        },
+    )
 
 
 @app.command()
@@ -436,13 +511,18 @@ def test(ctx: typer.Context) -> None:
 
     out.detail(
         "Connection Test",
-        [("Result", [
-            ("Profile", active),
-            ("Service", SERVICE_KEY),
-            ("Status", "[green]Connected[/green]"),
-            ("Zulip Version", data.get("zulip_version", "unknown")),
-            ("Feature Level", str(data.get("zulip_feature_level", "unknown"))),
-        ])],
+        [
+            (
+                "Result",
+                [
+                    ("Profile", active),
+                    ("Service", SERVICE_KEY),
+                    ("Status", "[green]Connected[/green]"),
+                    ("Zulip Version", data.get("zulip_version", "unknown")),
+                    ("Feature Level", str(data.get("zulip_feature_level", "unknown"))),
+                ],
+            )
+        ],
         data_for_json=data,
     )
 
