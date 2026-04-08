@@ -17,12 +17,12 @@ environments:
     auto_deploy: true
 
 odoo:
-  - profile: distribution
+  - recipe: distribution
     short: dist
     description: "Distribution (SFA, LFA, WMS, DMS, retail, marketplace, BI)"
     workers: 2
     apps: [bia, wms]
-  - profile: hrms
+  - recipe: hrms
     short: hrms
     description: "HRMS (employees, attendance, payroll, leaves, expenses)"
     workers: 2

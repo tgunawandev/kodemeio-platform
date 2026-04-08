@@ -17,12 +17,12 @@ environments:
     auto_deploy: true
 
 odoo:
-  - profile: trading
+  - recipe: trading
     short: trad
     description: "Trading (import/export, multi-currency, landed costs)"
     workers: 4
     apps: [sfa, bia, wms]
-  - profile: hrms
+  - recipe: hrms
     short: hrms
     description: "HRMS (employees, attendance, payroll, leaves, expenses)"
     workers: 2

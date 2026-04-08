@@ -16,7 +16,7 @@ environments:
     auto_deploy: true
 
 odoo:
-  - profile: full
+  - recipe: full
     short: full
     description: "Full Odoo (all modules, all PWA apps)"
     workers: 6
