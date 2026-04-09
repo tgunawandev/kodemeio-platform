@@ -2127,3 +2127,272 @@ def expense_summary(
         rows,
         data_for_json=json_data,
     )
+
+
+# ---------------------------------------------------------------------------
+# Employee bulk-maintenance helpers
+# ---------------------------------------------------------------------------
+#
+# These live on an ``employee`` sub-app (``kctl-odoo hr employee ...``) and
+# collect housekeeping commands we found ourselves writing as one-off curl
+# scripts during migrations:
+#
+#   normalize-names   Uppercase every active employee name (strip trailing
+#                     whitespace too) so the directory is visually consistent.
+#   archive-demo      Archive employees whose work_email matches a demo
+#                     pattern (``@example.com`` by default). Refuses to
+#                     touch records linked to a real ``res.users``.
+#   link-user         Attach a ``res.users`` account to an ``hr.employee``
+#                     record, detaching any previous employee link first so
+#                     the ``hr_employee_user_uniq`` constraint doesn't fire.
+#
+# All three are read-mostly / archive-only. They never hard-delete data —
+# Odoo's FK web around ``hr.employee`` makes delete unsafe and archive is
+# the right UX anyway.
+
+employee_app = typer.Typer(help="Employee maintenance helpers: normalize-names, archive-demo, link-user.")
+app.add_typer(employee_app, name="employee")
+
+
+@employee_app.command("normalize-names")
+def employee_normalize_names(
+    ctx: typer.Context,
+    all_: Annotated[
+        bool,
+        typer.Option("--all", help="Also process archived employees"),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", "-n", help="Preview only, do not write"),
+    ] = False,
+) -> None:
+    """Uppercase and trim every employee name.
+
+    By default only active employees are touched. Use ``--all`` to also
+    normalize archived ones. Records whose name is already canonical are
+    skipped silently.
+
+    Examples:
+        kctl-odoo hr employee normalize-names --dry-run
+        kctl-odoo hr employee normalize-names
+        kctl-odoo hr employee normalize-names --all
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    _require_hr(c, out)
+
+    domain: list = [] if all_ else [("active", "=", True)]
+    records = c.search_read(  # type: ignore[attr-defined]
+        "hr.employee", domain=domain, fields=["id", "name", "active"], order="id"
+    )
+
+    rows: list[list[str]] = []
+    json_data: list[dict] = []
+    changed = 0
+    for r in records:
+        old = r.get("name") or ""
+        new = old.strip().upper()
+        if new == old or not new:
+            continue
+        changed += 1
+        if not dry_run:
+            try:
+                c.write("hr.employee", [r["id"]], {"name": new})  # type: ignore[attr-defined]
+                status = "[green]updated[/green]"
+                err = ""
+            except Exception as exc:  # noqa: BLE001
+                status = "[red]failed[/red]"
+                err = str(exc).splitlines()[0][:100]
+        else:
+            status = "[yellow]dry-run[/yellow]"
+            err = ""
+        rows.append([str(r["id"]), old, new, status, err])
+        json_data.append(
+            {
+                "id": r["id"],
+                "old": old,
+                "new": new,
+                "updated": not dry_run and status.startswith("[green]"),
+                "error": err or None,
+            }
+        )
+
+    action = "would update" if dry_run else "updated"
+    out.table(  # type: ignore[union-attr]
+        f"Employee names — {changed} {action}, {len(records) - changed} already canonical",
+        [
+            ("ID", "cyan"),
+            ("Old", "dim"),
+            ("New", ""),
+            ("Status", ""),
+            ("Error", "dim"),
+        ],
+        rows,
+        data_for_json=json_data,
+    )
+
+
+@employee_app.command("archive-demo")
+def employee_archive_demo(
+    ctx: typer.Context,
+    email_pattern: Annotated[
+        str,
+        typer.Option(
+            "--email-like",
+            help="SQL ILIKE pattern to match against work_email (default: '%@example.com')",
+        ),
+    ] = "%@example.com",
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", "-n", help="Preview only, do not archive"),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Archive even records that are linked to a res.users account",
+        ),
+    ] = False,
+) -> None:
+    """Archive demo / placeholder employees by email pattern.
+
+    Refuses to touch employees linked to a live ``res.users`` unless
+    ``--force`` is supplied — that almost always indicates a real user.
+
+    Examples:
+        kctl-odoo hr employee archive-demo --dry-run
+        kctl-odoo hr employee archive-demo
+        kctl-odoo hr employee archive-demo --email-like '%@odoo.com'
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    _require_hr(c, out)
+
+    records = c.search_read(  # type: ignore[attr-defined]
+        "hr.employee",
+        domain=[("active", "=", True), ("work_email", "ilike", email_pattern)],
+        fields=["id", "name", "work_email", "user_id"],
+        order="id",
+    )
+
+    rows: list[list[str]] = []
+    json_data: list[dict] = []
+    archived = 0
+    skipped = 0
+    for r in records:
+        user = r.get("user_id")
+        user_label = user[1] if isinstance(user, list) else ""
+        is_linked = bool(user)
+
+        if is_linked and not force:
+            status = "[yellow]skip (linked)[/yellow]"
+            skipped += 1
+        elif dry_run:
+            status = "[yellow]dry-run[/yellow]"
+            archived += 1
+        else:
+            try:
+                c.write("hr.employee", [r["id"]], {"active": False})  # type: ignore[attr-defined]
+                status = "[green]archived[/green]"
+                archived += 1
+            except Exception as exc:  # noqa: BLE001
+                status = f"[red]error: {str(exc)[:60]}[/red]"
+                skipped += 1
+
+        rows.append(
+            [
+                str(r["id"]),
+                r.get("name") or "-",
+                (r.get("work_email") or "")[:35],
+                user_label or "-",
+                status,
+            ]
+        )
+        json_data.append(
+            {
+                "id": r["id"],
+                "name": r.get("name"),
+                "work_email": r.get("work_email"),
+                "user": user_label or None,
+                "archived": status.startswith("[green]") or status.startswith("[yellow]dry-run"),
+            }
+        )
+
+    action = "would archive" if dry_run else "archived"
+    out.table(  # type: ignore[union-attr]
+        f"Demo employees ({email_pattern}) — {archived} {action}, {skipped} skipped",
+        [
+            ("ID", "cyan"),
+            ("Name", ""),
+            ("Email", "dim"),
+            ("Linked User", "dim"),
+            ("Status", ""),
+        ],
+        rows,
+        data_for_json=json_data,
+    )
+
+
+@employee_app.command("link-user")
+def employee_link_user(
+    ctx: typer.Context,
+    employee: Annotated[
+        str,
+        typer.Argument(help="Employee ID or name to link"),
+    ],
+    user: Annotated[
+        str,
+        typer.Argument(help="User login or ID to link to the employee"),
+    ],
+) -> None:
+    """Link a ``res.users`` account to an ``hr.employee``.
+
+    If the user is already linked to a different employee in the same
+    company, that link is detached first to satisfy the
+    ``hr_employee_user_uniq`` constraint.
+
+    Examples:
+        kctl-odoo hr employee link-user 74 admin
+        kctl-odoo hr employee link-user "TRI GUNAWAN" admin
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    _require_hr(c, out)
+
+    # Resolve employee
+    emp_id, emp_name = _resolve(c, "hr.employee", "name", employee, "Employee")
+
+    # Resolve user (by login or id)
+    if user.isdigit():
+        user_recs = c.read("res.users", [int(user)], ["id", "login", "name"])  # type: ignore[attr-defined]
+    else:
+        user_recs = c.search_read(  # type: ignore[attr-defined]
+            "res.users", [("login", "=", user)], ["id", "login", "name"], limit=1
+        )
+    if not user_recs:
+        raise typer.BadParameter(f"User not found: {user}")
+    user_id = user_recs[0]["id"]
+    user_login = user_recs[0]["login"]
+
+    # Detach any previous employee link for this user so we don't hit
+    # the unique(user_id, company_id) constraint. Odoo's `write` on the
+    # many2one is atomic from the application side, but the database
+    # flush still sees both rows momentarily.
+    existing = c.search_read(  # type: ignore[attr-defined]
+        "hr.employee",
+        [("user_id", "=", user_id), ("id", "!=", emp_id)],
+        ["id", "name"],
+    )
+    if existing:
+        old_id = existing[0]["id"]
+        old_name = existing[0]["name"]
+        c.write("hr.employee", [old_id], {"user_id": False})  # type: ignore[attr-defined]
+        out.info(f"Detached user '{user_login}' from previous employee {old_id} ({old_name})")  # type: ignore[union-attr]
+
+    c.write("hr.employee", [emp_id], {"user_id": user_id})  # type: ignore[attr-defined]
+    out.success(  # type: ignore[union-attr]
+        f"Linked user '{user_login}' (id={user_id}) → employee '{emp_name}' (id={emp_id})"
+    )
