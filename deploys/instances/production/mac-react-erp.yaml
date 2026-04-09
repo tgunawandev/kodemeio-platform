@@ -1,0 +1,23 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/react-pwa.yaml
+instance:
+  name: mac-react-erp
+  description: MAC — ERP PWA
+project: mac
+environment: production
+server: tpp-prod-02
+source_overrides:
+  compose_path: compose/docker-compose.erp.yml
+dns:
+  zone: idtpp.com
+  name: mac-erp
+domain:
+  host: mac-erp.idtpp.com
+  port: 80
+  service: erp
+  https: true
+env_file: ../../env/production/.env.mac-react-erp
+env_overrides:
+  VITE_ERP_APP_NAME: MAC ERP
+  VITE_ERP_API_BASE_URL: https://mac-odoo-erp.idtpp.com

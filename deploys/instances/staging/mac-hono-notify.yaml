@@ -34,5 +34,5 @@ env_overrides:
   REDIS_URL: redis://redis:6379
   DISPATCH_SECRET: ${DISPATCH_SECRET}
   JWT_SECRET: ${JWT_SECRET}
-  ALLOWED_ORIGINS: https://stg-mac-bia.idtpp.com,https://stg-mac-wms.idtpp.com,https://stg-mac-hrm.idtpp.com
+  ALLOWED_ORIGINS: https://stg-mac-erp.idtpp.com,https://stg-mac-hrm.idtpp.com
   FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}

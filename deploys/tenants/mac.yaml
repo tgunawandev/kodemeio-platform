@@ -21,7 +21,9 @@ odoo:
     short: erp
     description: "ERP (accounting, sales, purchase, inventory, BI)"
     workers: 2
-    apps: [bia, wms]
+    # `erp` is the unified mobile workspace (@kodemeio/erp) that contains
+    # bia, eam, lfa, mrp, sfa, wms as runtime-discovered modules.
+    apps: [erp]
   - recipe: hrms
     short: hrms
     description: "HRMS (employees, attendance, payroll, leaves, expenses)"
