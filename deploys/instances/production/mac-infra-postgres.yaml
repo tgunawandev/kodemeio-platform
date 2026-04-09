@@ -3,11 +3,11 @@ extends: ../../bases/infra.yaml
 
 instance:
   name: mac-infra-postgres
-  description: "MAC dedicated PostgreSQL 16 database"
+  description: "MAC dedicated PostgreSQL 16 database (tpp-prod-02)"
 
 project: mac
 environment: production
-server: mac-prod-01
+server: tpp-prod-02
 
 source_overrides:
   type: github

@@ -23,8 +23,11 @@ env_file: ../../env/production/.env.mac-odoo-hrms
 env_overrides:
   COMPOSE_PROJECT_NAME: mac-odoo-hrms
   TENANT: mac
+  PGHOST: postgres
+  PGPORT: '5432'
   PGDATABASE: mac_odoo_hrms
   PGUSER: odoo
+  PGPASSWORD: TdPoCbKb8bPeqKnzxbiOyPkibovSn5eJ
   ODOO_DB_FILTER: ^mac_odoo_hrms$
   DOMAIN: mac-odoo-hrms.idtpp.com
   ODOO_WORKERS: '2'
