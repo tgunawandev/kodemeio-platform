@@ -94,8 +94,10 @@ class APIClient:
 
         for attempt in range(attempts):
             try:
-                self._log_debug(f"{method.upper()} {self._base_url}{url}")
-                response = self._client.request(method, url, **kwargs)
+                # Let httpx build the real URL so the debug log matches the wire
+                req = self._client.build_request(method, url, **kwargs)
+                self._log_debug(f"{method.upper()} {req.url}")
+                response = self._client.send(req)
 
                 if response.status_code < 400:
                     return response

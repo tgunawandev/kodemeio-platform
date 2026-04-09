@@ -87,6 +87,59 @@ class TestComposeStart:
         assert result.exit_code == 0
 
 
+class TestComposeUpdate:
+    def test_update_name_only_no_deploy_no_warning(self, mock_client: MagicMock) -> None:
+        """Updating metadata like --name should not warn about re-deploy."""
+        mock_client.post.return_value = {}
+        result = runner.invoke(app, ["compose", "update", "-i", "comp-123", "--name", "new-name"])
+        assert result.exit_code == 0
+        assert "updated" in result.output
+        # Should not mention re-deploy since no runtime-affecting field changed
+        assert "deploy" not in result.output.lower() or "--deploy" not in result.output
+        # Exactly one POST call — just the update, no deploy
+        assert mock_client.post.call_count == 1
+
+    def test_update_env_without_deploy_warns(self, mock_client: MagicMock, tmp_path) -> None:
+        """Updating --env should warn the user their change isn't live yet."""
+        mock_client.post.return_value = {}
+        result = runner.invoke(app, ["compose", "update", "-i", "comp-123", "--env", "FOO=bar"])
+        assert result.exit_code == 0
+        assert "updated" in result.output
+        # Warning about needing to deploy
+        assert "--deploy" in result.output or "start" in result.output.lower()
+        # Only the update POST, no deploy trigger
+        assert mock_client.post.call_count == 1
+        args, kwargs = mock_client.post.call_args
+        assert args[0] == "/compose.update"
+
+    def test_update_compose_file_with_deploy_triggers_deploy(self, mock_client: MagicMock, tmp_path) -> None:
+        """Passing --deploy should update AND trigger a deployment."""
+        compose_path = tmp_path / "docker-compose.yml"
+        compose_path.write_text("services:\n  web:\n    image: nginx\n")
+        mock_client.post.return_value = {}
+        result = runner.invoke(
+            app, ["compose", "update", "-i", "comp-123", "--compose-file", str(compose_path), "--deploy"]
+        )
+        assert result.exit_code == 0
+        assert "updated" in result.output
+        assert "deployment triggered" in result.output.lower()
+        # Two POSTs: compose.update then compose.deploy
+        assert mock_client.post.call_count == 2
+        update_call = mock_client.post.call_args_list[0]
+        deploy_call = mock_client.post.call_args_list[1]
+        assert update_call.args[0] == "/compose.update"
+        assert update_call.kwargs["json"]["sourceType"] == "raw"
+        assert "image: nginx" in update_call.kwargs["json"]["composeFile"]
+        assert deploy_call.args[0] == "/compose.deploy"
+        assert deploy_call.kwargs["json"]["composeId"] == "comp-123"
+
+    def test_update_no_fields_errors(self, mock_client: MagicMock) -> None:
+        """Running update with nothing but --id must error."""
+        result = runner.invoke(app, ["compose", "update", "-i", "comp-123"])
+        assert result.exit_code == 1
+        assert mock_client.post.call_count == 0
+
+
 class TestComposeLogs:
     def test_logs_json(self, mock_client: MagicMock) -> None:
         mock_client.post.return_value = {"logs": "line1\nline2"}
