@@ -1,0 +1,34 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-outline
+  description: "TPP Outline wiki with Authentik SSO + S3 storage (Pakerti knowledge base)"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-outline
+  branch: main
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: outline
+
+domain:
+  host: outline.idtpp.com
+  port: 3000
+  service: outline
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-outline
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-outline
+  TZ: Asia/Jakarta
