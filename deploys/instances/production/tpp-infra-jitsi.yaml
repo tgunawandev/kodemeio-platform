@@ -1,0 +1,37 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-jitsi
+  description: "TPP Jitsi Meet — self-hosted video conferencing with Authentik JWT, Zulip/SOGo integration"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  repo: kodemeio-jitsi
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: jitsi
+
+domain:
+  host: jitsi.idtpp.com
+  port: 80
+  service: web
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-jitsi
+
+# Post-deploy manual steps (not handled by pipeline):
+#  1. Firewall on tpp-prod-01: open UDP 10000 (JVB) + TCP/UDP 5349 (coturn)
+#  2. Authentik (auth.idtpp.com) OIDC provider `jitsi` — Client ID MUST be set
+#     to "jitsi" explicitly (not auto/UUID). See kodemeio-jitsi/docs/authentik-setup.md
+#  3. Create `jitsi-moderators` group in Authentik and add operator users
+#  4. Zulip (zulip.idtpp.com) → Organization settings → Call provider → Jitsi Meet
+#     → server URL: https://jitsi.idtpp.com
+#  5. Mailcow (mail.idtpp.com) → SOGo config:
+#     SOGoDefaultCalendarConferenceURL = "https://jitsi.idtpp.com/{{conferenceId}}";
