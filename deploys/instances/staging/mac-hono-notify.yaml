@@ -12,7 +12,7 @@ source_overrides:
   compose_path: apps/api/notify/docker-compose.yml
 project: mac
 environment: staging
-server: mac-stg-01
+server: tpp-prod-02
 healthcheck:
   path: /health
   port: 3020

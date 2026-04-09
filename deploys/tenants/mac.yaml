@@ -6,12 +6,12 @@ tenant:
 
 environments:
   production:
-    server: mac-prod-01
+    server: tpp-prod-02
     dns_prefix: ""
     db_prefix: ""
     auto_deploy: false
   staging:
-    server: mac-stg-01
+    server: tpp-prod-02
     dns_prefix: "stg-"
     db_prefix: "stg_"
     auto_deploy: true

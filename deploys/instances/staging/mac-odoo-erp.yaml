@@ -6,7 +6,7 @@ instance:
   description: MAC — ERP (accounting, sales, purchase, inventory, BI)
 project: mac
 environment: staging
-server: mac-stg-01
+server: tpp-prod-02
 dns:
   zone: idtpp.com
   name: stg-mac-odoo-erp
