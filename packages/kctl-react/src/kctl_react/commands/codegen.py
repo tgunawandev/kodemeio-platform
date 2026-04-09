@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import subprocess
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -18,12 +20,18 @@ app = typer.Typer(help="OpenAPI schema fetch and type generation.")
 def codegen(
     ctx: typer.Context,
     app_name: Annotated[str | None, typer.Option("--app", "-a", help="App name (omit for all apps)")] = None,
+    module: Annotated[
+        str | None,
+        typer.Option("--module", "-m", help="Regenerate a single module (erp app only). Requires --app erp."),
+    ] = None,
 ) -> None:
     """Fetch OpenAPI schema and regenerate TypeScript types.
 
     Examples:
-      kctl-react codegen --app sfa   # Generate types for SFA
-      kctl-react codegen             # Generate types for all apps
+      kctl-react codegen --app sfa         # Generate types for SFA
+      kctl-react codegen --app erp         # Generate types for the erp app
+      kctl-react codegen --app erp --module sfa  # Regenerate erp/sfa module types only
+      kctl-react codegen                   # Generate types for all apps
     """
     if ctx.invoked_subcommand is not None:
         return
@@ -31,6 +39,40 @@ def codegen(
     actx: AppContext = ctx.obj
     out = actx.output
     root = actx.project_root
+
+    # --module requires --app erp
+    if module is not None:
+        if app_name is None:
+            out.error("--module requires --app erp")
+            raise typer.Exit(1)
+        if app_name != "erp":
+            out.error(f"--module is only supported for the erp app, not '{app_name}'")
+            raise typer.Exit(1)
+
+        actx.validate_app("erp")
+        erp_dir = get_app_dir(root, "erp")
+        config_path = erp_dir / "src" / "modules" / module / "module.openapi.ts"
+
+        if not config_path.exists():
+            out.error(
+                f"Module '{module}' does not have a codegen config yet. "
+                f"Add src/modules/{module}/module.openapi.ts first."
+            )
+            raise typer.Exit(1)
+
+        out.info(f"Regenerating types for erp/{module}...")
+        try:
+            result = subprocess.run(
+                ["pnpm", "--filter", "@kodemeio/erp", "exec", "openapi-ts", "--config", str(config_path)],
+                cwd=root,
+                timeout=60,
+                check=True,
+            )
+            out.success(f"erp/{module}: types generated")
+        except subprocess.CalledProcessError as e:
+            out.error(f"erp/{module}: codegen failed — {e}")
+            raise typer.Exit(1) from None
+        return
 
     apps_to_gen = [app_name] if app_name else actx.app_names
     if app_name:
