@@ -43,10 +43,19 @@ env_defaults:
   ODOO_MAX_CRON_THREADS: "2"
   ODOO_LIST_DB: "False"
   WITHOUT_DEMO: "True"
-  PGHOST: "10.0.0.3"
+  # PGHOST is intentionally NOT defaulted here. The deployer's env merge
+  # order is env_file < env_defaults < env_overrides, so a default at
+  # this layer would silently clobber any PGHOST set in the per-instance
+  # env file. Each tenant must put PGHOST in its own env_overrides.
   PGPORT: "5432"
   ODOO_TAG: "latest"
-  ODOO_SERVER_WIDE_MODULES: "base,web"
+  # Full server-wide module list — ALL Odoo instances need bus,
+  # bus_alt_connection, session_db, and dbfilter_from_header to be
+  # functional. Defaulting to just 'base,web' previously caused
+  # silent breakage: websockets disconnecting, sessions wiped on
+  # every container recreate, and the X-Odoo-dbfilter header being
+  # ignored. Each instance can still override in env_overrides.
+  ODOO_SERVER_WIDE_MODULES: "base,web,bus,bus_alt_connection,session_db,dbfilter_from_header"
   ODOO_MANDATORY_BUNDLE: "oca-mandatory"
   ODOO_MANDATORY_GROUPS: "core"
   IR_ATTACHMENT_LOCATION: "file"
