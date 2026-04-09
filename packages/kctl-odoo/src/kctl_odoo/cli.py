@@ -64,6 +64,7 @@ from kctl_odoo.commands.manifest_cmd import app as manifest_app
 from kctl_odoo.commands.migrate import app as migrate_app
 from kctl_odoo.commands.modules import app as modules_app
 from kctl_odoo.commands.monitor_cmd import app as monitor_app
+from kctl_odoo.commands.onboarding_cmd import app as onboarding_app
 from kctl_odoo.commands.mrp_cmd import app as mrp_app
 from kctl_odoo.commands.orm_cmd import app as orm_app
 from kctl_odoo.commands.partners import app as partners_app
@@ -171,6 +172,7 @@ app.add_typer(purchasing_app, name="purchasing", rich_help_panel=_P_BIZ)
 app.add_typer(inventory_app, name="inventory", rich_help_panel=_P_BIZ)
 app.add_typer(accounting_app, name="accounting", rich_help_panel=_P_BIZ)
 app.add_typer(hr_app, name="hr", rich_help_panel=_P_BIZ)
+app.add_typer(onboarding_app, name="onboarding", rich_help_panel=_P_BIZ)
 app.add_typer(mrp_app, name="mrp", rich_help_panel=_P_BIZ)
 app.add_typer(pos_app, name="pos", rich_help_panel=_P_BIZ)
 app.add_typer(project_app, name="project", rich_help_panel=_P_BIZ)
