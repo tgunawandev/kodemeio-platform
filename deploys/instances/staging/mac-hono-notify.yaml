@@ -20,10 +20,10 @@ healthcheck:
   timeout: 60
   interval: 10
 dns:
-  zone: mandiriagro.com
+  zone: idtpp.com
   name: stg-mac-notify
 domain:
-  host: stg-mac-notify.mandiriagro.com
+  host: stg-mac-notify.idtpp.com
   port: 3020
   service: notify
   https: true
@@ -34,5 +34,5 @@ env_overrides:
   REDIS_URL: redis://redis:6379
   DISPATCH_SECRET: ${DISPATCH_SECRET}
   JWT_SECRET: ${JWT_SECRET}
-  ALLOWED_ORIGINS: https://stg-mac-bia.mandiriagro.com,https://stg-mac-wms.mandiriagro.com,https://stg-mac-hrm.mandiriagro.com
+  ALLOWED_ORIGINS: https://stg-mac-bia.idtpp.com,https://stg-mac-wms.idtpp.com,https://stg-mac-hrm.idtpp.com
   FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}

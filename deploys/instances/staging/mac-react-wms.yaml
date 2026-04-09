@@ -10,14 +10,14 @@ server: mac-stg-01
 source_overrides:
   compose_path: compose/docker-compose.wms.yml
 dns:
-  zone: mandiriagro.com
+  zone: idtpp.com
   name: stg-mac-wms
 domain:
-  host: stg-mac-wms.mandiriagro.com
+  host: stg-mac-wms.idtpp.com
   port: 80
   service: wms
   https: true
 env_file: ../../env/staging/.env.mac-react-wms
 env_overrides:
   VITE_WMS_APP_NAME: MAC WMS
-  VITE_WMS_API_BASE_URL: https://stg-mac-odoo-dist.mandiriagro.com/wms/api
+  VITE_WMS_API_BASE_URL: https://stg-mac-odoo-erp.idtpp.com/wms/api

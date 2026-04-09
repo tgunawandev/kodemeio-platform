@@ -1,0 +1,34 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/odoo.yaml
+instance:
+  name: mac-odoo-erp
+  description: MAC — ERP (accounting, sales, purchase, inventory, BI)
+project: mac
+environment: staging
+server: mac-stg-01
+dns:
+  zone: idtpp.com
+  name: stg-mac-odoo-erp
+domain:
+  host: stg-mac-odoo-erp.idtpp.com
+  port: 8069
+  service: odoo-web
+  https: true
+  cert: letsencrypt
+database:
+  name: stg_mac_odoo_erp
+  user: odoo
+env_file: ../../env/staging/.env.mac-odoo-erp
+env_overrides:
+  COMPOSE_PROJECT_NAME: mac-odoo-erp
+  TENANT: mac
+  PGDATABASE: stg_mac_odoo_erp
+  PGUSER: odoo
+  ODOO_DB_FILTER: ^stg_mac_odoo_erp$
+  DOMAIN: stg-mac-odoo-erp.idtpp.com
+  ODOO_WORKERS: '2'
+post_deploy:
+  odoo_profile: profile-erp
+  odoo_install_bundle: ''
+  recipe: erp

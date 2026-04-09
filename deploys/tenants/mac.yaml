@@ -2,7 +2,7 @@ tenant:
   code: mac
   name: "Mandiri Agro"
   short_name: "MAC"
-  domain: mandiriagro.com
+  domain: idtpp.com
 
 environments:
   production:
@@ -17,9 +17,9 @@ environments:
     auto_deploy: true
 
 odoo:
-  - recipe: distribution
-    short: dist
-    description: "Distribution (SFA, LFA, WMS, DMS, retail, marketplace, BI)"
+  - recipe: erp
+    short: erp
+    description: "ERP (accounting, sales, purchase, inventory, BI)"
     workers: 2
     apps: [bia, wms]
   - recipe: hrms
@@ -29,8 +29,6 @@ odoo:
     apps: [hrm]
 
 web:
-  corporate:
-    compose_brand: mandiriagro
   careers: true
 
 services:

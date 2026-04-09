@@ -8,10 +8,10 @@ project: mac
 environment: production
 server: mac-prod-01
 dns:
-  zone: mandiriagro.com
+  zone: idtpp.com
   name: mac-odoo-hrms
 domain:
-  host: mac-odoo-hrms.mandiriagro.com
+  host: mac-odoo-hrms.idtpp.com
   port: 8069
   service: odoo-web
   https: true
@@ -26,7 +26,7 @@ env_overrides:
   PGDATABASE: mac_odoo_hrms
   PGUSER: odoo
   ODOO_DB_FILTER: ^mac_odoo_hrms$
-  DOMAIN: mac-odoo-hrms.mandiriagro.com
+  DOMAIN: mac-odoo-hrms.idtpp.com
   ODOO_WORKERS: '2'
 post_deploy:
   odoo_profile: profile-hrms

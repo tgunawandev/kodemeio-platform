@@ -20,10 +20,10 @@ healthcheck:
   timeout: 60
   interval: 10
 dns:
-  zone: mandiriagro.com
+  zone: idtpp.com
   name: mac-notify
 domain:
-  host: mac-notify.mandiriagro.com
+  host: mac-notify.idtpp.com
   port: 3020
   service: notify
   https: true
@@ -34,5 +34,5 @@ env_overrides:
   REDIS_URL: redis://redis:6379
   DISPATCH_SECRET: ${DISPATCH_SECRET}
   JWT_SECRET: ${JWT_SECRET}
-  ALLOWED_ORIGINS: https://mac-bia.mandiriagro.com,https://mac-wms.mandiriagro.com,https://mac-hrm.mandiriagro.com
+  ALLOWED_ORIGINS: https://mac-bia.idtpp.com,https://mac-wms.idtpp.com,https://mac-hrm.idtpp.com
   FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}

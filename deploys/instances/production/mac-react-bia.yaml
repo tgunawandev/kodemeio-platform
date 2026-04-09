@@ -10,14 +10,14 @@ server: mac-prod-01
 source_overrides:
   compose_path: compose/docker-compose.bia.yml
 dns:
-  zone: mandiriagro.com
+  zone: idtpp.com
   name: mac-bia
 domain:
-  host: mac-bia.mandiriagro.com
+  host: mac-bia.idtpp.com
   port: 80
   service: bia
   https: true
 env_file: ../../env/production/.env.mac-react-bia
 env_overrides:
   VITE_BIA_APP_NAME: MAC BIA
-  VITE_BIA_API_BASE_URL: https://mac-odoo-dist.mandiriagro.com/bia/api
+  VITE_BIA_API_BASE_URL: https://mac-odoo-erp.idtpp.com/bia/api
