@@ -178,8 +178,23 @@ def update(
     auto_deploy: Annotated[
         bool | None, typer.Option("--auto-deploy/--no-auto-deploy", help="Enable auto-deploy on push")
     ] = None,
+    deploy: Annotated[
+        bool,
+        typer.Option(
+            "--deploy",
+            help="Trigger a deployment after updating (required for --env or --compose-file changes "
+            "to take effect on the running host)",
+        ),
+    ] = False,
 ) -> None:
-    """Update a compose service configuration."""
+    """Update a compose service configuration.
+
+    Note: updates to ``--env`` or ``--compose-file`` only change the Dokploy
+    database. The on-disk docker-compose.yml and running containers on the
+    target host are not touched until the next deployment. Pass ``--deploy``
+    to trigger a redeploy immediately, or run ``kctl-dokploy compose start``
+    afterwards.
+    """
     c: AppContext = ctx.obj
     payload: dict = {"composeId": compose_id}
     if name is not None:
@@ -224,6 +239,22 @@ def update(
         raise typer.Exit(1)
     result = c.client.post("/compose.update", json=payload)
     c.output.success(f"Compose '{compose_id}' updated")
+
+    # Runtime-affecting changes only land on the host at deploy time.
+    # Warn the user unless they opted into --deploy.
+    runtime_changed = env_content is not None or compose_file is not None
+    if runtime_changed:
+        if deploy:
+            c.output.info("Triggering deployment to apply changes on host...")
+            c.client.post("/compose.deploy", json={"composeId": compose_id})
+            c.output.success(f"Compose '{compose_id}' deployment triggered")
+        else:
+            c.output.warn(
+                "Changes to --env/--compose-file are stored in Dokploy but the running host "
+                "still has the previous version. Re-run with --deploy or trigger "
+                "`kctl-dokploy compose start` to apply."
+            )
+
     if c.json_mode:
         c.output.raw_json(result)
 
