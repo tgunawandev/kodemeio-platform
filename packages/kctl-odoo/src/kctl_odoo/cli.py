@@ -87,6 +87,7 @@ from kctl_odoo.commands.sessions import app as sessions_app
 from kctl_odoo.commands.setup import app as setup_app
 from kctl_odoo.commands.shell import app as shell_app
 from kctl_odoo.commands.skill_cmd import app as skill_app
+from kctl_odoo.commands.staging_cmd import app as staging_app
 from kctl_odoo.commands.statements_cmd import app as statements_app
 from kctl_odoo.commands.storage import app as storage_app
 from kctl_odoo.commands.support_cmd import app as support_app
@@ -261,6 +262,7 @@ app.add_typer(sequences_app, name="sequences", rich_help_panel=_P_INSTANCE)
 app.add_typer(periods_app, name="periods", rich_help_panel=_P_INSTANCE)
 app.add_typer(cleanup_app, name="clean", rich_help_panel=_P_INSTANCE)
 app.add_typer(migrate_app, name="migrate", rich_help_panel=_P_INSTANCE)
+app.add_typer(staging_app, name="staging", rich_help_panel=_P_INSTANCE)
 
 # --- Tools ---
 _P_TOOLS = "Tools"
