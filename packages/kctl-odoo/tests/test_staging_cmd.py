@@ -61,6 +61,48 @@ class TestStagingImport:
         assert callable(neutralize_staging)
 
 
+class TestIsStagingDb:
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "stg_mac_odoo_erp",
+            "staging_anything",
+            "mac_odoo_erp_stg",
+            "mac_odoo_erp_staging",
+            "mac-odoo-erp-stg",
+            "mac-odoo-erp-staging",
+            "stg-mac-odoo-erp",
+            "staging-mac-odoo-erp",
+            "stg",
+            "staging",
+            "STG_MAC_ODOO_ERP",
+        ],
+    )
+    def test_accepts_staging_names(self, name: str) -> None:
+        from kctl_odoo.commands.staging_cmd import _is_staging_db
+
+        assert _is_staging_db(name) is True
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "stage_prod",
+            "instagram_db",
+            "prod_mac",
+            "mac_odoo_erp",
+            "production",
+            "stgx_prod",
+            "staginx",
+            "",
+            None,
+        ],
+    )
+    def test_rejects_non_staging_names(self, name: str | None) -> None:
+        from kctl_odoo.commands.staging_cmd import _is_staging_db
+
+        assert _is_staging_db(name) is False
+
+
 class TestSafetyGuard:
     def test_refuses_production_database(self) -> None:
         """Must refuse if database name lacks 'stg' or 'staging'."""
@@ -200,3 +242,127 @@ class TestNeutralizeBehaviour:
         assert "payment.provider" not in written_models
         assert "webhook.endpoint" not in written_models
         assert "res.company" not in written_models
+
+    def test_neutralize_second_run_is_noop(self) -> None:
+        """Running twice produces zero additional disable-writes on the second run.
+
+        Uses a stateful fake client that mutates its own "database" as writes
+        arrive, so the second pass sees an already-neutralized world.
+        """
+        from kctl_odoo.commands.staging_cmd import neutralize_staging
+
+        state = {
+            "mail_server_active": [1, 2, 3],
+            "payment_provider_enabled": [10],
+            "webhook_active": [20],
+            "companies": [(1, "Acme")],
+            "base_url": "https://old.example.com",
+        }
+
+        def search(model, domain=None, **kwargs):
+            if model == "ir.mail_server":
+                return list(state["mail_server_active"])
+            if model == "payment.provider":
+                return list(state["payment_provider_enabled"])
+            if model == "webhook.endpoint":
+                return list(state["webhook_active"])
+            if model == "res.company":
+                return [c[0] for c in state["companies"]]
+            return []
+
+        def search_read(model, domain=None, fields=None, **kwargs):
+            if model == "res.company":
+                return [{"id": cid, "name": name} for cid, name in state["companies"]]
+            if model == "ir.config_parameter":
+                return [{"id": 99, "key": "web.base.url", "value": state["base_url"]}]
+            if model == "res.users":
+                return [{"id": 2, "login": "admin"}]
+            return []
+
+        def write(model, ids, vals):
+            if model == "ir.mail_server" and vals.get("active") is False:
+                state["mail_server_active"] = [i for i in state["mail_server_active"] if i not in ids]
+            elif model == "payment.provider" and vals.get("state") == "disabled":
+                state["payment_provider_enabled"] = [i for i in state["payment_provider_enabled"] if i not in ids]
+            elif model == "webhook.endpoint" and vals.get("active") is False:
+                state["webhook_active"] = [i for i in state["webhook_active"] if i not in ids]
+            elif model == "res.company" and "name" in vals:
+                state["companies"] = [
+                    (cid, vals["name"]) if cid in ids else (cid, name) for cid, name in state["companies"]
+                ]
+            elif model == "ir.config_parameter" and "value" in vals:
+                state["base_url"] = vals["value"]
+            return True
+
+        c = MagicMock()
+        c._base_url = "https://stg.example.com"
+        c.search.side_effect = search
+        c.search_read.side_effect = search_read
+        c.write.side_effect = write
+
+        actx = _make_actx(client=c, database="stg_mac_odoo_erp")
+        ctx = _make_ctx(actx)
+
+        # First run should perform disable-writes.
+        neutralize_staging(ctx, admin_password="secret", company_prefix="[STG] ", dry_run=False)
+        first_run_writes = c.write.call_count
+        assert first_run_writes > 0, "first run should write"
+
+        # Reset call tracking but keep the state.
+        c.write.reset_mock()
+
+        # Second run should be a no-op on disable-target models. Admin password
+        # re-set on res.users is acceptable (idempotent overwrite).
+        neutralize_staging(ctx, admin_password="secret", company_prefix="[STG] ", dry_run=False)
+
+        non_admin_writes = [call for call in c.write.call_args_list if call.args and call.args[0] != "res.users"]
+        assert non_admin_writes == [], f"second run must not write to disable-target models, got {non_admin_writes}"
+
+    def test_admin_password_sets_when_provided(self) -> None:
+        """Admin password is written when admin user is found."""
+        from kctl_odoo.commands.staging_cmd import neutralize_staging
+
+        c = MagicMock()
+        _configure_client_defaults(c)
+
+        def search_read(model, domain=None, fields=None, **kwargs):
+            if model == "res.users":
+                return [{"id": 7, "login": "admin"}]
+            return []
+
+        c.search_read.side_effect = search_read
+        actx = _make_actx(client=c, database="stg_mac_odoo_erp")
+        ctx = _make_ctx(actx)
+
+        neutralize_staging(ctx, admin_password="new_pw", company_prefix="[STG] ", dry_run=False)
+
+        pw_calls = [call for call in c.write.call_args_list if call.args and call.args[0] == "res.users"]
+        assert len(pw_calls) == 1
+        assert pw_calls[0].args[1] == [7]
+        assert pw_calls[0].args[2] == {"password": "new_pw"}
+
+    def test_web_base_url_creates_param_when_missing(self) -> None:
+        """When ir.config_parameter lacks web.base.url, create() is invoked."""
+        from kctl_odoo.commands.staging_cmd import neutralize_staging
+
+        c = MagicMock()
+        _configure_client_defaults(c)
+
+        def search_read(model, domain=None, fields=None, **kwargs):
+            if model == "ir.config_parameter":
+                return []  # missing -> should trigger create
+            return []
+
+        c.search_read.side_effect = search_read
+        c._base_url = "https://stg.example.com"
+        actx = _make_actx(client=c, database="stg_mac_odoo_erp")
+        ctx = _make_ctx(actx)
+
+        neutralize_staging(ctx, admin_password=None, company_prefix="[STG] ", dry_run=False)
+
+        create_calls = [call for call in c.create.call_args_list if call.args and call.args[0] == "ir.config_parameter"]
+        assert len(create_calls) == 1
+        assert create_calls[0].args[1] == {
+            "key": "web.base.url",
+            "value": "https://stg.example.com",
+        }

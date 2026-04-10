@@ -23,12 +23,31 @@ app = typer.Typer(help="Staging environment helpers (neutralize after clone).")
 # ---------------------------------------------------------------------------
 
 
+_STAGING_TOKENS = ("stg", "staging")
+
+
 def _is_staging_db(name: str | None) -> bool:
-    """Return True if the database name looks like a staging DB."""
+    """Return True if the database name identifies as staging.
+
+    Matches on clear token boundaries (prefix, suffix, or underscore/hyphen
+    separated) to avoid false positives like ``stage_prod`` or
+    ``instagram_db``.
+    """
     if not name:
         return False
     lowered = name.lower()
-    return "stg" in lowered or "staging" in lowered
+    # Prefix match: stg_mac_odoo_erp, staging_anything
+    if lowered.startswith(("stg_", "stg-", "staging_", "staging-")):
+        return True
+    # Suffix match: mac_odoo_erp_stg, mac_odoo_erp_staging
+    if lowered.endswith(("_stg", "-stg", "_staging", "-staging")):
+        return True
+    # Exact match: just 'stg' or 'staging'
+    if lowered in _STAGING_TOKENS:
+        return True
+    # Token-separated anywhere: mac-odoo-erp-stg-clone
+    parts = lowered.replace("-", "_").split("_")
+    return any(tok in parts for tok in _STAGING_TOKENS)
 
 
 def _model_exists(client: object, model: str) -> bool:
