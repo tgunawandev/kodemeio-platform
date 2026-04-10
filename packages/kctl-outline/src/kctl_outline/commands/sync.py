@@ -85,7 +85,7 @@ def _ensure_parent_doc(client, collection_id: str, label: str) -> str:
             "title": label,
             "text": f"# {label}\n\nSynced documentation.",
             "collectionId": collection_id,
-            "publish": False,
+            "publish": True,
         },
     )
     return result["data"]["id"]
@@ -124,7 +124,7 @@ def _ensure_section_doc(
             "text": f"# {title}\n",
             "collectionId": collection_id,
             "parentDocumentId": parent_doc_id,
-            "publish": False,
+            "publish": True,
         },
     )
     doc_id = result["data"]["id"]
