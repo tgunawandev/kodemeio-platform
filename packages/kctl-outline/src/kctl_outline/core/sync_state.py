@@ -44,7 +44,7 @@ class MappingSyncEntry(BaseModel):
     src: str  # path relative to repo_path
     collection_name: str
     collection_id: str
-    parent_doc_id: str = ""
+    parent_doc_id: str | None = ""
     files: dict[str, FileSyncEntry] = Field(default_factory=dict)
     last_synced: str = ""
 
