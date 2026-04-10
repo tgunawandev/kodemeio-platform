@@ -34,5 +34,6 @@ web:
   careers: true
 
 services:
-  notify: true
+  # notify: shared via kod-infra-notify (notify.kodeme.io). MAC origins are
+  # registered in env/production/.env.kod-infra-notify ALLOWED_ORIGINS.
   redis: true
