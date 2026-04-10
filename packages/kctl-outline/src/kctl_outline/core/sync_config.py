@@ -72,13 +72,24 @@ def _upgrade_v1(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def load_sync_config(repo_path: Path) -> SyncConfig | None:
-    """Load .outline-sync.yaml from a repo directory.
+def load_sync_config(repo_path: Path, config_file: str | Path | None = None) -> SyncConfig | None:
+    """Load a sync config file.
+
+    Args:
+        repo_path: repo root directory (used as the base for relative
+            paths inside the config and for the default lookup).
+        config_file: explicit config file path. If None, defaults to
+            ``repo_path / '.outline-sync.yaml'``. Can be relative
+            (resolved against repo_path) or absolute.
 
     Returns None if no config file is present. Raises ValueError on
     schema/validation errors (with the original ValidationError chained).
     """
-    cfg_file = repo_path / ".outline-sync.yaml"
+    if config_file is None:
+        cfg_file = repo_path / ".outline-sync.yaml"
+    else:
+        cfg_path = Path(config_file)
+        cfg_file = cfg_path if cfg_path.is_absolute() else (repo_path / cfg_path)
     if not cfg_file.is_file():
         return None
     try:

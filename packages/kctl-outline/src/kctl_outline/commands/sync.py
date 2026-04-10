@@ -371,6 +371,13 @@ def sync_run(
     mode_filter: Annotated[
         Optional[str], typer.Option("--mode", help="Run only mappings with this mode (push/pull/mixed)")
     ] = None,
+    config_file: Annotated[
+        Optional[str],
+        typer.Option(
+            "--config",
+            help="Sync config file (default: .outline-sync.yaml). Use this to point at .outline-sync.kod.yaml or .outline-sync.tpp.yaml.",
+        ),
+    ] = None,
 ) -> None:
     """Sync markdown docs from a repo to Outline. Dry-run by default."""
     c: AppContext = ctx.obj
@@ -378,9 +385,10 @@ def sync_run(
         path = "."
     repo_path = Path(path).resolve()
 
-    cfg = load_sync_config(repo_path)
+    cfg = load_sync_config(repo_path, config_file=config_file)
     if cfg is None:
-        c.output.warn(f"{repo_path}: no .outline-sync.yaml found")
+        looked_for = config_file or ".outline-sync.yaml"
+        c.output.warn(f"{repo_path}: {looked_for} not found")
         raise typer.Exit(code=1)
 
     state = load_sync_state()
@@ -391,7 +399,9 @@ def sync_run(
         if mode_filter_value and mapping.mode != mode_filter_value and mapping.mode != SyncMode.MIXED:
             continue
 
-        client = _build_client_for_mapping(ctx, mapping, cfg)
+        # Lazy client construction: dry-run push doesn't need credentials.
+        # Only build the client when we're actually going to hit the API.
+        client = None
         c.output.header(f"{repo_path.name} -> {mapping.collection} [{mapping.mode.value}]")
 
         if mapping.mode == SyncMode.PUSH or mapping.mode == SyncMode.MIXED:
@@ -403,12 +413,16 @@ def sync_run(
                 color = {"create": "green", "update": "yellow", "skip": "dim"}.get(a.kind.value, "")
                 c.output.text(f"  [{color}]{a.kind.value:6s}[/{color}] {a.rel_path} -> {a.title}")
             if not dry_run:
+                if client is None:
+                    client = _build_client_for_mapping(ctx, mapping, cfg)
                 _execute_push(client, c.output, repo_path, mapping, actions, state)
 
         if mapping.mode == SyncMode.PULL or mapping.mode == SyncMode.MIXED:
             if dry_run:
                 c.output.info(f"  (pull dry-run: would walk collection '{mapping.collection}')")
             else:
+                if client is None:
+                    client = _build_client_for_mapping(ctx, mapping, cfg)
                 _execute_pull(client, c.output, repo_path, mapping, state)
 
     if dry_run:
@@ -448,13 +462,18 @@ def sync_status(
 def sync_diff(
     ctx: typer.Context,
     path: Annotated[str, typer.Argument(help="Path to repo directory")],
+    config_file: Annotated[
+        Optional[str],
+        typer.Option("--config", help="Sync config file (default: .outline-sync.yaml)"),
+    ] = None,
 ) -> None:
     """Show what would change on next sync (push mappings only)."""
     c: AppContext = ctx.obj
     repo_path = Path(path).resolve()
-    cfg = load_sync_config(repo_path)
+    cfg = load_sync_config(repo_path, config_file=config_file)
     if cfg is None:
-        c.output.warn(f"{repo_path}: no .outline-sync.yaml found")
+        looked_for = config_file or ".outline-sync.yaml"
+        c.output.warn(f"{repo_path}: {looked_for} not found")
         raise typer.Exit(code=1)
     state = load_sync_state()
     for mapping in cfg.mappings:
