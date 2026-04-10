@@ -59,6 +59,52 @@ def _slugify(name: str) -> str:
     return name.lower().replace(" ", "-").replace("_", "-")
 
 
+def _find_signing_cert(client) -> str | None:
+    """Find a suitable signing key for an OAuth2 / OIDC provider.
+
+    Returns the ``pk`` (UUID string) of the first RSA self-signed
+    certificate keypair with a private key. Preference order:
+
+    1. The default "authentik Self-signed Certificate" (ships with every
+       new Authentik install).
+    2. Any other keypair whose name contains "self-signed" or "default".
+    3. The first keypair with a private key.
+
+    Returns ``None`` only if the instance has no usable keypairs at all,
+    which should be impossible on a freshly initialised Authentik.
+
+    OIDC providers REQUIRE a signing key so the id_token can be signed
+    with RS256 and the ``/application/o/<slug>/jwks/`` endpoint returns
+    real keys. Without this, Odoo's ``auth_oidc`` chokes decoding the
+    id_token and every login attempt returns ``?oauth_error=2``.
+    """
+    try:
+        certs = client.get_all("crypto/certificatekeypairs/")
+    except Exception:
+        return None
+    if not certs:
+        return None
+
+    def _has_private_key(c: dict) -> bool:
+        return bool(c.get("private_key_available") or c.get("key_data"))
+
+    # Preference 1: the default self-signed cert
+    for c in certs:
+        name = (c.get("name") or "").lower()
+        if "authentik self-signed certificate" in name and _has_private_key(c):
+            return c.get("pk")
+    # Preference 2: any self-signed / default named cert
+    for c in certs:
+        name = (c.get("name") or "").lower()
+        if ("self-signed" in name or "default" in name) and _has_private_key(c):
+            return c.get("pk")
+    # Preference 3: first keypair with a private key
+    for c in certs:
+        if _has_private_key(c):
+            return c.get("pk")
+    return None
+
+
 @app.command()
 def status(ctx: typer.Context) -> None:
     """Show what is currently configured."""
@@ -162,13 +208,32 @@ def oauth2(
     # Find invalidation flow
     inval_flow = _find_invalidation_flow(c)
 
+    # Find a signing key so the id_token can be RS256-signed and the
+    # JWKS endpoint serves real keys. Missing this is the single most
+    # common "Login with Authentik → oauth_error=2" cause for Odoo's
+    # auth_oidc integration.
+    signing_key = _find_signing_cert(c)
+    if not signing_key:
+        out.warn(
+            "No signing certificate found. The provider will be created "
+            "without one; id_token signing will fail until you attach a "
+            "keypair manually under Applications → Providers."
+        )
+
     # Create OAuth2 provider
+    #
+    # sub_mode = "user_uuid" makes the OIDC `sub` claim stable across
+    # renames and unique per user even when emails collide. Odoo's
+    # auth_oauth matches users by oauth_uid, and UUID is the only
+    # subject mode that survives the Authentik email-collision case.
     provider_data: dict = {
         "name": f"{name} Provider",
         "authorization_flow": auth_flow["pk"],
         "redirect_uris": [{"matching_mode": "strict", "url": redirect_uri}],
         "client_type": client_type,
-        "signing_key": None,
+        "signing_key": signing_key,
+        "sub_mode": "user_uuid",
+        "issuer_mode": "per_provider",
     }
     if authn_flow:
         provider_data["authentication_flow"] = authn_flow["pk"]
@@ -537,6 +602,15 @@ def batch(
     authn_flow = _find_authentication_flow(c)
     inval_flow = _find_invalidation_flow(c)
 
+    # Resolve once up front — same cert for all providers in the batch.
+    signing_key = _find_signing_cert(c)
+    if not signing_key:
+        out.warn(
+            "No signing certificate found. Providers will be created "
+            "without one; id_token signing will fail until a keypair is "
+            "attached manually."
+        )
+
     # --- Process each app ----------------------------------------------------
     created: list[str] = []
     skipped: list[str] = []
@@ -570,13 +644,16 @@ def batch(
             created.append(slug)
             continue
 
-        # Create provider
+        # Create provider. `signing_key` + `sub_mode=user_uuid` are
+        # mandatory for working OIDC — see _find_signing_cert docstring.
         provider_data: dict = {
             "name": f"{slug} Provider",
             "authorization_flow": auth_flow["pk"],
             "redirect_uris": [{"matching_mode": "strict", "url": redirect_uri}],
             "client_type": client_type,
-            "signing_key": None,
+            "signing_key": signing_key,
+            "sub_mode": "user_uuid",
+            "issuer_mode": "per_provider",
         }
         if authn_flow:
             provider_data["authentication_flow"] = authn_flow["pk"]

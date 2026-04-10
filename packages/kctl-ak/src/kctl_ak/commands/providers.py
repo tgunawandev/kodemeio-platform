@@ -192,6 +192,16 @@ def oauth2_delete(
     c.output.success(f"Deleted OAuth2 provider {id_}")
 
 
+_SUB_MODES = {
+    "hashed_user_id",
+    "user_id",
+    "user_uuid",
+    "user_username",
+    "user_email",
+    "user_upn",
+}
+
+
 @oauth2_app.command("update")
 def oauth2_update(
     ctx: typer.Context,
@@ -201,8 +211,47 @@ def oauth2_update(
     ] = None,
     name: Annotated[str | None, typer.Option("--name", help="Provider name")] = None,
     redirect_uris: Annotated[str | None, typer.Option("--redirect-uri", help="Redirect URI")] = None,
+    signing_key: Annotated[
+        str | None,
+        typer.Option(
+            "--signing-key",
+            help="Signing key UUID. Providers without a signing key return empty JWKS "
+            "and break OIDC clients (e.g. Odoo auth_oidc) — use `--sign-with-default` "
+            "to auto-pick the first self-signed cert.",
+        ),
+    ] = None,
+    sign_with_default: Annotated[
+        bool,
+        typer.Option(
+            "--sign-with-default",
+            help="Auto-pick the default self-signed certificate as the signing key.",
+        ),
+    ] = False,
+    sub_mode: Annotated[
+        str | None,
+        typer.Option(
+            "--sub-mode",
+            help=(
+                "OIDC `sub` claim mode: "
+                "hashed_user_id | user_id | user_uuid | user_username | user_email | user_upn. "
+                "Use `user_uuid` for Odoo auth_oidc so oauth_uid is stable and unique."
+            ),
+        ),
+    ] = None,
+    issuer_mode: Annotated[
+        str | None,
+        typer.Option(
+            "--issuer-mode",
+            help="Issuer mode: per_provider | global",
+        ),
+    ] = None,
 ) -> None:
-    """Update an OAuth2 provider."""
+    """Update an OAuth2 provider.
+
+    Common fix for broken Odoo OIDC:
+
+        kctl-ak providers oauth2 update 42 --sign-with-default --sub-mode user_uuid
+    """
     c = ctx.obj
 
     payload: dict[str, Any] = {}
@@ -216,11 +265,47 @@ def oauth2_update(
     if redirect_uris is not None:
         payload["redirect_uris"] = redirect_uris
 
+    # Resolve signing key: --signing-key takes precedence over --sign-with-default
+    if signing_key and sign_with_default:
+        c.output.error("Use either --signing-key or --sign-with-default, not both")
+        raise typer.Exit(1)
+    if signing_key is not None:
+        payload["signing_key"] = signing_key
+    elif sign_with_default:
+        # Import inside the function to avoid a circular import with setup.py
+        from kctl_ak.commands.setup import _find_signing_cert
+
+        resolved = _find_signing_cert(c.client)
+        if not resolved:
+            c.output.error(
+                "No signing certificate available on this Authentik instance. "
+                "Create one under System → Certificates first."
+            )
+            raise typer.Exit(1)
+        payload["signing_key"] = resolved
+        c.output.info(f"Auto-selected signing key: {resolved}")
+
+    if sub_mode is not None:
+        if sub_mode not in _SUB_MODES:
+            c.output.error(f"sub_mode must be one of: {', '.join(sorted(_SUB_MODES))}")
+            raise typer.Exit(1)
+        payload["sub_mode"] = sub_mode
+
+    if issuer_mode is not None:
+        if issuer_mode not in ("per_provider", "global"):
+            c.output.error("issuer_mode must be 'per_provider' or 'global'")
+            raise typer.Exit(1)
+        payload["issuer_mode"] = issuer_mode
+
     if not payload:
-        c.output.error("No fields to update. Use --client-type, --name, or --redirect-uri")
+        c.output.error(
+            "No fields to update. Use --client-type / --name / --redirect-uri / "
+            "--signing-key / --sign-with-default / --sub-mode / --issuer-mode"
+        )
         raise typer.Exit(1)
 
-    result = c.client.patch(f"providers/oauth2/{provider_id}/", json=payload)
+    # AuthentikClient.patch takes positional `data`, not `json` kwarg.
+    result = c.client.patch(f"providers/oauth2/{provider_id}/", data=payload)
 
     if c.output.json_mode:
         c.output.raw_json(result)
@@ -230,6 +315,10 @@ def oauth2_update(
     if isinstance(result, dict):
         c.output.info(f"  Name: {result.get('name', '?')}")
         c.output.info(f"  Client type: {result.get('client_type', '?')}")
+        if "signing_key" in payload:
+            c.output.info(f"  Signing key: {result.get('signing_key', '?')}")
+        if "sub_mode" in payload:
+            c.output.info(f"  Sub mode: {result.get('sub_mode', '?')}")
 
 
 # ── LDAP ────────────────────────────────────────────────────────────
