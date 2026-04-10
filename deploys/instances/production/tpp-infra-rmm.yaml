@@ -1,0 +1,47 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-rmm
+  description: "TPP Tactical RMM + MeshCentral remote monitoring"
+
+project: tpp
+environment: production
+server: tpp-prod-03
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-rmm
+  branch: main
+  compose_path: ./docker-compose.prod.yml
+
+# Primary domain (frontend). api-rmm.idtpp.com + mesh.idtpp.com
+# are added post-deploy via `kctl-dokploy domains create`, and the
+# NATS 4222 TCP port is added via `kctl-dokploy ports create`.
+dns:
+  zone: idtpp.com
+  name: rmm
+
+domain:
+  host: rmm.idtpp.com
+  port: 8080
+  service: tactical-frontend
+  https: true
+  cert: letsencrypt
+
+healthcheck:
+  path: /
+  port: 8080
+  expected_status: 200
+  timeout: 60
+  interval: 10
+
+env_file: ../../env/production/.env.tpp-infra-rmm
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-rmm
+  APP_HOST: rmm.idtpp.com
+  API_HOST: api-rmm.idtpp.com
+  MESH_HOST: mesh.idtpp.com
+  TZ: Asia/Jakarta

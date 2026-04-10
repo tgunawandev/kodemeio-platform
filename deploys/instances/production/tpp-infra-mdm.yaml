@@ -1,0 +1,54 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-mdm
+  description: "TPP Headwind MDM device management"
+
+project: tpp
+environment: production
+server: tpp-prod-03
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-headwind
+  branch: master
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: mdm
+
+domain:
+  host: mdm.idtpp.com
+  port: 8080
+  service: hmdm
+  https: true
+  cert: letsencrypt
+
+healthcheck:
+  path: /
+  port: 8080
+  expected_status: 200
+  timeout: 60
+  interval: 10
+
+# External DB on tpp-infra-postgres (tpp-prod-01, private IP 10.0.0.2).
+# The DB+user are created via kctl-pg before deploy.
+database:
+  host: 10.0.0.2
+  port: 5432
+  name: hmdm
+  user: hmdm
+
+env_file: ../../env/production/.env.tpp-infra-mdm
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-mdm
+  HMDM_DOMAIN: mdm.idtpp.com
+  TZ: Asia/Jakarta
+
+# Note: MQTT port 31000 is exposed directly by the compose (host port).
+# The deploy pipeline does not manage raw TCP ports, but the host port
+# binding is declared inside the compose file itself.
