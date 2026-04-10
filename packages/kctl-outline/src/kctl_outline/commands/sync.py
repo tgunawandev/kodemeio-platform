@@ -85,7 +85,7 @@ def _ensure_parent_doc(client, collection_id: str, label: str) -> str:
             "title": label,
             "text": f"# {label}\n\nSynced documentation.",
             "collectionId": collection_id,
-            "publish": True,
+            "publish": False,
         },
     )
     return result["data"]["id"]
@@ -124,7 +124,7 @@ def _ensure_section_doc(
             "text": f"# {title}\n",
             "collectionId": collection_id,
             "parentDocumentId": parent_doc_id,
-            "publish": True,
+            "publish": False,
         },
     )
     doc_id = result["data"]["id"]
@@ -285,7 +285,7 @@ def _execute_push(
                         "text": text,
                         "collectionId": collection_id,
                         "parentDocumentId": target_parent_id,
-                        "publish": True,
+                        "publish": False,
                     },
                 )
                 action.doc_id = result["data"]["id"]
@@ -300,6 +300,7 @@ def _execute_push(
                     "id": action.doc_id,
                     "title": action.title,
                     "text": text,
+                    "publish": False,
                 },
             )
             output.success(f"  update {action.rel_path} -> {action.title}")
