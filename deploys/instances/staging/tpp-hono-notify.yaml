@@ -12,7 +12,7 @@ source_overrides:
   compose_path: apps/api/notify/docker-compose.yml
 project: tpp
 environment: staging
-server: kod-prod-02
+server: tpp-prod-01
 healthcheck:
   path: /health
   port: 3020

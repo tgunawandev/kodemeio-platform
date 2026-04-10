@@ -34,4 +34,9 @@ web:
   careers: true
 
 services:
-  notify: true
+  notify:
+    # Pin notify to tpp-prod-01 alongside the rest of the tpp-infra-* stack
+    # (postgres, redis, alloy, authentik, mailcow, mdm, outline, zulip, jitsi).
+    # Default for tpp tenant apps is kod-prod-01; this override colocates the
+    # notify dispatcher with the postgres + redis it depends on.
+    server: tpp-prod-01

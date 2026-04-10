@@ -636,9 +636,16 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
 
         # --- Notify ---
         services = raw.get("services", {})
-        if services.get("notify"):
+        notify_cfg = services.get("notify")
+        if notify_cfg:
+            # `services.notify` accepts either `true` (use tenant default server)
+            # or a mapping like `{server: tpp-prod-01}` to pin notify to a
+            # specific host (e.g., colocate with tpp-infra-* services).
+            notify_server = server
+            if isinstance(notify_cfg, dict):
+                notify_server = notify_cfg.get("server", server)
             y_name, y_content, e_name, e_content = gen_notify(
-                t, env_name, server, dns_prefix
+                t, env_name, notify_server, dns_prefix
             )
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
