@@ -10,6 +10,7 @@ import typer
 import yaml
 
 from kctl_ak.core.config import resolve_app_registry_path
+from kctl_lib.exceptions import APIError
 
 app = typer.Typer(help="Application management")
 
@@ -142,6 +143,7 @@ def set_icon(
     """Set application icon from a local file or URL."""
     c = ctx.obj
     if source.startswith("http://") or source.startswith("https://"):
+        # External URL: Authentik stores it directly in meta_icon
         c.client.patch(f"core/applications/{slug}/", data={"meta_icon": source})
         c.output.success(f"Icon set for '{slug}' from URL")
     else:
@@ -150,11 +152,20 @@ def set_icon(
             c.output.error(f"File not found: {source}")
             raise typer.Exit(1)
         content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+        # Authentik 2026.2+: upload to /admin/file/ then set meta_icon to the managed name
+        managed_name = f"application-icons/{slug}{path.suffix}"
+        # Remove prior upload under this name so re-uploading is idempotent
+        try:
+            c.client.delete(f"admin/file/?name={managed_name}&usage=media")
+        except APIError:
+            pass
         with open(path, "rb") as f:
-            c.client.patch_multipart(
-                f"core/applications/{slug}/",
-                files={"meta_icon": (path.name, f, content_type)},
+            c.client.post_multipart(
+                "admin/file/",
+                files={"file": (path.name, f, content_type)},
+                data={"name": managed_name, "usage": "media"},
             )
+        c.client.patch(f"core/applications/{slug}/", data={"meta_icon": managed_name})
         c.output.success(f"Icon uploaded for '{slug}' from {path.name}")
 
 
