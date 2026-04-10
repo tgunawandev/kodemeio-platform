@@ -103,12 +103,12 @@ def _find_child_doc(
 def _ensure_section_doc(
     client,
     collection_id: str,
-    parent_doc_id: str,
+    parent_doc_id: str | None,
     section_name: str,
     docs_cache: list[dict],
     section_cache: dict[str, str],
 ) -> str:
-    cache_key = f"{parent_doc_id}/{section_name}"
+    cache_key = f"{parent_doc_id or 'ROOT'}/{section_name}"
     if cache_key in section_cache:
         return section_cache[cache_key]
     title = section_name.replace("-", " ").replace("_", " ").title()
@@ -116,17 +116,15 @@ def _ensure_section_doc(
     if existing:
         section_cache[cache_key] = existing
         return existing
-    result = _api_call_with_retry(
-        client,
-        "documents.create",
-        data={
-            "title": title,
-            "text": f"# {title}\n",
-            "collectionId": collection_id,
-            "parentDocumentId": parent_doc_id,
-            "publish": True,
-        },
-    )
+    data: dict = {
+        "title": title,
+        "text": f"# {title}\n",
+        "collectionId": collection_id,
+        "publish": True,
+    }
+    if parent_doc_id is not None:
+        data["parentDocumentId"] = parent_doc_id
+    result = _api_call_with_retry(client, "documents.create", data=data)
     doc_id = result["data"]["id"]
     section_cache[cache_key] = doc_id
     docs_cache.append({"id": doc_id, "title": title, "parentDocumentId": parent_doc_id})
@@ -136,11 +134,16 @@ def _ensure_section_doc(
 def _resolve_parent_for_file(
     client,
     collection_id: str,
-    root_parent_doc_id: str,
+    root_parent_doc_id: str | None,
     rel_path: str,
     docs_cache: list[dict],
     section_cache: dict[str, str],
-) -> str:
+) -> str | None:
+    """Resolve the parent doc ID for a file's position in the Outline hierarchy.
+
+    When root_parent_doc_id is None, docs go at the collection root. Subdirectories
+    still get section docs, but those section docs are top-level in the collection.
+    """
     parts = Path(rel_path).parts
     if len(parts) <= 1:
         return root_parent_doc_id
@@ -220,9 +223,14 @@ def _execute_push(
     repo_label = (Path(repo_path).name + "/" + str(mapping.src)).rstrip("/")
 
     collection_id = _ensure_collection(client, mapping.collection)
-    root_parent = mapping.subpath or repo_label
-    root_parent_id = _ensure_parent_doc(client, collection_id, root_parent)
     docs_cache = client.post_all("documents.list", params={"collectionId": collection_id})
+
+    # When subpath is set, nest all docs under a parent doc with that title.
+    # When subpath is empty, put docs directly at the collection root (no wrapper).
+    if mapping.subpath:
+        root_parent_id = _ensure_parent_doc(client, collection_id, mapping.subpath)
+    else:
+        root_parent_id = None  # None = collection root
     section_cache: dict[str, str] = {}
 
     key = _mapping_key(str(repo_path), mapping.collection, str(mapping.src))
@@ -231,7 +239,7 @@ def _execute_push(
         src=str(mapping.src),
         collection_name=mapping.collection,
         collection_id=collection_id,
-        parent_doc_id=root_parent_id,
+        parent_doc_id=root_parent_id or "",
     )
     entry.collection_id = collection_id
     entry.parent_doc_id = root_parent_id
@@ -277,16 +285,18 @@ def _execute_push(
                 output.success(f"  update {action.rel_path} -> {action.title} (found existing)")
                 updated += 1
             else:
+                create_data: dict = {
+                    "title": action.title,
+                    "text": text,
+                    "collectionId": collection_id,
+                    "publish": False,
+                }
+                if target_parent_id is not None:
+                    create_data["parentDocumentId"] = target_parent_id
                 result = _api_call_with_retry(
                     client,
                     "documents.create",
-                    data={
-                        "title": action.title,
-                        "text": text,
-                        "collectionId": collection_id,
-                        "parentDocumentId": target_parent_id,
-                        "publish": False,
-                    },
+                    data=create_data,
                 )
                 action.doc_id = result["data"]["id"]
                 docs_cache.append({"id": action.doc_id, "title": action.title, "parentDocumentId": target_parent_id})
