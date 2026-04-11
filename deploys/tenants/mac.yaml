@@ -11,7 +11,7 @@ environments:
     db_prefix: ""
     auto_deploy: false
   staging:
-    server: tpp-prod-02
+    server: tpp-stg-01
     dns_prefix: "stg-"
     db_prefix: "stg_"
     auto_deploy: true

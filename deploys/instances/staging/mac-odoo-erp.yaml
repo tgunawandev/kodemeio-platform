@@ -2,11 +2,11 @@
 kind: instance
 extends: ../../bases/odoo.yaml
 instance:
-  name: mac-odoo-erp
-  description: MAC — ERP (accounting, sales, purchase, inventory, BI)
+  name: mac-odoo-erp-stg
+  description: MAC — ERP Staging (accounting, sales, purchase, inventory, BI)
 project: mac
 environment: staging
-server: tpp-prod-02
+server: tpp-stg-01
 dns:
   zone: idtpp.com
   name: stg-mac-odoo-erp
