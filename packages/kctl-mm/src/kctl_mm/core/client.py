@@ -198,6 +198,16 @@ class MattermostClient(APIClient):
     def list_compliance_reports(self) -> Any:
         return self.get("/compliance/reports")
 
+    def download_compliance_report(self, report_id: str, local_path: str) -> str:
+        url = f"{self._base_url}/compliance/reports/{report_id}/download"
+        headers = self._build_auth_header()
+        with httpx.stream("GET", url, headers=headers) as r:
+            r.raise_for_status()
+            with open(local_path, "wb") as f:
+                for chunk in r.iter_bytes():
+                    f.write(chunk)
+        return local_path
+
     def ping(self) -> Any:
         return self.get("/system/ping")
 
