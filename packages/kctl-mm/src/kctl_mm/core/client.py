@@ -100,7 +100,10 @@ class MattermostClient(APIClient):
         return self.get(f"/channels/{channel_id}/members")
 
     def rename_channel(self, channel_id: str, display_name: str) -> Any:
-        return self.put(f"/channels/{channel_id}", json={"display_name": display_name})
+        return self.put(
+            f"/channels/{channel_id}/patch",
+            json={"display_name": display_name},
+        )
 
     # ------------------------------------------------------------------
     # Posts
@@ -219,3 +222,16 @@ class MattermostClient(APIClient):
 
     def analytics(self, team_id: str = "") -> list[dict[str, Any]]:
         return self.get("/analytics/old", params={"team_id": team_id} if team_id else None)
+
+    # ------------------------------------------------------------------
+    # Maintenance helpers
+    # ------------------------------------------------------------------
+
+    def recycle_database(self) -> dict[str, Any]:
+        return self.post("/database/recycle")
+
+    def invalidate_caches(self) -> dict[str, Any]:
+        return self.post("/caches/invalidate")
+
+    def reload_config(self) -> dict[str, Any]:
+        return self.post("/config/reload")

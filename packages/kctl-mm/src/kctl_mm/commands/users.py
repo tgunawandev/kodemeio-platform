@@ -76,13 +76,13 @@ def reset_pwd_cmd(ctx: typer.Context, username: str) -> None:
 
 @app.command("promote")
 def promote_cmd(ctx: typer.Context, username: str) -> None:
-    r = _c(ctx).mm_exec.mmctl(["user", "roles", "system_admin", username])
+    r = _c(ctx).mm_exec.mmctl(["roles", "system_admin", username])
     typer.echo(r.stdout)
 
 
 @app.command("demote")
 def demote_cmd(ctx: typer.Context, username: str) -> None:
-    r = _c(ctx).mm_exec.mmctl(["user", "roles", "system_user", username])
+    r = _c(ctx).mm_exec.mmctl(["roles", "system_user", username])
     typer.echo(r.stdout)
 
 

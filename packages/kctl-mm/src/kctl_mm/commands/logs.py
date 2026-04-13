@@ -6,11 +6,11 @@ import typer
 
 from kctl_mm.core.callbacks import AppContext
 
-app = typer.Typer(help="Tail Mattermost service logs.")
+app = typer.Typer(help="Tail Mattermost service logs.", invoke_without_command=True)
 
 
-@app.command()
-def logs(
+@app.callback(invoke_without_command=True)
+def run(
     ctx: typer.Context,
     service: Annotated[str, typer.Argument()] = "mattermost",
     lines: Annotated[int, typer.Option("--lines", "-n")] = 100,

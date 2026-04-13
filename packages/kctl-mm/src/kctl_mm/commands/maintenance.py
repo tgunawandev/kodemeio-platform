@@ -14,22 +14,23 @@ def _c(ctx: typer.Context) -> AppContext:
 @app.command("cleanup")
 def cleanup_cmd(ctx: typer.Context) -> None:
     c = _c(ctx)
-    r = c.mm_exec.mmctl(["maintenance", "cleanup"])
-    typer.echo(r.stdout)
+    c.client.recycle_database()
+    typer.echo("Database recycled")
 
 
 @app.command("optimize")
 def optimize_cmd(ctx: typer.Context) -> None:
+    """Alias for cleanup — Mattermost has no separate optimize endpoint."""
     c = _c(ctx)
-    r = c.mm_exec.mmctl(["maintenance", "optimize"])
-    typer.echo(r.stdout)
+    c.client.recycle_database()
+    typer.echo("Database recycled")
 
 
 @app.command("reset-caches")
 def reset_caches_cmd(ctx: typer.Context) -> None:
     c = _c(ctx)
-    r = c.mm_exec.mmctl(["maintenance", "reset-caches"])
-    typer.echo(r.stdout)
+    c.client.invalidate_caches()
+    typer.echo("Caches invalidated")
 
 
 @app.command("vacuum")

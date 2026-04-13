@@ -13,7 +13,7 @@ def test_status_runs_compose_ps(runner: CliRunner, mock_context) -> None:
 
 def test_logs_calls_compose_logs(runner: CliRunner, mock_context) -> None:
     mock_context.mm_exec.docker_compose.return_value = SSHResult(returncode=0, stdout="ok", stderr="")
-    result = runner.invoke(logs.app, ["mattermost", "--lines", "50"], obj=mock_context)
+    result = runner.invoke(logs.app, ["--lines", "50", "mattermost"], obj=mock_context)
     assert result.exit_code == 0
     mock_context.mm_exec.docker_compose.assert_called_once_with(["logs", "--tail", "50", "mattermost"])
 

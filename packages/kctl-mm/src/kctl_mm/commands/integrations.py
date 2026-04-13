@@ -14,20 +14,20 @@ def _c(ctx: typer.Context) -> AppContext:
 @app.command("oauth-list")
 def oauth_list_cmd(ctx: typer.Context) -> None:
     c = _c(ctx)
-    c.output.raw_json(c.mm_exec.mmctl_json(["oauth", "list"]))
+    c.output.raw_json(c.mm_exec.mmctl_json(["oauth", "list-apps"]))
 
 
 @app.command("oauth-create")
 def oauth_create_cmd(ctx: typer.Context, name: str, callback_url: str) -> None:
     c = _c(ctx)
-    r = c.mm_exec.mmctl(["oauth", "create", name, callback_url])
+    r = c.mm_exec.mmctl(["oauth", "create-app", name, callback_url])
     typer.echo(r.stdout)
 
 
 @app.command("oauth-delete")
 def oauth_delete_cmd(ctx: typer.Context, oauth_id: str) -> None:
     c = _c(ctx)
-    r = c.mm_exec.mmctl(["oauth", "delete", oauth_id])
+    r = c.mm_exec.mmctl(["oauth", "delete-app", oauth_id])
     typer.echo(r.stdout)
 
 
@@ -41,12 +41,5 @@ def ldap_sync_cmd(ctx: typer.Context) -> None:
 @app.command("ldap-test")
 def ldap_test_cmd(ctx: typer.Context) -> None:
     c = _c(ctx)
-    r = c.mm_exec.mmctl(["ldap", "test"])
-    typer.echo(r.stdout)
-
-
-@app.command("saml-metadata")
-def saml_metadata_cmd(ctx: typer.Context) -> None:
-    c = _c(ctx)
-    r = c.mm_exec.mmctl(["saml", "metadata"])
+    r = c.mm_exec.mmctl(["ldap", "check"])
     typer.echo(r.stdout)

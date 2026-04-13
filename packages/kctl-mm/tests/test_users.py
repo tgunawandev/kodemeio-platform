@@ -19,7 +19,7 @@ def test_users_promote(runner, mock_context):
     mock_context.mm_exec.mmctl.return_value = SSHResult(returncode=0, stdout="ok", stderr="")
     result = runner.invoke(app, ["promote", "admin"], obj=mock_context)
     assert result.exit_code == 0
-    mock_context.mm_exec.mmctl.assert_called_once_with(["user", "roles", "system_admin", "admin"])
+    mock_context.mm_exec.mmctl.assert_called_once_with(["roles", "system_admin", "admin"])
 
 
 def test_users_activate_looks_up_id(runner, mock_context):

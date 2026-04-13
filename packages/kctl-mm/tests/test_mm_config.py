@@ -1,4 +1,4 @@
-from unittest.mock import patch
+import json
 
 from kctl_lib.ssh import SSHResult
 
@@ -19,8 +19,10 @@ def test_mm_config_set(runner, mock_context):
 
 
 def test_mm_config_export(runner, mock_context, tmp_path):
-    mock_context.mm_exec.mmctl.return_value = SSHResult(returncode=0, stdout="exported", stderr="")
-    with patch("kctl_mm.commands.mm_config.scp_download") as sd:
-        result = runner.invoke(app, ["export", str(tmp_path / "cfg.json")], obj=mock_context)
-        assert result.exit_code == 0
-        sd.assert_called_once()
+    cfg = {"ServiceSettings": {"SiteURL": "https://mm.idtpp.com"}}
+    mock_context.client.get_config.return_value = cfg
+    out = tmp_path / "cfg.json"
+    result = runner.invoke(app, ["export", str(out)], obj=mock_context)
+    assert result.exit_code == 0
+    assert out.exists()
+    assert json.loads(out.read_text()) == cfg
