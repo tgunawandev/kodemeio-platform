@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 import typer
 
-app = typer.Typer(help="TODO: replace in later task", no_args_is_help=True)
+from kctl_mm.core.callbacks import AppContext
+
+app = typer.Typer(help="Show Mattermost service status.", invoke_without_command=True)
 
 
-@app.command("placeholder", hidden=True)
-def _placeholder() -> None:
-    raise typer.Exit()
+@app.callback(invoke_without_command=True)
+def run(ctx: typer.Context) -> None:
+    c: AppContext = ctx.ensure_object(AppContext)
+    r = c.mm_exec.docker_compose(["ps"])
+    typer.echo(r.stdout)

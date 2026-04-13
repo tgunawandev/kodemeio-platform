@@ -1,8 +1,21 @@
+from __future__ import annotations
+
+from typing import Annotated
+
 import typer
 
-app = typer.Typer(help="TODO: replace in later task", no_args_is_help=True)
+from kctl_mm.core.callbacks import AppContext
+
+app = typer.Typer(help="Tail Mattermost service logs.")
 
 
-@app.command("placeholder", hidden=True)
-def _placeholder() -> None:
-    raise typer.Exit()
+@app.command()
+def logs(
+    ctx: typer.Context,
+    service: Annotated[str, typer.Argument()] = "mattermost",
+    lines: Annotated[int, typer.Option("--lines", "-n")] = 100,
+) -> None:
+    """Tail logs for a Mattermost service."""
+    c: AppContext = ctx.ensure_object(AppContext)
+    r = c.mm_exec.docker_compose(["logs", "--tail", str(lines), service])
+    typer.echo(r.stdout)
