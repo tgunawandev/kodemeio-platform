@@ -34,5 +34,11 @@ def mock_context(mock_client, mock_mm_exec, mock_output) -> AppContext:
     ctx._client = mock_client
     ctx._mm_exec = mock_mm_exec
     ctx._output = mock_output
-    ctx._settings = {"url": "https://mm.idtpp.com", "token": "t"}
+    ctx._settings = {
+        "url": "https://mm.idtpp.com",
+        "token": "t",
+        "ssh_host": "mm.example.com",
+        "ssh_user": "root",
+        "compose_path": "/opt/mm/docker-compose.yml",
+    }
     return ctx
