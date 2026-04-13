@@ -1,11 +1,11 @@
 ---
 name: mattermost-admin
 description: >
-  Mattermost team chat administration via kctl-mm CLI (24 groups, ~109 commands).
+  Mattermost team chat administration via kctl-mm CLI (24 groups, ~108 commands).
   MUST use for ANY kctl-mm operation.
-  Triggers on: "activate", "activity", "archive", "assign", "audit", "bots", "cancel", "channels", "check", "cleanup", "completions", "compliance", "components", "config", "create-incoming", "create-outgoing", "current", "dashboard", "deactivate", "delete-incoming", "delete-outgoing", "demote", "deploy", "disable", "doctor", "down", "enable", "export", "full", "generate", "health", "import", "import-export", "init", "install", "integrations", "invite", "jobs", "json", "kctl-mm", "ldap-sync", "ldap-test", "list-incoming", "list-outgoing", "login", "logs", "maintenance", "members", "metrics", "mm-config", "oauth-create", "oauth-delete", "oauth-list", "optimize", "permissions", "plugins", "posts", "profile", "profiles", "promote", "pull", "quick", "rebuild", "reload", "remove", "rename", "reset-caches", "reset-pwd", "restart", "saml-metadata", "search", "security", "self-update", "skill", "status", "summary", "teams", "test-email", "unpin", "users".
+  Triggers on: "activate", "activity", "archive", "assign", "audit", "bots", "cancel", "channels", "check", "cleanup", "completions", "compliance", "components", "config", "create-incoming", "create-outgoing", "current", "dashboard", "deactivate", "delete-incoming", "delete-outgoing", "demote", "deploy", "disable", "doctor", "down", "enable", "export", "full", "generate", "health", "import", "import-export", "init", "install", "integrations", "invite", "jobs", "json", "kctl-mm", "ldap-sync", "ldap-test", "list-incoming", "list-outgoing", "login", "logs", "maintenance", "members", "metrics", "mm-config", "oauth-create", "oauth-delete", "oauth-list", "optimize", "permissions", "plugins", "posts", "profile", "profiles", "promote", "pull", "quick", "rebuild", "reload", "remove", "rename", "reset-caches", "reset-pwd", "restart", "search", "security", "self-update", "skill", "status", "summary", "teams", "test-email", "unpin", "users", "vacuum".
   Auto-generated: 2026-04-13
-  registry_hash: f8f9a0e3c528
+  registry_hash: 5f677ba37de8
 ---
 
 # mattermost-admin — kctl-mm CLI Reference
@@ -18,7 +18,7 @@ description: >
 
 **CLI:** `kctl-mm`
 **Command groups:** 24
-**Total commands:** ~109
+**Total commands:** ~108
 **Install:** `cd cli && uv tool install --editable .`
 
 ## Global Options
@@ -159,7 +159,6 @@ OAuth / LDAP / SAML integrations (mmctl).
 | `integrations oauth-create <name> <callback_url>` |  |
 | `integrations oauth-delete <oauth_id>` |  |
 | `integrations oauth-list` |  |
-| `integrations saml-metadata` |  |
 
 ### `kctl-mm jobs`
 
@@ -175,10 +174,6 @@ Job management.
 
 Tail Mattermost service logs.
 
-| Command | Description |
-|---------|-------------|
-| `logs logs [--service] [--lines]` | Tail logs for a Mattermost service. |
-
 ### `kctl-mm maintenance`
 
 Server maintenance commands.
@@ -186,7 +181,7 @@ Server maintenance commands.
 | Command | Description |
 |---------|-------------|
 | `maintenance cleanup` |  |
-| `maintenance optimize` |  |
+| `maintenance optimize` | Alias for cleanup — Mattermost has no separate optimize endpoint. |
 | `maintenance reset-caches` |  |
 | `maintenance vacuum` |  |
 
