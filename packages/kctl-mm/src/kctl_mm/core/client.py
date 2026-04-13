@@ -200,3 +200,12 @@ class MattermostClient(APIClient):
 
     def ping(self) -> Any:
         return self.get("/system/ping")
+
+    def ping_full(self) -> dict[str, Any]:
+        return self.get("/system/ping", params={"get_server_status": "true"})
+
+    def user_stats(self) -> dict[str, Any]:
+        return self.get("/users/stats")
+
+    def analytics(self, team_id: str = "") -> list[dict[str, Any]]:
+        return self.get("/analytics/old", params={"team_id": team_id} if team_id else None)
