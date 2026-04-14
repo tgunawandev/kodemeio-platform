@@ -6,7 +6,7 @@ instance:
   description: Pakerti — BIA PWA
 project: tpp
 environment: staging
-server: kod-prod-02
+server: tpp-stg-01
 source_overrides:
   compose_path: compose/docker-compose.bia.yml
 dns:
@@ -20,4 +20,4 @@ domain:
 env_file: ../../env/staging/.env.tpp-react-bia
 env_overrides:
   VITE_BIA_APP_NAME: Pakerti BIA
-  VITE_BIA_API_BASE_URL: https://stg-tpp-odoo-trad.idtpp.com/bia/api
+  VITE_BIA_API_BASE_URL: https://stg-tpp-odoo-erp.idtpp.com/bia/api

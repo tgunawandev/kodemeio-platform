@@ -34,5 +34,5 @@ env_overrides:
   REDIS_URL: redis://redis:6379
   DISPATCH_SECRET: ${DISPATCH_SECRET}
   JWT_SECRET: ${JWT_SECRET}
-  ALLOWED_ORIGINS: https://tpp-sfa.idtpp.com,https://tpp-bia.idtpp.com,https://tpp-wms.idtpp.com,https://tpp-hrm.idtpp.com
+  ALLOWED_ORIGINS: https://tpp-bia.idtpp.com,https://tpp-wms.idtpp.com,https://tpp-hrm.idtpp.com
   FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}

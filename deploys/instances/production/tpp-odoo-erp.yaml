@@ -1,0 +1,35 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/odoo.yaml
+instance:
+  name: tpp-odoo-erp
+  description: Pakerti — ERP — Import + Trading + Distribution (multi-company, 43
+    CVs)
+project: tpp
+environment: production
+server: tpp-prod-03
+dns:
+  zone: idtpp.com
+  name: tpp-odoo-erp
+domain:
+  host: tpp-odoo-erp.idtpp.com
+  port: 8069
+  service: odoo-web
+  https: true
+  cert: letsencrypt
+database:
+  name: tpp_odoo_erp
+  user: odoo
+env_file: ../../env/production/.env.tpp-odoo-erp
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-odoo-erp
+  TENANT: tpp
+  PGDATABASE: tpp_odoo_erp
+  PGUSER: odoo
+  ODOO_DB_FILTER: ^tpp_odoo_erp$
+  DOMAIN: tpp-odoo-erp.idtpp.com
+  ODOO_WORKERS: '4'
+post_deploy:
+  odoo_profile: profile-erp
+  odoo_install_bundle: ''
+  recipe: import

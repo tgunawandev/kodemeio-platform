@@ -6,22 +6,22 @@ tenant:
 
 environments:
   production:
-    server: kod-prod-01
+    server: tpp-prod-03
     dns_prefix: ""
     db_prefix: ""
     auto_deploy: false
   staging:
-    server: kod-prod-02
+    server: tpp-stg-01
     dns_prefix: "stg-"
     db_prefix: "stg_"
     auto_deploy: true
 
 odoo:
-  - recipe: trading
-    short: trad
-    description: "Trading (import/export, multi-currency, landed costs)"
+  - recipe: import
+    short: erp
+    description: "ERP — Import + Trading + Distribution (multi-company, 43 CVs)"
     workers: 4
-    apps: [sfa, bia, wms]
+    apps: [bia, wms]
   - recipe: hrms
     short: hrms
     description: "HRMS (employees, attendance, payroll, leaves, expenses)"
@@ -36,7 +36,12 @@ web:
 services:
   notify:
     # Pin notify to tpp-prod-01 alongside the rest of the tpp-infra-* stack
-    # (postgres, redis, alloy, authentik, mailcow, mdm, outline, zulip, jitsi).
-    # Default for tpp tenant apps is kod-prod-01; this override colocates the
-    # notify dispatcher with the postgres + redis it depends on.
+    # (postgres, redis, authentik, mailcow, mdm, rmm, outline, zulip, jitsi).
+    # Default for tpp tenant apps is tpp-prod-03 (ERP host); this override
+    # colocates the notify dispatcher with the postgres + redis it depends on.
     server: tpp-prod-01
+  mattermost:
+    # DEDICATED HOST — tpp-prod-04 is reserved for Mattermost + RTC. Do NOT
+    # colocate other services here. RTC call quality depends on isolated CPU
+    # + UDP port availability (8443/8445).
+    server: tpp-prod-04
