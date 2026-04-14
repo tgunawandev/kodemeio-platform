@@ -111,6 +111,13 @@ def add(
         bool,
         typer.Option("--skip-preflight", help="Skip domain quota preflight check."),
     ] = False,
+    authsource: Annotated[
+        str,
+        typer.Option(
+            "--authsource",
+            help="Authentication source for UI/SSO login. Default 'generic-oidc' links the mailbox to the configured external IdP (SSO). Use 'mailcow' for local-password-only accounts (e.g., service accounts).",
+        ),
+    ] = "generic-oidc",
 ) -> None:
     """Add a new mailbox.
 
@@ -134,6 +141,14 @@ def add(
     }
     result = c.client.mc_add("mailbox", payload)
     _handle_result(c, result, f"Mailbox '{local_part}@{domain}' added")
+
+    # Mailcow's /add/mailbox doesn't accept authsource; set it via /edit/mailbox.
+    if authsource and authsource != "mailcow":
+        edit_result = c.client.mc_edit(
+            "mailbox",
+            {"items": [f"{local_part}@{domain}"], "attr": {"authsource": authsource}},
+        )
+        _handle_result(c, edit_result, f"Mailbox authsource set to '{authsource}'")
 
 
 def _preflight_domain_quota(
@@ -193,6 +208,13 @@ def update(
     quota: Annotated[int | None, typer.Option("--quota")] = None,
     password: Annotated[str | None, typer.Option("--password", "-p")] = None,
     active: Annotated[bool | None, typer.Option("--active/--inactive")] = None,
+    authsource: Annotated[
+        str | None,
+        typer.Option(
+            "--authsource",
+            help="Change authentication source ('generic-oidc' for SSO, 'mailcow' for local password).",
+        ),
+    ] = None,
 ) -> None:
     """Update mailbox settings."""
     c: AppContext = ctx.obj
@@ -206,6 +228,8 @@ def update(
         attr["password2"] = password
     if active is not None:
         attr["active"] = "1" if active else "0"
+    if authsource is not None:
+        attr["authsource"] = authsource
 
     if not attr:
         c.output.warn("No fields to update")
