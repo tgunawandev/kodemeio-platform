@@ -664,22 +664,68 @@ def export_(
         c.output.raw_json(users)
 
 
+def _load_user_entries(file: Path) -> list[dict]:
+    """Load user entries from a JSON array or a CSV (with a header row).
+
+    CSV columns recognised: email (required), name, username, groups (comma-
+    separated), password, is_active, is_superuser. Lines starting with `#` are
+    treated as comments and ignored.
+    """
+    if file.suffix.lower() == ".csv":
+        with file.open(newline="") as f:
+            rows = csv.DictReader(r for r in f if not r.lstrip().startswith("#"))
+            return [{k: v for k, v in row.items() if v not in (None, "")} for row in rows]
+    data = json.loads(file.read_text())
+    if not isinstance(data, list):
+        raise ValueError("JSON file must contain an array of user objects")
+    return data
+
+
 @app.command("bulk-import")
 def bulk_import(
     ctx: typer.Context,
-    file: Annotated[Path, typer.Argument(help="JSON file with user list")],
+    file: Annotated[Path, typer.Argument(help="JSON or CSV file with user list")],
+    groups: Annotated[
+        str | None,
+        typer.Option("--groups", help="Comma-separated group names to add every user to."),
+    ] = None,
+    skip_existing: Annotated[
+        bool,
+        typer.Option("--skip-existing/--fail-existing", help="Skip users whose username already exists."),
+    ] = True,
 ) -> None:
-    """Bulk-import users from a JSON file.
+    """Bulk-import users from a JSON or CSV file.
 
-    File format: [{"email": "...", "name": "...", "username": "..."}, ...]
+    JSON: [{"email": "...", "name": "...", "username": "...", "groups": "g1,g2"}, ...]
+    CSV: header row with columns: email, name, username, groups, password (optional)
     """
     c: AppContext = ctx.obj
-    data = json.loads(file.read_text())
-    if not isinstance(data, list):
-        c.output.error("File must contain a JSON array of user objects")
-        raise typer.Exit(1)
+    try:
+        data = _load_user_entries(file)
+    except ValueError as e:
+        c.output.error(str(e))
+        raise typer.Exit(1) from e
+
+    # Resolve default groups once (if provided at CLI level)
+    default_groups = [g.strip() for g in (groups or "").split(",") if g.strip()]
+
+    # Map group names → pks up-front
+    group_pks: dict[str, str] = {}
+    needed = set(default_groups)
+    for entry in data:
+        for g in (entry.get("groups") or "").split(","):
+            g = g.strip()
+            if g:
+                needed.add(g)
+    for g in needed:
+        matches = c.client.get_all("core/groups/", params={"name": g})
+        if matches:
+            group_pks[g] = matches[0]["pk"]
+        else:
+            c.output.warn(f"Group not found: {g} (members assigned to this group will be skipped)")
 
     created = 0
+    skipped = 0
     failed = 0
     for entry in data:
         email = entry.get("email", "")
@@ -688,19 +734,32 @@ def bulk_import(
             failed += 1
             continue
 
-        username = entry.get("username", email.split("@")[0])
-        name = entry.get("name", username)
-        pw = entry.get("password", secrets.token_urlsafe(16))
+        username = entry.get("username") or email.split("@")[0]
+        name = entry.get("name") or username
+        pw = entry.get("password") or secrets.token_urlsafe(16)
+        entry_groups = [g.strip() for g in (entry.get("groups") or "").split(",") if g.strip()]
+        all_groups = default_groups + entry_groups
 
         try:
+            existing = c.client.get_all("core/users/", params={"username": username})
+            if existing:
+                if skip_existing:
+                    c.output.info(f"Skip existing: {username}")
+                    skipped += 1
+                    continue
+                c.output.error(f"Exists: {username} (use --fail-existing to error loudly)")
+                failed += 1
+                continue
+
             user = c.client.post(
                 "core/users/",
                 data={
                     "username": username,
                     "email": email,
                     "name": name,
-                    "is_active": entry.get("is_active", True),
-                    "is_superuser": entry.get("is_superuser", False),
+                    "is_active": str(entry.get("is_active", "true")).lower() != "false",
+                    "is_superuser": str(entry.get("is_superuser", "false")).lower() == "true",
+                    "groups": [group_pks[g] for g in all_groups if g in group_pks],
                 },
             )
             c.client.post(f"core/users/{user['pk']}/set_password/", data={"password": pw})
@@ -710,7 +769,63 @@ def bulk_import(
             c.output.error(f"Failed: {email} - {e}")
             failed += 1
 
-    c.output.info(f"Import complete: {created} created, {failed} failed")
+    c.output.info(f"Import complete: {created} created, {skipped} skipped, {failed} failed")
+
+
+@app.command("bulk-recovery-links")
+def bulk_recovery_links(
+    ctx: typer.Context,
+    file: Annotated[Path, typer.Argument(help="JSON or CSV file with user list (email or username column).")],
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", "-o", help="Output CSV path (default: stdout)."),
+    ] = None,
+) -> None:
+    """Generate one-time recovery links for a list of users.
+
+    Writes a CSV with columns: username, email, name, recovery_link. Missing
+    users are skipped with a warning (not fatal).
+    """
+    c: AppContext = ctx.obj
+    try:
+        entries = _load_user_entries(file)
+    except ValueError as e:
+        c.output.error(str(e))
+        raise typer.Exit(1) from e
+
+    rows: list[list[str]] = []
+    failed = 0
+    for entry in entries:
+        ident = entry.get("username") or entry.get("email")
+        if not ident:
+            c.output.warn("Skipping entry without username/email")
+            failed += 1
+            continue
+        try:
+            pk = resolve_user(c.client, ident)
+            link = c.client.post(f"core/users/{pk}/recovery/", data={}).get("link", "")
+            rows.append(
+                [
+                    entry.get("username") or ident.split("@")[0],
+                    entry.get("email", ""),
+                    entry.get("name", ""),
+                    link,
+                ]
+            )
+        except Exception as e:
+            c.output.warn(f"Skip {ident}: {e}")
+            failed += 1
+
+    writer_out = sys.stdout if out is None else out.open("w", newline="")
+    try:
+        writer = csv.writer(writer_out)
+        writer.writerow(["username", "email", "name", "recovery_link"])
+        writer.writerows(rows)
+    finally:
+        if out is not None:
+            writer_out.close()
+
+    c.output.info(f"Generated {len(rows)} links, {failed} failed" + (f" → {out}" if out else ""))
 
 
 @app.command()

@@ -204,6 +204,101 @@ def export_(
         out.text(content)
 
 
+@app.command("create-recovery")
+def create_recovery(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Option("--slug", help="Flow slug.")] = "default-recovery-flow",
+    name: Annotated[str, typer.Option("--name", help="Flow display name.")] = "Recovery",
+    title: Annotated[str, typer.Option("--title", help="Flow page title.")] = "Reset your password",
+    set_on_brand: Annotated[
+        str | None,
+        typer.Option("--set-on-brand", help="Brand UUID to set flow_recovery on (or 'current')."),
+    ] = None,
+) -> None:
+    """Create a minimal recovery flow (prompt + write + login) and optionally bind to a brand.
+
+    The resulting flow is compatible with the built-in
+    `POST /core/users/{id}/recovery/` endpoint used by `kctl-ak users recovery`.
+    """
+    actx: AppContext = ctx.obj
+    c = actx.client
+    out = actx.output
+
+    # Idempotent: reuse existing flow with the same slug if present.
+    existing = c.get_all("flows/instances/", params={"slug": slug})
+    if existing:
+        flow = existing[0]
+        out.info(f"Flow '{slug}' already exists (pk={flow['pk']}), reusing.")
+    else:
+        flow = c.post(
+            "flows/instances/",
+            data={
+                "slug": slug,
+                "name": name,
+                "title": title,
+                "designation": "recovery",
+                "authentication": "require_unauthenticated",
+            },
+        )
+        out.success(f"Created recovery flow '{slug}' (pk={flow['pk']})")
+
+    # Resolve stage UUIDs by name
+    required = [
+        "default-password-change-prompt",
+        "default-password-change-write",
+        "default-authentication-login",
+    ]
+    stages = {s["name"]: s["pk"] for s in c.get_all("stages/all/", params={"name__in": ",".join(required)})}
+    missing = [n for n in required if n not in stages]
+    if missing:
+        out.error(f"Missing required stages: {missing}. Are default blueprints applied?")
+        raise typer.Exit(1)
+
+    # Bindings already present?
+    existing_bindings = c.get_all("flows/bindings/", params={"target": flow["pk"]})
+    existing_stages = {b["stage"] for b in existing_bindings}
+
+    plan = [
+        (10, stages["default-password-change-prompt"]),
+        (20, stages["default-password-change-write"]),
+        (30, stages["default-authentication-login"]),
+    ]
+    for order, stage_pk in plan:
+        if stage_pk in existing_stages:
+            out.info(f"  order={order} already bound (stage {stage_pk}), skipping.")
+            continue
+        c.post(
+            "flows/bindings/",
+            data={
+                "target": flow["pk"],
+                "stage": stage_pk,
+                "order": order,
+                "evaluate_on_plan": True,
+                "re_evaluate_policies": False,
+            },
+        )
+        out.success(f"  Bound stage {stage_pk} at order {order}")
+
+    if set_on_brand:
+        if set_on_brand == "current":
+            brands = c.get_all("core/brands/")
+            if not brands:
+                out.error("No brands configured to set flow_recovery on.")
+                raise typer.Exit(1)
+            brand_id = brands[0]["brand_uuid"]
+        else:
+            brand_id = set_on_brand
+        current = c.get(f"core/brands/{brand_id}/")
+        c.put(
+            f"core/brands/{brand_id}/",
+            data={"domain": current.get("domain", ""), "flow_recovery": flow["pk"]},
+        )
+        out.success(f"Set flow_recovery={slug} on brand {brand_id}")
+
+    if out.json_mode:
+        out.raw_json({"pk": flow["pk"], "slug": slug})
+
+
 @app.command()
 def execute(
     ctx: typer.Context,

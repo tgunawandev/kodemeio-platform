@@ -85,9 +85,7 @@ def create(
     flow_authentication: Annotated[
         str | None, typer.Option("--flow-authentication", help="Authentication flow slug")
     ] = None,
-    flow_invalidation: Annotated[
-        str | None, typer.Option("--flow-invalidation", help="Invalidation flow slug")
-    ] = None,
+    flow_invalidation: Annotated[str | None, typer.Option("--flow-invalidation", help="Invalidation flow slug")] = None,
 ) -> None:
     """Create a brand."""
     c: AppContext = ctx.obj
@@ -118,8 +116,9 @@ def update(
     flow_authentication: Annotated[
         str | None, typer.Option("--flow-authentication", help="Authentication flow slug")
     ] = None,
-    flow_invalidation: Annotated[
-        str | None, typer.Option("--flow-invalidation", help="Invalidation flow slug")
+    flow_invalidation: Annotated[str | None, typer.Option("--flow-invalidation", help="Invalidation flow slug")] = None,
+    flow_recovery: Annotated[
+        str | None, typer.Option("--flow-recovery", help="Recovery (password reset) flow slug")
     ] = None,
 ) -> None:
     """Update a brand."""
@@ -142,6 +141,8 @@ def update(
         payload["flow_authentication"] = flow_authentication
     if flow_invalidation is not None:
         payload["flow_invalidation"] = flow_invalidation
+    if flow_recovery is not None:
+        payload["flow_recovery"] = flow_recovery
 
     result = c.client.put(f"core/brands/{id_}/", data=payload)
     c.output.success(f"Updated brand '{result.get('domain', id_)}'")

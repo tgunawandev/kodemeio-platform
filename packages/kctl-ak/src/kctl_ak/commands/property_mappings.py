@@ -84,7 +84,7 @@ def create_scope(
         "scope_name": scope_name,
         "expression": expression,
     }
-    result = c.client.post("propertymappings/scope/", data=payload)
+    result = c.client.post("propertymappings/provider/scope/", data=payload)
     c.output.success(f"Created scope mapping '{result.get('name', name)}' (ID: {result.get('pk', '?')})")
 
 
@@ -102,7 +102,7 @@ def create_saml(
         "saml_name": saml_name,
         "expression": expression,
     }
-    result = c.client.post("propertymappings/saml/", data=payload)
+    result = c.client.post("propertymappings/provider/saml/", data=payload)
     c.output.success(f"Created SAML mapping '{result.get('name', name)}' (ID: {result.get('pk', '?')})")
 
 
@@ -120,7 +120,7 @@ def create_ldap(
         "object_field": object_field,
         "expression": expression,
     }
-    result = c.client.post("propertymappings/ldap/", data=payload)
+    result = c.client.post("propertymappings/source/ldap/", data=payload)
     c.output.success(f"Created LDAP mapping '{result.get('name', name)}' (ID: {result.get('pk', '?')})")
 
 
@@ -136,7 +136,7 @@ def create_scim(
         "name": name,
         "expression": expression,
     }
-    result = c.client.post("propertymappings/scim/", data=payload)
+    result = c.client.post("propertymappings/provider/scim/", data=payload)
     c.output.success(f"Created SCIM mapping '{result.get('name', name)}' (ID: {result.get('pk', '?')})")
 
 
