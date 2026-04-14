@@ -26,7 +26,7 @@ def list_(
         [
             col.get("id", "")[:8],
             col.get("name", ""),
-            col.get("description", "")[:40] or "-",
+            (col.get("description") or "")[:40] or "-",
             str(col.get("documents", {}).get("count", 0) if isinstance(col.get("documents"), dict) else ""),
             col.get("permission", "") or "member",
             (col.get("updatedAt") or "")[:10],
@@ -36,7 +36,14 @@ def list_(
 
     c.output.table(
         f"Collections ({len(collections)})",
-        [("ID", "cyan"), ("Name", "green"), ("Description", "dim"), ("Docs", ""), ("Permission", "dim"), ("Updated", "dim")],
+        [
+            ("ID", "cyan"),
+            ("Name", "green"),
+            ("Description", "dim"),
+            ("Docs", ""),
+            ("Permission", "dim"),
+            ("Updated", "dim"),
+        ],
         rows,
         data_for_json=collections,
     )
@@ -55,18 +62,24 @@ def get(
     c.output.detail(
         f"Collection: {col.get('name', '')}",
         [
-            ("Details", [
-                ("ID", col.get("id", "")),
-                ("Name", col.get("name", "")),
-                ("Description", col.get("description", "") or "-"),
-                ("Permission", col.get("permission", "") or "member"),
-                ("Color", col.get("color", "") or "-"),
-                ("Sharing", str(col.get("sharing", False))),
-            ]),
-            ("Dates", [
-                ("Created", col.get("createdAt", "")),
-                ("Updated", col.get("updatedAt", "")),
-            ]),
+            (
+                "Details",
+                [
+                    ("ID", col.get("id", "")),
+                    ("Name", col.get("name", "")),
+                    ("Description", col.get("description", "") or "-"),
+                    ("Permission", col.get("permission", "") or "member"),
+                    ("Color", col.get("color", "") or "-"),
+                    ("Sharing", str(col.get("sharing", False))),
+                ],
+            ),
+            (
+                "Dates",
+                [
+                    ("Created", col.get("createdAt", "")),
+                    ("Updated", col.get("updatedAt", "")),
+                ],
+            ),
         ],
         data_for_json=col,
     )
@@ -77,7 +90,9 @@ def create(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Collection name")],
     description: Annotated[str, typer.Option("--description", "-d", help="Description")] = "",
-    permission: Annotated[str, typer.Option("--permission", help="Default permission: read, read_write")] = "read_write",
+    permission: Annotated[
+        str, typer.Option("--permission", help="Default permission: read, read_write")
+    ] = "read_write",
     color: Annotated[Optional[str], typer.Option("--color", help="Hex color (e.g. #FF0000)")] = None,
 ) -> None:
     """Create a new collection."""
@@ -93,11 +108,16 @@ def create(
 
     c.output.detail(
         "Collection Created",
-        [("Details", [
-            ("ID", col.get("id", "")),
-            ("Name", col.get("name", "")),
-            ("Permission", col.get("permission", "")),
-        ])],
+        [
+            (
+                "Details",
+                [
+                    ("ID", col.get("id", "")),
+                    ("Name", col.get("name", "")),
+                    ("Permission", col.get("permission", "")),
+                ],
+            )
+        ],
         data_for_json=col,
     )
 
@@ -140,7 +160,9 @@ def delete(
     if not force:
         info = c.client.post("collections.info", data={"id": collection_id})
         col = info.get("data", {})
-        if not typer.confirm(f"Delete collection '{col.get('name', collection_id)}'? This deletes all documents inside."):
+        if not typer.confirm(
+            f"Delete collection '{col.get('name', collection_id)}'? This deletes all documents inside."
+        ):
             raise typer.Abort()
 
     c.client.post("collections.delete", data={"id": collection_id})
@@ -159,10 +181,15 @@ def export_(
 
     c.output.detail(
         "Collection Export",
-        [("Details", [
-            ("File Operation ID", fc.get("id", "")),
-            ("State", fc.get("state", "")),
-        ])],
+        [
+            (
+                "Details",
+                [
+                    ("File Operation ID", fc.get("id", "")),
+                    ("State", fc.get("state", "")),
+                ],
+            )
+        ],
         data_for_json=fc,
     )
     c.output.info("Export is processing. Check file operations for download link.")
