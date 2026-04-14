@@ -874,6 +874,17 @@ def bulk_recovery_links(
         str | None,
         typer.Option("--outline-doc-title", help="Title for the Outline roster doc."),
     ] = None,
+    app_install_urls: Annotated[
+        str | None,
+        typer.Option(
+            "--app-install-urls",
+            help=(
+                "Comma-separated 'label:url' pairs for app-install QRs shown at top of the "
+                "roster doc. Example: 'iOS:https://apps.apple.com/app/id123,Android:https://play.google.com/...'. "
+                "Set to empty string to disable."
+            ),
+        ),
+    ] = "iOS:https://apps.apple.com/app/mattermost/id1257222717,Android:https://play.google.com/store/apps/details?id=com.mattermost.rn",
 ) -> None:
     """Generate one-time recovery links for a list of users.
 
@@ -950,9 +961,43 @@ def bulk_recovery_links(
             "",
             "Tampilkan QR ke karyawan untuk di-scan. Setelah scan, karyawan akan diarahkan ke halaman set-password. Link kedaluwarsa 7 hari.",
             "",
-            "| Nama | Wilayah | Position | QR |",
-            "|---|---|---|---|",
         ]
+
+        # App-install QRs (static, same for everyone in the doc)
+        app_pairs: list[tuple[str, str]] = []
+        if app_install_urls:
+            for piece in app_install_urls.split(","):
+                piece = piece.strip()
+                if ":" in piece:
+                    label, target = piece.split(":", 1)
+                    label = label.strip()
+                    target = target.strip()
+                    if label and target:
+                        app_pairs.append((label, target))
+        if app_pairs:
+            lines.extend(["## 📱 Install aplikasi Mattermost", ""])
+            lines.append("| " + " | ".join(lbl for lbl, _ in app_pairs) + " |")
+            lines.append("|" + "---|" * len(app_pairs))
+            qr_cells: list[str] = []
+            for label, target in app_pairs:
+                try:
+                    png = _generate_qr_png(target)
+                    att_url = _outline_upload(ol_url, ol_token, f"app-install-{label.lower()}.png", png)
+                    qr_cells.append(f"![{label}]({att_url})")
+                except Exception as e:
+                    c.output.warn(f"App-install QR upload failed for {label}: {e}")
+                    qr_cells.append(f"(failed: {label})")
+            lines.append("| " + " | ".join(qr_cells) + " |")
+            lines.extend(["", "Scan QR di atas yang sesuai dengan HP Anda untuk install aplikasi Mattermost.", ""])
+
+        lines.extend(
+            [
+                "## 🔑 Aktivasi akun per karyawan",
+                "",
+                "| Nama | Wilayah | Position | QR Aktivasi |",
+                "|---|---|---|---|",
+            ]
+        )
         for i, r in enumerate(roster, 1):
             try:
                 png = _generate_qr_png(r["link"])
