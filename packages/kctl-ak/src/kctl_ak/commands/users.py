@@ -879,10 +879,6 @@ def bulk_recovery_links(
             ),
         ),
     ] = None,
-    outline_doc_title: Annotated[
-        str | None,
-        typer.Option("--outline-doc-title", help="Title for the Outline roster doc."),
-    ] = None,
     app_install_urls: Annotated[
         str | None,
         typer.Option(
@@ -959,20 +955,9 @@ def bulk_recovery_links(
             c.output.error(str(e))
             raise typer.Exit(1) from e
 
-        import datetime
+        c.output.info(f"Publishing Outline: 1 doc per user ({len(roster)} users) + install-app index...")
 
-        title = outline_doc_title or f"Onboarding QR Roster — {datetime.date.today().isoformat()}"
-        c.output.info(f"Publishing Outline roster '{title}' ({len(roster)} users)...")
-
-        # Markdown body
-        lines: list[str] = [
-            "> **RAHASIA — hanya untuk HR & IT.** Jangan share link QR ini keluar organisasi.",
-            "",
-            "Tampilkan QR ke karyawan untuk di-scan. Setelah scan, karyawan akan diarahkan ke halaman set-password. Link kedaluwarsa 7 hari.",
-            "",
-        ]
-
-        # App-install QRs (static, same for everyone in the doc)
+        # 1. Parse app-install URLs once
         app_pairs: list[tuple[str, str]] = []
         if app_install_urls:
             for piece in app_install_urls.split(","):
@@ -983,34 +968,60 @@ def bulk_recovery_links(
                     target = target.strip()
                     if label and target:
                         app_pairs.append((label, target))
+
+        # 2. Create/update the static "Install aplikasi" index doc (shared across batches)
         if app_pairs:
-            lines.extend(
-                [
+            try:
+                index_lines = [
+                    "> **RAHASIA — hanya untuk HR & IT.** Buka dokumen ini sekali untuk install aplikasi di HP karyawan baru.",
+                    "",
                     "## 📱 Install aplikasi Mattermost",
                     "",
-                    "Scan QR yang sesuai dengan HP karyawan.",
+                    "Scan QR yang sesuai dengan HP karyawan. Setelah install, minta karyawan buka dokumen QR aktivasi mereka.",
                     "",
                 ]
-            )
-            for label, target in app_pairs:
-                lines.extend([f"### {label}", ""])
-                try:
-                    png = _generate_qr_png(target)
-                    att_url = _outline_upload(ol_url, ol_token, f"app-install-{label.lower()}.png", png)
-                    lines.append(f"![{label}]({att_url})")
-                except Exception as e:
-                    c.output.warn(f"App-install QR upload failed for {label}: {e}")
-                    lines.append(f"(upload failed: {label})")
-                lines.append("")
+                for label, target in app_pairs:
+                    index_lines.extend([f"### {label}", ""])
+                    try:
+                        png = _generate_qr_png(target)
+                        att_url = _outline_upload(ol_url, ol_token, f"app-install-{label.lower()}.png", png)
+                        index_lines.append(f"![{label}]({att_url})")
+                    except Exception as e:
+                        c.output.warn(f"App-install QR upload failed for {label}: {e}")
+                        index_lines.append(f"(upload failed: {label})")
+                    index_lines.append("")
+                index_url = _outline_create_doc(
+                    ol_url,
+                    ol_token,
+                    outline_collection,
+                    "📱 Install Aplikasi Mattermost",
+                    "\n".join(index_lines),
+                )
+                c.output.success(f"Index doc: {index_url}")
+            except Exception as e:
+                c.output.warn(f"Could not create index doc: {e}")
 
-        lines.extend(["## 🔑 Aktivasi akun per karyawan", ""])
+        # 3. Create one doc per user
+        created_docs = 0
         for i, r in enumerate(roster, 1):
             display_name = r["name"] or r["username"]
             meta = " · ".join(x for x in (r["wilayah"], r["position"]) if x)
-            lines.append(f"### {display_name}")
+            lines = [
+                "> **RAHASIA — hanya untuk HR & IT.** Jangan share di luar organisasi.",
+                "",
+                f"**{display_name}**",
+            ]
             if meta:
                 lines.append(f"*{meta}*")
-            lines.append("")
+            lines.extend(
+                [
+                    "",
+                    "Tampilkan QR di bawah untuk di-scan karyawan. Link kedaluwarsa 7 hari setelah dibuat.",
+                    "",
+                    "## 🔑 QR Aktivasi",
+                    "",
+                ]
+            )
             try:
                 png = _generate_qr_png(r["link"])
                 att_url = _outline_upload(ol_url, ol_token, f"qr-{r['username']}.png", png)
@@ -1018,16 +1029,22 @@ def bulk_recovery_links(
             except Exception as e:
                 c.output.warn(f"QR upload failed for {r['username']}: {e}")
                 lines.append(f"(upload failed: {r['username']})")
-            lines.extend(["", "---", ""])
-            if i % 10 == 0:
-                c.output.info(f"  ...{i}/{len(roster)} QRs uploaded")
 
-        try:
-            doc_url = _outline_create_doc(ol_url, ol_token, outline_collection, title, "\n".join(lines))
-            c.output.success(f"Outline roster: {doc_url}")
-        except Exception as e:
-            c.output.error(f"Failed to create Outline doc: {e}")
-            raise typer.Exit(1) from e
+            try:
+                _outline_create_doc(
+                    ol_url,
+                    ol_token,
+                    outline_collection,
+                    display_name,
+                    "\n".join(lines),
+                )
+                created_docs += 1
+            except Exception as e:
+                c.output.warn(f"Doc create failed for {r['username']}: {e}")
+            if i % 10 == 0:
+                c.output.info(f"  ...{i}/{len(roster)} docs created")
+
+        c.output.success(f"Published {created_docs} per-user docs to collection.")
 
 
 @app.command()
