@@ -1,0 +1,42 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-mattermost
+  description: "TPP Mattermost team chat"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-mattermost
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+dns:
+  zone: idtpp.com
+  name: mm
+
+domain:
+  host: mm.idtpp.com
+  port: 8065
+  service: mattermost
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-mattermost
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-mattermost
+  MM_DOMAIN: mm.idtpp.com
+  TENANT: tpp
+  TZ: Asia/Jakarta
+
+healthcheck:
+  path: /api/v4/system/ping
+  port: 8065
+  expected_status: 200
+  timeout: 120
+  interval: 30
