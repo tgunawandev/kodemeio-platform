@@ -772,11 +772,18 @@ def bulk_import(
     c.output.info(f"Import complete: {created} created, {skipped} skipped, {failed} failed")
 
 
-def _generate_qr_png(data: str) -> bytes:
-    """Generate a QR code as a PNG byte string."""
+def _generate_qr_png(data: str, target_px: int = 320) -> bytes:
+    """Generate a QR code as a PNG byte string, sized to fit mobile viewports.
+
+    `target_px` is the approximate output width in pixels; the QR image is
+    resized to exactly that (nearest-neighbour to keep modules crisp). 320px is
+    a good fit for Outline's mobile renderer — displays at ~100% width without
+    horizontal scroll, still sharp when scanned.
+    """
     import io
 
     import qrcode
+    from PIL import Image
 
     qr = qrcode.QRCode(
         version=None,
@@ -786,9 +793,11 @@ def _generate_qr_png(data: str) -> bytes:
     )
     qr.add_data(data)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
+    img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    if target_px and img.size[0] != target_px:
+        img = img.resize((target_px, target_px), Image.NEAREST)
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    img.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
 
 
@@ -975,37 +984,41 @@ def bulk_recovery_links(
                     if label and target:
                         app_pairs.append((label, target))
         if app_pairs:
-            lines.extend(["## 📱 Install aplikasi Mattermost", ""])
-            lines.append("| " + " | ".join(lbl for lbl, _ in app_pairs) + " |")
-            lines.append("|" + "---|" * len(app_pairs))
-            qr_cells: list[str] = []
+            lines.extend(
+                [
+                    "## 📱 Install aplikasi Mattermost",
+                    "",
+                    "Scan QR yang sesuai dengan HP karyawan.",
+                    "",
+                ]
+            )
             for label, target in app_pairs:
+                lines.extend([f"### {label}", ""])
                 try:
                     png = _generate_qr_png(target)
                     att_url = _outline_upload(ol_url, ol_token, f"app-install-{label.lower()}.png", png)
-                    qr_cells.append(f"![{label}]({att_url})")
+                    lines.append(f"![{label}]({att_url})")
                 except Exception as e:
                     c.output.warn(f"App-install QR upload failed for {label}: {e}")
-                    qr_cells.append(f"(failed: {label})")
-            lines.append("| " + " | ".join(qr_cells) + " |")
-            lines.extend(["", "Scan QR di atas yang sesuai dengan HP Anda untuk install aplikasi Mattermost.", ""])
+                    lines.append(f"(upload failed: {label})")
+                lines.append("")
 
-        lines.extend(
-            [
-                "## 🔑 Aktivasi akun per karyawan",
-                "",
-                "| Nama | Wilayah | Position | QR Aktivasi |",
-                "|---|---|---|---|",
-            ]
-        )
+        lines.extend(["## 🔑 Aktivasi akun per karyawan", ""])
         for i, r in enumerate(roster, 1):
+            display_name = r["name"] or r["username"]
+            meta = " · ".join(x for x in (r["wilayah"], r["position"]) if x)
+            lines.append(f"### {display_name}")
+            if meta:
+                lines.append(f"*{meta}*")
+            lines.append("")
             try:
                 png = _generate_qr_png(r["link"])
                 att_url = _outline_upload(ol_url, ol_token, f"qr-{r['username']}.png", png)
-                lines.append(f"| {r['name'] or r['username']} | {r['wilayah']} | {r['position']} | ![]({att_url}) |")
+                lines.append(f"![{display_name}]({att_url})")
             except Exception as e:
                 c.output.warn(f"QR upload failed for {r['username']}: {e}")
-                lines.append(f"| {r['name'] or r['username']} | {r['wilayah']} | {r['position']} | (upload failed) |")
+                lines.append(f"(upload failed: {r['username']})")
+            lines.extend(["", "---", ""])
             if i % 10 == 0:
                 c.output.info(f"  ...{i}/{len(roster)} QRs uploaded")
 
