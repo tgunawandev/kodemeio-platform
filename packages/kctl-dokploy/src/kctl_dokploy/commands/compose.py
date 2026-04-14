@@ -178,6 +178,14 @@ def update(
     auto_deploy: Annotated[
         bool | None, typer.Option("--auto-deploy/--no-auto-deploy", help="Enable auto-deploy on push")
     ] = None,
+    server_id: Annotated[
+        str | None,
+        typer.Option(
+            "--server",
+            help="Move the compose to a different Dokploy server (serverId). "
+            "The compose must be stopped before moving; redeploy after to start on the new host.",
+        ),
+    ] = None,
     deploy: Annotated[
         bool,
         typer.Option(
@@ -234,8 +242,10 @@ def update(
         payload["enableSubmodules"] = enable_submodules
     if auto_deploy is not None:
         payload["autoDeploy"] = auto_deploy
+    if server_id is not None:
+        payload["serverId"] = server_id
     if len(payload) == 1:
-        c.output.error("No update options provided. Use --env, --compose-file, or --source-type.")
+        c.output.error("No update options provided. Use --env, --compose-file, --source-type, or --server.")
         raise typer.Exit(1)
     result = c.client.post("/compose.update", json=payload)
     c.output.success(f"Compose '{compose_id}' updated")
