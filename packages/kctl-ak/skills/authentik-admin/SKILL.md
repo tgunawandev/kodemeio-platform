@@ -119,15 +119,16 @@ kctl-ak groups export [--format json|yaml]
 ### apps — Application management
 
 ```bash
-kctl-ak apps list                                                    # List apps with Group column
-kctl-ak apps get <slug>
+kctl-ak apps list [--only-accessible]                                # Default: show all apps (superuser_full_list); flag restricts to current user's accessible apps
+kctl-ak apps get <slug>                                              # Shows Group field
 kctl-ak apps create <name> <slug> [--provider ID] [--launch-url URL] [--description TEXT]
 kctl-ak apps update <slug> <field> <value>
 kctl-ak apps delete <slug> [--force]
 kctl-ak apps set-icon <slug> <file-or-url>                           # Upload icon from local file or URL
 kctl-ak apps sync [--dry-run/--no-dry-run] [--prune] [--file PATH]   # 3-phase create/update/prune from app-registry.yaml
 kctl-ak apps launch-urls
-kctl-ak apps access <slug>
+kctl-ak apps access <slug>                                           # List policy/group/user bindings on the app
+kctl-ak apps check-access <slug> [--user USER]                       # Evaluate policy engine for the token user (or --user) via for_user
 kctl-ak apps audit                           # Show apps with missing providers or no launch URL
 kctl-ak apps orphaned                        # List apps with no active provider
 ```
@@ -501,7 +502,8 @@ Key endpoints:
 
 ### User cannot access an application
 1. `kctl-ak users groups <user>` -- check group membership
-2. `kctl-ak apps access <app-slug>` -- check policy bindings
+2. `kctl-ak apps access <app-slug>` -- check policy bindings (groups/users/policies)
+3. `kctl-ak apps check-access <app-slug> --user <email>` -- evaluate if a specific user passes the policy engine
 3. `kctl-ak audit list --user <user>` -- check auth events
 
 ### Forward auth returning 401/403
