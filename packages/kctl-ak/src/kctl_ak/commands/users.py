@@ -1013,6 +1013,8 @@ def bulk_recovery_links(
             ]
             if meta:
                 lines.append(f"*{meta}*")
+            if r.get("email"):
+                lines.append(f"📧 `{r['email']}`")
             lines.extend(
                 [
                     "",
