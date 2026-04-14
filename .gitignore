@@ -18,3 +18,8 @@ deploys/env/staging/.env.*
 .playwright-cli/
 .claude/
 .worktrees/
+
+# pytest coverage
+.coverage
+.coverage.*
+htmlcov/
