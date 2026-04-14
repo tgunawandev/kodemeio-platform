@@ -38,28 +38,30 @@ ODOO_RECIPES: dict[str, tuple[str, str]] = {
     # recipe_name: (profile, extras_csv_for_ODOO_INSTALL_BUNDLE)
     "erp": ("erp", ""),
     "hrms": ("hrms", ""),
+    "import": ("erp", ""),
     "distribution": (
         "erp",
-        "private-field-ops,private-desktop-apps:dms,private-retail:shop,analytics",
+        "private-field-ops,private-desktop-apps:dms,private-retail:shop,private-analytics",
     ),
     "manufacturing": (
         "erp",
-        "private-mrp,private-sfa,private-desktop-apps:tpm,private-retail:analytics",
+        "private-mrp,private-sfa,private-desktop-apps:tpm,private-analytics",
     ),
     "retail": ("erp", "oca-pos,private-retail"),
-    "trading": ("erp", "private-retail:analytics"),
+    "trading": ("erp", "private-analytics"),
+    "import-hrms": ("erp", "private-hr-full"),
     "distribution-hrms": (
         "erp",
-        "private-field-ops,private-desktop-apps:dms,private-retail:shop,analytics,private-hr-full",
+        "private-field-ops,private-desktop-apps:dms,private-retail:shop,private-analytics,private-hr-full",
     ),
     "manufacturing-hrms": (
         "erp",
-        "private-mrp,private-sfa,private-desktop-apps:tpm,private-retail:analytics,private-hr-full",
+        "private-mrp,private-sfa,private-desktop-apps:tpm,private-analytics,private-hr-full",
     ),
     "retail-hrms": ("erp", "oca-pos,private-retail,private-hr-full"),
     "full": (
         "erp",
-        "core-hr,core-maintenance,core-fleet,oca-report,oca-hr,oca-maintenance,oca-pos,oca-saas,private-finance-hr,private-form,private-sfa,private-lfa,private-mrp,private-hrm,private-desktop-apps,private-retail,private-asset,private-recruitment,private-saas",
+        "core-hr,core-maintenance,core-fleet,oca-report,oca-hr,oca-maintenance,oca-pos,oca-saas,private-finance-hr,private-form,private-sfa,private-lfa,private-mrp,private-hrm,private-desktop-apps,private-retail,private-analytics,private-asset,private-recruitment,private-saas",
     ),
 }
 
@@ -73,9 +75,7 @@ def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
     profiles they replace) so old tenant YAMLs keep working during rollout.
     """
     if recipe_or_profile not in ODOO_RECIPES:
-        raise ValueError(
-            f"Unknown odoo recipe {recipe_or_profile!r}. Valid: {sorted(ODOO_RECIPES.keys())}"
-        )
+        raise ValueError(f"Unknown odoo recipe {recipe_or_profile!r}. Valid: {sorted(ODOO_RECIPES.keys())}")
     return ODOO_RECIPES[recipe_or_profile]
 
 
@@ -94,9 +94,7 @@ def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
 
 
 def yaml_dump(data: dict) -> str:
-    return yaml.dump(
-        data, default_flow_style=False, sort_keys=False, allow_unicode=True
-    )
+    return yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
 
 def load_tenant(path: Path) -> dict:
@@ -396,9 +394,7 @@ def gen_nextjs_corporate(
         }
     )
 
-    env_content = (
-        f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{host}\nTZ=Asia/Jakarta\n"
-    )
+    env_content = f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{host}\nTZ=Asia/Jakarta\n"
 
     return yaml_filename, yaml_dump(instance), env_filename, env_content
 
@@ -602,9 +598,7 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         # --- React PWAs + Odoo instances ---
         for odoo_entry in raw.get("odoo", []):
             # Odoo instance
-            y_name, y_content, e_name, e_content = gen_odoo(
-                t, odoo_entry, env_name, server, dns_prefix, db_prefix
-            )
+            y_name, y_content, e_name, e_content = gen_odoo(t, odoo_entry, env_name, server, dns_prefix, db_prefix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -620,17 +614,13 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         web = raw.get("web", {})
         if "corporate" in web:
             t["_web_corporate_brand"] = web["corporate"]["compose_brand"]
-            y_name, y_content, e_name, e_content = gen_nextjs_corporate(
-                t, env_name, server, dns_prefix
-            )
+            y_name, y_content, e_name, e_content = gen_nextjs_corporate(t, env_name, server, dns_prefix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
         # --- Next.js careers ---
         if web.get("careers"):
-            y_name, y_content, e_name, e_content = gen_nextjs_careers(
-                t, env_name, server, dns_prefix
-            )
+            y_name, y_content, e_name, e_content = gen_nextjs_careers(t, env_name, server, dns_prefix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -644,9 +634,7 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
             notify_server = server
             if isinstance(notify_cfg, dict):
                 notify_server = notify_cfg.get("server", server)
-            y_name, y_content, e_name, e_content = gen_notify(
-                t, env_name, notify_server, dns_prefix
-            )
+            y_name, y_content, e_name, e_content = gen_notify(t, env_name, notify_server, dns_prefix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -656,24 +644,14 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
 def is_secret_env(path: Path) -> bool:
     """Check if a .env file likely contains secrets (Odoo, Notify, React PWA with OIDC)."""
     name = path.name
-    return name.startswith(".env.") and (
-        "-odoo-" in name or "-hono-notify" in name or "-react-" in name
-    )
+    return name.startswith(".env.") and ("-odoo-" in name or "-hono-notify" in name or "-react-" in name)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate deploy instances from tenant manifests"
-    )
-    parser.add_argument(
-        "--tenant", "-t", help="Generate for a single tenant (e.g., mac)"
-    )
-    parser.add_argument(
-        "--dry-run", "-n", action="store_true", help="Preview without writing"
-    )
-    parser.add_argument(
-        "--diff", "-d", action="store_true", help="Show diff vs existing files"
-    )
+    parser = argparse.ArgumentParser(description="Generate deploy instances from tenant manifests")
+    parser.add_argument("--tenant", "-t", help="Generate for a single tenant (e.g., mac)")
+    parser.add_argument("--dry-run", "-n", action="store_true", help="Preview without writing")
+    parser.add_argument("--diff", "-d", action="store_true", help="Show diff vs existing files")
     args = parser.parse_args()
 
     if args.tenant:
@@ -707,9 +685,7 @@ def main() -> None:
             if args.diff and example_path.exists():
                 old = example_path.read_text().splitlines(keepends=True)
                 new = content.splitlines(keepends=True)
-                diff = difflib.unified_diff(
-                    old, new, fromfile=str(example_path), tofile=str(example_path)
-                )
+                diff = difflib.unified_diff(old, new, fromfile=str(example_path), tofile=str(example_path))
                 sys.stdout.writelines(diff)
             if not args.dry_run:
                 example_path.write_text(content)
@@ -725,9 +701,7 @@ def main() -> None:
             if args.diff:
                 old = existing.splitlines(keepends=True)
                 new = content.splitlines(keepends=True)
-                diff = difflib.unified_diff(
-                    old, new, fromfile=str(path), tofile=str(path)
-                )
+                diff = difflib.unified_diff(old, new, fromfile=str(path), tofile=str(path))
                 sys.stdout.writelines(diff)
 
         if args.dry_run:
@@ -738,9 +712,7 @@ def main() -> None:
         wrote += 1
 
     action = "Would write" if args.dry_run else "Wrote"
-    print(
-        f"\nDone. {action}: {wrote}, Skipped (secrets): {skipped}, Unchanged: {unchanged}"
-    )
+    print(f"\nDone. {action}: {wrote}, Skipped (secrets): {skipped}, Unchanged: {unchanged}")
 
 
 if __name__ == "__main__":
