@@ -105,6 +105,10 @@ class MattermostClient(APIClient):
             json={"display_name": display_name},
         )
 
+    def patch_channel(self, channel_id: str, **fields: Any) -> Any:
+        """Patch arbitrary channel fields (display_name, header, purpose, ...)."""
+        return self.put(f"/channels/{channel_id}/patch", json=fields)
+
     # ------------------------------------------------------------------
     # Posts
     # ------------------------------------------------------------------
@@ -120,6 +124,10 @@ class MattermostClient(APIClient):
 
     def delete_post(self, post_id: str) -> Any:
         return self.delete(f"/posts/{post_id}")
+
+    def update_post(self, post_id: str, message: str) -> Any:
+        """Replace an existing post's message (keeps post id + pin status)."""
+        return self.put(f"/posts/{post_id}", json={"id": post_id, "message": message})
 
     def pin_post(self, post_id: str) -> Any:
         return self.post(f"/posts/{post_id}/pin")
