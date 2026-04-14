@@ -18,10 +18,24 @@ _MANAGED_PREFIXES = ("mac-", "tpp-", "kod-", "tkz-", "pro-", "shared-")
 
 
 @app.command("list")
-def list_(ctx: typer.Context) -> None:
-    """List all applications."""
+def list_(
+    ctx: typer.Context,
+    only_accessible: Annotated[
+        bool,
+        typer.Option(
+            "--only-accessible",
+            help="Only show apps the current token's user can access (default: show all)",
+        ),
+    ] = False,
+) -> None:
+    """List all applications.
+
+    By default uses ``superuser_full_list=true`` so admins see every app regardless
+    of their own group membership. Pass ``--only-accessible`` to apply access filters.
+    """
     c = ctx.obj
-    apps = c.client.get_all("core/applications/")
+    params = None if only_accessible else {"superuser_full_list": "true"}
+    apps = c.client.get_all("core/applications/", params=params)
     rows = []
     for a in apps:
         provider = a.get("provider_obj", {}) or {}
@@ -59,6 +73,7 @@ def get(
                 [
                     ("Slug", a.get("slug", "")),
                     ("Name", a.get("name", "")),
+                    ("Group", a.get("group", "") or "-"),
                     ("Description", a.get("meta_description", "") or "-"),
                     ("Launch URL", a.get("meta_launch_url", "") or "-"),
                     ("Open in new tab", str(a.get("open_in_new_tab", False))),
@@ -238,6 +253,68 @@ def access(
         rows,
         data_for_json=bindings,
     )
+
+
+@app.command("check-access")
+def check_access(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Application slug")],
+    user: Annotated[
+        str | None,
+        typer.Option("--user", help="Username/email to impersonate (default: current token's user)"),
+    ] = None,
+) -> None:
+    """Check whether a user can access an application.
+
+    Calls ``/core/applications/{slug}/check_access/`` which runs the full policy
+    engine against the effective user. Without ``--user`` the check is evaluated
+    as the token's own user.
+    """
+    c = ctx.obj
+    params: dict | None = None
+    resolved_user: dict | None = None
+    if user is not None:
+        users = c.client.get_all(
+            "core/users/",
+            params={"search": user},
+        )
+        match = next(
+            (u for u in users if user in (u.get("username"), u.get("email"))),
+            users[0] if users else None,
+        )
+        if match is None:
+            c.output.error(f"User not found: {user}")
+            raise typer.Exit(1)
+        resolved_user = match
+        params = {"for_user": match["pk"]}
+
+    result = c.client.get(f"core/applications/{slug}/check_access/", params=params)
+    passing = bool(result.get("passing"))
+
+    c.output.header(f"Access check: {slug}")
+    if resolved_user:
+        c.output.info(f"User: {resolved_user.get('username')} ({resolved_user.get('email', '-')})")
+    else:
+        c.output.info("User: (current token)")
+
+    if passing:
+        c.output.success("PASSING — user can access this application")
+    else:
+        c.output.error("DENIED — user cannot access this application")
+
+    messages = result.get("messages") or []
+    log_messages = result.get("log_messages") or []
+    if messages:
+        c.output.header("Messages")
+        for m in messages:
+            c.output.info(f"  {m}")
+    if log_messages:
+        c.output.header("Policy log")
+        for m in log_messages:
+            c.output.info(f"  {m}")
+
+    if c.output.json_mode:
+        c.output.raw_json(result)
 
 
 @app.command("audit")
