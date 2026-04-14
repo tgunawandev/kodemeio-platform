@@ -772,6 +772,84 @@ def bulk_import(
     c.output.info(f"Import complete: {created} created, {skipped} skipped, {failed} failed")
 
 
+def _generate_qr_png(data: str) -> bytes:
+    """Generate a QR code as a PNG byte string."""
+    import io
+
+    import qrcode
+
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=2,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _outline_profile(profile_name: str) -> tuple[str, str]:
+    """Return (url, token) for the Outline service on a profile or raise."""
+    from kctl_lib.config import get_service_config as _gsc
+
+    raw = _gsc(profile_name, "outline")
+    url = (raw or {}).get("url", "").rstrip("/")
+    token = (raw or {}).get("token", "")
+    if not url or not token:
+        raise ValueError(
+            f"Outline not configured for profile '{profile_name}'. Add profiles.{profile_name}.outline.url / .token in ~/.config/kodemeio/config.yaml",
+        )
+    return url, token
+
+
+def _outline_upload(url: str, token: str, filename: str, png: bytes) -> str:
+    """Upload a PNG attachment to Outline, return the public CDN URL."""
+    import httpx
+
+    # Step 1: get a pre-signed upload slot
+    r = httpx.post(
+        f"{url}/api/attachments.create",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": filename, "contentType": "image/png", "size": len(png)},
+        timeout=30,
+    )
+    r.raise_for_status()
+    data = r.json()["data"]
+    upload_url = data["uploadUrl"]
+    form = data["form"]
+    attachment_url = data["attachment"]["url"]
+
+    # Step 2: POST multipart to the upload URL
+    files = {"file": (filename, png, "image/png")}
+    r2 = httpx.post(upload_url, data=form, files=files, timeout=60)
+    r2.raise_for_status()
+    return attachment_url
+
+
+def _outline_create_doc(url: str, token: str, collection_id: str, title: str, markdown: str) -> str:
+    """Create a published Outline document and return the edit URL."""
+    import httpx
+
+    r = httpx.post(
+        f"{url}/api/documents.create",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": title,
+            "text": markdown,
+            "collectionId": collection_id,
+            "publish": True,
+        },
+        timeout=30,
+    )
+    r.raise_for_status()
+    data = r.json()["data"]
+    return f"{url}/doc/{data['id']}"
+
+
 @app.command("bulk-recovery-links")
 def bulk_recovery_links(
     ctx: typer.Context,
@@ -780,11 +858,30 @@ def bulk_recovery_links(
         Path | None,
         typer.Option("--out", "-o", help="Output CSV path (default: stdout)."),
     ] = None,
+    outline_collection: Annotated[
+        str | None,
+        typer.Option(
+            "--outline-collection",
+            help=(
+                "Outline collection ID. When set, also publishes a phone-friendly QR roster "
+                "as an Outline document (access controlled at the collection level — grant to "
+                "HR/IT groups only in Outline UI). Uses the 'outline' block in the active profile "
+                "for URL + token."
+            ),
+        ),
+    ] = None,
+    outline_doc_title: Annotated[
+        str | None,
+        typer.Option("--outline-doc-title", help="Title for the Outline roster doc."),
+    ] = None,
 ) -> None:
     """Generate one-time recovery links for a list of users.
 
-    Writes a CSV with columns: username, email, name, recovery_link. Missing
-    users are skipped with a warning (not fatal).
+    Writes a CSV with columns: username, email, name, recovery_link.
+
+    When --outline-collection is set, also builds a phone-friendly QR roster
+    document in that Outline collection. Access is determined by the collection's
+    permissions — set it up in Outline UI to grant only the HR + IT groups.
     """
     c: AppContext = ctx.obj
     try:
@@ -794,6 +891,7 @@ def bulk_recovery_links(
         raise typer.Exit(1) from e
 
     rows: list[list[str]] = []
+    roster: list[dict[str, str]] = []
     failed = 0
     for entry in entries:
         ident = entry.get("username") or entry.get("email")
@@ -804,13 +902,19 @@ def bulk_recovery_links(
         try:
             pk = resolve_user(c.client, ident)
             link = c.client.post(f"core/users/{pk}/recovery/", data={}).get("link", "")
-            rows.append(
-                [
-                    entry.get("username") or ident.split("@")[0],
-                    entry.get("email", ""),
-                    entry.get("name", ""),
-                    link,
-                ]
+            username = entry.get("username") or ident.split("@")[0]
+            email = entry.get("email", "")
+            name = entry.get("name", "")
+            rows.append([username, email, name, link])
+            roster.append(
+                {
+                    "username": username,
+                    "email": email,
+                    "name": name,
+                    "wilayah": entry.get("wilayah", ""),
+                    "position": entry.get("position", ""),
+                    "link": link,
+                },
             )
         except Exception as e:
             c.output.warn(f"Skip {ident}: {e}")
@@ -826,6 +930,46 @@ def bulk_recovery_links(
             writer_out.close()
 
     c.output.info(f"Generated {len(rows)} links, {failed} failed" + (f" → {out}" if out else ""))
+
+    if outline_collection and roster:
+        profile = c.profile or "default"
+        try:
+            ol_url, ol_token = _outline_profile(profile)
+        except ValueError as e:
+            c.output.error(str(e))
+            raise typer.Exit(1) from e
+
+        import datetime
+
+        title = outline_doc_title or f"Onboarding QR Roster — {datetime.date.today().isoformat()}"
+        c.output.info(f"Publishing Outline roster '{title}' ({len(roster)} users)...")
+
+        # Markdown body
+        lines: list[str] = [
+            "> **RAHASIA — hanya untuk HR & IT.** Jangan share link QR ini keluar organisasi.",
+            "",
+            "Tampilkan QR ke karyawan untuk di-scan. Setelah scan, karyawan akan diarahkan ke halaman set-password. Link kedaluwarsa 7 hari.",
+            "",
+            "| Nama | Wilayah | Position | QR |",
+            "|---|---|---|---|",
+        ]
+        for i, r in enumerate(roster, 1):
+            try:
+                png = _generate_qr_png(r["link"])
+                att_url = _outline_upload(ol_url, ol_token, f"qr-{r['username']}.png", png)
+                lines.append(f"| {r['name'] or r['username']} | {r['wilayah']} | {r['position']} | ![]({att_url}) |")
+            except Exception as e:
+                c.output.warn(f"QR upload failed for {r['username']}: {e}")
+                lines.append(f"| {r['name'] or r['username']} | {r['wilayah']} | {r['position']} | (upload failed) |")
+            if i % 10 == 0:
+                c.output.info(f"  ...{i}/{len(roster)} QRs uploaded")
+
+        try:
+            doc_url = _outline_create_doc(ol_url, ol_token, outline_collection, title, "\n".join(lines))
+            c.output.success(f"Outline roster: {doc_url}")
+        except Exception as e:
+            c.output.error(f"Failed to create Outline doc: {e}")
+            raise typer.Exit(1) from e
 
 
 @app.command()
