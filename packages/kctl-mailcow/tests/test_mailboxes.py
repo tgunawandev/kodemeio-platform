@@ -156,8 +156,21 @@ class TestMailboxesGet:
         assert result.exit_code == 0
 
 
+DOMAIN_ROOMY = {
+    "domain_name": "example.com",
+    "quota_used_in_domain": 0,
+    "max_quota_for_domain": 100 * 1024 * 1024 * 1024,  # 100 GB
+}
+DOMAIN_TIGHT = {
+    "domain_name": "example.com",
+    "quota_used_in_domain": 99 * 1024 * 1024,  # 99 MB used
+    "max_quota_for_domain": 100 * 1024 * 1024,  # 100 MB cap -> 1 MB left
+}
+
+
 class TestMailboxesAdd:
     def test_add_mailbox_success(self, runner: CliRunner, mock_client: MagicMock) -> None:
+        mock_client.mc_get.return_value = [DOMAIN_ROOMY]
         mock_client.mc_add.return_value = [{"type": "success", "msg": "Mailbox added"}]
         with inject_client(mock_client):
             result = runner.invoke(
@@ -243,6 +256,67 @@ class TestMailboxesAdd:
                 ["mailboxes", "add", "existing", "example.com", "--password", "pass"],
             )
         assert result.exit_code == 1
+
+    def test_add_mailbox_preflight_blocks_when_domain_full(self, runner: CliRunner, mock_client: MagicMock) -> None:
+        mock_client.mc_get.return_value = [DOMAIN_TIGHT]
+        with inject_client(mock_client):
+            result = runner.invoke(
+                app,
+                ["mailboxes", "add", "newuser", "example.com", "--password", "pass", "--quota", "1024"],
+            )
+        assert result.exit_code == 1
+        mock_client.mc_add.assert_not_called()
+        assert "quota too small" in result.output.lower() or "quota" in result.output.lower()
+
+    def test_add_mailbox_expand_domain_quota_triggers_edit(self, runner: CliRunner, mock_client: MagicMock) -> None:
+        mock_client.mc_get.return_value = [DOMAIN_TIGHT]
+        mock_client.mc_edit.return_value = [{"type": "success", "msg": "Domain updated"}]
+        mock_client.mc_add.return_value = [{"type": "success", "msg": "Mailbox added"}]
+        with inject_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "mailboxes",
+                    "add",
+                    "newuser",
+                    "example.com",
+                    "--password",
+                    "pass",
+                    "--quota",
+                    "1024",
+                    "--expand-domain-quota",
+                ],
+            )
+        assert result.exit_code == 0
+        mock_client.mc_edit.assert_called_once()
+        edit_call = mock_client.mc_edit.call_args[0]
+        assert edit_call[0] == "domain"
+        assert edit_call[1]["items"] == ["example.com"]
+        assert edit_call[1]["attr"]["quota"] > DOMAIN_TIGHT["max_quota_for_domain"]
+        mock_client.mc_add.assert_called_once()
+
+    def test_add_mailbox_skip_preflight_does_not_read_domain(self, runner: CliRunner, mock_client: MagicMock) -> None:
+        mock_client.mc_add.return_value = [{"type": "success", "msg": "Mailbox added"}]
+        with inject_client(mock_client):
+            result = runner.invoke(
+                app,
+                ["mailboxes", "add", "newuser", "example.com", "--password", "pass", "--skip-preflight"],
+            )
+        assert result.exit_code == 0
+        mock_client.mc_get.assert_not_called()
+
+    def test_add_mailbox_quota_left_exceeded_error_is_friendly(self, runner: CliRunner, mock_client: MagicMock) -> None:
+        # Simulate the API returning the raw list-form error even though preflight passed
+        # (e.g. --skip-preflight, or a race with another mailbox creation).
+        mock_client.mc_add.return_value = [{"type": "danger", "msg": ["mailbox_quota_left_exceeded", 68]}]
+        with inject_client(mock_client):
+            result = runner.invoke(
+                app,
+                ["mailboxes", "add", "newuser", "example.com", "--password", "pass", "--skip-preflight"],
+            )
+        assert result.exit_code == 1
+        assert "68 MB" in result.output
+        assert "--expand-domain-quota" in result.output
 
 
 class TestMailboxesUpdate:

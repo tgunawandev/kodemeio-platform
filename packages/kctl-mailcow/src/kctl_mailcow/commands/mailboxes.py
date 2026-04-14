@@ -100,9 +100,29 @@ def add(
     name: Annotated[str | None, typer.Option("--name", "-n", help="Display name")] = None,
     quota: Annotated[int, typer.Option("--quota", help="Quota in MB")] = 3072,
     active: Annotated[bool, typer.Option("--active/--inactive", help="Active state")] = True,
+    expand_domain_quota: Annotated[
+        bool,
+        typer.Option(
+            "--expand-domain-quota",
+            help="If the domain quota cannot fit the new mailbox, expand it automatically (adds 2x the shortfall as headroom).",
+        ),
+    ] = False,
+    skip_preflight: Annotated[
+        bool,
+        typer.Option("--skip-preflight", help="Skip domain quota preflight check."),
+    ] = False,
 ) -> None:
-    """Add a new mailbox."""
+    """Add a new mailbox.
+
+    Performs a domain-quota preflight check before calling the API so that
+    ``mailbox_quota_left_exceeded`` errors surface as actionable messages
+    (or get auto-resolved via ``--expand-domain-quota``).
+    """
     c: AppContext = ctx.obj
+
+    if not skip_preflight:
+        _preflight_domain_quota(c, domain, quota, expand_domain_quota)
+
     payload = {
         "local_part": local_part,
         "domain": domain,
@@ -114,6 +134,55 @@ def add(
     }
     result = c.client.mc_add("mailbox", payload)
     _handle_result(c, result, f"Mailbox '{local_part}@{domain}' added")
+
+
+def _preflight_domain_quota(
+    c: AppContext,
+    domain: str,
+    requested_mb: int,
+    expand: bool,
+) -> None:
+    """Check whether the domain has enough quota for a new mailbox.
+
+    If not, either expand the domain quota (when ``expand`` is true) or
+    raise a friendly error describing exactly how much more is needed.
+    Silently returns if the domain record can't be read (the API call will
+    still enforce quotas server-side).
+    """
+    data = c.client.mc_get(f"domain/{domain}")
+    item = data[0] if isinstance(data, list) and data else data if isinstance(data, dict) else None
+    if not item:
+        return
+
+    max_bytes = int(item.get("max_quota_for_domain", 0) or 0)
+    used_bytes = int(item.get("quota_used_in_domain", 0) or 0)
+    if max_bytes <= 0:
+        return
+
+    requested_bytes = requested_mb * 1024 * 1024
+    left_bytes = max_bytes - used_bytes
+    if requested_bytes <= left_bytes:
+        return
+
+    shortfall = requested_bytes - left_bytes
+    shortfall_mb = (shortfall + 1024 * 1024 - 1) // (1024 * 1024)
+    if not expand:
+        c.output.error(
+            f"Domain '{domain}' quota too small: {left_bytes // (1024 * 1024)} MB left, "
+            f"{requested_mb} MB requested (short by {shortfall_mb} MB). "
+            f"Re-run with --expand-domain-quota to grow the domain automatically, "
+            f"or bump manually: kctl-mailcow domains update {domain} --quota <bytes>."
+        )
+        raise typer.Exit(1)
+
+    # Expand by the shortfall + 2x headroom so we don't have to do this every mailbox.
+    new_max_bytes = max_bytes + shortfall + 2 * requested_bytes
+    c.output.info(
+        f"Expanding '{domain}' quota from {max_bytes // (1024 * 1024)} MB to "
+        f"{new_max_bytes // (1024 * 1024)} MB to fit the new mailbox."
+    )
+    result = c.client.mc_edit("domain", {"items": [domain], "attr": {"quota": new_max_bytes}})
+    _handle_result(c, result, f"Domain '{domain}' quota expanded")
 
 
 @app.command()
