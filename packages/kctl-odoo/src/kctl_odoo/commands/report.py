@@ -1280,6 +1280,14 @@ def report_validate(
     ] = "all",
     date_from: Annotated[str | None, typer.Option("--date-from")] = None,
     date_to: Annotated[str | None, typer.Option("--date-to")] = None,
+    company: Annotated[
+        int | None,
+        typer.Option("--company", help="Target company id (default: first active)"),
+    ] = None,
+    category: Annotated[
+        str | None,
+        typer.Option("--category", help="Filter registry by category"),
+    ] = None,
 ) -> None:
     """Validate report quality — check reports generate with data.
 
@@ -1307,7 +1315,11 @@ def report_validate(
     resolved = _resolve_type_code(type_code) if type_code and type_code != "all" else None
 
     try:
-        domain = [("code", "=", resolved)] if resolved else []
+        domain: list = []
+        if resolved:
+            domain.append(("code", "=", resolved))
+        if category:
+            domain.append(("category", "=", category))
         types = c.search_read(
             "report.type.registry",
             domain=domain,
@@ -1333,16 +1345,19 @@ def report_validate(
         username_override=actx.username_override,
     )
 
-    # Get company
-    company_id = 1
-    try:
-        cos = c.search_read("res.company", [("active", "=", True)], ["id"], limit=1)
-        if cos:
-            company_id = cos[0]["id"]
-    except RPCError:
-        pass
+    # Resolve company
+    if company is not None:
+        company_id = company
+    else:
+        company_id = 1
+        try:
+            cos = c.search_read("res.company", [("active", "=", True)], ["id"], limit=1)
+            if cos:
+                company_id = cos[0]["id"]
+        except RPCError:
+            pass
 
-    out.info(f"Validating {len(types)} reports ({date_from} to {date_to})")
+    out.info(f"Validating {len(types)} reports (company={company_id}, {date_from} to {date_to})")
 
     ok_count = warn_count = fail_count = 0
     results = []
@@ -1460,6 +1475,272 @@ def report_validate(
                 {"total": total, "ok": ok_count, "warn": warn_count, "fail": fail_count, "results": results}, indent=2
             )
         )
+
+
+# ===================================================================
+# VERIFY-MATH — consolidation math check across reports
+# ===================================================================
+
+
+def _extract_totals(rd: dict) -> dict[str, float]:
+    """Pull amount-shaped values from every `total`/`subtotal` row in the
+    returned report data. Returns a `{row_label: amount}` map so we can
+    compare the same logical totals across company sets."""
+    out: dict[str, float] = {}
+    AMOUNT_KEYS = ("actual", "balance", "debit", "total", "amount", "subtotal", "net")
+    tables = rd.get("tables") or []
+    rows: list = []
+    for t in tables:
+        rows.extend(t.get("rows") or [])
+    if not rows:
+        rows = rd.get("lines") or []
+    for r in rows:
+        if r.get("kind") not in ("total", "subtotal"):
+            continue
+        label = r.get("label") or r.get("name") or r.get("line_id") or "?"
+        vals = r.get("values") or {}
+        amt = None
+        for k in AMOUNT_KEYS:
+            v = vals.get(k)
+            if isinstance(v, (int, float)):
+                amt = float(v)
+                break
+        if amt is None:
+            amt = float(r.get("actual") or 0)
+        out[label] = out.get(label, 0.0) + amt
+    return out
+
+
+@app.command("verify-math")
+def report_verify_math(
+    ctx: typer.Context,
+    type_code: Annotated[
+        str | None,
+        typer.Argument(help="Report type code to verify, or 'all'"),
+    ] = "all",
+    companies: Annotated[
+        str | None,
+        typer.Option("--companies", help="Comma-separated company ids for consolidation check (e.g. '1,3,4')"),
+    ] = None,
+    category: Annotated[
+        str | None,
+        typer.Option("--category", "-c", help="Filter by registry category (financial, aging, sales, ...)"),
+    ] = None,
+    date_from: Annotated[str | None, typer.Option("--date-from")] = None,
+    date_to: Annotated[str | None, typer.Option("--date-to")] = None,
+    tolerance: Annotated[float, typer.Option("--tolerance", help="Absolute delta tolerated (default 1.0)")] = 1.0,
+) -> None:
+    """Verify consolidation math: consolidated totals should equal the sum
+    of per-company totals. Catches silent data-leakage regressions across
+    handlers (account resolution, company filters, SQL predicates).
+
+    Examples:
+        kctl-odoo report verify-math --companies 1,3
+        kctl-odoo report verify-math --companies 1,3,4 --category financial
+        kctl-odoo report verify-math profit_loss --companies 1,4
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    if not _check_report_management(c, out):
+        return
+
+    if not date_to:
+        date_to = date.today().strftime("%Y-%m-%d")
+    if not date_from:
+        date_from = date.today().replace(month=1, day=1).strftime("%Y-%m-%d")
+
+    # Parse company list
+    if not companies:
+        out.error("--companies is required (e.g. --companies 1,3)")
+        raise typer.Exit(2)
+    try:
+        co_ids = [int(x.strip()) for x in companies.split(",") if x.strip()]
+    except ValueError as e:
+        out.error(f"Invalid --companies value: {e}")
+        raise typer.Exit(2) from e
+    if len(co_ids) < 2:
+        out.error("--companies must include at least 2 ids to verify consolidation math")
+        raise typer.Exit(2)
+
+    # Pre-flight: RPC user must have access to all target companies
+    try:
+        uid = c.uid
+        users = c.execute_kw(
+            "res.users",
+            "search_read",
+            [[("id", "=", uid)], ["login", "company_ids"]],
+            {"context": {"active_test": False}, "limit": 1},
+        )
+        if users:
+            user_co_ids = set(users[0].get("company_ids") or [])
+            missing = [cid for cid in co_ids if cid not in user_co_ids]
+            if missing:
+                out.error(
+                    f"RPC user '{users[0]['login']}' lacks access to companies {missing}. "
+                    f"User company_ids={sorted(user_co_ids)}. "
+                    f"Either grant access via `res_company_users_rel` or run the "
+                    f"verification via `kctl-odoo local shell` instead."
+                )
+                raise typer.Exit(2)
+    except RPCError:
+        pass  # pre-flight is best-effort
+
+    # Filter report types
+    resolved = _resolve_type_code(type_code) if type_code and type_code != "all" else None
+    domain: list = []
+    if resolved:
+        domain.append(("code", "=", resolved))
+    if category:
+        domain.append(("category", "=", category))
+    try:
+        types = c.search_read(
+            "report.type.registry",
+            domain=domain,
+            fields=["id", "code", "name", "category"],
+            order="category,sequence",
+        )
+    except RPCError as e:
+        out.error(f"Failed to query registry: {e.detail}")
+        raise typer.Exit(1) from e
+    if not types:
+        out.error("No matching report types")
+        raise typer.Exit(1)
+
+    _last_error: str = ""
+
+    def _run(template_id: int, target_co_ids: list[int]) -> dict | None:
+        data = {
+            "instance_id": 0,
+            "template_id": template_id,
+            "date_from": date_from,
+            "date_to": date_to,
+            "company_id": target_co_ids[0],
+            "company_ids": target_co_ids if len(target_co_ids) > 1 else [],
+            "target_move": "posted",
+            "divider": 1,
+            "show_variance": False,
+            "show_percentage": False,
+            "monthly_breakdown": False,
+            "expanded_line_ids": [],
+            "page_offset": 0,
+            "page_limit": 0,
+        }
+        try:
+            return c.execute_kw(
+                "report.report_management.engine",
+                "compute_report_data",
+                [[], data],
+                {"context": {"allowed_company_ids": target_co_ids, "active_test": False}},
+            )
+        except RPCError as e:
+            nonlocal _last_error
+            _last_error = str(e)[:120]
+            return None
+
+    out.info(f"Verifying consolidation math: companies={co_ids} period={date_from}..{date_to} tolerance={tolerance}")
+    out.info(f"Checking {len(types)} report types\n")
+
+    ok_count = fail_count = skip_count = 0
+    results: list[dict] = []
+    current_cat = ""
+
+    for rt in types:
+        code, cat_name = rt["code"], rt["category"]
+        if cat_name != current_cat:
+            current_cat = cat_name
+            out.info(f"  [{cat_name}]")
+        try:
+            tpls = c.search_read("report.template", [("report_type", "=", code)], ["id"], limit=1)
+        except RPCError:
+            out.warn(f"    SKIP  {code:30s} template query error")
+            skip_count += 1
+            continue
+        if not tpls:
+            skip_count += 1
+            continue
+        tpl_id = tpls[0]["id"]
+
+        per_co_totals: dict[int, dict[str, float]] = {}
+        crashed = False
+        for cid in co_ids:
+            rd = _run(tpl_id, [cid])
+            if rd is None:
+                crashed = True
+                break
+            per_co_totals[cid] = _extract_totals(rd)
+        if crashed:
+            out.error(f"    FAIL  {code:30s} per-company call crashed: {_last_error}")
+            fail_count += 1
+            results.append({"code": code, "status": "fail", "reason": _last_error or "crash"})
+            continue
+
+        rd_cons = _run(tpl_id, co_ids)
+        if rd_cons is None:
+            out.error(f"    FAIL  {code:30s} consolidated call crashed")
+            fail_count += 1
+            results.append({"code": code, "status": "fail", "reason": "consolidated call crashed"})
+            continue
+        cons_totals = _extract_totals(rd_cons)
+
+        # Compare: consolidated[label] should equal sum(per_co[label])
+        all_labels = set(cons_totals) | {lbl for m in per_co_totals.values() for lbl in m}
+        max_delta = 0.0
+        worst_label = ""
+        for lbl in all_labels:
+            expected = sum(per_co_totals[cid].get(lbl, 0.0) for cid in co_ids)
+            got = cons_totals.get(lbl, 0.0)
+            delta = abs(got - expected)
+            if delta > max_delta:
+                max_delta = delta
+                worst_label = lbl
+
+        if max_delta <= tolerance:
+            out.success(f"    OK    {code:30s} Δ_max={max_delta:>12,.2f} ({len(all_labels)} rows)")
+            ok_count += 1
+            results.append({"code": code, "status": "ok", "max_delta": max_delta, "rows": len(all_labels)})
+        else:
+            out.error(f"    FAIL  {code:30s} Δ={max_delta:>12,.2f} at {worst_label!r}")
+            fail_count += 1
+            results.append(
+                {
+                    "code": code,
+                    "status": "fail",
+                    "max_delta": max_delta,
+                    "worst_label": worst_label,
+                    "rows": len(all_labels),
+                }
+            )
+
+    total = ok_count + fail_count + skip_count
+    out.info(f"\n{'=' * 60}")
+    if fail_count == 0:
+        out.success(f"  {ok_count}/{total} reports consolidation-math OK  ({skip_count} no-template)")
+    else:
+        out.error(f"  {fail_count} FAILURES | {ok_count} ok | {skip_count} skipped")
+
+    if actx.json_mode:
+        import json as _json
+
+        print(
+            _json.dumps(
+                {
+                    "companies": co_ids,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                    "tolerance": tolerance,
+                    "ok": ok_count,
+                    "fail": fail_count,
+                    "skipped": skip_count,
+                    "results": results,
+                },
+                indent=2,
+            )
+        )
+
+    if fail_count > 0:
+        raise typer.Exit(1)
 
 
 # ===================================================================
