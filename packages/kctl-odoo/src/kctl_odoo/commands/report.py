@@ -1478,6 +1478,223 @@ def report_validate(
 
 
 # ===================================================================
+# VERIFY-ACCURATE — row-by-row compare to a stored Accurate reference
+# ===================================================================
+
+
+@app.command("verify-accurate")
+def report_verify_accurate(
+    ctx: typer.Context,
+    reference: Annotated[
+        Path,
+        typer.Option("--reference", "-r", help="Path to the Accurate reference JSON", exists=True),
+    ],
+    company: Annotated[
+        int | None,
+        typer.Option("--company", help="Override company_id (default: from reference)"),
+    ] = None,
+    date_from: Annotated[
+        str | None,
+        typer.Option("--date-from", help="Override start date (default: from reference)"),
+    ] = None,
+    date_to: Annotated[
+        str | None,
+        typer.Option("--date-to", help="Override end date (default: from reference)"),
+    ] = None,
+    tolerance: Annotated[
+        float, typer.Option("--tolerance", help="Absolute amount delta tolerated (default 1.0 rupiah)")
+    ] = 1.0,
+    pct_tolerance: Annotated[float, typer.Option("--pct-tolerance", help="% delta tolerated (default 0.05)")] = 0.05,
+) -> None:
+    """Compare live engine output row-by-row against a stored Accurate XLSX
+    reference (exported as JSON). Exits non-zero on any mismatch; prints a
+    structured per-row diff naming the line_id, expected vs actual, and delta.
+
+    The reference JSON is produced once by hand from an Accurate XLSX export
+    and lives in `report_management/tests/accurate_refs/`.
+
+    Examples:
+        kctl-odoo --profile tpp-odoo-erp report verify-accurate \\
+          -r tests/accurate_refs/laba_rugi_cv_sumber__2026-04-01_2026-04-15.json
+    """
+    import json as _json
+
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    try:
+        expected = _json.loads(reference.read_text())
+    except Exception as e:
+        out.error(f"Failed to parse reference: {e}")
+        raise typer.Exit(2) from e
+
+    co_id = company or expected.get("company_id_in_odoo")
+    df = date_from or expected["period"]["date_from"]
+    dt = date_to or expected["period"]["date_to"]
+    report_type = expected["report_type"]
+
+    if not co_id:
+        out.error("--company required when reference has no company_id_in_odoo")
+        raise typer.Exit(2)
+
+    try:
+        tpls = c.search_read(
+            "report.template",
+            [("report_type", "=", report_type), ("code", "=", report_type)],
+            ["id", "name"],
+            limit=1,
+        )
+        if not tpls:
+            tpls = c.search_read(
+                "report.template",
+                [("report_type", "=", report_type)],
+                ["id", "name"],
+                limit=1,
+            )
+    except RPCError as e:
+        out.error(f"Template lookup failed: {e.detail}")
+        raise typer.Exit(1) from e
+
+    if not tpls:
+        out.error(f"No template for report_type={report_type!r}")
+        raise typer.Exit(1)
+
+    tpl = tpls[0]
+    out.info(f"Template: {tpl['name']!r} (id={tpl['id']})")
+    out.info(f"Company: {co_id}  Period: {df}..{dt}  Source: {expected.get('source', '?')}")
+    out.info(f"Reference: {reference.name}\n")
+
+    try:
+        rd = c.execute_kw(
+            "report.report_management.engine",
+            "compute_report_data",
+            [
+                [],
+                {
+                    "template_id": tpl["id"],
+                    "date_from": df,
+                    "date_to": dt,
+                    "company_id": co_id,
+                    "company_ids": [],
+                    "target_move": "posted",
+                    "divider": 1,
+                    "show_variance": False,
+                    "show_percentage": False,
+                    "monthly_breakdown": False,
+                    "expanded_line_ids": [],
+                    "page_offset": 0,
+                    "page_limit": 0,
+                },
+            ],
+            {"context": {"allowed_company_ids": [co_id]}},
+        )
+    except RPCError as e:
+        out.error(f"compute_report_data failed: {e.detail}")
+        raise typer.Exit(1) from e
+
+    rows = []
+    for t in rd.get("tables") or []:
+        rows.extend(t.get("rows") or [])
+    if not rows:
+        rows = rd.get("lines") or []
+
+    # Build an id lookup — line_id may be numeric (template.line.id) or
+    # the xmlid suffix. We also index by the template line's external id
+    # if resolvable, and by the label as a fallback.
+    by_line_id = {}
+    line_ids_numeric = [r.get("line_id") for r in rows if isinstance(r.get("line_id"), int)]
+    xmlid_by_id = {}
+    if line_ids_numeric:
+        try:
+            data = c.execute_kw(
+                "ir.model.data",
+                "search_read",
+                [
+                    [("model", "=", "report.template.line"), ("res_id", "in", line_ids_numeric)],
+                    ["res_id", "name"],
+                ],
+            )
+            xmlid_by_id = {d["res_id"]: d["name"] for d in data}
+        except RPCError:
+            pass
+    by_label = {}
+    for r in rows:
+        lid = r.get("line_id")
+        if lid is not None:
+            by_line_id[str(lid)] = r
+        if isinstance(lid, int) and lid in xmlid_by_id:
+            by_line_id[xmlid_by_id[lid]] = r
+        lbl = (r.get("label") or r.get("name") or "").strip()
+        if lbl:
+            by_label.setdefault(lbl, r)
+
+    fails = 0
+    results = []
+    for exp in expected["totals"]:
+        lid = exp["label_id"]
+        got = by_line_id.get(lid)
+        if got is None:
+            got = by_label.get(exp.get("label_accurate", ""), None)
+        if got is None:
+            out.error(f"  MISSING  {lid:30s} (Accurate: {exp.get('label_accurate', '?')!r})")
+            fails += 1
+            results.append({"label_id": lid, "status": "missing"})
+            continue
+        v = got.get("values") or {}
+        amt = float(v.get("amount") or v.get("actual") or 0.0)
+        pct = float(v.get("pct") or 0.0)
+        delta_amt = abs(amt - exp["amount"])
+        delta_pct = abs(pct - exp["pct"])
+        if delta_amt > tolerance or delta_pct > pct_tolerance:
+            out.error(
+                f"  FAIL     {lid:30s} "
+                f"amt={amt:>18,.2f} (expected {exp['amount']:>18,.2f}, Δ={amt - exp['amount']:>+14,.2f})  "
+                f"pct={pct:>6.2f} (expected {exp['pct']:>6.2f})"
+            )
+            fails += 1
+            results.append(
+                {
+                    "label_id": lid,
+                    "status": "fail",
+                    "amount": amt,
+                    "expected_amount": exp["amount"],
+                    "delta_amount": amt - exp["amount"],
+                    "pct": pct,
+                    "expected_pct": exp["pct"],
+                }
+            )
+        else:
+            out.success(f"  OK       {lid:30s} amt={amt:>18,.2f}  pct={pct:>6.2f}")
+            results.append({"label_id": lid, "status": "ok", "amount": amt, "pct": pct})
+
+    out.info(f"\n{'=' * 70}")
+    if fails == 0:
+        out.success(f"  All {len(expected['totals'])} totals match Accurate within tolerance")
+    else:
+        out.error(f"  {fails}/{len(expected['totals'])} totals DIFFER from Accurate")
+
+    if actx.json_mode:
+        print(
+            _json.dumps(
+                {
+                    "reference": str(reference),
+                    "company_id": co_id,
+                    "period": {"date_from": df, "date_to": dt},
+                    "tolerance": tolerance,
+                    "pct_tolerance": pct_tolerance,
+                    "fails": fails,
+                    "results": results,
+                },
+                indent=2,
+            )
+        )
+
+    if fails:
+        raise typer.Exit(1)
+
+
+# ===================================================================
 # VERIFY-MATH — consolidation math check across reports
 # ===================================================================
 
