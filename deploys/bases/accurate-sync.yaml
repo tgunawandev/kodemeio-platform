@@ -1,10 +1,36 @@
-# Naming convention for instances:
+# =============================================================================
+# accurate-sync base template
+# =============================================================================
+# Produces:
+#   instances/production/{tenant}-accurate-sync.yaml  — Dokploy binding manifest
+#   env/production/.env.{tenant}-accurate-sync        — gitignored, has secrets
+#   env/production/.env.{tenant}-accurate-sync.example — committed reference
+#
+# Naming convention (fixed):
 #   File:     {tenant}-accurate-sync.yaml
 #   Instance: {tenant}-accurate-sync
 #   Env file: .env.{tenant}-accurate-sync
 #
-# Deployed alongside the tenant's Odoo ERP instance. Pulls PG + Odoo admin
-# credentials from the referenced Odoo entry (tenants/*.yaml → accurate_sync.odoo_ref).
+# Tenant fields consumed (tenants/<slug>.yaml → accurate_sync:):
+#   enabled        (bool, required) — gate the whole block
+#   odoo_ref       (str,  required) — short key of the odoo[] entry to inherit
+#                                     PGHOST/PGPASSWORD/ODOO_ADMIN_PASSWD from
+#   tenants        (list, optional) — ACCURATE_TENANTS comma-joined at render
+#                                     (defaults to [tenant.code])
+#   server         (str,  optional) — override deploy host (defaults to the
+#                                     referenced Odoo entry's server)
+#   image_tag      (str,  optional) — GHCR tag (defaults to IMAGE_TAG below)
+#
+# Secret sourcing:
+#   generate.py reads the SIBLING env file (.env.<tenant>-odoo-<odoo_ref>)
+#   at render time and copies PGHOST / PGPASSWORD / ODOO_ADMIN_PASSWD into
+#   the generated .env.<tenant>-accurate-sync. That sibling file is the
+#   single source of truth — rotating a secret there and re-running
+#   generate.py propagates it here with no manual step.
+#
+# Operator guide:
+#   deploys/docs/accurate-sync-operator-guide.md
+# =============================================================================
 
 kind: base
 type: accurate-sync
