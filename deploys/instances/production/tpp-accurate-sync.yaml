@@ -1,0 +1,19 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/accurate-sync.yaml
+instance:
+  name: tpp-accurate-sync
+  description: Pakerti — Accurate Online sync worker
+project: tpp
+environment: production
+server: tpp-prod-03
+env_file: ../../env/production/.env.tpp-accurate-sync
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-accurate-sync
+  TENANT: tpp
+  PGDATABASE: tpp_odoo_erp
+  PGUSER: odoo
+  ODOO_URL: https://tpp-odoo-erp.idtpp.com
+  ODOO_DB_FILTER: ^tpp_odoo_erp$
+  ACCURATE_TENANTS: tpp
+  IMAGE_TAG: latest
