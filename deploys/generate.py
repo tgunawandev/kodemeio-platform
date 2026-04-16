@@ -523,6 +523,38 @@ def gen_accurate_sync(
     _existing_secret = _read_env_var(_target_env_path, "TRIGGER_SECRET") if _target_env_path.exists() else None
     trigger_secret = _existing_secret or _secrets.token_hex(32)
 
+    # Bridge the secret into the sibling Odoo container's env so the
+    # accurate_integration post-migration hook can seed
+    # ir.config_parameter.accurate_sync.trigger_secret on install/upgrade.
+    # Env var name differs from the sync side to avoid collision:
+    #   sync container  → TRIGGER_SECRET
+    #   Odoo container  → ACCURATE_TRIGGER_SECRET
+    sibling_env_path = ENV_DIR / env_name / f".env.{code}-odoo-{short}"
+    if sibling_env_path.exists():
+        existing_text = sibling_env_path.read_text()
+        if "ACCURATE_TRIGGER_SECRET=" in existing_text:
+            # Replace the existing value in-place (preserves surrounding comments)
+            import re as _re
+
+            new_text = _re.sub(
+                r"^ACCURATE_TRIGGER_SECRET=.*$",
+                f"ACCURATE_TRIGGER_SECRET={trigger_secret}",
+                existing_text,
+                flags=_re.MULTILINE,
+            )
+        else:
+            # Append at end
+            new_text = (
+                existing_text.rstrip()
+                + "\n"
+                + "\n"
+                + "# ACCURATE_TRIGGER_SECRET — mirrors TRIGGER_SECRET in\n"
+                + f"# .env.{code}-accurate-sync; read by accurate_integration\n"
+                + "# post-migration to populate ir.config_parameter.\n"
+                + f"ACCURATE_TRIGGER_SECRET={trigger_secret}\n"
+            )
+        sibling_env_path.write_text(new_text)
+
     # Pull secrets + PGHOST from the sibling Odoo env file so we don't duplicate
     # them in tenants/*.yaml. Fallback to CHANGE_ME / default PGHOST when missing.
     sibling_env = ENV_DIR / env_name / f".env.{code}-odoo-{short}"
