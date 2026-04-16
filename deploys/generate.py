@@ -515,6 +515,14 @@ def gen_accurate_sync(
     accurate_tenants = ",".join(accurate_cfg.get("tenants", [code]))
     image_tag = accurate_cfg.get("image_tag", "latest")
 
+    # TRIGGER_SECRET — preserve existing value, else generate fresh.
+    # Never rotate automatically (would break the Odoo→sync HTTP handshake).
+    import secrets as _secrets
+
+    _target_env_path = ENV_DIR / env_name / f".env.{code}-accurate-sync"
+    _existing_secret = _read_env_var(_target_env_path, "TRIGGER_SECRET") if _target_env_path.exists() else None
+    trigger_secret = _existing_secret or _secrets.token_hex(32)
+
     # Pull secrets + PGHOST from the sibling Odoo env file so we don't duplicate
     # them in tenants/*.yaml. Fallback to CHANGE_ME / default PGHOST when missing.
     sibling_env = ENV_DIR / env_name / f".env.{code}-odoo-{short}"
@@ -541,7 +549,10 @@ def gen_accurate_sync(
         {
             "env_file": f"../../env/{env_name}/.env.{code}-accurate-sync",
             "env_overrides": {
-                "COMPOSE_PROJECT_NAME": f"{code}-accurate-sync",
+                # COMPOSE_PROJECT_NAME intentionally omitted — Dokploy manages
+                # the project namespace via its auto-generated random `appName`
+                # suffix. Injecting this variable caused the 2026-04-16 outage
+                # where deploys finished "done" but no containers came up.
                 "TENANT": code,
                 "PGDATABASE": db_name,
                 "PGUSER": "odoo",
@@ -563,7 +574,6 @@ def gen_accurate_sync(
         f"# after rotating those secrets to keep this file in sync.\n"
         f"# =============================================================================\n"
         f"\n"
-        f"COMPOSE_PROJECT_NAME={code}-accurate-sync\n"
         f"TENANT={code}\n"
         f"\n"
         f"# DATABASE — mirrors .env.{code}-odoo-{short}\n"
@@ -584,6 +594,13 @@ def gen_accurate_sync(
         f"# IMAGE\n"
         f"IMAGE_TAG={image_tag}\n"
         f"TZ=Asia/Jakarta\n"
+        f"\n"
+        f"# TRIGGER_SECRET — shared secret for the HTTP /sync endpoint.\n"
+        f"# The Odoo addon's ir.config_parameter.accurate_sync.trigger_secret\n"
+        f"# must hold the SAME value (seeded via post-migration from the\n"
+        f"# sibling Odoo container's ACCURATE_TRIGGER_SECRET env; Task 9 of\n"
+        f"# the rollout plan bridges the two values).\n"
+        f"TRIGGER_SECRET={trigger_secret}\n"
     )
 
     return yaml_filename, yaml_dump(instance), env_filename, env_content
