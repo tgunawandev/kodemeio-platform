@@ -470,6 +470,125 @@ def gen_nextjs_careers(
     return yaml_filename, yaml_dump(instance), env_filename, env_content
 
 
+def _read_env_var(env_path: Path, key: str) -> str | None:
+    """Read a KEY=value line from an env file. Returns None if file or key missing."""
+    if not env_path.exists():
+        return None
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        if k.strip() == key:
+            return v.strip()
+    return None
+
+
+def gen_accurate_sync(
+    tenant: dict,
+    accurate_cfg: dict,
+    odoo_entry: dict,
+    env_name: str = "production",
+    server: str = "",
+    dns_prefix: str = "",
+    db_prefix: str = "",
+) -> tuple[str, str, str, str]:
+    """Generate accurate-sync instance YAML + env content.
+
+    Returns (yaml_filename, yaml_content, env_filename, env_content).
+
+    Secrets (PGPASSWORD, ODOO_ADMIN_PASSWD) are sourced from the sibling
+    .env.{code}-odoo-{short} file when present — this keeps the accurate-sync
+    env in lock-step with the Odoo instance it targets without duplicating
+    the secret values in tenants/*.yaml. If the sibling file is missing or
+    a key is absent, CHANGE_ME is emitted and the caller is expected to
+    populate it via the Dokploy UI.
+    """
+    code = tenant["code"]
+    display = tenant.get("short_name", tenant["name"])
+    domain = tenant["domain"]
+    short = odoo_entry["short"]
+    db_name = f"{db_prefix}{code}_odoo_{short}"
+    odoo_host = f"{dns_prefix}{code}-odoo-{short}.{domain}"
+    accurate_tenants = ",".join(accurate_cfg.get("tenants", [code]))
+    image_tag = accurate_cfg.get("image_tag", "latest")
+
+    # Pull secrets + PGHOST from the sibling Odoo env file so we don't duplicate
+    # them in tenants/*.yaml. Fallback to CHANGE_ME / default PGHOST when missing.
+    sibling_env = ENV_DIR / env_name / f".env.{code}-odoo-{short}"
+    pghost = _read_env_var(sibling_env, "PGHOST") or "10.0.0.3"
+    pgpassword = _read_env_var(sibling_env, "PGPASSWORD") or "CHANGE_ME"
+    odoo_admin_passwd = _read_env_var(sibling_env, "ODOO_ADMIN_PASSWD") or "CHANGE_ME"
+
+    yaml_filename = f"{code}-accurate-sync.yaml"
+    env_filename = f".env.{code}-accurate-sync"
+
+    instance: dict = {
+        "kind": "instance",
+        "extends": "../../bases/accurate-sync.yaml",
+        "instance": {
+            "name": f"{code}-accurate-sync",
+            "description": f"{display} — Accurate Online sync worker",
+        },
+        "project": code,
+        "environment": env_name,
+    }
+    if server:
+        instance["server"] = server
+    instance.update(
+        {
+            "env_file": f"../../env/{env_name}/.env.{code}-accurate-sync",
+            "env_overrides": {
+                "COMPOSE_PROJECT_NAME": f"{code}-accurate-sync",
+                "TENANT": code,
+                "PGDATABASE": db_name,
+                "PGUSER": "odoo",
+                "ODOO_URL": f"https://{odoo_host}",
+                "ODOO_DB_FILTER": f"^{db_name}$",
+                "ACCURATE_TENANTS": accurate_tenants,
+                "IMAGE_TAG": image_tag,
+            },
+        }
+    )
+
+    env_content = (
+        f"# =============================================================================\n"
+        f"# {display} Accurate-Sync — {env_name.title()} Environment\n"
+        f"# =============================================================================\n"
+        f"# GENERATED from tenants/{code}.yaml (accurate_sync block).\n"
+        f"# Secrets (PGPASSWORD, ODOO_ADMIN_PASSWD) are copied from the sibling\n"
+        f"# .env.{code}-odoo-{short} file at generate time. Re-run generate.py\n"
+        f"# after rotating those secrets to keep this file in sync.\n"
+        f"# =============================================================================\n"
+        f"\n"
+        f"COMPOSE_PROJECT_NAME={code}-accurate-sync\n"
+        f"TENANT={code}\n"
+        f"\n"
+        f"# DATABASE — mirrors .env.{code}-odoo-{short}\n"
+        f"PGHOST={pghost}\n"
+        f"PGPORT=5432\n"
+        f"PGUSER=odoo\n"
+        f"PGPASSWORD={pgpassword}\n"
+        f"PGDATABASE={db_name}\n"
+        f"\n"
+        f"# ODOO — URL of the sibling Odoo instance, admin password for RPC calls\n"
+        f"ODOO_URL=https://{odoo_host}\n"
+        f"ODOO_DB_FILTER=^{db_name}$\n"
+        f"ODOO_ADMIN_PASSWD={odoo_admin_passwd}\n"
+        f"\n"
+        f"# TENANT LIST — comma-separated slugs from accurate_company table\n"
+        f"ACCURATE_TENANTS={accurate_tenants}\n"
+        f"\n"
+        f"# IMAGE\n"
+        f"IMAGE_TAG={image_tag}\n"
+        f"TZ=Asia/Jakarta\n"
+    )
+
+    return yaml_filename, yaml_dump(instance), env_filename, env_content
+
+
 def gen_notify(
     tenant: dict,
     env_name: str = "production",
@@ -624,6 +743,23 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
+        # --- Accurate-sync ---
+        accurate_cfg = raw.get("accurate_sync")
+        if accurate_cfg and accurate_cfg.get("enabled"):
+            ref_short = accurate_cfg["odoo_ref"]
+            try:
+                odoo_entry = next(e for e in raw.get("odoo", []) if e["short"] == ref_short)
+            except StopIteration:
+                raise ValueError(
+                    f"accurate_sync.odoo_ref={ref_short!r} does not match any odoo[] entry in tenants/{code}.yaml"
+                )
+            acc_server = accurate_cfg.get("server", server)
+            y_name, y_content, e_name, e_content = gen_accurate_sync(
+                t, accurate_cfg, odoo_entry, env_name, acc_server, dns_prefix, db_prefix
+            )
+            files.append((inst_dir / y_name, header + y_content))
+            files.append((env_dir / e_name, e_content))
+
         # --- Notify ---
         services = raw.get("services", {})
         notify_cfg = services.get("notify")
@@ -642,7 +778,14 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
 
 
 def is_secret_env(path: Path) -> bool:
-    """Check if a .env file likely contains secrets (Odoo, Notify, React PWA with OIDC)."""
+    """Check if a .env file likely contains secrets that must not be overwritten (Odoo, Notify, React PWA with OIDC).
+
+    Note: .env.*-accurate-sync is intentionally NOT treated as secret — its
+    contents are fully managed by the generator, which pulls PGPASSWORD and
+    ODOO_ADMIN_PASSWD from the sibling .env.{tenant}-odoo-{short} file on
+    every run. This keeps the accurate-sync env in lock-step with the Odoo
+    instance it targets (no drift, no manual resync).
+    """
     name = path.name
     return name.startswith(".env.") and ("-odoo-" in name or "-hono-notify" in name or "-react-" in name)
 

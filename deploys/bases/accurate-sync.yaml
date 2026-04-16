@@ -1,0 +1,32 @@
+# Naming convention for instances:
+#   File:     {tenant}-accurate-sync.yaml
+#   Instance: {tenant}-accurate-sync
+#   Env file: .env.{tenant}-accurate-sync
+#
+# Deployed alongside the tenant's Odoo ERP instance. Pulls PG + Odoo admin
+# credentials from the referenced Odoo entry (tenants/*.yaml → accurate_sync.odoo_ref).
+
+kind: base
+type: accurate-sync
+
+source:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-accurate
+  branch: main
+  compose_path: compose/accurate-sync.yml
+
+server: kodeme-service
+project: kod
+
+healthcheck:
+  test: ["CMD", "accurate-sync", "tenants"]
+  port: 0                  # container-level command, no HTTP surface
+  timeout: 30
+  interval: 300
+  start_period: 30
+
+env_defaults:
+  PGPORT: "5432"
+  IMAGE_TAG: "latest"
+  TZ: "Asia/Jakarta"
