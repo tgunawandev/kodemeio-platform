@@ -26,11 +26,16 @@ from kctl_odoo.core.exceptions import RPCError
 app = typer.Typer(help="MIS Builder templates + computed instances.")
 templates_app = typer.Typer(help="Manage MIS report templates (mis.report).")
 instances_app = typer.Typer(help="Manage MIS report instances (mis.report.instance).")
+styles_app = typer.Typer(help="Manage MIS report styles (mis.report.style).")
+kpis_app = typer.Typer(help="Manage KPIs on a template (mis.report.kpi).")
 app.add_typer(templates_app, name="templates")
 app.add_typer(instances_app, name="instances")
+app.add_typer(styles_app, name="styles")
+app.add_typer(kpis_app, name="kpis")
 
 _REPORT = "mis.report"
 _KPI = "mis.report.kpi"
+_STYLE = "mis.report.style"
 _INSTANCE = "mis.report.instance"
 _PERIOD = "mis.report.instance.period"
 _HINT = "MIS Builder module (mis_builder) is not installed."
@@ -466,3 +471,475 @@ def instances_delete(
     except RPCError as e:
         out.error(f"Failed: {e}")
         raise typer.Exit(1) from e
+
+
+# ===================================================================
+# STYLES — list / show / create / update / delete / recipes
+# ===================================================================
+#
+# mis.report.style stores reusable styling rules. Every style field has a
+# sibling `<name>_inherit` boolean flag (default True). When set to False,
+# the field value overrides whatever style chain the KPI resolves. When
+# True, the value is inherited from the report's default style. The CLI
+# below automatically flips `_inherit` to False whenever you set the
+# corresponding value — callers just pass the value and don't think
+# about the inheritance plumbing.
+#
+# Available fields (verified against mis_builder 18.0.1.8.1):
+#   - color           "#RRGGBB"        text color
+#   - background_color "#RRGGBB"       cell background
+#   - font_style      normal|italic
+#   - font_weight     nornal|bold       NOTE: upstream typo "nornal"
+#   - font_size       medium|xx-small|x-small|small|large|x-large|xx-large
+#   - indent_level    integer           renders as text-indent: Xem
+#   - prefix          string            prepended to value (e.g. "$")
+#   - suffix          string            appended to value (e.g. "%")
+#   - dp              integer           decimal places
+#   - divider         "1"|"1e3"|"1e6"|"1e9"   value scaling
+#   - hide_empty      boolean           suppress zero-value rows
+#   - hide_always     boolean           always suppress this row
+
+
+_STYLE_FIELDS = {
+    "color": str,
+    "background_color": str,
+    "font_style": str,        # "normal" | "italic"
+    "font_weight": str,       # "nornal" (sic) | "bold"
+    "font_size": str,         # medium/xx-small/x-small/small/large/x-large/xx-large
+    "indent_level": int,
+    "prefix": str,
+    "suffix": str,
+    "dp": int,
+    "divider": str,           # "1" | "1e3" | "1e6" | "1e9"
+    "hide_empty": bool,
+    "hide_always": bool,
+}
+
+
+def _style_vals(**kwargs):
+    """Build a dict of {field: value, field_inherit: False} from kwargs."""
+    vals = {}
+    for key, value in kwargs.items():
+        if key not in _STYLE_FIELDS or value is None:
+            continue
+        vals[key] = value
+        vals[f"{key}_inherit"] = False
+    return vals
+
+
+@styles_app.command("list")
+def styles_list(
+    ctx: typer.Context,
+    limit: Annotated[int, typer.Option("--limit", "-l")] = 100,
+) -> None:
+    """List all defined mis.report.style records."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    try:
+        records = c.search_read(
+            _STYLE,
+            domain=[],
+            fields=[
+                "id", "name", "font_weight", "font_style", "font_size",
+                "indent_level", "color", "background_color", "prefix",
+                "suffix", "dp", "divider",
+            ],
+            limit=limit,
+            order="id",
+        )
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+    rows = []
+    for r in records:
+        rows.append([
+            str(r["id"]),
+            r["name"],
+            r.get("font_weight") or "",
+            r.get("font_style") or "",
+            str(r.get("indent_level") or ""),
+            r.get("color") or "",
+            r.get("prefix") or "",
+            r.get("suffix") or "",
+            str(r.get("dp") or ""),
+        ])
+    out.table(
+        f"Styles ({len(rows)})",
+        [
+            ("ID", "dim"),
+            ("Name", "cyan"),
+            ("Weight", ""),
+            ("Style", ""),
+            ("Indent", ""),
+            ("Color", ""),
+            ("Prefix", ""),
+            ("Suffix", ""),
+            ("DP", ""),
+        ],
+        rows,
+    )
+
+
+@styles_app.command("show")
+def styles_show(
+    ctx: typer.Context,
+    style_id: Annotated[int, typer.Argument(help="Style ID")],
+) -> None:
+    """Show every field on a style with its inherit flag."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    fields_list = ["name"] + list(_STYLE_FIELDS.keys()) + [
+        f"{k}_inherit" for k in _STYLE_FIELDS
+    ]
+    try:
+        [rec] = c.read(_STYLE, [style_id], fields_list)
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+    rows = [["name", str(rec["name"]), ""]]
+    for f in _STYLE_FIELDS:
+        value = rec.get(f)
+        inherit = rec.get(f"{f}_inherit", True)
+        rows.append([f, str(value) if value not in (None, False, "") else "—", "inherit" if inherit else "override"])
+    out.table(
+        f"Style id={style_id} ({rec['name']})",
+        [("Field", "cyan"), ("Value", ""), ("Mode", "dim")],
+        rows,
+    )
+
+
+@styles_app.command("create")
+def styles_create(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Option("--name", "-n", help="Style name")],
+    color: Annotated[str | None, typer.Option("--color", help="Text color #RRGGBB")] = None,
+    background_color: Annotated[str | None, typer.Option("--bg", help="Background color #RRGGBB")] = None,
+    font_style: Annotated[str | None, typer.Option("--font-style", help="normal|italic")] = None,
+    font_weight: Annotated[str | None, typer.Option("--font-weight", help="nornal(sic)|bold — UPSTREAM TYPO")] = None,
+    font_size: Annotated[str | None, typer.Option("--font-size", help="medium|xx-small|x-small|small|large|x-large|xx-large")] = None,
+    indent: Annotated[int | None, typer.Option("--indent", help="indent_level (integer em units)")] = None,
+    prefix: Annotated[str | None, typer.Option("--prefix", help="Prepended text (e.g. $)")] = None,
+    suffix: Annotated[str | None, typer.Option("--suffix", help="Appended text (e.g. %)")] = None,
+    dp: Annotated[int | None, typer.Option("--dp", help="Decimal places")] = None,
+    divider: Annotated[str | None, typer.Option("--divider", help="Value scale: 1|1e3|1e6|1e9")] = None,
+    hide_empty: Annotated[bool, typer.Option("--hide-empty", help="Hide zero-value rows")] = False,
+) -> None:
+    """Create a mis.report.style with only the fields you specify.
+
+    Any field you don't pass stays inherited from the parent chain.
+
+    Example:
+        kctl-odoo mis-reports styles create \\
+            --name "Subtotal" --font-weight bold --indent 0
+    """
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    vals = {"name": name}
+    vals.update(_style_vals(
+        color=color, background_color=background_color,
+        font_style=font_style, font_weight=font_weight, font_size=font_size,
+        indent_level=indent, prefix=prefix, suffix=suffix, dp=dp,
+        divider=divider,
+        hide_empty=hide_empty if hide_empty else None,
+    ))
+    try:
+        new_id = c.create(_STYLE, vals)
+        out.success(f"Created style id={new_id}: {name}")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@styles_app.command("update")
+def styles_update(
+    ctx: typer.Context,
+    style_id: Annotated[int, typer.Argument(help="Style ID")],
+    name: Annotated[str | None, typer.Option("--name")] = None,
+    color: Annotated[str | None, typer.Option("--color")] = None,
+    background_color: Annotated[str | None, typer.Option("--bg")] = None,
+    font_style: Annotated[str | None, typer.Option("--font-style")] = None,
+    font_weight: Annotated[str | None, typer.Option("--font-weight")] = None,
+    font_size: Annotated[str | None, typer.Option("--font-size")] = None,
+    indent: Annotated[int | None, typer.Option("--indent")] = None,
+    prefix: Annotated[str | None, typer.Option("--prefix")] = None,
+    suffix: Annotated[str | None, typer.Option("--suffix")] = None,
+    dp: Annotated[int | None, typer.Option("--dp")] = None,
+    divider: Annotated[str | None, typer.Option("--divider")] = None,
+) -> None:
+    """Update one or more fields on an existing style."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    vals = {}
+    if name is not None:
+        vals["name"] = name
+    vals.update(_style_vals(
+        color=color, background_color=background_color,
+        font_style=font_style, font_weight=font_weight, font_size=font_size,
+        indent_level=indent, prefix=prefix, suffix=suffix, dp=dp,
+        divider=divider,
+    ))
+    if not vals:
+        out.warn("No fields to update.")
+        return
+    try:
+        c.write(_STYLE, [style_id], vals)
+        out.success(f"Updated style {style_id}.")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@styles_app.command("delete")
+def styles_delete(
+    ctx: typer.Context,
+    style_id: Annotated[int, typer.Argument(help="Style ID")],
+    yes: Annotated[bool, typer.Option("--yes", "-y")] = False,
+) -> None:
+    """Delete a style (fails if any KPI references it)."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    if not yes and not typer.confirm(f"Delete style {style_id}?"):
+        return
+    try:
+        c.unlink(_STYLE, [style_id])
+        out.success(f"Deleted style {style_id}.")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@styles_app.command("create-psak-set")
+def styles_create_psak_set(
+    ctx: typer.Context,
+) -> None:
+    """Bulk-create the 7 styles the PSAK recipe needs.
+
+    Creates: PSAK Section (bold indent 0), PSAK Subtotal (bold indent 0),
+    PSAK Subheader (bold indent 2), PSAK Grand Total (bold indent 0),
+    PSAK Child L1/L2/L3 (indent 1/2/3, normal weight). Assigns names
+    verbatim so the PSAK template can reference them predictably.
+    """
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    recipes = [
+        ("PSAK Section",     {"font_weight": "bold", "indent_level": 0}),
+        ("PSAK Subtotal",    {"font_weight": "bold", "indent_level": 0}),
+        ("PSAK Subheader",   {"font_weight": "bold", "indent_level": 2}),
+        ("PSAK Grand Total", {"font_weight": "bold", "indent_level": 0}),
+        ("PSAK Child L1",    {"indent_level": 1}),
+        ("PSAK Child L2",    {"indent_level": 2}),
+        ("PSAK Child L3",    {"indent_level": 3}),
+    ]
+    created = []
+    for name, overrides in recipes:
+        try:
+            vals = {"name": name}
+            vals.update(_style_vals(**overrides))
+            new_id = c.create(_STYLE, vals)
+            created.append((new_id, name))
+        except RPCError as e:
+            out.error(f"Failed to create {name}: {e}")
+            continue
+    out.success(f"Created {len(created)} PSAK styles.")
+    out.table(
+        "Created",
+        [("ID", "dim"), ("Name", "cyan")],
+        [[str(i), n] for i, n in created],
+    )
+
+
+# ===================================================================
+# KPIs — add / update / remove / set-style / describe
+# ===================================================================
+
+
+_KPI_TYPES = {"num": "Numeric", "pct": "Percentage", "str": "String"}
+_KPI_COMPARE = {"diff": "Difference", "pct": "Percentage", "none": "None"}
+_KPI_ACCUM = {"sum": "Sum", "avg": "Average", "none": "None"}
+
+
+@kpis_app.command("add")
+def kpis_add(
+    ctx: typer.Context,
+    template: Annotated[int, typer.Option("--template", "-t", help="Template (mis.report) ID")],
+    name: Annotated[str, typer.Option("--name", "-n", help="Internal name (snake_case, used in expressions)")],
+    description: Annotated[str, typer.Option("--description", "-d", help="Display label")],
+    expression: Annotated[str, typer.Option("--expression", "-e", help="MIS expression (e.g. balp[('account_type','=','income')][])")],
+    sequence: Annotated[int, typer.Option("--sequence", "-s", help="Row order")] = 100,
+    style: Annotated[int | None, typer.Option("--style", help="mis.report.style ID for this row")] = None,
+    expand: Annotated[bool, typer.Option("--expand", help="Display detail by account")] = False,
+    expand_style: Annotated[int | None, typer.Option("--expand-style", help="Style ID for expanded child rows")] = None,
+    kpi_type: Annotated[str, typer.Option("--type", help="num|pct|str")] = "num",
+    compare: Annotated[str, typer.Option("--compare", help="diff|pct|none")] = "diff",
+    accumulation: Annotated[str, typer.Option("--accumulation", help="sum|avg|none")] = "sum",
+) -> None:
+    """Add a KPI (row) to an existing template."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    vals = {
+        "report_id": template,
+        "name": name,
+        "description": description,
+        "expression": expression,
+        "sequence": sequence,
+        "auto_expand_accounts": expand,
+        "type": kpi_type,
+        "compare_method": compare,
+        "accumulation_method": accumulation,
+    }
+    if style:
+        vals["style_id"] = style
+    if expand_style:
+        vals["auto_expand_accounts_style_id"] = expand_style
+    try:
+        new_id = c.create(_KPI, vals)
+        out.success(f"Added KPI id={new_id} ({description}) to template {template}.")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@kpis_app.command("update")
+def kpis_update(
+    ctx: typer.Context,
+    kpi_id: Annotated[int, typer.Argument(help="KPI ID")],
+    description: Annotated[str | None, typer.Option("--description", "-d")] = None,
+    expression: Annotated[str | None, typer.Option("--expression", "-e")] = None,
+    sequence: Annotated[int | None, typer.Option("--sequence", "-s")] = None,
+    style: Annotated[int | None, typer.Option("--style", help="Style for row")] = None,
+    expand: Annotated[bool | None, typer.Option("--expand/--no-expand")] = None,
+    expand_style: Annotated[int | None, typer.Option("--expand-style")] = None,
+) -> None:
+    """Update one or more fields on an existing KPI."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    vals: dict = {}
+    if description is not None:
+        vals["description"] = description
+    if expression is not None:
+        vals["expression"] = expression
+    if sequence is not None:
+        vals["sequence"] = sequence
+    if style is not None:
+        vals["style_id"] = style
+    if expand is not None:
+        vals["auto_expand_accounts"] = expand
+    if expand_style is not None:
+        vals["auto_expand_accounts_style_id"] = expand_style
+    if not vals:
+        out.warn("No fields to update.")
+        return
+    try:
+        c.write(_KPI, [kpi_id], vals)
+        out.success(f"Updated KPI {kpi_id}.")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@kpis_app.command("set-style")
+def kpis_set_style(
+    ctx: typer.Context,
+    kpi_id: Annotated[int, typer.Argument(help="KPI ID")],
+    style: Annotated[int, typer.Option("--style", help="Style ID to apply")],
+    expand_style: Annotated[int | None, typer.Option("--expand-style", help="Style ID for expanded children")] = None,
+) -> None:
+    """Shortcut for setting style + expand-style on a KPI."""
+    kpis_update.callback(  # type: ignore[attr-defined]
+        ctx, kpi_id=kpi_id,
+        description=None, expression=None, sequence=None,
+        style=style, expand=None, expand_style=expand_style,
+    )
+
+
+@kpis_app.command("delete")
+def kpis_delete(
+    ctx: typer.Context,
+    kpi_id: Annotated[int, typer.Argument(help="KPI ID")],
+    yes: Annotated[bool, typer.Option("--yes", "-y")] = False,
+) -> None:
+    """Delete a KPI from its template."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    if not yes and not typer.confirm(f"Delete KPI {kpi_id}?"):
+        return
+    try:
+        c.unlink(_KPI, [kpi_id])
+        out.success(f"Deleted KPI {kpi_id}.")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@app.command("describe")
+def describe(ctx: typer.Context) -> None:
+    """Print a field-level reference for every MIS Builder model.
+
+    What you can set, what the selection values mean, and where MIS
+    Builder emits which CSS — handy when you're wiring a template by
+    hand and don't want to dig through the OCA source.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    out.info(
+        "\n[bold cyan]mis.report.kpi[/]  — one row on the report\n"
+        "  name                            snake_case; referenced from other KPI expressions\n"
+        "  description                     human-facing label (shown in the row)\n"
+        "  expression                      MIS expression: balp[domain][subdomain] or KPI arithmetic\n"
+        "  multi                           True → expressions come from expression_ids (one per subkpi)\n"
+        "  auto_expand_accounts            True → render one child row per matching account\n"
+        "  auto_expand_accounts_style_id   style applied to those child rows (indent goes here)\n"
+        "  style_id                        style for this KPI's own row\n"
+        "  style_expression                Python condition that swaps style at render (advanced)\n"
+        "  type                            num | pct | str\n"
+        "  compare_method                  diff | pct | none     (only matters in comparison columns)\n"
+        "  accumulation_method             sum | avg | none     (how values combine across sub-periods)\n"
+        "  sequence                        row order\n"
+        "  budgetable                      True → appears in budget vs actual comparison\n"
+        "\n[bold cyan]mis.report.style[/] — reusable styling block, applied via style_id\n"
+        "  Every field has a sibling <field>_inherit flag. Set it to False when you want the value\n"
+        "  to override the inherited chain. The kctl-odoo styles create/update commands flip this\n"
+        "  automatically based on what you pass.\n"
+        "  color / background_color        #RRGGBB hex\n"
+        "  font_style                      normal | italic\n"
+        "  font_weight                     nornal (upstream typo!) | bold\n"
+        "  font_size                       medium | xx-small | x-small | small | large | x-large | xx-large\n"
+        "  indent_level                    integer → emits inline style='text-indent: Xem'\n"
+        "  prefix / suffix                 string wrapped around the value (e.g. '$', '%')\n"
+        "  dp                              decimal places\n"
+        "  divider                         '1' | '1e3' | '1e6' | '1e9'  scales numeric output\n"
+        "  hide_empty                      True → suppress zero rows\n"
+        "  hide_always                     True → never render\n"
+        "\n[bold cyan]mis.report.instance.period[/] — a column on the report\n"
+        "  mode                            fix | relative | date_range | none\n"
+        "  source                          actuals | actuals_alt | cmpcol | sumcol\n"
+        "  manual_date_from / manual_date_to   for mode=fix\n"
+        "  date_range_id                   for mode=date_range (links a date.range record)\n"
+        "  comparison_column_ids           for source=cmpcol (other period this one compares to)\n"
+        "  source_aml_model_name           default 'account.move.line' — the drill-down source\n"
+        "\nExamples:\n"
+        "  [dim]# Build a PSAK P&L template from scratch:[/]\n"
+        "  kctl-odoo mis-reports styles create-psak-set\n"
+        "  kctl-odoo mis-reports templates create-psak --name 'P&L PSAK'\n"
+        "  kctl-odoo mis-reports instances create \\\n"
+        "      --name 'P&L Co.A FY2026' --template <ID> --company <ID> \\\n"
+        "      --from 2026-01-01 --to 2026-12-31\n"
+    )
