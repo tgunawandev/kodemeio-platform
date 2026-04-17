@@ -55,6 +55,7 @@ from kctl_odoo.commands.integration import app as integration_app
 from kctl_odoo.commands.inventory_cmd import app as inventory_app
 from kctl_odoo.commands.jobs import app as jobs_app
 from kctl_odoo.commands.kpi_cmd import app as kpi_app
+from kctl_odoo.commands.mis_reports_cmd import app as mis_reports_app
 from kctl_odoo.commands.lint import app as lint_app
 from kctl_odoo.commands.local import app as local_app
 from kctl_odoo.commands.logs import app as logs_app
@@ -209,6 +210,7 @@ app.add_typer(support_app, name="support", rich_help_panel=_P_DOMAIN)
 _P_REPORT = "Reports & Analytics"
 app.add_typer(report_app, name="report", rich_help_panel=_P_REPORT)
 app.add_typer(kpi_app, name="kpi", rich_help_panel=_P_REPORT)
+app.add_typer(mis_reports_app, name="mis-reports", rich_help_panel=_P_REPORT)
 app.add_typer(data_quality_app, name="data-quality", rich_help_panel=_P_REPORT)
 
 # --- Infrastructure ---
