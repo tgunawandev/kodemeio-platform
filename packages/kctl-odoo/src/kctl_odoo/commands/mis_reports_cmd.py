@@ -28,14 +28,24 @@ templates_app = typer.Typer(help="Manage MIS report templates (mis.report).")
 instances_app = typer.Typer(help="Manage MIS report instances (mis.report.instance).")
 styles_app = typer.Typer(help="Manage MIS report styles (mis.report.style).")
 kpis_app = typer.Typer(help="Manage KPIs on a template (mis.report.kpi).")
+subkpis_app = typer.Typer(help="Manage sub-KPIs — adds columns within each KPI.")
+queries_app = typer.Typer(help="Manage custom data-source queries (mis.report.query).")
+subreports_app = typer.Typer(help="Manage embedded sub-reports (mis.report.subreport).")
 app.add_typer(templates_app, name="templates")
 app.add_typer(instances_app, name="instances")
 app.add_typer(styles_app, name="styles")
 app.add_typer(kpis_app, name="kpis")
+app.add_typer(subkpis_app, name="subkpis")
+app.add_typer(queries_app, name="queries")
+app.add_typer(subreports_app, name="subreports")
 
 _REPORT = "mis.report"
 _KPI = "mis.report.kpi"
 _STYLE = "mis.report.style"
+_SUBKPI = "mis.report.subkpi"
+_KPI_EXPR = "mis.report.kpi.expression"
+_QUERY = "mis.report.query"
+_SUBREPORT = "mis.report.subreport"
 _INSTANCE = "mis.report.instance"
 _PERIOD = "mis.report.instance.period"
 _HINT = "MIS Builder module (mis_builder) is not installed."
@@ -503,14 +513,14 @@ def instances_delete(
 _STYLE_FIELDS = {
     "color": str,
     "background_color": str,
-    "font_style": str,        # "normal" | "italic"
-    "font_weight": str,       # "nornal" (sic) | "bold"
-    "font_size": str,         # medium/xx-small/x-small/small/large/x-large/xx-large
+    "font_style": str,  # "normal" | "italic"
+    "font_weight": str,  # "nornal" (sic) | "bold"
+    "font_size": str,  # medium/xx-small/x-small/small/large/x-large/xx-large
     "indent_level": int,
     "prefix": str,
     "suffix": str,
     "dp": int,
-    "divider": str,           # "1" | "1e3" | "1e6" | "1e9"
+    "divider": str,  # "1" | "1e3" | "1e6" | "1e9"
     "hide_empty": bool,
     "hide_always": bool,
 }
@@ -542,9 +552,18 @@ def styles_list(
             _STYLE,
             domain=[],
             fields=[
-                "id", "name", "font_weight", "font_style", "font_size",
-                "indent_level", "color", "background_color", "prefix",
-                "suffix", "dp", "divider",
+                "id",
+                "name",
+                "font_weight",
+                "font_style",
+                "font_size",
+                "indent_level",
+                "color",
+                "background_color",
+                "prefix",
+                "suffix",
+                "dp",
+                "divider",
             ],
             limit=limit,
             order="id",
@@ -554,17 +573,19 @@ def styles_list(
         raise typer.Exit(1) from e
     rows = []
     for r in records:
-        rows.append([
-            str(r["id"]),
-            r["name"],
-            r.get("font_weight") or "",
-            r.get("font_style") or "",
-            str(r.get("indent_level") or ""),
-            r.get("color") or "",
-            r.get("prefix") or "",
-            r.get("suffix") or "",
-            str(r.get("dp") or ""),
-        ])
+        rows.append(
+            [
+                str(r["id"]),
+                r["name"],
+                r.get("font_weight") or "",
+                r.get("font_style") or "",
+                str(r.get("indent_level") or ""),
+                r.get("color") or "",
+                r.get("prefix") or "",
+                r.get("suffix") or "",
+                str(r.get("dp") or ""),
+            ]
+        )
     out.table(
         f"Styles ({len(rows)})",
         [
@@ -592,9 +613,7 @@ def styles_show(
     out, c = actx.output, actx.client
     if not _require_mis(c, out):
         return
-    fields_list = ["name"] + list(_STYLE_FIELDS.keys()) + [
-        f"{k}_inherit" for k in _STYLE_FIELDS
-    ]
+    fields_list = ["name"] + list(_STYLE_FIELDS.keys()) + [f"{k}_inherit" for k in _STYLE_FIELDS]
     try:
         [rec] = c.read(_STYLE, [style_id], fields_list)
     except RPCError as e:
@@ -620,7 +639,9 @@ def styles_create(
     background_color: Annotated[str | None, typer.Option("--bg", help="Background color #RRGGBB")] = None,
     font_style: Annotated[str | None, typer.Option("--font-style", help="normal|italic")] = None,
     font_weight: Annotated[str | None, typer.Option("--font-weight", help="nornal(sic)|bold — UPSTREAM TYPO")] = None,
-    font_size: Annotated[str | None, typer.Option("--font-size", help="medium|xx-small|x-small|small|large|x-large|xx-large")] = None,
+    font_size: Annotated[
+        str | None, typer.Option("--font-size", help="medium|xx-small|x-small|small|large|x-large|xx-large")
+    ] = None,
     indent: Annotated[int | None, typer.Option("--indent", help="indent_level (integer em units)")] = None,
     prefix: Annotated[str | None, typer.Option("--prefix", help="Prepended text (e.g. $)")] = None,
     suffix: Annotated[str | None, typer.Option("--suffix", help="Appended text (e.g. %)")] = None,
@@ -641,13 +662,21 @@ def styles_create(
     if not _require_mis(c, out):
         return
     vals = {"name": name}
-    vals.update(_style_vals(
-        color=color, background_color=background_color,
-        font_style=font_style, font_weight=font_weight, font_size=font_size,
-        indent_level=indent, prefix=prefix, suffix=suffix, dp=dp,
-        divider=divider,
-        hide_empty=hide_empty if hide_empty else None,
-    ))
+    vals.update(
+        _style_vals(
+            color=color,
+            background_color=background_color,
+            font_style=font_style,
+            font_weight=font_weight,
+            font_size=font_size,
+            indent_level=indent,
+            prefix=prefix,
+            suffix=suffix,
+            dp=dp,
+            divider=divider,
+            hide_empty=hide_empty if hide_empty else None,
+        )
+    )
     try:
         new_id = c.create(_STYLE, vals)
         out.success(f"Created style id={new_id}: {name}")
@@ -680,12 +709,20 @@ def styles_update(
     vals = {}
     if name is not None:
         vals["name"] = name
-    vals.update(_style_vals(
-        color=color, background_color=background_color,
-        font_style=font_style, font_weight=font_weight, font_size=font_size,
-        indent_level=indent, prefix=prefix, suffix=suffix, dp=dp,
-        divider=divider,
-    ))
+    vals.update(
+        _style_vals(
+            color=color,
+            background_color=background_color,
+            font_style=font_style,
+            font_weight=font_weight,
+            font_size=font_size,
+            indent_level=indent,
+            prefix=prefix,
+            suffix=suffix,
+            dp=dp,
+            divider=divider,
+        )
+    )
     if not vals:
         out.warn("No fields to update.")
         return
@@ -734,13 +771,13 @@ def styles_create_psak_set(
     if not _require_mis(c, out):
         return
     recipes = [
-        ("PSAK Section",     {"font_weight": "bold", "indent_level": 0}),
-        ("PSAK Subtotal",    {"font_weight": "bold", "indent_level": 0}),
-        ("PSAK Subheader",   {"font_weight": "bold", "indent_level": 2}),
+        ("PSAK Section", {"font_weight": "bold", "indent_level": 0}),
+        ("PSAK Subtotal", {"font_weight": "bold", "indent_level": 0}),
+        ("PSAK Subheader", {"font_weight": "bold", "indent_level": 2}),
         ("PSAK Grand Total", {"font_weight": "bold", "indent_level": 0}),
-        ("PSAK Child L1",    {"indent_level": 1}),
-        ("PSAK Child L2",    {"indent_level": 2}),
-        ("PSAK Child L3",    {"indent_level": 3}),
+        ("PSAK Child L1", {"indent_level": 1}),
+        ("PSAK Child L2", {"indent_level": 2}),
+        ("PSAK Child L3", {"indent_level": 3}),
     ]
     created = []
     for name, overrides in recipes:
@@ -776,7 +813,9 @@ def kpis_add(
     template: Annotated[int, typer.Option("--template", "-t", help="Template (mis.report) ID")],
     name: Annotated[str, typer.Option("--name", "-n", help="Internal name (snake_case, used in expressions)")],
     description: Annotated[str, typer.Option("--description", "-d", help="Display label")],
-    expression: Annotated[str, typer.Option("--expression", "-e", help="MIS expression (e.g. balp[('account_type','=','income')][])")],
+    expression: Annotated[
+        str, typer.Option("--expression", "-e", help="MIS expression (e.g. balp[('account_type','=','income')][])")
+    ],
     sequence: Annotated[int, typer.Option("--sequence", "-s", help="Row order")] = 100,
     style: Annotated[int | None, typer.Option("--style", help="mis.report.style ID for this row")] = None,
     expand: Annotated[bool, typer.Option("--expand", help="Display detail by account")] = False,
@@ -862,9 +901,14 @@ def kpis_set_style(
 ) -> None:
     """Shortcut for setting style + expand-style on a KPI."""
     kpis_update.callback(  # type: ignore[attr-defined]
-        ctx, kpi_id=kpi_id,
-        description=None, expression=None, sequence=None,
-        style=style, expand=None, expand_style=expand_style,
+        ctx,
+        kpi_id=kpi_id,
+        description=None,
+        expression=None,
+        sequence=None,
+        style=style,
+        expand=None,
+        expand_style=expand_style,
     )
 
 
@@ -943,3 +987,379 @@ def describe(ctx: typer.Context) -> None:
         "      --name 'P&L Co.A FY2026' --template <ID> --company <ID> \\\n"
         "      --from 2026-01-01 --to 2026-12-31\n"
     )
+
+
+# ===================================================================
+# SUBKPIs — column dimension across all KPIs (e.g. "Nilai" + "% dari Omset")
+# ===================================================================
+#
+# When a report declares sub-KPIs, every KPI row renders once per sub-KPI as
+# separate columns. This is MIS Builder's mechanism for multi-column layouts
+# like Accurate's "Value" + "% of Revenue" dual-column view.
+#
+# Data model: mis.report.subkpi defines a column. Each KPI then gets multiple
+# mis.report.kpi.expression records (one per subkpi) — set kpi.multi=True and
+# populate expression_ids. Setting `multi=False` reverts to single-column mode
+# where the `expression` char field is used directly.
+
+
+@subkpis_app.command("list")
+def subkpis_list(
+    ctx: typer.Context,
+    template: Annotated[int, typer.Option("--template", "-t", help="Template ID")],
+) -> None:
+    """List sub-KPIs on a template (columns that apply across every KPI)."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    try:
+        records = c.search_read(
+            _SUBKPI,
+            domain=[("report_id", "=", template)],
+            fields=["id", "sequence", "name", "description"],
+            order="sequence, id",
+        )
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+    if not records:
+        out.info("No sub-KPIs on this template (single-column mode).")
+        return
+    rows = [[str(r["id"]), str(r["sequence"]), r["name"], r.get("description") or ""] for r in records]
+    out.table(
+        f"Sub-KPIs on template {template} ({len(rows)})",
+        [("ID", "dim"), ("Seq", "dim"), ("Name", "cyan"), ("Description", "")],
+        rows,
+    )
+
+
+@subkpis_app.command("add")
+def subkpis_add(
+    ctx: typer.Context,
+    template: Annotated[int, typer.Option("--template", "-t")],
+    name: Annotated[str, typer.Option("--name", "-n", help="snake_case identifier")],
+    description: Annotated[str, typer.Option("--description", "-d", help="Display label")],
+    sequence: Annotated[int, typer.Option("--sequence", "-s")] = 10,
+) -> None:
+    """Add a sub-KPI column to a template.
+
+    Remember: after adding sub-KPIs you must set kpi.multi=True on each KPI
+    and populate one expression per sub-KPI — or the KPI won't compute.
+    """
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    try:
+        new_id = c.create(
+            _SUBKPI,
+            {
+                "report_id": template,
+                "name": name,
+                "description": description,
+                "sequence": sequence,
+            },
+        )
+        out.success(f"Added sub-KPI id={new_id} ({description}) to template {template}.")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@subkpis_app.command("delete")
+def subkpis_delete(
+    ctx: typer.Context,
+    subkpi_id: Annotated[int, typer.Argument(help="Sub-KPI ID")],
+    yes: Annotated[bool, typer.Option("--yes", "-y")] = False,
+) -> None:
+    """Delete a sub-KPI (cascades to all kpi.expression records using it)."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    if not yes and not typer.confirm(f"Delete sub-KPI {subkpi_id}?"):
+        return
+    try:
+        c.unlink(_SUBKPI, [subkpi_id])
+        out.success(f"Deleted sub-KPI {subkpi_id}.")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@subkpis_app.command("set-expression")
+def subkpis_set_expression(
+    ctx: typer.Context,
+    kpi_id: Annotated[int, typer.Argument(help="KPI ID")],
+    subkpi_id: Annotated[int, typer.Option("--subkpi", help="Sub-KPI ID")],
+    expression: Annotated[str, typer.Option("--expression", "-e", help="MIS expression for this cell")],
+) -> None:
+    """Set the expression for a specific (KPI × sub-KPI) cell.
+
+    Multi-column KPIs store one mis.report.kpi.expression record per
+    sub-KPI. This command upserts the row — create if missing, update if
+    present — and flips kpi.multi=True automatically.
+    """
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    try:
+        existing = c.search_read(
+            _KPI_EXPR,
+            domain=[("kpi_id", "=", kpi_id), ("subkpi_id", "=", subkpi_id)],
+            fields=["id"],
+        )
+        if existing:
+            c.write(_KPI_EXPR, [existing[0]["id"]], {"name": expression})
+        else:
+            c.create(_KPI_EXPR, {"kpi_id": kpi_id, "subkpi_id": subkpi_id, "name": expression})
+        c.write(_KPI, [kpi_id], {"multi": True})
+        out.success(f"KPI {kpi_id} × sub-KPI {subkpi_id} → {expression}")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+# ===================================================================
+# QUERIES — arbitrary data sources (beyond account.move.line)
+# ===================================================================
+#
+# A query fetches records from any Odoo model, filtered by a domain, and
+# aggregates a field across the reporting period. Useful when a KPI needs
+# data from outside the accounting module (CRM leads, inventory moves,
+# HR timesheets, etc.). Once declared, reference the query from a KPI
+# expression using the query's name.
+
+
+@queries_app.command("list")
+def queries_list(
+    ctx: typer.Context,
+    template: Annotated[int, typer.Option("--template", "-t")],
+) -> None:
+    """List custom data-source queries on a template."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    try:
+        records = c.search_read(
+            _QUERY,
+            domain=[("report_id", "=", template)],
+            fields=["id", "name", "model_id", "field_names", "aggregate", "date_field", "domain"],
+            order="name",
+        )
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+    if not records:
+        out.info("No queries defined.")
+        return
+    rows = []
+    for r in records:
+        rows.append(
+            [
+                str(r["id"]),
+                r["name"],
+                _m2o_name(r.get("model_id")),
+                r.get("field_names") or "",
+                r.get("aggregate") or "",
+                _m2o_name(r.get("date_field")),
+                (r.get("domain") or "")[:40],
+            ]
+        )
+    out.table(
+        f"Queries on template {template} ({len(rows)})",
+        [
+            ("ID", "dim"),
+            ("Name", "cyan"),
+            ("Model", ""),
+            ("Fields", ""),
+            ("Aggregate", ""),
+            ("Date Field", ""),
+            ("Domain", ""),
+        ],
+        rows,
+    )
+
+
+@queries_app.command("add")
+def queries_add(
+    ctx: typer.Context,
+    template: Annotated[int, typer.Option("--template", "-t")],
+    name: Annotated[str, typer.Option("--name", "-n", help="snake_case — referenced in KPI expressions")],
+    model: Annotated[str, typer.Option("--model", "-m", help="Odoo model (e.g. sale.order)")],
+    fields_: Annotated[str, typer.Option("--fields", "-f", help="Comma-separated field names to fetch")],
+    date_field: Annotated[str, typer.Option("--date-field", help="Date/datetime field for period filter")],
+    aggregate: Annotated[str | None, typer.Option("--aggregate", help="sum | avg | min | max")] = None,
+    domain: Annotated[str | None, typer.Option("--domain", help="Additional filter, e.g. \"[('state','=','sale')]\"")] = None,
+    company_field: Annotated[str | None, typer.Option("--company-field", help="Company field name for multi-company isolation")] = None,
+) -> None:
+    """Add a custom query to a template.
+
+    Resolves --model, --fields, --date-field, --company-field from their
+    string names to the underlying ir.model / ir.model.fields IDs.
+
+    Example (sale orders per period):
+        kctl-odoo mis-reports queries add \\
+            --template 6 --name sales --model sale.order \\
+            --fields amount_total --date-field date_order \\
+            --aggregate sum --domain "[('state','in',('sale','done'))]"
+    """
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    try:
+        [model_rec] = c.search_read(
+            "ir.model", domain=[("model", "=", model)], fields=["id"], limit=1
+        ) or [None]
+        if not model_rec:
+            out.error(f"Model {model!r} not found.")
+            raise typer.Exit(1)
+        field_names = [f.strip() for f in fields_.split(",") if f.strip()]
+        field_recs = c.search_read(
+            "ir.model.fields",
+            domain=[("model_id", "=", model_rec["id"]), ("name", "in", field_names)],
+            fields=["id", "name"],
+        )
+        [date_rec] = c.search_read(
+            "ir.model.fields",
+            domain=[("model_id", "=", model_rec["id"]), ("name", "=", date_field)],
+            fields=["id"],
+            limit=1,
+        ) or [None]
+        if not date_rec:
+            out.error(f"Date field {model}.{date_field} not found.")
+            raise typer.Exit(1)
+        vals: dict = {
+            "report_id": template,
+            "name": name,
+            "model_id": model_rec["id"],
+            "field_ids": [(6, 0, [f["id"] for f in field_recs])],
+            "date_field": date_rec["id"],
+        }
+        if aggregate:
+            vals["aggregate"] = aggregate
+        if domain:
+            vals["domain"] = domain
+        if company_field:
+            [cf] = c.search_read(
+                "ir.model.fields",
+                domain=[("model_id", "=", model_rec["id"]), ("name", "=", company_field)],
+                fields=["id"],
+                limit=1,
+            ) or [None]
+            if cf:
+                vals["company_field_id"] = cf["id"]
+        new_id = c.create(_QUERY, vals)
+        out.success(f"Added query id={new_id} ({name}) — {model}.{','.join(field_names)} by {date_field}")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@queries_app.command("delete")
+def queries_delete(
+    ctx: typer.Context,
+    query_id: Annotated[int, typer.Argument(help="Query ID")],
+    yes: Annotated[bool, typer.Option("--yes", "-y")] = False,
+) -> None:
+    """Delete a query from its template."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    if not yes and not typer.confirm(f"Delete query {query_id}?"):
+        return
+    try:
+        c.unlink(_QUERY, [query_id])
+        out.success(f"Deleted query {query_id}.")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+# ===================================================================
+# SUBREPORTS — embed one report inside another
+# ===================================================================
+#
+# A subreport pulls the KPIs from report B and renders them inline inside
+# report A. Useful for factoring common blocks (a department P&L) into a
+# shared template that's composed into a consolidated view.
+
+
+@subreports_app.command("list")
+def subreports_list(
+    ctx: typer.Context,
+    template: Annotated[int, typer.Option("--template", "-t")],
+) -> None:
+    """List subreports embedded in a template."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    try:
+        records = c.search_read(
+            _SUBREPORT,
+            domain=[("report_id", "=", template)],
+            fields=["id", "name", "subreport_id"],
+            order="name",
+        )
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+    if not records:
+        out.info("No subreports on this template.")
+        return
+    rows = [[str(r["id"]), r["name"], _m2o_name(r.get("subreport_id"))] for r in records]
+    out.table(
+        f"Subreports on template {template} ({len(rows)})",
+        [("ID", "dim"), ("Name", "cyan"), ("Embeds template", "")],
+        rows,
+    )
+
+
+@subreports_app.command("add")
+def subreports_add(
+    ctx: typer.Context,
+    template: Annotated[int, typer.Option("--template", "-t", help="Parent template ID")],
+    subtemplate: Annotated[int, typer.Option("--subtemplate", "-s", help="Template ID to embed")],
+    name: Annotated[str, typer.Option("--name", "-n", help="Name of the subreport block")],
+) -> None:
+    """Embed one template inside another as a subreport block."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    try:
+        new_id = c.create(
+            _SUBREPORT,
+            {"report_id": template, "subreport_id": subtemplate, "name": name},
+        )
+        out.success(f"Embedded template {subtemplate} in {template} as {name} (id={new_id}).")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
+
+
+@subreports_app.command("delete")
+def subreports_delete(
+    ctx: typer.Context,
+    subreport_id: Annotated[int, typer.Argument(help="Subreport link ID")],
+    yes: Annotated[bool, typer.Option("--yes", "-y")] = False,
+) -> None:
+    """Remove a subreport embedding (doesn't delete the underlying template)."""
+    actx: AppContext = ctx.obj
+    out, c = actx.output, actx.client
+    if not _require_mis(c, out):
+        return
+    if not yes and not typer.confirm(f"Remove subreport link {subreport_id}?"):
+        return
+    try:
+        c.unlink(_SUBREPORT, [subreport_id])
+        out.success(f"Removed subreport link {subreport_id}.")
+    except RPCError as e:
+        out.error(f"Failed: {e}")
+        raise typer.Exit(1) from e
