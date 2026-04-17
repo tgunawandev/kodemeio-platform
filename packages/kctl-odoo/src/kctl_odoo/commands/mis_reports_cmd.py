@@ -645,13 +645,23 @@ def styles_create(
     indent: Annotated[int | None, typer.Option("--indent", help="indent_level (integer em units)")] = None,
     prefix: Annotated[str | None, typer.Option("--prefix", help="Prepended text (e.g. $)")] = None,
     suffix: Annotated[str | None, typer.Option("--suffix", help="Appended text (e.g. %)")] = None,
-    dp: Annotated[int | None, typer.Option("--dp", help="Decimal places")] = None,
-    divider: Annotated[str | None, typer.Option("--divider", help="Value scale: 1|1e3|1e6|1e9")] = None,
-    hide_empty: Annotated[bool, typer.Option("--hide-empty", help="Hide zero-value rows")] = False,
+    dp: Annotated[int | None, typer.Option("--dp", help="Rounding (decimal places)")] = None,
+    divider: Annotated[str | None, typer.Option("--divider", help="Factor (value scale): 1|1e3|1e6|1e9")] = None,
+    hide_empty: Annotated[
+        bool | None,
+        typer.Option("--hide-empty/--no-hide-empty", help="Hide zero-value rows (tri-state: omit to inherit)"),
+    ] = None,
+    hide_always: Annotated[
+        bool | None,
+        typer.Option("--hide-always/--no-hide-always", help="Always hide this row (tri-state: omit to inherit)"),
+    ] = None,
 ) -> None:
     """Create a mis.report.style with only the fields you specify.
 
     Any field you don't pass stays inherited from the parent chain.
+    The UI form's "Factor" input maps to --divider; "Rounding" maps to --dp.
+    The booleans are tri-state: don't pass them → inherit from parent;
+    pass --hide-empty or --no-hide-empty to explicitly override.
 
     Example:
         kctl-odoo mis-reports styles create \\
@@ -674,7 +684,8 @@ def styles_create(
             suffix=suffix,
             dp=dp,
             divider=divider,
-            hide_empty=hide_empty if hide_empty else None,
+            hide_empty=hide_empty,
+            hide_always=hide_always,
         )
     )
     try:
@@ -698,8 +709,14 @@ def styles_update(
     indent: Annotated[int | None, typer.Option("--indent")] = None,
     prefix: Annotated[str | None, typer.Option("--prefix")] = None,
     suffix: Annotated[str | None, typer.Option("--suffix")] = None,
-    dp: Annotated[int | None, typer.Option("--dp")] = None,
-    divider: Annotated[str | None, typer.Option("--divider")] = None,
+    dp: Annotated[int | None, typer.Option("--dp", help="Rounding (decimal places)")] = None,
+    divider: Annotated[str | None, typer.Option("--divider", help="Factor: 1|1e3|1e6|1e9")] = None,
+    hide_empty: Annotated[
+        bool | None, typer.Option("--hide-empty/--no-hide-empty", help="Tri-state; omit to leave as-is")
+    ] = None,
+    hide_always: Annotated[
+        bool | None, typer.Option("--hide-always/--no-hide-always", help="Tri-state; omit to leave as-is")
+    ] = None,
 ) -> None:
     """Update one or more fields on an existing style."""
     actx: AppContext = ctx.obj
@@ -721,6 +738,8 @@ def styles_update(
             suffix=suffix,
             dp=dp,
             divider=divider,
+            hide_empty=hide_empty,
+            hide_always=hide_always,
         )
     )
     if not vals:
@@ -1193,8 +1212,12 @@ def queries_add(
     fields_: Annotated[str, typer.Option("--fields", "-f", help="Comma-separated field names to fetch")],
     date_field: Annotated[str, typer.Option("--date-field", help="Date/datetime field for period filter")],
     aggregate: Annotated[str | None, typer.Option("--aggregate", help="sum | avg | min | max")] = None,
-    domain: Annotated[str | None, typer.Option("--domain", help="Additional filter, e.g. \"[('state','=','sale')]\"")] = None,
-    company_field: Annotated[str | None, typer.Option("--company-field", help="Company field name for multi-company isolation")] = None,
+    domain: Annotated[
+        str | None, typer.Option("--domain", help="Additional filter, e.g. \"[('state','=','sale')]\"")
+    ] = None,
+    company_field: Annotated[
+        str | None, typer.Option("--company-field", help="Company field name for multi-company isolation")
+    ] = None,
 ) -> None:
     """Add a custom query to a template.
 
@@ -1212,9 +1235,7 @@ def queries_add(
     if not _require_mis(c, out):
         return
     try:
-        [model_rec] = c.search_read(
-            "ir.model", domain=[("model", "=", model)], fields=["id"], limit=1
-        ) or [None]
+        [model_rec] = c.search_read("ir.model", domain=[("model", "=", model)], fields=["id"], limit=1) or [None]
         if not model_rec:
             out.error(f"Model {model!r} not found.")
             raise typer.Exit(1)
