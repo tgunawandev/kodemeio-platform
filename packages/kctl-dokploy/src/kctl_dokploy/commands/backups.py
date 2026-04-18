@@ -448,3 +448,23 @@ def rollback_delete(
     c.output.success(f"Rollback '{rollback_id}' deleted")
     if c.json_mode:
         c.output.raw_json(result)
+
+
+# ---------------------------------------------------------------------------
+# Backup/restore workflow commands — implemented in backups_flow for clarity.
+# Registered here so they appear as siblings of the other `backups` commands.
+# ---------------------------------------------------------------------------
+
+from kctl_dokploy.commands.backups_flow import (  # noqa: E402
+    download as _download_impl,
+    dump_compose as _dump_compose_impl,
+    refresh as _refresh_impl,
+    restore_local as _restore_local_impl,
+    run_wait as _run_wait_impl,
+)
+
+app.command("dump-compose")(_dump_compose_impl)
+app.command("download")(_download_impl)
+app.command("run-wait")(_run_wait_impl)
+app.command("restore-local")(_restore_local_impl)
+app.command("refresh")(_refresh_impl)

@@ -212,6 +212,34 @@ cd deploys && python generate.py --dry-run  # Preview
 
 Source: `kodemeio-odoo` repo → `compose/odoo.prod.yml` (4 containers: init → web + cron + gevent)
 
+### Compose Postgres Backup → S3 → Local Restore
+
+Dokploy's `/backup.manualBackupCompose` endpoint is unreliable for compose-embedded
+postgres. `kctl-dokploy backups` ships a reliable alternative that streams `pg_dump`
+straight to S3 via SSH + docker exec, then restores into a local compose's postgres
+container.
+
+```bash
+# One-shot refresh (prod → local)
+kctl-dokploy --profile local backups refresh \
+    --source-profile idtpp \
+    --source-compose <prod-compose-id> \
+    --source-destination <idtpp-dest-id> \
+    --target-compose <local-compose-id> \
+    --database authentik \
+    --force
+
+# Or step-by-step: dump-compose → download → restore-local
+kctl-dokploy --profile idtpp backups dump-compose --compose <id> --destination <id> --database <db>
+kctl-dokploy --profile local  backups download <s3-key> --destination <id> --output /tmp/dump
+kctl-dokploy --profile local  backups restore-local /tmp/dump --compose <id> --force
+```
+
+Uses custom-format `pg_dump -F c` with `pg_restore --exit-on-error` (or `psql -v
+ON_ERROR_STOP=1` for plain SQL). S3 creds live in the Dokploy destination record —
+no additional credential setup needed. Works with Hetzner Object Storage or any
+S3-compatible endpoint. See `packages/kctl-dokploy/README.md` for full details.
+
 ## kctl-lib Modules
 
 | Module | Purpose |

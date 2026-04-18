@@ -11,9 +11,13 @@ build/
 .env
 .env.prod
 .env.prod.*
-# Deploy env files (.env.{tenant}-{type}-{name})
+# Deploy env files (.env.{tenant}-{type}-{name}); keep .example variants tracked
 deploys/env/production/.env.*
+!deploys/env/production/.env.*.example
 deploys/env/staging/.env.*
+!deploys/env/staging/.env.*.example
+deploys/env/local/.env.*
+!deploys/env/local/.env.*.example
 .playwright-mcp/
 .playwright-cli/
 .claude/
