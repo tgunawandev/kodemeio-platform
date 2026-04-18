@@ -26,6 +26,9 @@ from typing import Any
 
 from kctl_dokploy.core.exceptions import DeploymentError
 
+if False:  # TYPE_CHECKING — avoid circular import at runtime
+    from kctl_dokploy.core.manifest import DeployManifest  # noqa: F401
+
 
 class DeployStep(StrEnum):
     """Deployment pipeline steps in forward order."""
@@ -310,3 +313,223 @@ def deploy_atomic(
             error=str(e),
             rolled_back=rolled_back,
         )
+
+
+# ---------------------------------------------------------------------------
+# Reconciler helpers — added for `deploy apply-local` (Phase 4).
+#
+# Thin wrappers around the Dokploy HTTP API so the LocalReconciler can stay
+# declarative. Each returns a reconcile-style dict with `changed` (+ ids)
+# so callers can OR results together.
+# ---------------------------------------------------------------------------
+
+
+def ensure_project_and_env(client: Any, manifest: Any) -> dict[str, Any]:
+    """Ensure the manifest's project + environment exist; return their IDs.
+
+    Creates the environment under an existing project if it doesn't exist
+    yet. Returns ``{"project_id": str, "environment_id": str, "changed": bool}``.
+    """
+    changed = False
+    project_name = manifest.project
+    env_name = manifest.environment or "production"
+
+    projects = client.get("/project.all")
+    project_data: dict[str, Any] | None = None
+    if isinstance(projects, list):
+        for p in projects:
+            if p.get("name") == project_name:
+                project_data = p
+                break
+    if project_data is None:
+        raise DeploymentError(f"Project {project_name!r} not found in Dokploy")
+
+    project_id = project_data.get("projectId", "")
+    env_id = ""
+    default_env_id = ""
+    for env in project_data.get("environments", []) or []:
+        if env.get("isDefault"):
+            default_env_id = env.get("environmentId", "")
+        if (env.get("name") or "").lower() == env_name.lower():
+            env_id = env.get("environmentId", "")
+            break
+
+    if not env_id and env_name.lower() != "production":
+        result = client.post(
+            "/environment.create",
+            json={
+                "projectId": project_id,
+                "name": env_name,
+                "description": f"{env_name} environment",
+            },
+        )
+        env_id = result.get("environmentId", "") if isinstance(result, dict) else ""
+        changed = True
+
+    if not env_id:
+        env_id = default_env_id
+
+    if not env_id:
+        raise DeploymentError(f"Could not resolve or create environment {env_name!r} in project {project_name!r}")
+
+    return {"project_id": project_id, "environment_id": env_id, "changed": changed}
+
+
+def ensure_compose_service(
+    client: Any,
+    manifest: Any,
+    env_info: dict[str, Any],
+) -> dict[str, Any]:
+    """Ensure the compose service exists under *env_info['environment_id']*.
+
+    Returns ``{"changed": bool, "compose_id": str}``.
+    """
+    instance_name = manifest.instance.name
+    env_id = env_info["environment_id"]
+
+    # Look for an existing compose with this name in the environment.
+    projects = client.get("/project.all")
+    if isinstance(projects, list):
+        for p in projects:
+            for env in p.get("environments", []) or []:
+                if env.get("environmentId") != env_id:
+                    continue
+                for comp in env.get("compose", []) or []:
+                    if (comp.get("name") or "").lower() == instance_name.lower():
+                        return {"changed": False, "compose_id": comp.get("composeId", "")}
+
+    # Create a new compose in this environment.
+    result = client.post(
+        "/compose.create",
+        json={"name": instance_name, "environmentId": env_id},
+    )
+    compose_id = result.get("composeId", "") if isinstance(result, dict) else ""
+    if not compose_id:
+        raise DeploymentError(f"Failed to create compose {instance_name!r} in env {env_id!r}")
+    return {"changed": True, "compose_id": compose_id}
+
+
+def push_env_file(
+    client: Any,
+    compose_id: str,
+    env_file_path: Any,
+    *,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Push the contents of *env_file_path* to the compose service's env.
+
+    Returns ``{"changed": bool, "count": int}``. When *env_file_path* is
+    ``None`` or missing, returns ``{"changed": False, "count": 0}``.
+    """
+    if env_file_path is None:
+        return {"changed": False, "count": 0}
+    path = Path(env_file_path)
+    if not path.exists():
+        raise DeploymentError(f"Env file not found: {env_file_path}")
+
+    new_content = path.read_text()
+
+    # Read current env, skip if unchanged (unless forced).
+    current = ""
+    try:
+        snap = client.get("/compose.one", params={"composeId": compose_id})
+        if isinstance(snap, dict):
+            current = snap.get("env", "") or ""
+    except Exception:
+        current = ""
+
+    if not force and current == new_content:
+        count = sum(1 for line in new_content.splitlines() if line.strip() and not line.strip().startswith("#"))
+        return {"changed": False, "count": count}
+
+    client.post("/compose.update", json={"composeId": compose_id, "env": new_content})
+    count = sum(1 for line in new_content.splitlines() if line.strip() and not line.strip().startswith("#"))
+    return {"changed": True, "count": count}
+
+
+def list_domains_for_compose(client: Any, compose_id: str) -> list[dict[str, Any]]:
+    """Return domains attached to *compose_id*, normalized to reconciler keys.
+
+    Dokploy's wire format uses camelCase (``certificateType``, ``serviceName``);
+    the reconciler compares snake_case. This helper translates so
+    :meth:`LocalReconciler.reconcile_domain` can do direct dict comparisons.
+    """
+    data = client.get("/domain.byComposeId", params={"composeId": compose_id})
+    if not isinstance(data, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for d in data:
+        if not isinstance(d, dict):
+            continue
+        out.append(
+            {
+                "domain_id": d.get("domainId", ""),
+                "composeId": d.get("composeId", compose_id),
+                "host": d.get("host", ""),
+                "port": d.get("port", 0),
+                "https": bool(d.get("https")),
+                "cert_type": d.get("certificateType", "none"),
+                "service_name": d.get("serviceName", ""),
+            }
+        )
+    return out
+
+
+def create_domain(
+    client: Any,
+    *,
+    compose_id: str,
+    host: str,
+    port: int,
+    service_name: str,
+    https: bool = True,
+    cert_type: str = "none",
+) -> dict[str, Any]:
+    """Create a Dokploy domain on *compose_id* with the given spec."""
+    payload = {
+        "composeId": compose_id,
+        "host": host,
+        "port": port,
+        "https": https,
+        "certificateType": cert_type,
+        "serviceName": service_name,
+        "domainType": "compose",
+    }
+    result = client.post("/domain.create", json=payload)
+    return result if isinstance(result, dict) else {}
+
+
+def update_domain(
+    client: Any,
+    *,
+    domain_id: str,
+    host: str | None = None,
+    port: int | None = None,
+    service_name: str | None = None,
+    https: bool | None = None,
+    cert_type: str | None = None,
+) -> dict[str, Any]:
+    """Update fields on an existing Dokploy domain.
+
+    The Dokploy API requires ``host`` on every update; if not provided,
+    the current host is read and re-sent.
+    """
+    current = client.get("/domain.one", params={"domainId": domain_id})
+    if not isinstance(current, dict):
+        raise DeploymentError(f"Domain {domain_id!r} not found")
+
+    payload: dict[str, Any] = {
+        "domainId": domain_id,
+        "host": host if host is not None else current.get("host", ""),
+    }
+    if port is not None:
+        payload["port"] = port
+    if https is not None:
+        payload["https"] = https
+    if cert_type is not None:
+        payload["certificateType"] = cert_type
+    if service_name is not None:
+        payload["serviceName"] = service_name
+
+    result = client.post("/domain.update", json=payload)
+    return result if isinstance(result, dict) else {}
