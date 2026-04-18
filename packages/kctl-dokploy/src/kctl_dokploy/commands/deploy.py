@@ -756,6 +756,76 @@ def list_(ctx: typer.Context) -> None:
 
 
 # ---------------------------------------------------------------------------
+# apply-local (Phase 4: dokploy-local-domains)
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="apply-local")
+def apply_local(
+    ctx: typer.Context,
+    file: Annotated[
+        Path, typer.Option("--file", "-f", help="Local instance manifest (deploys/instances/local/*.yaml)", exists=True)
+    ] = ...,  # type: ignore[assignment]
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Preview DNS reconcile only; no Dokploy mutations")
+    ] = False,
+) -> None:
+    """Apply a local-only instance manifest.
+
+    Converges:
+      1. Cloudflare wildcard DNS records → current LAN IP.
+      2. Dokploy project / environment / compose service exists with
+         the manifest's source config.
+      3. env_file contents pushed to the compose service.
+      4. Dokploy domain attached with ``cert_type=none`` (falls through
+         to Traefik's default wildcard cert).
+
+    Refuses manifests whose ``environment`` is not ``local`` with exit code 2.
+    """
+    from kctl_dokploy.core.lan_ip import current_lan_ipv4
+    from kctl_dokploy.core.local_reconciler import (
+        KctlCfDnsAdapter,
+        LocalDokployAdapter,
+        LocalReconciler,
+    )
+
+    c: AppContext = ctx.obj
+    manifest = _load(file, c)
+
+    if manifest.environment != "local":
+        c.output.error(
+            f"{file}: environment={manifest.environment!r}, expected 'local' "
+            "(use `deploy apply` for non-local manifests)"
+        )
+        raise typer.Exit(code=2)
+
+    if not manifest.domain or not manifest.domain.host.endswith(".local.kodeme.io"):
+        host = manifest.domain.host if manifest.domain else ""
+        c.output.error(f"{file}: domain.host={host!r} must end with '.local.kodeme.io'")
+        raise typer.Exit(code=2)
+
+    reconciler = LocalReconciler(
+        dns=KctlCfDnsAdapter(profile=c.profile or "kodemeio"),
+        dokploy=LocalDokployAdapter(client=c.client),
+        lan_ip_getter=current_lan_ipv4,
+        zone="kodeme.io",
+    )
+
+    if dry_run:
+        c.output.info("[dry-run] only DNS reconcile is safe to preview; skipping compose/env/domain")
+        dns_r = reconciler.reconcile_dns()
+        for m in dns_r.messages:
+            c.output.info(m)
+        c.output.success(f"[dry-run] DNS changed={dns_r.changed}")
+        return
+
+    outcome = reconciler.apply(manifest)
+    for m in outcome.messages:
+        c.output.info(m)
+    c.output.success(f"apply-local complete. changed={outcome.changed}")
+
+
+# ---------------------------------------------------------------------------
 # Migrate sub-app
 # ---------------------------------------------------------------------------
 
