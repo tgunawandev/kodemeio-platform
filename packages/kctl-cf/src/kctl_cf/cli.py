@@ -29,6 +29,7 @@ from kctl_cf.commands.speed import app as speed_app
 from kctl_cf.commands.ssl import app as ssl_app
 from kctl_cf.commands.status import app as status_app
 from kctl_cf.commands.terraform import app as terraform_app
+from kctl_cf.commands.tokens import app as tokens_app
 from kctl_cf.commands.tunnels import app as tunnels_app
 from kctl_cf.commands.waf import app as waf_app
 from kctl_cf.commands.waiting_rooms import app as waiting_rooms_app
@@ -85,6 +86,7 @@ def main(
 app.add_typer(config_app, name="config")
 app.add_typer(zones_app, name="zones")
 app.add_typer(records_app, name="records")
+app.add_typer(tokens_app, name="tokens")
 app.add_typer(tunnels_app, name="tunnels")
 app.add_typer(health_app, name="health")
 app.add_typer(waf_app, name="waf")
