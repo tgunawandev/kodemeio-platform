@@ -17,6 +17,7 @@ from kctl_dbgate.commands.plugins import app as plugins_app
 from kctl_dbgate.commands.query import app as query_app
 from kctl_dbgate.commands.servers import app as servers_app
 from kctl_dbgate.commands.sessions import app as sessions_app
+from kctl_dbgate.commands.storage import app as storage_app
 from kctl_dbgate.core.callbacks import AppContext
 from kctl_dbgate.core.plugins import discover_and_load_plugins
 
@@ -75,6 +76,7 @@ app.add_typer(plugins_app, name="plugins")
 app.add_typer(query_app, name="query")
 app.add_typer(servers_app, name="servers")
 app.add_typer(sessions_app, name="sessions")
+app.add_typer(storage_app, name="storage")
 
 # Load any third-party plugins
 discover_and_load_plugins(app)
