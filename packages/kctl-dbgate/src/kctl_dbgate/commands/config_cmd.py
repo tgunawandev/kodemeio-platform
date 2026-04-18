@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Any
 
 import typer
+import yaml
+from kctl_lib.exceptions import KctlError
 
 from kctl_dbgate.core.callbacks import AppContext
 from kctl_dbgate.core.client import DBGateClient
@@ -23,7 +26,6 @@ from kctl_dbgate.core.config import (
     set_default_profile,
     set_service_config,
 )
-from kctl_dbgate.core.exceptions import KctlError
 
 app = typer.Typer(help="Manage CLI configuration and profiles.")
 
@@ -294,3 +296,122 @@ def current(ctx: typer.Context) -> None:
             out.error(f"Connection failed: {info}")
     else:
         out.warn(f"No {SERVICE_KEY} config in active profile. Run: kctl-dbgate config init")
+
+
+# ----------------------------------------------------------------------
+# Server-side settings (POST /config/*)
+# ----------------------------------------------------------------------
+
+
+@app.command("server-show")
+def server_show(ctx: typer.Context) -> None:
+    """Show DBGate's server-side configuration (POST /config/get)."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    try:
+        cfg = actx.client.call("/config/get")
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+
+    if not isinstance(cfg, dict):
+        out.error(f"Unexpected response: {cfg!r}")
+        raise typer.Exit(1)
+
+    rows = [[str(k), str(v)] for k, v in sorted(cfg.items())]
+    out.table(
+        title="DBGate server configuration",
+        columns=[("Key", "cyan"), ("Value", "")],
+        rows=rows,
+        data_for_json=[cfg],
+    )
+
+
+@app.command("server-set")
+def server_set(
+    ctx: typer.Context,
+    key: Annotated[str, typer.Option("--key", help="Setting key")],
+    value: Annotated[str, typer.Option("--value", help="Setting value")],
+) -> None:
+    """Update a single server-side setting (POST /config/update-settings)."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    payload: dict[str, Any] = {key: value}
+    try:
+        actx.client.call("/config/update-settings", payload)
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+    out.success(f"Setting {key} updated")
+
+
+@app.command("server-changelog")
+def server_changelog(ctx: typer.Context) -> None:
+    """Show DBGate server changelog (POST /config/changelog)."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    try:
+        result = actx.client.call("/config/changelog")
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+    if isinstance(result, str):
+        out.text(result)
+    else:
+        out.text(str(result))
+
+
+@app.command("server-export")
+def server_export(
+    ctx: typer.Context,
+    outfile: Annotated[Path, typer.Argument(help="Path to write YAML dump to")],
+) -> None:
+    """Dump the server's /config/get response to a YAML file.
+
+    NOTE: DBGate exposes no true export endpoint, so this dumps the
+    read-only config snapshot. Use `server-import` with a file from
+    `import-connections-and-settings` producer if available.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    try:
+        cfg = actx.client.call("/config/get")
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+    outfile.write_text(yaml.safe_dump(cfg, sort_keys=True))
+    out.success(f"Server config exported to {outfile}")
+
+
+@app.command("server-import")
+def server_import(
+    ctx: typer.Context,
+    infile: Annotated[Path, typer.Argument(help="YAML file to import")],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Don't send; just show what would be sent")] = False,
+) -> None:
+    """Import connections + settings from a YAML file.
+
+    Calls POST /config/import-connections-and-settings.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    if not infile.exists():
+        out.error(f"File not found: {infile}")
+        raise typer.Exit(1)
+
+    payload = yaml.safe_load(infile.read_text()) or {}
+
+    if dry_run:
+        out.header("Dry-run payload")
+        out.text(yaml.safe_dump(payload, sort_keys=True))
+        out.info("No API call made (--dry-run)")
+        return
+
+    try:
+        actx.client.call("/config/import-connections-and-settings", payload)
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+    out.success(f"Imported from {infile}")
