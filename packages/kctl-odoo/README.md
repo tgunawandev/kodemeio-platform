@@ -62,8 +62,15 @@ kctl-odoo logs tail --worker 12 --grep "traceback"
 ```
 
 Filter flags compose as AND: `--level`, `--module`, `--request`, `--worker`,
-`--grep`. Lines that don't match Odoo's standard log prefix (tracebacks,
-startup banners) are kept unless you pass `--grep`, so stack traces survive.
+`--grep`.
+
+**Full traceback capture.** Filters apply per *log record*, not per line. When
+a record's timestamped header matches, all of its continuation lines
+(`Traceback (most recent call last):`, `File "..."`, `^^^`, exception
+message) are emitted too — stack traces survive `--level ERROR` or any
+other filter. `--grep` can also match a continuation line directly (e.g.
+`--grep "fields.py"` to find tracebacks involving a specific file); when
+it does, the rest of that record's block is included.
 
 Other `logs` subcommands:
 

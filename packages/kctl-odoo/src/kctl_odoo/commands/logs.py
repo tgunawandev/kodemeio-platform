@@ -286,15 +286,29 @@ def _stream(
             bufsize=1,  # line-buffered so --follow feels live
         )
         assert proc.stdout is not None
+        # Sticky-block filter: once a record's timestamped header line matches,
+        # emit all its continuation lines (traceback `File ...`, `^^^`, SQL
+        # fragments, ExceptionType rows) until the NEXT timestamped header —
+        # which either starts a new match or ends the block. A continuation
+        # line that independently matches --grep also opens a block, so you
+        # can grep for strings that appear only inside a traceback (e.g. a
+        # specific .py filename).
+        sticky = False
         for line in proc.stdout:
-            if _line_matches(
-                line,
-                module=module,
-                request=request,
-                worker=worker,
-                min_level=min_level,
-                grep=grep,
-            ):
+            is_header = bool(_ODOO_LINE.match(line))
+            if is_header:
+                # New log record — decide sticky state from filter result.
+                sticky = _line_matches(
+                    line, module=module, request=request, worker=worker, min_level=min_level, grep=grep
+                )
+                if sticky:
+                    console.print(line, end="", highlight=False)
+            elif sticky:
+                console.print(line, end="", highlight=False)
+            elif grep is not None and grep.search(line):
+                # Non-header line that matches --grep directly (e.g. Python
+                # traceback body with a specific filename). Open a block.
+                sticky = True
                 console.print(line, end="", highlight=False)
     except KeyboardInterrupt:
         pass
