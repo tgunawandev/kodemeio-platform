@@ -292,6 +292,7 @@ class TestCLIRegistration:
                 "clients",
                 "config",
                 "dashboard",
+                "doctor",
                 "drivers",
                 "health",
                 "linux",

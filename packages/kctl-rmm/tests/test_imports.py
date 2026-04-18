@@ -21,6 +21,7 @@ def test_cli_app_has_all_groups():
             "clients",
             "config",
             "dashboard",
+            "doctor",
             "drivers",
             "health",
             "linux",

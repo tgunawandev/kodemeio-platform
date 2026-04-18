@@ -12,6 +12,7 @@ from kctl_outline.commands.collections import app as collections_app
 from kctl_outline.commands.comments import app as comments_app
 from kctl_outline.commands.config_cmd import app as config_app
 from kctl_outline.commands.dashboard import app as dashboard_app
+from kctl_outline.commands.doctor_cmd import app as doctor_app
 from kctl_outline.commands.documents import app as documents_app
 from kctl_outline.commands.events import app as events_app
 from kctl_outline.commands.groups import app as groups_app
@@ -78,6 +79,7 @@ app.add_typer(events_app, name="events")
 app.add_typer(health_app, name="health")
 app.add_typer(dashboard_app, name="dashboard")
 app.add_typer(config_app, name="config")
+app.add_typer(doctor_app, name="doctor")
 app.add_typer(stars_app, name="stars")
 app.add_typer(templates_app, name="templates")
 app.add_typer(revisions_app, name="revisions")

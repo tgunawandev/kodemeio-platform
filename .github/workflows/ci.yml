@@ -53,6 +53,7 @@ jobs:
           - kctl-cf
           - kctl-claude
           - kctl-claw
+          - kctl-dbgate
           - kctl-dokploy
           - kctl-github
           - kctl-glitchtip

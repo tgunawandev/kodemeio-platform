@@ -14,6 +14,7 @@ from kctl_rmm.commands.checks import app as checks_app
 from kctl_rmm.commands.clients import app as clients_app
 from kctl_rmm.commands.config_cmd import app as config_app
 from kctl_rmm.commands.dashboard import app as dashboard_app
+from kctl_rmm.commands.doctor_cmd import app as doctor_app
 from kctl_rmm.commands.drivers import app as drivers_app
 from kctl_rmm.commands.health import app as health_app
 from kctl_rmm.commands.linux import app as linux_app
@@ -85,6 +86,7 @@ app.add_typer(drivers_app, name="drivers")
 app.add_typer(remote_app, name="remote")
 app.add_typer(health_app, name="health")
 app.add_typer(dashboard_app, name="dashboard")
+app.add_typer(doctor_app, name="doctor")
 app.add_typer(maintenance_app, name="maintenance")
 app.add_typer(config_app, name="config")
 app.add_typer(checks_app, name="checks")
