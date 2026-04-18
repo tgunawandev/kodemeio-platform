@@ -8,31 +8,27 @@ import typer
 from kctl_lib.doctor_base import CheckResult, DoctorCheck, run_doctor
 
 from kctl_outline.core.callbacks import AppContext
+from kctl_outline.core.config import get_service_config, resolve_active_profile_name
 
 
 @dataclass
 class APIConnectivityCheck:
-    """Check that the configured Outline URL is reachable."""
+    """Check that the configured Outline URL is set."""
 
     name: str = "API Connectivity"
 
     def run(self) -> CheckResult:
-        try:
-            from kctl_outline.core.config import get_service_config, resolve_active_profile_name
-
-            profile = resolve_active_profile_name()
-            cfg = get_service_config(profile)
-            url = cfg.url or ""
-            if not url:
-                return CheckResult(
-                    name=self.name,
-                    status="fail",
-                    message="No URL configured",
-                    fix_command="kctl-outline config init",
-                )
-            return CheckResult(name=self.name, status="ok", message=f"URL: {url}")
-        except Exception as e:
-            return CheckResult(name=self.name, status="warn", message=str(e))
+        profile = resolve_active_profile_name()
+        cfg = get_service_config(profile)
+        url = cfg.url or ""
+        if not url:
+            return CheckResult(
+                name=self.name,
+                status="fail",
+                message="No URL configured",
+                fix_command="kctl-outline config init",
+            )
+        return CheckResult(name=self.name, status="ok", message=f"URL: {url}")
 
 
 @dataclass
@@ -42,26 +38,21 @@ class AuthCheck:
     name: str = "Authentication"
 
     def run(self) -> CheckResult:
-        try:
-            from kctl_outline.core.config import get_service_config, resolve_active_profile_name
-
-            profile = resolve_active_profile_name()
-            cfg = get_service_config(profile)
-            token = cfg.token or ""
-            if not token:
-                return CheckResult(
-                    name=self.name,
-                    status="fail",
-                    message="No API token configured",
-                    fix_command="kctl-outline config init",
-                )
-            masked = token[:4] + "****" + token[-4:] if len(token) > 8 else "****"
-            return CheckResult(name=self.name, status="ok", message=f"Token configured ({masked})")
-        except Exception as e:
-            return CheckResult(name=self.name, status="warn", message=str(e))
+        profile = resolve_active_profile_name()
+        cfg = get_service_config(profile)
+        token = cfg.token or ""
+        if not token:
+            return CheckResult(
+                name=self.name,
+                status="fail",
+                message="No API token configured",
+                fix_command="kctl-outline config init",
+            )
+        masked = token[:4] + "****" + token[-4:] if len(token) > 8 else "****"
+        return CheckResult(name=self.name, status="ok", message=f"Token configured ({masked})")
 
 
-app = typer.Typer(help="Run diagnostic checks.", no_args_is_help=False, invoke_without_command=True)
+app = typer.Typer(help="Run diagnostic checks.", no_args_is_help=False)
 
 
 @app.callback(invoke_without_command=True)

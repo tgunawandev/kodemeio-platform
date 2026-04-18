@@ -29,6 +29,7 @@ kctl-rmm config add abcfood --url https://api-rmm.abcfood.app --api-key $KEY
 | Group | Description |
 |-------|-------------|
 | `config` | Manage CLI configuration and profiles |
+| `doctor` | Diagnostic checks (URL + API key) |
 | `health` | Health checks and diagnostics |
 | `dashboard` | System overview dashboard |
 | `agents` | Manage Tactical RMM agents |

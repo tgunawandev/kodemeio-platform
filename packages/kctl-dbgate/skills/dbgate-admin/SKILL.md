@@ -43,8 +43,10 @@ kctl-dbgate connections add --name "prod-postgres" --engine postgres --host ...
 
 ## Global Options
 
-`--json`, `--quiet/-q`, `--format/-f` (pretty/json/csv/yaml), `--no-header`,
-`--profile/-p`, `--url`, `--login`, `--password`.
+Standard kctl-* globals: `--json`, `--quiet/-q`, `--format/-f` (pretty/json/csv/yaml),
+`--no-header`, `--profile/-p`, `--version/-V`.
+
+Service-specific overrides (dbgate-only): `--url`, `--login`, `--password`.
 
 ## Config
 

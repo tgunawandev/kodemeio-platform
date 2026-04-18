@@ -111,10 +111,16 @@ def _grep(path: Path, pattern: str) -> bool:
 
 
 def _in_ci_matrix(name: str) -> bool:
+    """Check CI matrix for an exact package-name entry.
+
+    Uses a newline-anchored match so `kctl-op` doesn't falsely match
+    `kctl-opencloud`, and `kctl-pg` doesn't match a hypothetical `kctl-pg-x`.
+    """
     ci = ROOT / ".github" / "workflows" / "ci.yml"
     if not ci.exists():
         return False
-    return f"- {name}" in ci.read_text()
+    text = ci.read_text()
+    return f"- {name}\n" in text or f"- {name} " in text
 
 
 def audit_package(pkg_dir: Path) -> PkgReport:
@@ -270,24 +276,14 @@ def main() -> int:
         return 0
 
     if args.fix_list:
+        # Reuse the score's own missed-checks list (`notes`) so thresholds stay
+        # in sync. Adds mypy as a diagnostic suggestion (not deducted from score).
         below = [r for r in reports if r.score < 9]
         for r in below:
-            missing = []
-            if not r.lint_clean:
-                missing.append("lint")
-            if not r.format_clean:
-                missing.append("format")
-            if not r.tests_pass:
-                missing.append("tests")
-            if r.cmd_count and r.test_count / r.cmd_count < 0.5:
-                missing.append(f"coverage({r.test_count}/{r.cmd_count})")
-            if not r.has_doctor:
-                missing.append("doctor")
-            if not r.mypy_clean:
-                missing.append("mypy")
-            if r.readme_lines < 40:
-                missing.append(f"readme({r.readme_lines}L)")
-            print(f"{r.name} ({r.score}/10): {', '.join(missing)}")
+            notes = list(r.notes)
+            if not r.mypy_clean and r.name != "kctl-lib":
+                notes.append("mypy (advisory)")
+            print(f"{r.name} ({r.score}/10): {', '.join(notes)}")
         return 0
 
     # Default: pretty table

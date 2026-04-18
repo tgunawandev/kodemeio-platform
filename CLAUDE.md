@@ -24,43 +24,52 @@ copier copy templates/kctl-cli/ /path/to/new-cli/
 
 ## Architecture
 
-`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **23 CLI tools**, all consolidated into this single workspace.
+`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **28 CLI tools**, all consolidated into this single workspace.
 
-### Workspace Members (23 packages)
+### Workspace Members (29 packages)
+
+Source of truth: `scripts/audit-platform.py` enumerates live package metadata
+(commands, tests, README size, score). Run `uv run python scripts/audit-platform.py`
+for the authoritative list + quality scores.
 
 #### Shared Library
 - **kctl-lib** — Shared CLI infrastructure (v0.4.0, published to PyPI)
 
 #### Infrastructure & Ops
-- **kctl-dokploy** — Dokploy deployment platform (37 groups)
-- **kctl-hz** — Hetzner Cloud infrastructure (24 groups)
-- **kctl-pg** — PostgreSQL administration (24 groups)
-- **kctl-redis** — Redis cache & message broker (16 groups)
-- **kctl-cf** — Cloudflare DNS/CDN/WAF (27 groups)
-- **kctl-ak** — Authentik SSO/identity (24 groups)
-- **kctl-grafana** — Grafana monitoring platform (11 groups)
-- **kctl-rustdesk** — RustDesk server management (9 groups)
-- **kctl-waha** — WhatsApp HTTP API (8 groups)
-- **kctl-mailcow** — Mailcow mail server management (31 groups)
-- **kctl-mm** — Mattermost Team Edition management (24 groups)
+- **kctl-dokploy** — Dokploy deployment platform
+- **kctl-hz** — Hetzner Cloud infrastructure
+- **kctl-pg** — PostgreSQL administration
+- **kctl-redis** — Redis cache & message broker
+- **kctl-cf** — Cloudflare DNS/CDN/WAF
+- **kctl-ak** — Authentik SSO/identity
+- **kctl-grafana** — Grafana monitoring platform
+- **kctl-rustdesk** — RustDesk server management
+- **kctl-waha** — WhatsApp HTTP API
+- **kctl-mailcow** — Mailcow mail server
+- **kctl-mm** — Mattermost Team Edition
+- **kctl-glitchtip** — GlitchTip error tracking (Sentry-compat API)
+- **kctl-rmm** — Tactical RMM remote monitoring
+- **kctl-dbgate** — DBGate database management UI
 
 #### Application Management
-- **kctl-odoo** — Odoo 18 ERP management (70+ groups)
-- **kctl-api** — FastAPI platform management (46 groups)
-- **kctl-react** — React PWA monorepo management (31 groups)
-- **kctl-claw** — AI agent gateway management (29 groups)
+- **kctl-odoo** — Odoo 18 ERP management
+- **kctl-api** — FastAPI platform management
+- **kctl-react** — React PWA monorepo management
+- **kctl-claw** — AI agent gateway management
 
 #### Developer & SaaS Tools
-- **kctl-op** — 1Password secret management (9 groups) — *renamed from kctl-1password*
-- **kctl-github** — Cross-repo GitHub management (10 groups)
-- **kctl-sentry** — Sentry error tracking (10 groups)
-- **kctl-linear** — Linear project/sprint tracking (9 groups)
-- **kctl-claude** — Claude Code environment management (8 groups)
-- **kctl-telegram** — Telegram bot platform (7 groups)
-- **kctl-notion** — Notion wiki/database management (7 groups)
-- **kctl-zulip** — Zulip team chat administration (22 groups)
+- **kctl-op** — 1Password secret management *(renamed from kctl-1password)*
+- **kctl-github** — Cross-repo GitHub management
+- **kctl-sentry** — Sentry error tracking
+- **kctl-linear** — Linear project/sprint tracking
+- **kctl-claude** — Claude Code environment management
+- **kctl-telegram** — Telegram bot platform
+- **kctl-notion** — Notion wiki/database management
+- **kctl-zulip** — Zulip team chat administration
+- **kctl-outline** — Outline wiki/knowledge base
+- **kctl-opencloud** — OpenCloud file storage platform
 
-Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-lib; exceptions are kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL), kctl-mdm (custom auth).
+Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-lib; exceptions are kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL).
 
 ## Key Paths
 
@@ -273,7 +282,7 @@ S3-compatible endpoint. See `packages/kctl-dokploy/README.md` for full details.
 ### Config Subcommands (all CLIs)
 init, add, use, show, validate, remove, set, profiles, current
 
-### Standard Commands (all 23 CLIs, since Quality Sweep 2026-04-06)
+### Standard Commands (all 28 CLIs, since Quality Sweep 2026-04-18)
 | Command | Purpose |
 |---------|---------|
 | `config init` | Interactive profile setup |
@@ -290,9 +299,28 @@ init, add, use, show, validate, remove, set, profiles, current
 | Cleanup | `clean` |
 
 ### Quality Baseline (all CLIs)
-- README.md ≥ 40 lines (proportional to CLI size)
+- README.md ≥ 60 lines (proportional to CLI size)
 - SKILL.md present in `skills/<name>-admin/`
 - conftest.py with standard fixtures (runner, mock_client, mock_config, mock_output, mock_context)
+- Lint + format + tests pass; in CI matrix; coverage ≥ 0.3 tests per command
+- Objective score computed via `scripts/audit-platform.py`; 9+/10 is the bar
+
+### Audit & Ratchet
+
+```bash
+# Full scored table (runs lint/format/pytest/mypy per package — ~15min)
+uv run python scripts/audit-platform.py
+
+# Only packages below 9/10, with reasons
+uv run python scripts/audit-platform.py --fix-list
+
+# Machine-readable for CI hooks
+uv run python scripts/audit-platform.py --json
+```
+
+Current state (2026-04-18): **29/29 packages at 9+/10, average 9.7**. Mypy
+strict remains a cross-cutting debt area (26/27 CLIs have type debt) tracked
+as a separate ratchet, not in the score.
 - E2E scaffolding for 5 critical CLIs: odoo, dokploy, react, pg, ak
 
 ## Deploy Manifest Naming

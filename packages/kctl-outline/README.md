@@ -51,7 +51,7 @@ kctl-outline config use kod
 | `shares` | Public share links |
 | `comments`, `events`, `revisions` | Read-only metadata |
 | `templates`, `stars`, `tokens` | Misc admin |
-| `health`, `dashboard` | Diagnostics |
+| `health`, `dashboard`, `doctor` | Diagnostics (`doctor` checks URL + auth config) |
 | `search` | Search across documents |
 | `sync` | **Sync markdown docs between repos and Outline (see below)** |
 
