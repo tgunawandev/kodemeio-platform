@@ -1,0 +1,25 @@
+# Route https://dokploy.local.kodeme.io → Dokploy admin UI (swarm service "dokploy" on :3000).
+# Traefik joins the dokploy-network overlay, so Docker DNS resolves the service name directly.
+# TLS falls through to the default certificate (wildcard *.local.kodeme.io, see wildcard-local.yml).
+http:
+  services:
+    dokploy-ui:
+      loadBalancer:
+        servers:
+          - url: "http://dokploy:3000"
+
+  routers:
+    dokploy-ui-http:
+      rule: "Host(`dokploy.local.kodeme.io`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https@file
+      service: dokploy-ui
+
+    dokploy-ui-websecure:
+      rule: "Host(`dokploy.local.kodeme.io`)"
+      entryPoints:
+        - websecure
+      service: dokploy-ui
+      tls: {}
