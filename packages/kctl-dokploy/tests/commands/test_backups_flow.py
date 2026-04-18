@@ -420,6 +420,125 @@ class TestRestoreLocal:
 
 
 # ---------------------------------------------------------------------------
+# refresh --latest: skip dump, pick newest S3 key matching the database.
+# ---------------------------------------------------------------------------
+
+
+class TestRefreshLatest:
+    def test_latest_picks_newest_matching_key_and_skips_dump(self, tmp_path: Path) -> None:
+        """--latest should download the newest S3 file matching --database, not dump fresh."""
+        # The command builds a DokployClient for --source-profile by reading the
+        # shared kctl config. We monkeypatch the _build_source_client helper so
+        # the test doesn't need a real profile, and so we can drive the
+        # responses it returns.
+        source_client = MagicMock()
+        source_client.get.side_effect = lambda endpoint, params=None: {
+            "/destination.one": SAMPLE_DEST,
+            "/backup.listBackupFiles": [
+                "tpp-infra-postgres/tpp_odoo_erp-2026-04-17T02-00-00Z.dump",
+                "tpp-infra-postgres/tpp_odoo_erp-2026-04-18T02-00-00Z.dump",  # newest
+                "tpp-infra-postgres/other_db-2026-04-18T02-00-00Z.dump",  # different db
+            ],
+        }.get(endpoint, {})
+
+        fake_s3 = MagicMock()
+
+        def _fake_download(bucket: str, key: str, path: str) -> None:
+            # Write PGDMP magic so restore_local recognises as custom-format dump.
+            Path(path).write_bytes(b"PGDMP\x00\x00\x00")
+
+        fake_s3.download_file.side_effect = _fake_download
+
+        # Fake the target-side Dokploy client that's resolved through ctx.obj
+        target_client = MagicMock()
+        target_client.get.side_effect = lambda endpoint, params=None: SAMPLE_COMPOSE
+
+        # docker ps (local target) + drop/create/restore (all exit 0)
+        ps_result = MagicMock(returncode=0, stdout="compose-sample-app-postgres-1\tpostgres\n", stderr="")
+        ok = MagicMock(returncode=0, stdout=b"", stderr=b"")
+
+        def run_side_effect(*args, **kwargs):
+            argv = args[0]
+            if argv[:2] == ["docker", "ps"]:
+                return ps_result
+            return ok
+
+        # Route Popen so the fresh-dump path (if accidentally taken) would blow up.
+        def no_dump(*args, **kwargs):  # pragma: no cover - guard for regressions
+            raise AssertionError("fresh dump pg_dump should not be invoked under --latest")
+
+        with (
+            patch.object(AppContext, "client", new_callable=PropertyMock, return_value=target_client),
+            patch.object(bf, "_build_source_client", return_value=source_client),
+            patch.object(bf, "_build_s3_client", return_value=fake_s3),
+            patch("kctl_dokploy.commands.backups_flow.subprocess.run", side_effect=run_side_effect),
+            patch("kctl_dokploy.commands.backups_flow.subprocess.Popen", side_effect=no_dump),
+        ):
+            result = runner.invoke(
+                app,
+                [
+                    "backups",
+                    "refresh",
+                    "--source-profile",
+                    "idtpp",
+                    "--source-compose",
+                    "comp-xyz",
+                    "--source-destination",
+                    "dest-1",
+                    "--target-compose",
+                    "comp-xyz",
+                    "--database",
+                    "tpp_odoo_erp",
+                    "--latest",
+                    "--force",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        # The NEWEST matching file must have been downloaded (the 2026-04-18 one),
+        # not the older 2026-04-17 file nor the unrelated other_db file.
+        assert fake_s3.download_file.call_count == 1
+        download_args = fake_s3.download_file.call_args[0]
+        assert download_args[0] == SAMPLE_DEST["bucket"]
+        assert download_args[1] == "tpp-infra-postgres/tpp_odoo_erp-2026-04-18T02-00-00Z.dump"
+
+    def test_latest_errors_when_no_matching_key(self) -> None:
+        """No matching key → clear error and exit 1, not a silent miss."""
+        source_client = MagicMock()
+        source_client.get.side_effect = lambda endpoint, params=None: {
+            "/destination.one": SAMPLE_DEST,
+            "/backup.listBackupFiles": ["other_db/file-2026-04-18.dump"],
+        }.get(endpoint, {})
+
+        with (
+            patch.object(AppContext, "client", new_callable=PropertyMock, return_value=MagicMock()),
+            patch.object(bf, "_build_source_client", return_value=source_client),
+            patch.object(bf, "_build_s3_client", return_value=MagicMock()),
+        ):
+            result = runner.invoke(
+                app,
+                [
+                    "backups",
+                    "refresh",
+                    "--source-profile",
+                    "idtpp",
+                    "--source-compose",
+                    "comp-xyz",
+                    "--source-destination",
+                    "dest-1",
+                    "--target-compose",
+                    "comp-xyz",
+                    "--database",
+                    "tpp_odoo_erp",
+                    "--latest",
+                    "--force",
+                ],
+            )
+        assert result.exit_code != 0
+        assert "No S3 files" in result.output or "tpp_odoo_erp" in result.output
+
+
+# ---------------------------------------------------------------------------
 # Shared helpers for the fixture side_effects
 # ---------------------------------------------------------------------------
 

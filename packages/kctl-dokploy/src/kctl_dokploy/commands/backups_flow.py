@@ -548,70 +548,121 @@ def refresh(
     keep_download: Annotated[
         Path | None, typer.Option("--keep-download", help="Keep downloaded file at this path")
     ] = None,
+    latest: Annotated[
+        bool,
+        typer.Option(
+            "--latest",
+            help=(
+                "Skip the fresh dump; use the newest existing S3 file whose key contains "
+                "the database name. Faster and avoids prod load when a scheduled nightly "
+                "backup is already recent enough. Requires the source bucket to have at "
+                "least one matching file."
+            ),
+        ),
+    ] = False,
+    key_filter: Annotated[
+        str,
+        typer.Option(
+            "--key-filter",
+            help="With --latest: substring the S3 key must contain (default: --database value).",
+        ),
+    ] = "",
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
 ) -> None:
-    """End-to-end: dump source compose's DB to S3, download, restore into target compose.
+    """End-to-end: (optionally dump) source compose's DB to S3, download, restore.
 
-    Bypasses Dokploy's /backup.manualBackupCompose (which is fragile) by running
-    pg_dump via SSH directly. The S3 bucket must be registered as a destination
-    on both the source profile (for upload) and the current profile (for download).
+    Default mode: runs pg_dump over SSH into the source compose's postgres
+    container and streams straight to S3. Bypasses Dokploy's
+    /backup.manualBackupCompose (platform bug — 400s even on valid configs).
+
+    --latest mode: skips the dump and reuses the newest existing S3 file
+    matching --database. Use this when a scheduled nightly backup is already
+    current and you just want to pull it down — no prod load, no SSH needed.
+
+    The S3 bucket must be registered as a destination on both the source
+    profile (for upload / scheduled writes) and the current profile (for
+    download).
     """
     c: AppContext = ctx.obj
     source_client = _build_source_client(source_profile)
 
-    # --- 1) Resolve source compose + SSH target
-    c.output.info(f"[{source_profile}] Dumping {database} from compose {source_compose}...")
-    src_data = source_client.get("/compose.one", params={"composeId": source_compose})
-    if not isinstance(src_data, dict):
-        _die(c, f"Source compose '{source_compose}' not found")
-    src_app_name = src_data.get("appName") or src_data.get("name") or ""
-    src_env = src_data.get("env", "") if isinstance(src_data.get("env"), str) else ""
-    src_password = _parse_env_str(src_env).get("POSTGRES_PASSWORD", "")
-    if not src_password:
-        _die(c, "Source compose has no POSTGRES_PASSWORD")
-
-    server_id = src_data.get("serverId")
-    ssh_host: str | None = None
-    if server_id:
-        srv = source_client.get("/server.one", params={"serverId": server_id})
-        if isinstance(srv, dict) and srv.get("ipAddress"):
-            ssh_host = f"{srv.get('username') or 'root'}@{srv['ipAddress']}"
-
-    container = _find_container(ssh_host, str(src_app_name), source_service)
-    c.output.info(f"  source container: {container} ({'local' if not ssh_host else ssh_host})")
-
+    # Source destination (needed for both modes to talk to S3).
     source_dest = source_client.get("/destination.one", params={"destinationId": source_destination_id})
     if not isinstance(source_dest, dict) or not source_dest.get("bucket"):
         _die(c, "Source destination missing or has no bucket")
     bucket = source_dest["bucket"]
     s3 = _build_s3_client(source_dest)
 
-    ts = datetime.datetime.now(tz=datetime.UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
-    s3_key = f"{src_data.get('name', 'compose')}/{database}-{ts}.dump"
+    if latest:
+        # --- 1a) Find the newest existing S3 file matching the database.
+        filter_str = key_filter or database
+        c.output.info(f"[{source_profile}] --latest: finding newest S3 key containing '{filter_str}'...")
+        raw = source_client.get(
+            "/backup.listBackupFiles",
+            params={"destinationId": source_destination_id, "search": ""},
+        )
+        keys: list[str] = []
+        if isinstance(raw, list):
+            for f in raw:
+                if isinstance(f, str):
+                    keys.append(f)
+                elif isinstance(f, dict):
+                    name = f.get("name") or f.get("key")
+                    if isinstance(name, str):
+                        keys.append(name)
+        matches = sorted(k for k in keys if filter_str in k)
+        if not matches:
+            _die(c, f"No S3 files in bucket '{bucket}' contain '{filter_str}'. Run without --latest for a fresh dump.")
+        s3_key = matches[-1]
+        c.output.success(f"  latest: {s3_key}")
+    else:
+        # --- 1b) Fresh dump via SSH + pg_dump.
+        c.output.info(f"[{source_profile}] Dumping {database} from compose {source_compose}...")
+        src_data = source_client.get("/compose.one", params={"composeId": source_compose})
+        if not isinstance(src_data, dict):
+            _die(c, f"Source compose '{source_compose}' not found")
+        src_app_name = src_data.get("appName") or src_data.get("name") or ""
+        src_env = src_data.get("env", "") if isinstance(src_data.get("env"), str) else ""
+        src_password = _parse_env_str(src_env).get("POSTGRES_PASSWORD", "")
+        if not src_password:
+            _die(c, "Source compose has no POSTGRES_PASSWORD")
 
-    pg_dump_cmd = [
-        "docker",
-        "exec",
-        "-e",
-        f"PGPASSWORD={src_password}",
-        container,
-        "pg_dump",
-        "-U",
-        "postgres",
-        "-d",
-        database,
-        "-F",
-        "c",
-    ]
-    full_cmd = (
-        ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", ssh_host, *pg_dump_cmd]
-        if ssh_host
-        else pg_dump_cmd
-    )
+        server_id = src_data.get("serverId")
+        ssh_host: str | None = None
+        if server_id:
+            srv = source_client.get("/server.one", params={"serverId": server_id})
+            if isinstance(srv, dict) and srv.get("ipAddress"):
+                ssh_host = f"{srv.get('username') or 'root'}@{srv['ipAddress']}"
 
-    c.output.info(f"  uploading to s3://{bucket}/{s3_key}")
-    size = _stream_pg_dump_to_s3(full_cmd, s3, bucket, s3_key)
-    c.output.success(f"  uploaded {size:,} bytes")
+        container = _find_container(ssh_host, str(src_app_name), source_service)
+        c.output.info(f"  source container: {container} ({'local' if not ssh_host else ssh_host})")
+
+        ts = datetime.datetime.now(tz=datetime.UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
+        s3_key = f"{src_data.get('name', 'compose')}/{database}-{ts}.dump"
+
+        pg_dump_cmd = [
+            "docker",
+            "exec",
+            "-e",
+            f"PGPASSWORD={src_password}",
+            container,
+            "pg_dump",
+            "-U",
+            "postgres",
+            "-d",
+            database,
+            "-F",
+            "c",
+        ]
+        full_cmd = (
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", ssh_host, *pg_dump_cmd]
+            if ssh_host
+            else pg_dump_cmd
+        )
+
+        c.output.info(f"  uploading to s3://{bucket}/{s3_key}")
+        size = _stream_pg_dump_to_s3(full_cmd, s3, bucket, s3_key)
+        c.output.success(f"  uploaded {size:,} bytes")
 
     # --- 2) Download to local
     if keep_download:
