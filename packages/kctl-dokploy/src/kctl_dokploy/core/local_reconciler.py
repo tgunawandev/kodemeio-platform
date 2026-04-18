@@ -138,9 +138,18 @@ class LocalReconciler:
             "https": True,
             "cert_type": "none",
         }
+        # Dokploy's API returns camelCase; match against both so we don't
+        # double-create when the domain already exists.
+        camel_spec: dict[str, Any] = {
+            "host": host,
+            "port": port,
+            "serviceName": service,
+            "https": True,
+            "certificateType": "none",
+        }
         existing = self.dokploy.domains.list_for_compose(compose_id)
         for d in existing:
-            if all(d.get(k) == v for k, v in spec.items()):
+            if all(d.get(k) == v for k, v in camel_spec.items()) or all(d.get(k) == v for k, v in spec.items()):
                 return ReconcileResult(changed=False, inspected=[host])
 
         self.dokploy.domains.create(compose_id=compose_id, **spec)

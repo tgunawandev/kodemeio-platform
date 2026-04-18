@@ -769,6 +769,13 @@ def apply_local(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Preview DNS reconcile only; no Dokploy mutations")
     ] = False,
+    cf_profile: Annotated[
+        str,
+        typer.Option(
+            "--cf-profile",
+            help="kctl-cf profile with the Cloudflare zone (distinct from --profile, which is Dokploy-scoped)",
+        ),
+    ] = "kodemeio",
 ) -> None:
     """Apply a local-only instance manifest.
 
@@ -804,8 +811,10 @@ def apply_local(
         c.output.error(f"{file}: domain.host={host!r} must end with '.local.kodeme.io'")
         raise typer.Exit(code=2)
 
+    # --profile is Dokploy-scoped; Cloudflare lives in a separate kctl-cf profile
+    # (typically "kodemeio"). Decouple via an explicit --cf-profile flag.
     reconciler = LocalReconciler(
-        dns=KctlCfDnsAdapter(profile=c.profile or "kodemeio"),
+        dns=KctlCfDnsAdapter(profile=cf_profile),
         dokploy=LocalDokployAdapter(client=c.client),
         lan_ip_getter=current_lan_ipv4,
         zone="kodeme.io",
