@@ -35,14 +35,19 @@ def generate(
     skill_name = "notion-admin"
     description = "Notion wiki management via kctl-notion CLI"
 
+    # Canonical in-repo skill dir — source of SKILL.extra.md regardless
+    # of where output goes. Without this, --install writes to
+    # ~/.claude/skills/ and the handwritten runbook vanishes.
+    cli_root = Path(__file__).resolve().parents[3]
+    source_dir = cli_root / "skills" / skill_name
+
     # Determine output directory
     if output:
         output_dir = Path(output)
     elif install:
         output_dir = Path.home() / ".claude" / "skills" / skill_name
     else:
-        cli_root = Path(__file__).resolve().parents[3]
-        output_dir = cli_root / "skills" / skill_name
+        output_dir = source_dir
 
     # Check-only mode
     if check:
@@ -55,8 +60,8 @@ def generate(
         out.success(f"SKILL.md is up to date: {reason}")
         return
 
-    # Check for extra content
-    extra = output_dir / "SKILL.extra.md"
+    # Extra content always lives at the in-repo location.
+    extra = source_dir / "SKILL.extra.md"
 
     generate_skill(
         cli_app,

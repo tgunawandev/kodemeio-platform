@@ -35,13 +35,19 @@ def generate(
     skill_name = "dbgate-admin"
     description = "DBGate web-based database management UI administration via kctl-dbgate CLI"
 
+    # Canonical in-repo skill dir — source of SKILL.extra.md regardless
+    # of where output goes. Without this, --install writes to
+    # ~/.claude/skills/ and the handwritten runbook vanishes.
+    cli_root = Path(__file__).resolve().parents[3]
+    source_dir = cli_root / "skills" / skill_name
+
+    # Determine output directory
     if output:
         output_dir = Path(output)
     elif install:
         output_dir = Path.home() / ".claude" / "skills" / skill_name
     else:
-        cli_root = Path(__file__).resolve().parents[3]
-        output_dir = cli_root / "skills" / skill_name
+        output_dir = source_dir
 
     if check:
         skill_file = output_dir / "SKILL.md"
