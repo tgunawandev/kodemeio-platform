@@ -1,11 +1,11 @@
 ---
 name: dokploy-admin
 description: >
-  Dokploy deployment platform administration via kctl-dokploy CLI (49 groups, ~286 commands).
+  Dokploy deployment platform administration via kctl-dokploy CLI (52 groups, ~301 commands).
   MUST use for ANY kctl-dokploy operation.
-  Triggers on: "add-destination", "add-manager", "add-worker", "applications", "apply", "apply-all", "audit", "backup", "backups", "bl", "branches", "build-servers", "bulk", "by-server", "by-type", "cancel", "certificates", "check", "cl", "clean", "cleanup", "clear-deployments", "cluster", "compliance", "compose", "config", "container-logs", "containers", "count", "cr", "create-mariadb", "create-mongo", "create-mysql", "create-postgres", "create-redis", "create-ssh-key", "cs", "dashboard", "databases", "delete-destination", "delete-rollback", "deploy", "deploy-all", "deployments", "destinations", "dg", "diagnose", "dl", "docker", "domains", "ds", "duplicate", "env", "env-set", "environments", "export", "find", "generate", "get-env", "git", "health", "history", "images", "import", "import-file", "init", "integrity", "kctl-dokploy", "kill", "kill-build", "list-by-service", "logs", "maintenance", "mark-delete", "metrics", "migrate", "monitor", "monitoring", "mounts", "move".
-  Auto-generated: 2026-04-05
-  registry_hash: ee64dbbf39c1
+  Triggers on: "add-destination", "add-manager", "add-worker", "applications", "apply", "apply-all", "apply-local", "audit", "autodeploy", "backup", "backups", "bl", "branches", "build-servers", "bulk", "by-server", "by-type", "cancel", "certificates", "check", "cl", "clean", "cleanup", "clear-deployments", "cluster", "completions", "compliance", "compose", "config", "container-logs", "containers", "count", "cr", "create-mariadb", "create-mongo", "create-mysql", "create-postgres", "create-redis", "create-ssh-key", "cs", "dashboard", "databases", "delete-destination", "delete-rollback", "deploy", "deploy-all", "deployments", "destinations", "dg", "diagnose", "dl", "docker", "doctor", "domains", "download", "ds", "dump-compose", "duplicate", "env", "env-set", "environments", "export", "find", "generate", "get-env", "git", "health", "history", "images", "import", "import-file", "init", "integrity", "kctl-dokploy", "kill", "kill-build", "list-by-service", "list-files", "logs", "maintenance".
+  Auto-generated: 2026-04-18
+  registry_hash: fdb0250d574c
 ---
 
 # dokploy-admin — kctl-dokploy CLI Reference
@@ -17,8 +17,8 @@ description: >
 ## Overview
 
 **CLI:** `kctl-dokploy`
-**Command groups:** 49
-**Total commands:** ~286
+**Command groups:** 52
+**Total commands:** ~301
 **Install:** `cd cli && uv tool install --editable .`
 
 ## Global Options
@@ -79,11 +79,20 @@ Manage Dokploy backups and S3 destinations.
 | `backups delete-destination <destination_id> [--force]` | Delete an S3 backup destination. |
 | `backups delete-rollback <rollback_id> [--force]` | Delete a rollback record (destructive). |
 | `backups destinations` | List all S3 backup destinations. |
+| `backups download <backup_file> <destination_id> <output>` | Download a backup file from S3 to local disk. |
+| `backups dump-compose <compose_id> <destination_id> <database> [--service] [--fmt] [--key_prefix] [--ssh_host] [--no_ssh]` | Dump a database from a compose's postgres container and upload to S3. |
+| `backups get <backup_id>` | Get details for a backup configuration. |
 | `backups list [--compose_id]` | List all backup configurations. |
-| `backups restore <backup_id> [--force]` | Restore from a backup snapshot (destructive). |
+| `backups list-files <destination_id> [--search] [--server_id]` | List backup files stored in an S3 destination. |
+| `backups refresh <source_profile> <source_compose> <source_destination_id> <target_compose> <database> [--source_service] [--target_service] [--target_db] [--keep_download] [--force]` | End-to-end: dump source compose's DB to S3, download, restore into target compose. |
+| `backups remove <backup_id> [--force]` | Remove a backup configuration (destructive). |
+| `backups restore <backup_file> <destination_id> <database_id> <database_name> [--database_type] [--force]` | Restore from a backup file (destructive). |
+| `backups restore-local <backup_file> <compose_id> [--service] [--db_name] [--drop_recreate] [--force]` | Restore a local dump file into a compose's postgres container. |
 | `backups rollback <rollback_id> [--force]` | Rollback to a previous state (destructive). |
 | `backups run <backup_id> [--backup_type]` | Trigger a manual backup run. |
+| `backups run-wait <backup_id> <destination_id> [--backup_type] [--timeout] [--poll_interval] [--search]` | Trigger a Dokploy manual backup and wait for a new file in the destination. |
 | `backups test-destination <destination_id>` | Test S3 connection for a destination. |
+| `backups update <backup_id> [--schedule] [--prefix] [--enabled] [--destination_id]` | Update a backup configuration. |
 | `backups update-destination <destination_id> [--name] [--bucket] [--region] [--endpoint] [--access_key] [--secret_key]` | Update an S3 backup destination. |
 
 ### `kctl-dokploy bl`
@@ -132,17 +141,24 @@ Manage Docker Swarm cluster and nodes.
 | `cluster swarm-info <node_id> <server_id>` | Get detailed info for a Swarm node. |
 | `cluster swarm-nodes <server_id>` | List Swarm nodes for a server. |
 
+### `kctl-dokploy completions`
+
+Generate or install shell completions.
+
+Usage: `kctl-dokploy completions [--shell] [--install]`
+
 ### `kctl-dokploy compose`
 
 Manage Dokploy compose services.
 
 | Command | Description |
 |---------|-------------|
+| `compose autodeploy` | View and toggle compose auto-deploy on git push. |
 | `compose backups` | Manage Dokploy backups and S3 destinations. |
 | `compose bulk` | Bulk operations across multiple services. |
 | `compose cancel <compose_id>` | Cancel a running deployment for a compose service. |
 | `compose clear-deployments <compose_id> [--force]` | Clear all deployment history for a compose service (destructive). |
-| `compose create <environment_id> <name> [--description] [--server_id] [--compose_file]` | Create a new compose service in a project environment. |
+| `compose create <environment_id> <name> [--description] [--server_id] [--compose_file] [--auto_deploy]` | Create a new compose service in a project environment. |
 | `compose delete <compose_id> [--force]` | Delete a compose service (destructive). |
 | `compose deployments` | Manage Dokploy deployments. |
 | `compose domains` | Manage Dokploy domains. |
@@ -150,7 +166,7 @@ Manage Dokploy compose services.
 | `compose get <compose_id>` | Get details for a compose service. |
 | `compose import <compose_id> <file>` | Import a docker-compose file into a compose service. |
 | `compose kill-build <compose_id> [--force]` | Kill a running build for a compose service (destructive). |
-| `compose list [--project_id]` | List compose services, optionally filtered by project. |
+| `compose list [--project_id] [--with_autodeploy]` | List compose services, optionally filtered by project. |
 | `compose logs <compose_id> [--lines]` | Show logs for a compose service (fetches from deployment history). |
 | `compose mounts` | Manage volume and bind mounts. |
 | `compose move <compose_id> <environment>` | Move a compose service to a different environment. |
@@ -161,11 +177,11 @@ Manage Dokploy compose services.
 | `compose schedules` | Manage scheduled tasks (cron jobs). |
 | `compose search <name>` | Search compose services by name. |
 | `compose security` | Manage HTTP basic auth protection. |
-| `compose service-logs <compose_id> [--service] [--tail]` | Show Docker container runtime logs for a compose service. |
+| `compose service-logs <compose_id> [--service] [--tail] [--follow]` | Show Docker container runtime logs for a compose service. |
 | `compose services <compose_id>` | List services defined in a compose service. |
 | `compose start <compose_id>` | Start (deploy) a compose service. |
 | `compose stop <compose_id> [--force]` | Stop a running compose service. |
-| `compose update <compose_id> [--name] [--description] [--env_content] [--compose_file] [--source_type] [--repository] [--owner] [--branch] [--compose_path] [--github_id] [--command] [--trigger_type] [--watch_paths] [--enable_submodules] [--auto_deploy]` | Update a compose service configuration. |
+| `compose update <compose_id> [--name] [--description] [--env_content] [--compose_file] [--source_type] [--repository] [--owner] [--branch] [--compose_path] [--github_id] [--command] [--trigger_type] [--watch_paths] [--enable_submodules] [--auto_deploy] [--server_id] [--deploy]` | Update a compose service configuration. |
 | `compose volume-backups` | Manage volume-level backups. |
 
 ### `kctl-dokploy config`
@@ -228,6 +244,7 @@ Declarative deployment from YAML manifests.
 |---------|-------------|
 | `deploy apply <file> [--dry_run] [--skip_deploy] [--skip_verify] [--skip_preflight]` | All-in-one: setup + deploy + post-deploy in sequence. |
 | `deploy apply-all [--dir] [--dry_run]` | Apply all manifests in a directory sequentially. |
+| `deploy apply-local <file> [--dry_run] [--cf_profile]` | Apply a local-only instance manifest. |
 | `deploy list` | List all instance manifests and their status. |
 | `deploy migrate` | Server-to-server migration pipeline. |
 | `deploy post <file> [--dry_run]` | Stage 3: Post-deploy — backup config, schedules, Odoo bundle install. |
@@ -290,6 +307,10 @@ Docker container and resource management.
 | `docker restart <container_id> [--force]` | Restart a Docker container (destructive). |
 | `docker stats` | Show Docker disk usage statistics. |
 | `docker volumes` | List Docker volumes (not available in current Dokploy API). |
+
+### `kctl-dokploy doctor`
+
+Run diagnostic checks.
 
 ### `kctl-dokploy domains`
 
@@ -521,6 +542,10 @@ Manage HTTP basic auth protection.
 | `security get <security_id>` | Get security entry details. |
 | `security update <security_id> [--username] [--password]` | Update a security entry. |
 
+### `kctl-dokploy self-update`
+
+Check for updates and upgrade kctl-dokploy.
+
 ### `kctl-dokploy servers`
 
 Manage Dokploy servers.
@@ -629,10 +654,11 @@ Manage volume-level backups.
 
 | Command | Description |
 |---------|-------------|
-| `volume-backups create <name> <cron> <backup_type> <destination_id> [--resource_id]` | Create a new volume backup. |
+| `volume-backups create [--name] [--cron] [--schedule] [--backup_type] [--destination_id] [--destination] [--resource_id] [--compose_id] [--service_name] [--prefix]` | Create a new volume backup. |
 | `volume-backups delete <backup_id> [--force]` | Delete a volume backup (destructive). |
 | `volume-backups get <backup_id>` | Get volume backup details. |
 | `volume-backups list <resource_id> <backup_type>` | List volume backups for a resource. |
+| `volume-backups restore <backup_file> <destination_id> <volume_name> <resource_id> [--service_type] [--server_id] [--force]` | Restore a volume from a backup file (destructive). |
 | `volume-backups run <backup_id>` | Manually trigger a volume backup. |
 | `volume-backups update <backup_id> [--name] [--cron] [--enabled]` | Update a volume backup. |
 
@@ -647,3 +673,113 @@ kctl-dokploy config profiles   # List profiles
 kctl-dokploy config current    # Show active profile
 kctl-dokploy config validate   # Verify config
 ```
+
+
+---
+
+# dokploy-admin — extra runbooks
+
+> This file is merged into SKILL.md by `kctl-dokploy skill generate`.
+> Put anything here that should survive regeneration: narrative workflows,
+> gotchas, one-command recipes, troubleshooting.
+
+## Compose Postgres Backup → S3 → Local Restore (prod → local)
+
+Dokploy's native `/backup.manualBackupCompose` endpoint is unreliable for
+postgres running inside a compose stack (it assumes the env's `POSTGRES_DB`
+matches an actual database, which often isn't true on shared postgres
+instances). kctl-dokploy ships an alternative that runs `pg_dump` directly
+via SSH+docker exec and streams straight to S3 — **bypasses Dokploy's
+backup system entirely**.
+
+### One-time setup per bucket
+
+```bash
+# 1. Create Hetzner S3 bucket
+kctl-hz s3 mb hz-tpp-postgres-backup
+
+# 2. Register as Dokploy destination on SOURCE AND TARGET profiles
+#    (same bucket, same creds — just one entry on each Dokploy instance)
+kctl-dokploy --profile idtpp backups add-destination \
+    --name hz-tpp-postgres-backup --bucket hz-tpp-postgres-backup \
+    --access-key "$HZ_ACCESS" --secret-key "$HZ_SECRET" \
+    --region fsn1 --endpoint https://fsn1.your-objectstorage.com
+
+kctl-dokploy --profile local backups add-destination \
+    --name hz-tpp-postgres-backup --bucket hz-tpp-postgres-backup \
+    --access-key "$HZ_ACCESS" --secret-key "$HZ_SECRET" \
+    --region fsn1 --endpoint https://fsn1.your-objectstorage.com
+```
+
+### One-shot refresh
+
+```bash
+kctl-dokploy --profile local backups refresh \
+    --source-profile idtpp \
+    --source-compose <prod-compose-id> \
+    --source-destination <idtpp-dest-id> \
+    --target-compose <local-compose-id> \
+    --database tpp_odoo_erp \
+    --force
+```
+
+Tested live against `tpp-odoo-erp.idtpp.com` (16.55 MB dump, ~30s
+round-trip including restore into local postgres-16).
+
+### Step-by-step flow
+
+For scripting, investigation, or when you want the downloaded dump on
+disk for later reuse:
+
+```bash
+# 1. Dump source compose's DB → S3 (auto-SSHes to compose's serverId)
+kctl-dokploy --profile idtpp backups dump-compose \
+    --compose <id> --destination <dest-id> \
+    --database tpp_odoo_erp --service postgres
+
+# 2. Download the dump from S3 to local disk
+kctl-dokploy --profile local backups download \
+    tpp-infra-postgres/tpp_odoo_erp-2026-04-18T03-37-23Z.dump \
+    --destination <local-dest-id> \
+    --output /tmp/dump.dump
+
+# 3. Restore into local compose's postgres container
+kctl-dokploy --profile local backups restore-local \
+    /tmp/dump.dump --compose <local-compose-id> \
+    --service postgres --db-name tpp_odoo_erp --force
+```
+
+### How it works
+
+- `dump-compose` resolves the compose's `serverId` from the Dokploy API,
+  SSHes to that server, finds the postgres container via `docker ps` +
+  `com.docker.compose.service` label, runs `pg_dump -F c`, and streams
+  stdout straight to S3. Never writes to the SSH host's disk.
+- `restore-local` auto-resolves the target postgres container using the
+  compose's `appName` + service label. Uses `pg_restore --exit-on-error`
+  for custom-format dumps (magic bytes `PGDMP`), or
+  `psql -v ON_ERROR_STOP=1` for plain SQL.
+- `refresh` orchestrates both in a single call with proper tempdir cleanup.
+- S3 credentials are read from the Dokploy destination record — no
+  separate credential setup beyond `add-destination`.
+
+### Gotchas
+
+- If the prod postgres has a DB name different from its `POSTGRES_DB`
+  env var (shared-postgres pattern), **name it explicitly** with
+  `--database`. Dokploy's native backup can't handle this; our command
+  can.
+- For `--follow`-style live progress on a large dump, tail the SSH log
+  in another terminal: `kctl-dokploy compose service-logs <id> -f`.
+- Custom-format dumps (`-F c`, default) are internally compressed —
+  **do not** append `.gz` to filenames; `pg_restore` will refuse to
+  gunzip a non-gzip file.
+
+## Fast Log Debugging
+
+See `packages/kctl-odoo/README.md` and CLAUDE.md for `kctl-odoo logs
+tail`, which layers Odoo-aware filters (`--level`, `--module`,
+`--request`, `--worker`, `--grep`) on top of `kctl-dokploy compose
+service-logs -f`. Tracebacks are captured as whole blocks so
+`--level ERROR` keeps the full `Traceback (most recent call last): ...`
+body.
