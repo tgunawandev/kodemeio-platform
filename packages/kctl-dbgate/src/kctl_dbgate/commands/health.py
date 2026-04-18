@@ -42,11 +42,11 @@ def health_check(ctx: typer.Context) -> None:
 
     # Public HTTP root
     try:
-        status = c.ping()
-        if status < 400:
-            out.success(f"HTTP /: {status}")
+        http_status = c.ping()
+        if http_status < 400:
+            out.success(f"HTTP /: {http_status}")
         else:
-            out.error(f"HTTP /: {status}")
+            out.error(f"HTTP /: {http_status}")
     except KctlError as e:
         out.error(f"HTTP /: {e}")
 
@@ -58,10 +58,10 @@ def health_check(ctx: typer.Context) -> None:
         out.error(f"Auth: {e}")
 
     # Container status
-    status = _container_status("kodemeio-dbgate-dbgate-1")
-    if status == "healthy":
-        out.success(f"Container: {status}")
-    elif status in ("starting", "running"):
-        out.info(f"Container: {status}")
+    container = _container_status("kodemeio-dbgate-dbgate-1")
+    if container == "healthy":
+        out.success(f"Container: {container}")
+    elif container in ("starting", "running"):
+        out.info(f"Container: {container}")
     else:
-        out.warn(f"Container: {status}")
+        out.warn(f"Container: {container}")
