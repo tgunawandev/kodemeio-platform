@@ -12,6 +12,7 @@ from kctl_dbgate.commands.config_cmd import app as config_app
 from kctl_dbgate.commands.connections import app as connections_app
 from kctl_dbgate.commands.doctor_cmd import app as doctor_app
 from kctl_dbgate.commands.health import app as health_app
+from kctl_dbgate.commands.servers import app as servers_app
 from kctl_dbgate.core.callbacks import AppContext
 from kctl_dbgate.core.plugins import discover_and_load_plugins
 
@@ -65,6 +66,7 @@ app.add_typer(config_app, name="config")
 app.add_typer(health_app, name="health")
 app.add_typer(connections_app, name="connections")
 app.add_typer(doctor_app, name="doctor")
+app.add_typer(servers_app, name="servers")
 
 # Load any third-party plugins
 discover_and_load_plugins(app)
