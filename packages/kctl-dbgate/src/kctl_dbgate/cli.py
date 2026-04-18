@@ -12,6 +12,7 @@ from kctl_dbgate.commands.config_cmd import app as config_app
 from kctl_dbgate.commands.connections import app as connections_app
 from kctl_dbgate.commands.doctor_cmd import app as doctor_app
 from kctl_dbgate.commands.health import app as health_app
+from kctl_dbgate.commands.history import app as history_app
 from kctl_dbgate.commands.plugins import app as plugins_app
 from kctl_dbgate.commands.query import app as query_app
 from kctl_dbgate.commands.servers import app as servers_app
@@ -67,6 +68,7 @@ def main(
 # Register command groups
 app.add_typer(config_app, name="config")
 app.add_typer(health_app, name="health")
+app.add_typer(history_app, name="history")
 app.add_typer(connections_app, name="connections")
 app.add_typer(doctor_app, name="doctor")
 app.add_typer(plugins_app, name="plugins")
