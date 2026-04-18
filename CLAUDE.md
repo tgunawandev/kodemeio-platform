@@ -49,7 +49,7 @@ for the authoritative list + quality scores.
 - **kctl-mm** — Mattermost Team Edition
 - **kctl-glitchtip** — GlitchTip error tracking (Sentry-compat API)
 - **kctl-rmm** — Tactical RMM remote monitoring
-- **kctl-dbgate** — DBGate database management UI
+- **kctl-dbgate** — DBGate database management UI (10 groups: connections, servers, query, sessions, plugins, history, storage, config, doctor, health)
 
 #### Application Management
 - **kctl-odoo** — Odoo 18 ERP management
