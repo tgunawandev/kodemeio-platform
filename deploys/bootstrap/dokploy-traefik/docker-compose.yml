@@ -1,0 +1,50 @@
+# Dokploy Traefik — reclaims :80/:443 for local Dokploy routing.
+# Deploy with:
+#   docker stack deploy -c deploys/bootstrap/dokploy-traefik/docker-compose.yml dokploy
+# (Running inside the existing `dokploy` stack so it joins dokploy-network.)
+
+version: "3.9"
+
+services:
+  dokploy-traefik:
+    # Docker engine 29.x rejects Traefik's default API v1.24; set env explicitly.
+    # Verified: v3.6.13 + DOCKER_API_VERSION=1.47 negotiates daemon's v1.53.
+    image: traefik:v3.6.13
+    environment:
+      DOCKER_API_VERSION: "1.47"
+    networks:
+      - dokploy-network
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+    volumes:
+      # Mount at the same path inside & outside so the static config's
+      # /etc/dokploy/traefik/dynamic/* references resolve correctly.
+      - /etc/dokploy/traefik:/etc/dokploy/traefik:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - --configFile=/etc/dokploy/traefik/traefik.yml
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+      update_config:
+        order: start-first
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  dokploy-network:
+    external: true

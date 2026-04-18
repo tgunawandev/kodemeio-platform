@@ -1,15 +1,15 @@
 # Traefik file-provider fragment.
 # Registers the *.local.kodeme.io wildcard as the DEFAULT certificate —
 # any route without an explicit cert resolver uses it.
-# Paths are inside the Traefik container; host /etc/dokploy/traefik is
-# bind-mounted at /etc/traefik (read-only) by dokploy-traefik compose.
+# Paths match host AND container — the dokploy-traefik compose bind-mounts
+# /etc/dokploy/traefik:/etc/dokploy/traefik:ro so references resolve identically.
 tls:
   certificates:
-    - certFile: /etc/traefik/dynamic/certs/local.kodeme.io/fullchain.pem
-      keyFile:  /etc/traefik/dynamic/certs/local.kodeme.io/privkey.pem
+    - certFile: /etc/dokploy/traefik/dynamic/certs/local.kodeme.io/fullchain.pem
+      keyFile:  /etc/dokploy/traefik/dynamic/certs/local.kodeme.io/privkey.pem
       stores:   [default]
   stores:
     default:
       defaultCertificate:
-        certFile: /etc/traefik/dynamic/certs/local.kodeme.io/fullchain.pem
-        keyFile:  /etc/traefik/dynamic/certs/local.kodeme.io/privkey.pem
+        certFile: /etc/dokploy/traefik/dynamic/certs/local.kodeme.io/fullchain.pem
+        keyFile:  /etc/dokploy/traefik/dynamic/certs/local.kodeme.io/privkey.pem
