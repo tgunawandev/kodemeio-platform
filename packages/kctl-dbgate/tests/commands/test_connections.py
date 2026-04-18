@@ -144,6 +144,85 @@ def test_create_sends_correct_payload(httpx_mock: HTTPXMock) -> None:
     assert body["database"] == "mydb"
 
 
+def test_create_with_ssh_tunnel_sets_use_ssh_tunnel(httpx_mock: HTTPXMock) -> None:
+    _mock_login(httpx_mock)
+    httpx_mock.add_response(
+        method="POST",
+        url=f"{BASE}/connections/save",
+        json={"_id": "new_ssh"},
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "connections",
+            "create",
+            "--label",
+            "via-ssh",
+            "--engine",
+            "postgres@dbgate-plugin-postgres",
+            "--server",
+            "127.0.0.1",
+            "--port",
+            "5432",
+            "--user",
+            "postgres",
+            "--password",
+            "dbpw",
+            "--ssh-host",
+            "1.2.3.4",
+            "--ssh-port",
+            "22",
+            "--ssh-user",
+            "root",
+            "--ssh-mode",
+            "keyFile",
+            "--ssh-keyfile",
+            "/root/.ssh/id_rsa",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/connections/save")
+    body = _body_of(req)
+    assert body["useSshTunnel"] is True
+    assert body["sshHost"] == "1.2.3.4"
+    assert body["sshPort"] == "22"
+    assert body["sshLogin"] == "root"
+    assert body["sshMode"] == "keyFile"
+    assert body["sshKeyfile"] == "/root/.ssh/id_rsa"
+    assert body["server"] == "127.0.0.1"  # from the SSH-target's perspective
+    assert body["password"] == "dbpw"  # DB password, not SSH
+
+
+def test_create_rejects_invalid_ssh_mode() -> None:
+    # Typer rejects --ssh-mode before login happens — no HTTP mocks needed.
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "connections",
+            "create",
+            "--label",
+            "bad",
+            "--engine",
+            "postgres@dbgate-plugin-postgres",
+            "--server",
+            "127.0.0.1",
+            "--port",
+            "5432",
+            "--user",
+            "u",
+            "--password",
+            "p",
+            "--ssh-host",
+            "1.2.3.4",
+            "--ssh-mode",
+            "nonsense",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_delete_confirms_by_default(httpx_mock: HTTPXMock) -> None:
     # No mocks at all — aborting before confirm means no HTTP traffic at all.
     runner = CliRunner()

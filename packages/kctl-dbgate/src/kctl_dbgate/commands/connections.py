@@ -149,6 +149,9 @@ def delete(
     out.success(f"Connection {conid} deleted")
 
 
+_SSH_MODES = {"userPassword", "agent", "keyFile"}
+
+
 def _build_payload(
     label: str | None,
     engine: str | None,
@@ -157,6 +160,14 @@ def _build_payload(
     user: str | None,
     password: str | None,
     database: str | None,
+    *,
+    ssh_host: str | None = None,
+    ssh_port: str | None = None,
+    ssh_user: str | None = None,
+    ssh_mode: str | None = None,
+    ssh_password: str | None = None,
+    ssh_keyfile: str | None = None,
+    ssh_keyfile_password: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {}
     if label is not None:
@@ -173,6 +184,24 @@ def _build_payload(
         payload["password"] = password
     if database is not None:
         payload["database"] = database
+    # SSH tunnel fields — DBGate triggers tunnelling when useSshTunnel is true.
+    if ssh_host is not None:
+        payload["useSshTunnel"] = True
+        payload["sshHost"] = ssh_host
+    if ssh_port is not None:
+        payload["sshPort"] = ssh_port
+    if ssh_user is not None:
+        payload["sshLogin"] = ssh_user
+    if ssh_mode is not None:
+        if ssh_mode not in _SSH_MODES:
+            raise typer.BadParameter(f"--ssh-mode must be one of {sorted(_SSH_MODES)}")
+        payload["sshMode"] = ssh_mode
+    if ssh_password is not None:
+        payload["sshPassword"] = ssh_password
+    if ssh_keyfile is not None:
+        payload["sshKeyfile"] = ssh_keyfile
+    if ssh_keyfile_password is not None:
+        payload["sshKeyfilePassword"] = ssh_keyfile_password
     return payload
 
 
@@ -181,17 +210,55 @@ def create(
     ctx: typer.Context,
     label: Annotated[str, typer.Option("--label", help="Display name")],
     engine: Annotated[str, typer.Option("--engine", help="Engine key, e.g. postgres@dbgate-plugin-postgres")],
-    server: Annotated[str, typer.Option("--server", help="DB server host")],
+    server: Annotated[
+        str, typer.Option("--server", help="DB server host (from the SSH target's perspective if --ssh-host is set)")
+    ],
     port: Annotated[str, typer.Option("--port", help="DB server port")],
     user: Annotated[str, typer.Option("--user", help="DB username")],
     password: Annotated[str, typer.Option("--password", help="DB password")],
     database: Annotated[str | None, typer.Option("--database", help="Default database (optional)")] = None,
+    ssh_host: Annotated[str | None, typer.Option("--ssh-host", help="SSH tunnel host")] = None,
+    ssh_port: Annotated[str | None, typer.Option("--ssh-port", help="SSH port (default 22)")] = None,
+    ssh_user: Annotated[str | None, typer.Option("--ssh-user", help="SSH login user")] = None,
+    ssh_mode: Annotated[
+        str | None,
+        typer.Option("--ssh-mode", help="SSH auth mode: userPassword | agent | keyFile"),
+    ] = None,
+    ssh_password: Annotated[str | None, typer.Option("--ssh-password", help="SSH password (userPassword mode)")] = None,
+    ssh_keyfile: Annotated[
+        str | None,
+        typer.Option("--ssh-keyfile", help="Path to SSH private key inside the DBGate container (keyFile mode)"),
+    ] = None,
+    ssh_keyfile_password: Annotated[
+        str | None, typer.Option("--ssh-keyfile-password", help="Passphrase for encrypted SSH key")
+    ] = None,
 ) -> None:
-    """Create a new database connection."""
+    """Create a new database connection.
+
+    Pass `--ssh-host …` (plus `--ssh-mode keyFile --ssh-keyfile …` or
+    `--ssh-mode userPassword --ssh-password …`) to route the DB connection
+    through an SSH tunnel. `--server`/`--port` are then resolved from the
+    SSH target's perspective (commonly `127.0.0.1:5432`).
+    """
     actx: AppContext = ctx.obj
     out = actx.output
 
-    payload = _build_payload(label, engine, server, port, user, password, database)
+    payload = _build_payload(
+        label,
+        engine,
+        server,
+        port,
+        user,
+        password,
+        database,
+        ssh_host=ssh_host,
+        ssh_port=ssh_port,
+        ssh_user=ssh_user,
+        ssh_mode=ssh_mode,
+        ssh_password=ssh_password,
+        ssh_keyfile=ssh_keyfile,
+        ssh_keyfile_password=ssh_keyfile_password,
+    )
 
     try:
         result = actx.client.call("/connections/save", payload)
@@ -203,6 +270,8 @@ def create(
     out.success(f"Connection created: {new_id}")
     out.kv("Label", label)
     out.kv("Engine", engine)
+    if ssh_host:
+        out.kv("SSH Tunnel", f"{ssh_user or 'root'}@{ssh_host}:{ssh_port or '22'} ({ssh_mode or 'keyFile'})")
 
 
 @app.command()
