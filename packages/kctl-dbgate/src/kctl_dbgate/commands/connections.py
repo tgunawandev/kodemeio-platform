@@ -5,6 +5,9 @@ Wraps DBGate's /connections/* RPC endpoints.
 
 from __future__ import annotations
 
+import json as _json
+import shlex as _shlex
+import subprocess as _subprocess
 from typing import Annotated, Any
 
 import typer
@@ -372,3 +375,198 @@ def new_duckdb(
         raise typer.Exit(1) from e
 
     out.success(f"DuckDB connection created: {(result or {}).get('_id', '')}")
+
+
+# ---------------------------------------------------------------------------
+# sync-from-dokploy — mass-create DBGate connections from kctl-dokploy metadata
+# ---------------------------------------------------------------------------
+
+
+def _jrun(cmd: str) -> Any:
+    """Run a shell command, return parsed JSON (empty dict on failure)."""
+    r = _subprocess.run(_shlex.split(cmd), capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        return {}
+    try:
+        return _json.loads(r.stdout)
+    except _json.JSONDecodeError:
+        return {}
+
+
+def _parse_env_text(text: str) -> dict[str, str]:
+    """Parse KEY=VALUE lines from a Dokploy compose.env blob."""
+    out: dict[str, str] = {}
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+@app.command("sync-from-dokploy")
+def sync_from_dokploy(
+    ctx: typer.Context,
+    dokploy_profile: Annotated[
+        str, typer.Option("--dokploy-profile", help="kctl-dokploy profile name (e.g. idtpp, local)")
+    ],
+    service_prefix: Annotated[
+        str,
+        typer.Option(
+            "--service-prefix", help="Comma-separated compose-name prefixes to match (e.g. mac-odoo,tpp-odoo)"
+        ),
+    ],
+    ssh_keyfile: Annotated[
+        str,
+        typer.Option("--ssh-keyfile", help="SSH private key path inside the DBGate container"),
+    ] = "/root/.ssh/id_rsa",
+    ssh_user: Annotated[str, typer.Option("--ssh-user", help="SSH login user")] = "root",
+    ssh_port: Annotated[str, typer.Option("--ssh-port", help="SSH port")] = "22",
+    ssh_mode: Annotated[str, typer.Option("--ssh-mode", help="SSH auth mode")] = "keyFile",
+    include_staging: Annotated[
+        bool, typer.Option("--include-staging/--no-staging", help="Include compose names containing 'stg'")
+    ] = False,
+    upsert: Annotated[
+        bool,
+        typer.Option(
+            "--upsert/--skip-existing",
+            help="If a connection with the same label exists: upsert replaces it, skip-existing leaves it alone",
+        ),
+    ] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen; do not mutate")] = False,
+) -> None:
+    """Mass-create DBGate connections from kctl-dokploy compose metadata.
+
+    Enumerates every compose whose name starts with any --service-prefix, pulls
+    its env (PGUSER/PGPASSWORD/PGDATABASE/ODOO_DB_NAME), maps the compose's
+    serverId to the target server's public IP, and creates a DBGate connection
+    with an SSH tunnel pointing at that server.
+
+    Example:
+        kctl-dbgate connections sync-from-dokploy \\
+            --dokploy-profile idtpp \\
+            --service-prefix mac-odoo,tpp-odoo \\
+            --ssh-keyfile /root/.ssh/id_rsa_kodeme
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    prefixes = tuple(p.strip() for p in service_prefix.split(",") if p.strip())
+    if not prefixes:
+        out.error("--service-prefix must contain at least one prefix")
+        raise typer.Exit(1)
+
+    # 1. Gather Dokploy metadata
+    composes = _jrun(f"kctl-dokploy --json -p {dokploy_profile} compose list") or []
+    if not isinstance(composes, list):
+        out.error("kctl-dokploy compose list returned no data")
+        raise typer.Exit(1)
+
+    matching = [c for c in composes if c.get("name", "").startswith(prefixes)]
+    if not include_staging:
+        matching = [c for c in matching if "stg" not in c.get("name", "")]
+
+    if not matching:
+        out.warn(f"No composes in profile {dokploy_profile!r} match prefixes {list(prefixes)}")
+        return
+
+    servers = _jrun(f"kctl-dokploy --json -p {dokploy_profile} servers list") or []
+    servers_by_id = {s["serverId"]: s for s in servers if "serverId" in s}
+
+    # 2. Existing DBGate connections (to decide upsert vs skip)
+    try:
+        existing = actx.client.list_connections()
+    except KctlError as e:
+        out.error(f"Cannot list DBGate connections: {e}")
+        raise typer.Exit(1) from e
+    by_label: dict[str, dict[str, Any]] = {(c.get("displayName") or ""): c for c in existing if c.get("displayName")}
+
+    # 3. For each matching compose, compute spec + dispatch create/update/skip
+    rows: list[list[str]] = []
+    specs: list[dict[str, Any]] = []
+    for c in matching:
+        detail = _jrun(f"kctl-dokploy --json -p {dokploy_profile} compose get {c['composeId']}")
+        env = _parse_env_text(detail.get("env", "") if isinstance(detail, dict) else "")
+        srv_id = detail.get("serverId", "") if isinstance(detail, dict) else ""
+        srv = servers_by_id.get(srv_id, {})
+
+        db = env.get("ODOO_DB_NAME") or env.get("PGDATABASE") or env.get("POSTGRES_DB", "")
+        pwd = env.get("PGPASSWORD") or env.get("POSTGRES_PASSWORD", "")
+        user = env.get("PGUSER") or env.get("POSTGRES_USER", "postgres")
+        port = env.get("PGPORT") or env.get("POSTGRES_PORT", "5432")
+        server_ip = srv.get("ipAddress", "")
+        server_name = srv.get("name", "(main node)")
+
+        label = f"{c['name']} → {db or '?'} (ssh {server_name})"
+
+        if not db or not pwd or not server_ip:
+            specs.append({"status": "skip-incomplete", "label": label, "reason": "missing db/password/server"})
+            rows.append([label, db or "-", user, server_name, "SKIP (incomplete env)"])
+            continue
+
+        payload = _build_payload(
+            label=label,
+            engine="postgres@dbgate-plugin-postgres",
+            server="127.0.0.1",
+            port=port,
+            user=user,
+            password=pwd,
+            database=db,
+            ssh_host=server_ip,
+            ssh_port=ssh_port,
+            ssh_user=ssh_user,
+            ssh_mode=ssh_mode,
+            ssh_keyfile=ssh_keyfile,
+        )
+
+        if label in by_label:
+            if not upsert:
+                rows.append([label, db, user, server_name, "SKIP (exists)"])
+                specs.append({"status": "skip-exists", "label": label})
+                continue
+            if dry_run:
+                rows.append([label, db, user, server_name, "WOULD UPSERT"])
+                continue
+            existing_id = by_label[label].get("_id", "")
+            try:
+                actx.client.call("/connections/update", {"_id": existing_id, "values": payload})
+                rows.append([label, db, user, server_name, f"UPSERTED {existing_id[:8]}"])
+                specs.append({"status": "upserted", "label": label, "id": existing_id})
+            except KctlError as e:
+                rows.append([label, db, user, server_name, f"ERROR: {e}"])
+                specs.append({"status": "error", "label": label, "error": str(e)})
+            continue
+
+        if dry_run:
+            rows.append([label, db, user, server_name, "WOULD CREATE"])
+            continue
+
+        try:
+            result = actx.client.call("/connections/save", payload)
+            new_id = (result or {}).get("_id", "")
+            rows.append([label, db, user, server_name, f"CREATED {new_id[:8]}"])
+            specs.append({"status": "created", "label": label, "id": new_id})
+        except KctlError as e:
+            rows.append([label, db, user, server_name, f"ERROR: {e}"])
+            specs.append({"status": "error", "label": label, "error": str(e)})
+
+    out.table(
+        title=f"sync-from-dokploy (profile={dokploy_profile}, prefixes={list(prefixes)})",
+        columns=[
+            ("Label", "cyan"),
+            ("Database", "white"),
+            ("User", "magenta"),
+            ("Server", "green"),
+            ("Action", "yellow"),
+        ],
+        rows=rows,
+        data_for_json=specs,
+    )
+
+    # Summary line
+    counts: dict[str, int] = {}
+    for s in specs:
+        counts[s["status"]] = counts.get(s["status"], 0) + 1
+    summary = "  ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+    out.success(f"{len(matching)} matched  |  {summary}" + ("  (dry-run)" if dry_run else ""))

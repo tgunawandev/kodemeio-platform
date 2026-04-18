@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pytest_httpx import HTTPXMock
@@ -325,3 +326,256 @@ def test_update_rejects_no_fields() -> None:
     result = runner.invoke(app, ["connections", "update", "a1"])
     assert result.exit_code != 0
     assert "no fields" in result.output.lower() or "at least one" in result.output.lower()
+
+
+# ---------------------------------------------------------------------------
+# sync-from-dokploy tests
+# ---------------------------------------------------------------------------
+
+
+def _fake_subprocess_factory(calls: list[str], fixtures: dict[str, str]):
+    """Return a MagicMock that answers based on the command string."""
+
+    def runner(cmd, capture_output=True, text=True, **_kw):
+        cmd_str = " ".join(cmd)
+        calls.append(cmd_str)
+        for key, stdout in fixtures.items():
+            if key in cmd_str:
+                m = MagicMock()
+                m.returncode = 0
+                m.stdout = stdout
+                m.stderr = ""
+                return m
+        m = MagicMock()
+        m.returncode = 1
+        m.stdout = ""
+        m.stderr = "not mocked: " + cmd_str
+        return m
+
+    return runner
+
+
+def test_sync_from_dokploy_creates_per_compose_connections(httpx_mock: HTTPXMock) -> None:
+    _mock_login(httpx_mock)
+    # Empty connection list on DBGate → every compose becomes a new connection
+    httpx_mock.add_response(method="POST", url=f"{BASE}/connections/list", json=[])
+    # Two create calls will happen
+    httpx_mock.add_response(method="POST", url=f"{BASE}/connections/save", json={"_id": "new_a"})
+    httpx_mock.add_response(method="POST", url=f"{BASE}/connections/save", json={"_id": "new_b"})
+
+    compose_list = json.dumps(
+        [
+            {"composeId": "c1", "name": "mac-odoo-erp"},
+            {"composeId": "c2", "name": "mac-odoo-hrms"},
+            {"composeId": "c3", "name": "mac-odoo-erp-stg"},  # skipped by default
+            {"composeId": "c4", "name": "mac-infra-postgres"},  # doesn't match prefix
+        ]
+    )
+    servers_list = json.dumps(
+        [
+            {"serverId": "s1", "name": "tpp-prod-02", "ipAddress": "46.224.93.123"},
+        ]
+    )
+    compose_c1 = json.dumps(
+        {
+            "serverId": "s1",
+            "env": "PGUSER=odoo\nPGPASSWORD=pw1\nPGDATABASE=mac_odoo_erp\n",
+        }
+    )
+    compose_c2 = json.dumps(
+        {
+            "serverId": "s1",
+            "env": "PGUSER=odoo\nPGPASSWORD=pw2\nPGDATABASE=mac_odoo_hrms\n",
+        }
+    )
+
+    calls: list[str] = []
+    fake = _fake_subprocess_factory(
+        calls,
+        {
+            "compose list": compose_list,
+            "servers list": servers_list,
+            "compose get c1": compose_c1,
+            "compose get c2": compose_c2,
+        },
+    )
+
+    runner = CliRunner()
+    with patch("kctl_dbgate.commands.connections._subprocess.run", side_effect=fake):
+        result = runner.invoke(
+            app,
+            [
+                "connections",
+                "sync-from-dokploy",
+                "--dokploy-profile",
+                "idtpp",
+                "--service-prefix",
+                "mac-odoo",
+                "--ssh-keyfile",
+                "/root/.ssh/id_rsa_kodeme",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+
+    saves = [r for r in httpx_mock.get_requests() if r.url.path == "/connections/save"]
+    assert len(saves) == 2, f"expected 2 creates (stg skipped), got {len(saves)}"
+
+    bodies = [json.loads(r.content) for r in saves]
+    by_db = {b["database"]: b for b in bodies}
+    assert set(by_db.keys()) == {"mac_odoo_erp", "mac_odoo_hrms"}
+
+    # Every create must carry the ssh tunnel fields, pointed at the server IP
+    for b in bodies:
+        assert b["useSshTunnel"] is True
+        assert b["sshHost"] == "46.224.93.123"
+        assert b["sshKeyfile"] == "/root/.ssh/id_rsa_kodeme"
+        assert b["sshMode"] == "keyFile"
+        assert b["server"] == "127.0.0.1"
+        assert b["user"] == "odoo"
+
+
+def test_sync_from_dokploy_dry_run_makes_no_writes(httpx_mock: HTTPXMock) -> None:
+    _mock_login(httpx_mock)
+    httpx_mock.add_response(method="POST", url=f"{BASE}/connections/list", json=[])
+
+    compose_list = json.dumps([{"composeId": "c1", "name": "mac-odoo-erp"}])
+    servers_list = json.dumps([{"serverId": "s1", "name": "tpp-prod-02", "ipAddress": "46.224.93.123"}])
+    compose_detail = json.dumps(
+        {
+            "serverId": "s1",
+            "env": "PGUSER=odoo\nPGPASSWORD=pw\nPGDATABASE=mac_odoo_erp\n",
+        }
+    )
+
+    calls: list[str] = []
+    fake = _fake_subprocess_factory(
+        calls,
+        {
+            "compose list": compose_list,
+            "servers list": servers_list,
+            "compose get c1": compose_detail,
+        },
+    )
+
+    runner = CliRunner()
+    with patch("kctl_dbgate.commands.connections._subprocess.run", side_effect=fake):
+        result = runner.invoke(
+            app,
+            [
+                "connections",
+                "sync-from-dokploy",
+                "--dokploy-profile",
+                "idtpp",
+                "--service-prefix",
+                "mac-odoo",
+                "--dry-run",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+
+    # No /connections/save requests — dry-run
+    saves = [r for r in httpx_mock.get_requests() if r.url.path == "/connections/save"]
+    assert saves == []
+
+
+def test_sync_from_dokploy_skips_existing_by_default(httpx_mock: HTTPXMock) -> None:
+    _mock_login(httpx_mock)
+    # A connection with the matching label already exists
+    existing_label = "mac-odoo-erp → mac_odoo_erp (ssh tpp-prod-02)"
+    httpx_mock.add_response(
+        method="POST",
+        url=f"{BASE}/connections/list",
+        json=[{"_id": "already", "displayName": existing_label}],
+    )
+
+    compose_list = json.dumps([{"composeId": "c1", "name": "mac-odoo-erp"}])
+    servers_list = json.dumps([{"serverId": "s1", "name": "tpp-prod-02", "ipAddress": "46.224.93.123"}])
+    compose_detail = json.dumps(
+        {
+            "serverId": "s1",
+            "env": "PGUSER=odoo\nPGPASSWORD=pw\nPGDATABASE=mac_odoo_erp\n",
+        }
+    )
+
+    calls: list[str] = []
+    fake = _fake_subprocess_factory(
+        calls,
+        {
+            "compose list": compose_list,
+            "servers list": servers_list,
+            "compose get c1": compose_detail,
+        },
+    )
+
+    runner = CliRunner()
+    with patch("kctl_dbgate.commands.connections._subprocess.run", side_effect=fake):
+        result = runner.invoke(
+            app,
+            [
+                "connections",
+                "sync-from-dokploy",
+                "--dokploy-profile",
+                "idtpp",
+                "--service-prefix",
+                "mac-odoo",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    saves = [r for r in httpx_mock.get_requests() if r.url.path == "/connections/save"]
+    assert saves == [], "skip-existing mode must not create duplicates"
+    updates = [r for r in httpx_mock.get_requests() if r.url.path == "/connections/update"]
+    assert updates == [], "skip-existing must not upsert"
+
+
+def test_sync_from_dokploy_upsert_replaces_existing(httpx_mock: HTTPXMock) -> None:
+    _mock_login(httpx_mock)
+    existing_label = "mac-odoo-erp → mac_odoo_erp (ssh tpp-prod-02)"
+    httpx_mock.add_response(
+        method="POST",
+        url=f"{BASE}/connections/list",
+        json=[{"_id": "already", "displayName": existing_label}],
+    )
+    httpx_mock.add_response(method="POST", url=f"{BASE}/connections/update", json={"_id": "already"})
+
+    compose_list = json.dumps([{"composeId": "c1", "name": "mac-odoo-erp"}])
+    servers_list = json.dumps([{"serverId": "s1", "name": "tpp-prod-02", "ipAddress": "46.224.93.123"}])
+    compose_detail = json.dumps(
+        {
+            "serverId": "s1",
+            "env": "PGUSER=odoo\nPGPASSWORD=pw\nPGDATABASE=mac_odoo_erp\n",
+        }
+    )
+
+    calls: list[str] = []
+    fake = _fake_subprocess_factory(
+        calls,
+        {
+            "compose list": compose_list,
+            "servers list": servers_list,
+            "compose get c1": compose_detail,
+        },
+    )
+
+    runner = CliRunner()
+    with patch("kctl_dbgate.commands.connections._subprocess.run", side_effect=fake):
+        result = runner.invoke(
+            app,
+            [
+                "connections",
+                "sync-from-dokploy",
+                "--dokploy-profile",
+                "idtpp",
+                "--service-prefix",
+                "mac-odoo",
+                "--upsert",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+
+    updates = [r for r in httpx_mock.get_requests() if r.url.path == "/connections/update"]
+    assert len(updates) == 1
+    body = json.loads(updates[0].content)
+    assert body["_id"] == "already"
+    assert body["values"]["database"] == "mac_odoo_erp"
+    assert body["values"]["useSshTunnel"] is True
