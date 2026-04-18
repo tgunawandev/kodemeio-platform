@@ -1,0 +1,21 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-dbgate
+  description: "DBGate — web-based database management UI"
+
+project: kod
+
+source_overrides:
+  repo: kodemeio-dbgate
+  compose_path: ./docker-compose.prod.yml
+
+domain:
+  host: dbgate.kodeme.io
+  port: 3000
+  service: dbgate
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-dbgate
