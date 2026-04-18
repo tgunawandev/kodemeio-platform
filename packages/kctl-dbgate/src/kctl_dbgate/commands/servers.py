@@ -20,11 +20,19 @@ def ping(
     ctx: typer.Context,
     conid: Annotated[str, typer.Argument(help="Connection ID")],
 ) -> None:
-    """Ping a server-level connection (keeps it alive)."""
+    """Ping a server-level connection (keeps it alive).
+
+    DBGate's /server-connections/ping expects {conidArray, strmid}, NOT a
+    single conid — a flat {conid} makes the server iterate over an empty
+    list (uniq(undefined) -> []) and do nothing.
+    """
     actx: AppContext = ctx.obj
     out = actx.output
     try:
-        result = actx.client.call("/server-connections/ping", {"conid": conid})
+        result = actx.client.call(
+            "/server-connections/ping",
+            {"conidArray": [conid], "strmid": "kctl-dbgate"},
+        )
     except KctlError as e:
         out.error(str(e))
         raise typer.Exit(1) from e

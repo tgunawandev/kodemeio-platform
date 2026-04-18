@@ -29,14 +29,17 @@ def _body(req: Any) -> dict[str, Any]:
     return json.loads(req.content)  # type: ignore[no-any-return]
 
 
-def test_ping_sends_conid(httpx_mock: HTTPXMock) -> None:
+def test_ping_sends_conid_array(httpx_mock: HTTPXMock) -> None:
+    """DBGate expects {conidArray, strmid} — not a bare {conid}."""
     _mock_login(httpx_mock)
-    httpx_mock.add_response(method="POST", url=f"{BASE}/server-connections/ping", json={"connected": True})
+    httpx_mock.add_response(method="POST", url=f"{BASE}/server-connections/ping", json={"status": "ok"})
     runner = CliRunner()
     result = runner.invoke(app, ["servers", "ping", "a1"])
     assert result.exit_code == 0, result.output
     req = next(r for r in httpx_mock.get_requests() if r.url.path == "/server-connections/ping")
-    assert _body(req) == {"conid": "a1"}
+    body = _body(req)
+    assert body["conidArray"] == ["a1"], f"must send conidArray, got: {body}"
+    assert "strmid" in body, f"must send strmid, got: {body}"
 
 
 def test_summary_prints(httpx_mock: HTTPXMock) -> None:
