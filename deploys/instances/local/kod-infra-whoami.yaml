@@ -1,0 +1,20 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-whoami
+  description: "traefik/whoami — proof-of-reuse second local HTTPS service"
+
+project: application
+environment: local
+server: vbox-ubuntu-server
+
+source_overrides:
+  type: raw
+  compose_path: ./docker-compose.yml
+
+domain:
+  host: whoami.local.kodeme.io
+  port: 80
+  service: whoami
+  https: true
