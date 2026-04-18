@@ -217,15 +217,24 @@ def update(
     password: Annotated[str | None, typer.Option("--password", help="DB password")] = None,
     database: Annotated[str | None, typer.Option("--database", help="Default database")] = None,
 ) -> None:
-    """Update an existing connection (pass only the fields to change)."""
+    """Update an existing connection (pass only the fields to change).
+
+    DBGate's /connections/update destructures `{_id, values}` and feeds
+    `values` into datastore.patch — a flat payload silently patches with
+    `undefined` and is a no-op.
+    """
     actx: AppContext = ctx.obj
     out = actx.output
 
-    payload = _build_payload(label, engine, server, port, user, password, database)
-    payload["_id"] = conid
+    values = _build_payload(label, engine, server, port, user, password, database)
+    if not values:
+        out.error(
+            "No fields to update — pass at least one of --label/--engine/--server/--port/--user/--password/--database"
+        )
+        raise typer.Exit(1)
 
     try:
-        actx.client.call("/connections/update", payload)
+        actx.client.call("/connections/update", {"_id": conid, "values": values})
     except KctlError as e:
         out.error(str(e))
         raise typer.Exit(1) from e
@@ -239,7 +248,14 @@ def new_sqlite(
     label: Annotated[str, typer.Option("--label", help="Display name")],
     file: Annotated[str, typer.Option("--file", help="Path to SQLite .db file")],
 ) -> None:
-    """Create a new SQLite-backed connection."""
+    """Create a new SQLite-backed connection.
+
+    DBGate's /connections/new-sqlite-database only reads a short `file`
+    (used as a NAME, not a path) and drops the sqlite file inside DBGate's
+    own app folder — it ignores `displayName`, `databaseFile`, and any
+    engine override. We therefore create the connection directly via
+    /connections/save so the user-provided path and label are honoured.
+    """
     actx: AppContext = ctx.obj
     out = actx.output
 
@@ -247,9 +263,11 @@ def new_sqlite(
         "displayName": label,
         "databaseFile": file,
         "engine": "sqlite@dbgate-plugin-sqlite",
+        "singleDatabase": True,
+        "defaultDatabase": file.rsplit("/", 1)[-1],
     }
     try:
-        result = actx.client.call("/connections/new-sqlite-database", payload)
+        result = actx.client.call("/connections/save", payload)
     except KctlError as e:
         out.error(str(e))
         raise typer.Exit(1) from e
@@ -263,7 +281,11 @@ def new_duckdb(
     label: Annotated[str, typer.Option("--label", help="Display name")],
     file: Annotated[str, typer.Option("--file", help="Path to DuckDB file")],
 ) -> None:
-    """Create a new DuckDB-backed connection."""
+    """Create a new DuckDB-backed connection.
+
+    See `new-sqlite` for rationale: we use /connections/save directly so
+    the user-provided path and label are honoured by DBGate.
+    """
     actx: AppContext = ctx.obj
     out = actx.output
 
@@ -271,9 +293,11 @@ def new_duckdb(
         "displayName": label,
         "databaseFile": file,
         "engine": "duckdb@dbgate-plugin-duckdb",
+        "singleDatabase": True,
+        "defaultDatabase": file.rsplit("/", 1)[-1],
     }
     try:
-        result = actx.client.call("/connections/new-duckdb-database", payload)
+        result = actx.client.call("/connections/save", payload)
     except KctlError as e:
         out.error(str(e))
         raise typer.Exit(1) from e

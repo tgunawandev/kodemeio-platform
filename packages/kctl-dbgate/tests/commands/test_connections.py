@@ -170,10 +170,14 @@ def test_delete_force_skips_confirm(httpx_mock: HTTPXMock) -> None:
 
 
 def test_new_sqlite_payload(httpx_mock: HTTPXMock) -> None:
+    """new-sqlite must go through /connections/save so the user-provided file
+    path and label are honoured — /connections/new-sqlite-database ignores
+    both and drops the db file inside DBGate's app folder.
+    """
     _mock_login(httpx_mock)
     httpx_mock.add_response(
         method="POST",
-        url=f"{BASE}/connections/new-sqlite-database",
+        url=f"{BASE}/connections/save",
         json={"_id": "sq1"},
     )
     runner = CliRunner()
@@ -183,11 +187,34 @@ def test_new_sqlite_payload(httpx_mock: HTTPXMock) -> None:
     )
     assert result.exit_code == 0, result.output
 
-    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/connections/new-sqlite-database")
+    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/connections/save")
     body = _body_of(req)
     assert body["displayName"] == "MyLite"
     assert body["databaseFile"] == "/tmp/my.db"
     assert body["engine"] == "sqlite@dbgate-plugin-sqlite"
+    assert body.get("singleDatabase") is True
+
+
+def test_new_duckdb_payload(httpx_mock: HTTPXMock) -> None:
+    """Same reasoning as new-sqlite: must use /connections/save directly."""
+    _mock_login(httpx_mock)
+    httpx_mock.add_response(
+        method="POST",
+        url=f"{BASE}/connections/save",
+        json={"_id": "dk1"},
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["connections", "new-duckdb", "--label", "MyDuck", "--file", "/tmp/d.duckdb"],
+    )
+    assert result.exit_code == 0, result.output
+
+    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/connections/save")
+    body = _body_of(req)
+    assert body["displayName"] == "MyDuck"
+    assert body["databaseFile"] == "/tmp/d.duckdb"
+    assert body["engine"] == "duckdb@dbgate-plugin-duckdb"
 
 
 def test_update_sends_id_and_fields(httpx_mock: HTTPXMock) -> None:
@@ -206,6 +233,16 @@ def test_update_sends_id_and_fields(httpx_mock: HTTPXMock) -> None:
 
     req = next(r for r in httpx_mock.get_requests() if r.url.path == "/connections/update")
     body = _body_of(req)
+    # DBGate destructures {_id, values} — a flat payload is silently a no-op.
     assert body["_id"] == "a1"
-    assert body["displayName"] == "NewLabel"
-    assert body["port"] == "6543"
+    assert "values" in body, f"update must nest fields under 'values', got: {body}"
+    assert body["values"]["displayName"] == "NewLabel"
+    assert body["values"]["port"] == "6543"
+
+
+def test_update_rejects_no_fields() -> None:
+    """Updating with no field flags must error instead of silently no-op'ing."""
+    runner = CliRunner()
+    result = runner.invoke(app, ["connections", "update", "a1"])
+    assert result.exit_code != 0
+    assert "no fields" in result.output.lower() or "at least one" in result.output.lower()
