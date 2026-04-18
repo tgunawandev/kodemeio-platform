@@ -175,10 +175,15 @@ class Deployer:
                         return github.get("githubId", "")
         return ""
 
-    def _disable_auto_deploy(self) -> None:
-        """Disable autoDeploy on the compose service via direct API call."""
+    def _sync_auto_deploy(self) -> None:
+        """Set autoDeploy on the compose to match manifest.auto_deploy.
+
+        Default is False (manual deploys only). Staging manifests can opt-in
+        with ``auto_deploy: true`` at the top level.
+        """
         if not self._compose_id or self.dry_run:
             return
+        target = bool(self.manifest.auto_deploy)
         try:
             from kctl_dokploy.core.client import DokployClient
             from kctl_lib.config import load_config
@@ -192,9 +197,9 @@ class Deployer:
             key = dokploy_cfg.get("api_key", "")
             if url and key:
                 client = DokployClient(base_url=url, credential=key)
-                client.post("/compose.update", json={"composeId": self._compose_id, "autoDeploy": False})
+                client.post("/compose.update", json={"composeId": self._compose_id, "autoDeploy": target})
         except Exception:
-            pass  # Best-effort; autoDeploy can be disabled manually
+            pass  # Best-effort; autoDeploy can be adjusted manually if this fails
 
     def _apply_advanced_compose_settings(self) -> None:
         """Apply advanced compose settings (command, triggerType, submodules) via direct API."""
@@ -564,13 +569,14 @@ class Deployer:
                 if github_id:
                     update_args += ["--github-id", github_id]
                 self._run_kctl(update_args)
-                # Gate 4: Disable autodeploy on existing compose too
-                self._disable_auto_deploy()
-                client = self._get_client()
-                if client and self._compose_id:
-                    ok, msg = disable_autodeploy(client, self._compose_id)
-                    if not ok:
-                        self._log(f"WARNING: autodeploy: {msg}")
+                # Gate 4: Sync autoDeploy to manifest.auto_deploy (default False)
+                self._sync_auto_deploy()
+                if not self.manifest.auto_deploy:
+                    client = self._get_client()
+                    if client and self._compose_id:
+                        ok, msg = disable_autodeploy(client, self._compose_id)
+                        if not ok:
+                            self._log(f"WARNING: autodeploy: {msg}")
                 self._apply_advanced_compose_settings()
                 self._record_phase("compose", "updated", f"Updated compose {instance_name} (id={self._compose_id})")
                 return
@@ -634,15 +640,17 @@ class Deployer:
             if github_id:
                 update_args += ["--github-id", github_id]
             self._run_kctl(update_args)
-            # Gate 4: Disable autodeploy — ALWAYS, using both methods
-            self._disable_auto_deploy()  # Direct API call (fast)
-            client = self._get_client()
-            if client and self._compose_id:
-                ok, msg = disable_autodeploy(client, self._compose_id)
-                if not ok:
-                    self._log(f"WARNING: autodeploy: {msg}")
-                else:
-                    self._log(msg)
+            # Gate 4: Sync autoDeploy to manifest.auto_deploy (default False).
+            # The validator enforces False, so only run it when the manifest wants False.
+            self._sync_auto_deploy()  # Direct API call (fast)
+            if not self.manifest.auto_deploy:
+                client = self._get_client()
+                if client and self._compose_id:
+                    ok, msg = disable_autodeploy(client, self._compose_id)
+                    if not ok:
+                        self._log(f"WARNING: autodeploy: {msg}")
+                    else:
+                        self._log(msg)
             self._apply_advanced_compose_settings()
             self._record_phase(
                 "compose", self._action("created"), self._msg(f"Create compose {instance_name} (id={self._compose_id})")

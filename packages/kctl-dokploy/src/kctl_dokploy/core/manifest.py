@@ -147,6 +147,7 @@ class DeployManifest(BaseModel):
     command: str = ""
     trigger_type: str = ""  # push, tag, manual
     enable_submodules: bool = False
+    auto_deploy: bool = False  # Redeploy on git push. Default off; staging envs may opt-in.
 
 
 # ---------------------------------------------------------------------------

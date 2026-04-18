@@ -15,6 +15,14 @@ app = typer.Typer(help="Manage Dokploy compose services.")
 def list_(
     ctx: typer.Context,
     project_id: Annotated[str | None, typer.Option("--project", "-p", help="Filter by project ID")] = None,
+    with_autodeploy: Annotated[
+        bool,
+        typer.Option(
+            "--with-autodeploy",
+            "-A",
+            help="Include Auto-Deploy column (one extra API call per service)",
+        ),
+    ] = False,
 ) -> None:
     """List compose services, optionally filtered by project."""
     c: AppContext = ctx.obj
@@ -44,18 +52,39 @@ def list_(
         name = s.get("name", "")
         status = s.get("composeStatus", "unknown")
         project = s.get("_projectName", s.get("projectName", ""))
-        rows.append([cid, name, status, project])
-        json_data.append(
-            {
-                "composeId": cid,
-                "name": name,
-                "status": status,
-                "project": project,
-            }
-        )
+        row = [cid, name, status, project]
+        item = {
+            "composeId": cid,
+            "name": name,
+            "status": status,
+            "project": project,
+        }
+        if with_autodeploy:
+            auto = None
+            if cid:
+                try:
+                    detail = c.client.get("/compose.one", params={"composeId": cid})
+                    if isinstance(detail, dict):
+                        val = detail.get("autoDeploy")
+                        if isinstance(val, bool):
+                            auto = val
+                except Exception:
+                    auto = None
+            row.append("ENABLED" if auto is True else ("disabled" if auto is False else "?"))
+            item["autoDeploy"] = auto
+        rows.append(row)
+        json_data.append(item)
+    columns: list[tuple[str, str]] = [
+        ("ID", "dim"),
+        ("Name", "cyan"),
+        ("Status", ""),
+        ("Project", "green"),
+    ]
+    if with_autodeploy:
+        columns.append(("Auto-Deploy", "yellow"))
     c.output.table(
         "Compose Services",
-        [("ID", "dim"), ("Name", "cyan"), ("Status", ""), ("Project", "green")],
+        columns,
         rows,
         data_for_json=json_data,
     )
@@ -103,10 +132,17 @@ def create(
     description: Annotated[str | None, typer.Option("--description", "-d", help="Description")] = None,
     server_id: Annotated[str | None, typer.Option("--server", help="Server ID")] = None,
     compose_file: Annotated[str | None, typer.Option("--file", "-f", help="Path to docker-compose file")] = None,
+    auto_deploy: Annotated[
+        bool,
+        typer.Option(
+            "--auto-deploy/--no-auto-deploy",
+            help="Enable auto-deploy on git push (default: disabled)",
+        ),
+    ] = False,
 ) -> None:
     """Create a new compose service in a project environment."""
     c: AppContext = ctx.obj
-    payload: dict = {"name": name, "environmentId": environment_id}
+    payload: dict = {"name": name, "environmentId": environment_id, "autoDeploy": auto_deploy}
     if description:
         payload["description"] = description
     if server_id:

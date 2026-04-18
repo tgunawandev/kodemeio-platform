@@ -11,6 +11,7 @@ from kctl_dokploy import __version__
 from kctl_dokploy.commands.aliases import register_aliases
 from kctl_dokploy.commands.applications import app as applications_app
 from kctl_dokploy.commands.audit import app as audit_app
+from kctl_dokploy.commands.autodeploy import app as autodeploy_app
 from kctl_dokploy.commands.backups import app as backups_app
 from kctl_dokploy.commands.bulk import app as bulk_app
 from kctl_dokploy.commands.certificates import app as certificates_app
@@ -145,6 +146,7 @@ compose_app.add_typer(ports_app, name="ports")
 compose_app.add_typer(security_app, name="security")
 compose_app.add_typer(redirects_app, name="redirects")
 compose_app.add_typer(bulk_app, name="bulk")
+compose_app.add_typer(autodeploy_app, name="autodeploy")
 
 # ---------------------------------------------------------------------------
 # Server sub-commands
