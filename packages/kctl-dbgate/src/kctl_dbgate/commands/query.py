@@ -1,6 +1,12 @@
 """SQL/script query execution commands.
 
-Wraps DBGate's /database-connections/sql-* and eval-json-script endpoints.
+Wraps DBGate's raw-SQL endpoint (/database-connections/query-data) and the
+NoSQL-style /database-connections/eval-json-script.
+
+NOTE: /database-connections/sql-select is *not* for raw SQL strings — it
+expects a structured {select: {...}} spec. Using it with `sql` makes DBGate
+throw "Cannot read properties of undefined (reading 'distinct')". The right
+endpoint for raw SQL is /database-connections/query-data.
 """
 
 from __future__ import annotations
@@ -86,7 +92,7 @@ def run(
 
     payload = {"conid": connection, "database": database, "sql": query_text}
     try:
-        result = actx.client.call("/database-connections/sql-select", payload)
+        result = actx.client.call("/database-connections/query-data", payload)
     except KctlError as e:
         out.error(str(e))
         raise typer.Exit(1) from e
@@ -116,7 +122,7 @@ def select(
 
     payload = {"conid": connection, "database": database, "sql": sql}
     try:
-        result = actx.client.call("/database-connections/sql-select", payload)
+        result = actx.client.call("/database-connections/query-data", payload)
     except KctlError as e:
         out.error(str(e))
         raise typer.Exit(1) from e
@@ -129,13 +135,19 @@ def select(
 @app.command()
 def preview(
     ctx: typer.Context,
-    connection: Annotated[str, typer.Option("--connection", help="Connection ID")],
-    database: Annotated[str, typer.Option("--database", help="Database name")],
+    connection: Annotated[str, typer.Option("--connection", help="Connection ID (unused, kept for CLI symmetry)")] = "",
+    database: Annotated[str, typer.Option("--database", help="Database name (unused, kept for CLI symmetry)")] = "",
     sql: Annotated[str | None, typer.Option("--sql", help="SQL to preview")] = None,
     file: Annotated[Path | None, typer.Option("--file", help="Path to SQL file")] = None,
     variables: Annotated[list[str] | None, typer.Option("--var", help="Variable substitution: k=v")] = None,
 ) -> None:
-    """Preview the planned SQL without executing it."""
+    """Show the SQL that would be sent (after variable substitution).
+
+    DBGate's /database-connections/sql-preview is a model-to-DDL preview, not
+    a raw-SQL preview endpoint — so this command renders the SQL locally
+    after --var substitution without touching the server.
+    """
+    _ = connection, database  # accepted for CLI symmetry with `run`
     actx: AppContext = ctx.obj
     out = actx.output
 
@@ -148,21 +160,8 @@ def preview(
         out.error(f"Cannot read SQL file: {e}")
         raise typer.Exit(1) from e
 
-    payload = {"conid": connection, "database": database, "sql": query_text}
-    try:
-        result = actx.client.call("/database-connections/sql-preview", payload)
-    except KctlError as e:
-        out.error(str(e))
-        raise typer.Exit(1) from e
-
-    planned = (result or {}).get("sql") or query_text
-    err = (result or {}).get("errorMessage")
-    if err:
-        out.error(f"Preview error: {err}")
-        raise typer.Exit(1)
-
     out.header("Planned SQL")
-    out.text(planned)
+    out.text(query_text)
 
 
 @app.command("eval")

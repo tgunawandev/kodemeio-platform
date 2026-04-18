@@ -34,7 +34,7 @@ def test_run_sends_sql_and_prints_rows(httpx_mock: HTTPXMock) -> None:
     _mock_login(httpx_mock)
     httpx_mock.add_response(
         method="POST",
-        url=f"{BASE}/database-connections/sql-select",
+        url=f"{BASE}/database-connections/query-data",
         json={
             "rows": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
             "columns": [{"columnName": "id"}, {"columnName": "name"}],
@@ -49,7 +49,7 @@ def test_run_sends_sql_and_prints_rows(httpx_mock: HTTPXMock) -> None:
     assert "Alice" in result.output
     assert "Bob" in result.output
 
-    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/database-connections/sql-select")
+    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/database-connections/query-data")
     body = _body(req)
     assert body["conid"] == "c1"
     assert body["database"] == "app"
@@ -62,7 +62,7 @@ def test_run_from_file(tmp_path: Path, httpx_mock: HTTPXMock) -> None:
     sql_file.write_text("SELECT 1")
     httpx_mock.add_response(
         method="POST",
-        url=f"{BASE}/database-connections/sql-select",
+        url=f"{BASE}/database-connections/query-data",
         json={"rows": [], "columns": []},
     )
     runner = CliRunner()
@@ -71,7 +71,7 @@ def test_run_from_file(tmp_path: Path, httpx_mock: HTTPXMock) -> None:
         ["query", "run", "--connection", "c1", "--database", "app", "--file", str(sql_file)],
     )
     assert result.exit_code == 0, result.output
-    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/database-connections/sql-select")
+    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/database-connections/query-data")
     assert _body(req)["sql"] == "SELECT 1"
 
 
@@ -79,7 +79,7 @@ def test_run_var_substitution(httpx_mock: HTTPXMock) -> None:
     _mock_login(httpx_mock)
     httpx_mock.add_response(
         method="POST",
-        url=f"{BASE}/database-connections/sql-select",
+        url=f"{BASE}/database-connections/query-data",
         json={"rows": [], "columns": []},
     )
     runner = CliRunner()
@@ -99,7 +99,7 @@ def test_run_var_substitution(httpx_mock: HTTPXMock) -> None:
         ],
     )
     assert result.exit_code == 0, result.output
-    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/database-connections/sql-select")
+    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/database-connections/query-data")
     assert _body(req)["sql"] == "SELECT * FROM users"
 
 
@@ -107,7 +107,7 @@ def test_select_builds_query(httpx_mock: HTTPXMock) -> None:
     _mock_login(httpx_mock)
     httpx_mock.add_response(
         method="POST",
-        url=f"{BASE}/database-connections/sql-select",
+        url=f"{BASE}/database-connections/query-data",
         json={"rows": [], "columns": []},
     )
     runner = CliRunner()
@@ -129,7 +129,7 @@ def test_select_builds_query(httpx_mock: HTTPXMock) -> None:
         ],
     )
     assert result.exit_code == 0, result.output
-    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/database-connections/sql-select")
+    req = next(r for r in httpx_mock.get_requests() if r.url.path == "/database-connections/query-data")
     sql = _body(req)["sql"]
     assert "SELECT" in sql.upper()
     assert "u" in sql  # table name
@@ -137,23 +137,30 @@ def test_select_builds_query(httpx_mock: HTTPXMock) -> None:
     assert "10" in sql
 
 
-def test_preview_does_not_execute(httpx_mock: HTTPXMock) -> None:
-    _mock_login(httpx_mock)
-    httpx_mock.add_response(
-        method="POST",
-        url=f"{BASE}/database-connections/sql-preview",
-        json={"sql": "SELECT * FROM users", "errorMessage": None},
-    )
+def test_preview_does_not_hit_network(httpx_mock: HTTPXMock) -> None:
+    """Preview renders SQL locally after var substitution — no HTTP at all.
+
+    DBGate's /database-connections/sql-preview takes a structure/objects spec
+    (not raw SQL), so previewing a SQL string is now done entirely client-side.
+    """
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["query", "preview", "--connection", "c1", "--database", "app", "--sql", "SELECT * FROM users"],
+        [
+            "query",
+            "preview",
+            "--sql",
+            "SELECT * FROM {{t}} WHERE id={{id}}",
+            "--var",
+            "t=users",
+            "--var",
+            "id=42",
+        ],
     )
     assert result.exit_code == 0, result.output
-    assert "SELECT" in result.output
-    # No sql-select was called
-    selects = [r for r in httpx_mock.get_requests() if r.url.path == "/database-connections/sql-select"]
-    assert len(selects) == 0
+    assert "SELECT * FROM users WHERE id=42" in result.output
+    # Assert preview didn't call DBGate at all.
+    assert len(httpx_mock.get_requests()) == 0
 
 
 def test_eval_requires_script_file(httpx_mock: HTTPXMock, tmp_path: Path) -> None:
@@ -193,7 +200,7 @@ def test_format_csv_emits_csv(httpx_mock: HTTPXMock) -> None:
     _mock_login(httpx_mock)
     httpx_mock.add_response(
         method="POST",
-        url=f"{BASE}/database-connections/sql-select",
+        url=f"{BASE}/database-connections/query-data",
         json={
             "rows": [{"id": 1, "name": "Alice"}],
             "columns": [{"columnName": "id"}, {"columnName": "name"}],
