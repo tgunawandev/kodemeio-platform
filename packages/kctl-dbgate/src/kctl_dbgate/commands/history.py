@@ -57,16 +57,23 @@ def add(
     sql: Annotated[str, typer.Option("--sql", help="SQL to record")],
     database: Annotated[str | None, typer.Option("--database", help="Database name")] = None,
 ) -> None:
-    """Append an entry to the query history."""
+    """Append an entry to the query history.
+
+    DBGate's /query-history/write expects the entry wrapped as {data: {...}}
+    and appends JSON.stringify(data)+"\\n" to its history JSONL file. If the
+    entry is NOT nested the server stringifies `undefined`, which corrupts
+    the file and later breaks /query-history/read with "'undefined' is not
+    valid JSON".
+    """
     actx: AppContext = ctx.obj
     out = actx.output
 
-    payload: dict[str, str] = {"conid": connection, "sql": sql}
+    entry: dict[str, str] = {"conid": connection, "sql": sql}
     if database:
-        payload["database"] = database
+        entry["database"] = database
 
     try:
-        actx.client.call("/query-history/write", payload)
+        actx.client.call("/query-history/write", {"data": entry})
     except KctlError as e:
         out.error(str(e))
         raise typer.Exit(1) from e

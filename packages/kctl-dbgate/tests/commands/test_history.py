@@ -57,6 +57,10 @@ def test_add_sends_sql(httpx_mock: HTTPXMock) -> None:
     assert result.exit_code == 0, result.output
     req = next(r for r in httpx_mock.get_requests() if r.url.path == "/query-history/write")
     body = _body(req)
-    assert body["conid"] == "c1"
-    assert body["sql"] == "SELECT now()"
-    assert body["database"] == "app"
+    # DBGate /query-history/write expects the entry nested under "data"; a
+    # flat payload causes the server to stringify undefined and corrupt the
+    # history file.
+    assert "data" in body, f"history add must nest payload under 'data', got: {body}"
+    assert body["data"]["conid"] == "c1"
+    assert body["data"]["sql"] == "SELECT now()"
+    assert body["data"]["database"] == "app"
