@@ -1,0 +1,34 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-glitchtip
+  description: "TPP GlitchTip error tracking with Authentik SSO + S3 storage (Pakerti bug catcher)"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-glitchtip
+  branch: main
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: glitchtip
+
+domain:
+  host: glitchtip.idtpp.com
+  port: 8080
+  service: glitchtip
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-glitchtip
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-glitchtip
+  TZ: Asia/Jakarta
