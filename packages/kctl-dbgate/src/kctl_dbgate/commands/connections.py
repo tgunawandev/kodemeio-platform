@@ -1,13 +1,25 @@
-"""Connection inspection commands."""
+"""Connection CRUD commands.
+
+Wraps DBGate's /connections/* RPC endpoints.
+"""
 
 from __future__ import annotations
+
+from typing import Annotated, Any
 
 import typer
 from kctl_lib.exceptions import KctlError
 
 from kctl_dbgate.core.callbacks import AppContext
 
-app = typer.Typer(help="Inspect pre-configured DBGate connections.")
+app = typer.Typer(help="Manage DBGate database connections.")
+
+
+def _source_of(conn: dict[str, Any]) -> str:
+    """Heuristic: env-configured connections are read-only."""
+    if conn.get("isReadOnly") or conn.get("readOnly"):
+        return "env"
+    return "user"
 
 
 @app.command("list")
@@ -32,7 +44,8 @@ def list_(ctx: typer.Context) -> None:
                 str(conn.get("server", "")),
                 str(conn.get("port", "")),
                 str(conn.get("user", "")),
-                "yes" if conn.get("isReadOnly") else "no",
+                "yes" if (conn.get("isReadOnly") or conn.get("readOnly")) else "no",
+                _source_of(conn),
             ]
         )
 
@@ -46,6 +59,223 @@ def list_(ctx: typer.Context) -> None:
             ("Port", "yellow"),
             ("User", "blue"),
             ("ReadOnly", "yellow"),
+            ("Source", "dim"),
         ],
         rows=rows,
+        data_for_json=connections,
     )
+
+
+@app.command()
+def get(
+    ctx: typer.Context,
+    conid: Annotated[str, typer.Argument(help="Connection ID")],
+) -> None:
+    """Show full detail for a single connection."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    try:
+        conn = actx.client.call("/connections/get", {"conid": conid})
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+
+    if not conn:
+        out.error(f"Connection {conid} not found")
+        raise typer.Exit(1)
+
+    sections = [
+        (
+            "Connection",
+            [
+                ("ID", str(conn.get("_id", ""))),
+                ("Label", str(conn.get("displayName") or conn.get("label") or "")),
+                ("Engine", str(conn.get("engine", ""))),
+                ("Server", str(conn.get("server", ""))),
+                ("Port", str(conn.get("port", ""))),
+                ("User", str(conn.get("user", ""))),
+                ("Database", str(conn.get("database", ""))),
+                ("ReadOnly", "yes" if (conn.get("isReadOnly") or conn.get("readOnly")) else "no"),
+            ],
+        ),
+    ]
+    out.detail("Connection Details", sections, data_for_json=conn)
+
+
+@app.command()
+def test(
+    ctx: typer.Context,
+    conid: Annotated[str, typer.Argument(help="Connection ID")],
+) -> None:
+    """Test a connection."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    try:
+        result = actx.client.call("/connections/test", {"conid": conid})
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+
+    msgtype = (result or {}).get("msgtype", "")
+    if msgtype == "connected":
+        version = result.get("version", "")
+        out.success(f"OK — connected ({version})" if version else "OK — connected")
+    else:
+        out.error(f"Test failed: {result}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def delete(
+    ctx: typer.Context,
+    conid: Annotated[str, typer.Argument(help="Connection ID")],
+    force: Annotated[bool, typer.Option("--force", help="Skip confirmation")] = False,
+) -> None:
+    """Delete a connection."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    if not force and not typer.confirm(f"Delete connection {conid}?"):
+        raise typer.Exit(0)
+
+    try:
+        actx.client.call("/connections/delete", {"_id": conid})
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+
+    out.success(f"Connection {conid} deleted")
+
+
+def _build_payload(
+    label: str | None,
+    engine: str | None,
+    server: str | None,
+    port: str | None,
+    user: str | None,
+    password: str | None,
+    database: str | None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    if label is not None:
+        payload["displayName"] = label
+    if engine is not None:
+        payload["engine"] = engine
+    if server is not None:
+        payload["server"] = server
+    if port is not None:
+        payload["port"] = port
+    if user is not None:
+        payload["user"] = user
+    if password is not None:
+        payload["password"] = password
+    if database is not None:
+        payload["database"] = database
+    return payload
+
+
+@app.command()
+def create(
+    ctx: typer.Context,
+    label: Annotated[str, typer.Option("--label", help="Display name")],
+    engine: Annotated[str, typer.Option("--engine", help="Engine key, e.g. postgres@dbgate-plugin-postgres")],
+    server: Annotated[str, typer.Option("--server", help="DB server host")],
+    port: Annotated[str, typer.Option("--port", help="DB server port")],
+    user: Annotated[str, typer.Option("--user", help="DB username")],
+    password: Annotated[str, typer.Option("--password", help="DB password")],
+    database: Annotated[str | None, typer.Option("--database", help="Default database (optional)")] = None,
+) -> None:
+    """Create a new database connection."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    payload = _build_payload(label, engine, server, port, user, password, database)
+
+    try:
+        result = actx.client.call("/connections/save", payload)
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+
+    new_id = (result or {}).get("_id", "")
+    out.success(f"Connection created: {new_id}")
+    out.kv("Label", label)
+    out.kv("Engine", engine)
+
+
+@app.command()
+def update(
+    ctx: typer.Context,
+    conid: Annotated[str, typer.Argument(help="Connection ID")],
+    label: Annotated[str | None, typer.Option("--label", help="Display name")] = None,
+    engine: Annotated[str | None, typer.Option("--engine", help="Engine key")] = None,
+    server: Annotated[str | None, typer.Option("--server", help="DB server host")] = None,
+    port: Annotated[str | None, typer.Option("--port", help="DB server port")] = None,
+    user: Annotated[str | None, typer.Option("--user", help="DB username")] = None,
+    password: Annotated[str | None, typer.Option("--password", help="DB password")] = None,
+    database: Annotated[str | None, typer.Option("--database", help="Default database")] = None,
+) -> None:
+    """Update an existing connection (pass only the fields to change)."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    payload = _build_payload(label, engine, server, port, user, password, database)
+    payload["_id"] = conid
+
+    try:
+        actx.client.call("/connections/update", payload)
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+
+    out.success(f"Connection {conid} updated")
+
+
+@app.command("new-sqlite")
+def new_sqlite(
+    ctx: typer.Context,
+    label: Annotated[str, typer.Option("--label", help="Display name")],
+    file: Annotated[str, typer.Option("--file", help="Path to SQLite .db file")],
+) -> None:
+    """Create a new SQLite-backed connection."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    payload = {
+        "displayName": label,
+        "databaseFile": file,
+        "engine": "sqlite@dbgate-plugin-sqlite",
+    }
+    try:
+        result = actx.client.call("/connections/new-sqlite-database", payload)
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+
+    out.success(f"SQLite connection created: {(result or {}).get('_id', '')}")
+
+
+@app.command("new-duckdb")
+def new_duckdb(
+    ctx: typer.Context,
+    label: Annotated[str, typer.Option("--label", help="Display name")],
+    file: Annotated[str, typer.Option("--file", help="Path to DuckDB file")],
+) -> None:
+    """Create a new DuckDB-backed connection."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    payload = {
+        "displayName": label,
+        "databaseFile": file,
+        "engine": "duckdb@dbgate-plugin-duckdb",
+    }
+    try:
+        result = actx.client.call("/connections/new-duckdb-database", payload)
+    except KctlError as e:
+        out.error(str(e))
+        raise typer.Exit(1) from e
+
+    out.success(f"DuckDB connection created: {(result or {}).get('_id', '')}")
