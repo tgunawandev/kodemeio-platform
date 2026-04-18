@@ -3,7 +3,7 @@ extends: ../../bases/infra.yaml
 
 instance:
   name: kod-infra-dbgate
-  description: "DBGate — local mirror (raw compose, published on :3001)"
+  description: "DBGate — local via dokploy-traefik (https://dbgate.local.kodeme.io)"
 
 project: application
 environment: local
@@ -14,12 +14,12 @@ source_overrides:
   owner: tgunawandev
   repo: kodemeio-dbgate
   branch: main
-  compose_path: ./docker-compose.yml
+  compose_path: ./docker-compose.prod.yml
 
 domain:
-  host: localhost
-  port: 3001
+  host: dbgate.local.kodeme.io
+  port: 3000
   service: dbgate
-  https: false
+  https: true
 
 env_file: ../../env/local/.env.kod-infra-dbgate
