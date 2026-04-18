@@ -38,8 +38,11 @@ services:
         condition: any
       update_config:
         order: start-first
+    # Traefik image doesn't ship wget/curl and the `traefik healthcheck` CLI
+    # requires --ping.entryPoint, which we haven't enabled. Use swarm's
+    # readiness check via the listening :80 instead.
     healthcheck:
-      test: ["CMD", "traefik", "healthcheck"]
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 80 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
