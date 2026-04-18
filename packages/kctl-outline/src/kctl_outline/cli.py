@@ -2,32 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
 from kctl_outline import __version__
+from kctl_outline.commands.attachments import app as attachments_app
+from kctl_outline.commands.collections import app as collections_app
+from kctl_outline.commands.comments import app as comments_app
+from kctl_outline.commands.config_cmd import app as config_app
+from kctl_outline.commands.dashboard import app as dashboard_app
+from kctl_outline.commands.documents import app as documents_app
+from kctl_outline.commands.events import app as events_app
+from kctl_outline.commands.groups import app as groups_app
+from kctl_outline.commands.health import app as health_app
+from kctl_outline.commands.revisions import app as revisions_app
+from kctl_outline.commands.search import search_command
+from kctl_outline.commands.shares import app as shares_app
+from kctl_outline.commands.stars import app as stars_app
+from kctl_outline.commands.sync import app as sync_app
+from kctl_outline.commands.templates import app as templates_app
+from kctl_outline.commands.tokens import app as tokens_app
+from kctl_outline.commands.users import app as users_app
 from kctl_outline.core.callbacks import AppContext
 from kctl_outline.core.exceptions import APIError, AuthenticationError, ConfigError, KctlError
 from kctl_outline.core.exceptions import ConnectionError as KctlConnectionError
-
-from kctl_outline.commands.documents import app as documents_app
-from kctl_outline.commands.collections import app as collections_app
-from kctl_outline.commands.users import app as users_app
-from kctl_outline.commands.groups import app as groups_app
-from kctl_outline.commands.shares import app as shares_app
-from kctl_outline.commands.comments import app as comments_app
-from kctl_outline.commands.events import app as events_app
-from kctl_outline.commands.health import app as health_app
-from kctl_outline.commands.dashboard import app as dashboard_app
-from kctl_outline.commands.config_cmd import app as config_app
-from kctl_outline.commands.search import search_command
-from kctl_outline.commands.stars import app as stars_app
-from kctl_outline.commands.templates import app as templates_app
-from kctl_outline.commands.revisions import app as revisions_app
-from kctl_outline.commands.attachments import app as attachments_app
-from kctl_outline.commands.tokens import app as tokens_app
-from kctl_outline.commands.sync import app as sync_app
 
 
 def version_callback(value: bool) -> None:
@@ -50,9 +49,9 @@ def main(
     ctx: typer.Context,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Suppress info messages")] = False,
-    profile: Annotated[Optional[str], typer.Option("--profile", "-p", help="Config profile name")] = None,
-    url: Annotated[Optional[str], typer.Option("--url", help="API URL override")] = None,
-    token: Annotated[Optional[str], typer.Option("--token", help="API token override")] = None,
+    profile: Annotated[str | None, typer.Option("--profile", "-p", help="Config profile name")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="API URL override")] = None,
+    token: Annotated[str | None, typer.Option("--token", help="API token override")] = None,
     version: Annotated[
         bool, typer.Option("--version", "-V", callback=version_callback, is_eager=True, help="Show version")
     ] = False,

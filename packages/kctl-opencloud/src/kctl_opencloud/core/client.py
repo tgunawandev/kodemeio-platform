@@ -10,8 +10,6 @@ from typing import Any
 
 import httpx
 from kctl_lib.api_client import APIClient
-from kctl_lib.exceptions import APIError
-from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 
 class OpenCloudClient(APIClient):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -14,7 +14,7 @@ app = typer.Typer(help="Document management.")
 @app.command("list")
 def list_(
     ctx: typer.Context,
-    collection: Annotated[Optional[str], typer.Option("--collection", "-c", help="Filter by collection ID")] = None,
+    collection: Annotated[str | None, typer.Option("--collection", "-c", help="Filter by collection ID")] = None,
     offset: Annotated[int, typer.Option(help="Pagination offset")] = 0,
     limit: Annotated[int, typer.Option(help="Results per page")] = 25,
 ) -> None:
@@ -62,23 +62,32 @@ def get(
     c.output.detail(
         f"Document: {doc.get('title', '')}",
         [
-            ("Details", [
-                ("ID", doc.get("id", "")),
-                ("Title", doc.get("title", "")),
-                ("Collection", doc.get("collectionId", "")),
-                ("Revision", str(doc.get("revision", ""))),
-                ("Template", str(doc.get("template", False))),
-                ("Archived", str(doc.get("archivedAt") is not None)),
-            ]),
-            ("Dates", [
-                ("Created", doc.get("createdAt", "")),
-                ("Updated", doc.get("updatedAt", "")),
-                ("Published", doc.get("publishedAt", "") or "draft"),
-            ]),
-            ("Author", [
-                ("Created by", doc.get("createdBy", {}).get("name", "")),
-                ("Updated by", doc.get("updatedBy", {}).get("name", "")),
-            ]),
+            (
+                "Details",
+                [
+                    ("ID", doc.get("id", "")),
+                    ("Title", doc.get("title", "")),
+                    ("Collection", doc.get("collectionId", "")),
+                    ("Revision", str(doc.get("revision", ""))),
+                    ("Template", str(doc.get("template", False))),
+                    ("Archived", str(doc.get("archivedAt") is not None)),
+                ],
+            ),
+            (
+                "Dates",
+                [
+                    ("Created", doc.get("createdAt", "")),
+                    ("Updated", doc.get("updatedAt", "")),
+                    ("Published", doc.get("publishedAt", "") or "draft"),
+                ],
+            ),
+            (
+                "Author",
+                [
+                    ("Created by", doc.get("createdBy", {}).get("name", "")),
+                    ("Updated by", doc.get("updatedBy", {}).get("name", "")),
+                ],
+            ),
         ],
         data_for_json=doc,
     )
@@ -91,7 +100,7 @@ def create(
     collection_id: Annotated[str, typer.Option("--collection", "-c", help="Collection ID")] = "",
     text: Annotated[str, typer.Option("--text", "-t", help="Document body (Markdown)")] = "",
     publish: Annotated[bool, typer.Option("--publish", help="Publish immediately")] = True,
-    parent_id: Annotated[Optional[str], typer.Option("--parent", help="Parent document ID")] = None,
+    parent_id: Annotated[str | None, typer.Option("--parent", help="Parent document ID")] = None,
     template: Annotated[bool, typer.Option("--template", help="Create as template")] = False,
 ) -> None:
     """Create a new document."""
@@ -112,12 +121,17 @@ def create(
 
     c.output.detail(
         "Document Created",
-        [("Details", [
-            ("ID", doc.get("id", "")),
-            ("Title", doc.get("title", "")),
-            ("Collection", doc.get("collectionId", "")),
-            ("Published", str(bool(doc.get("publishedAt")))),
-        ])],
+        [
+            (
+                "Details",
+                [
+                    ("ID", doc.get("id", "")),
+                    ("Title", doc.get("title", "")),
+                    ("Collection", doc.get("collectionId", "")),
+                    ("Published", str(bool(doc.get("publishedAt")))),
+                ],
+            )
+        ],
         data_for_json=doc,
     )
 
@@ -126,8 +140,8 @@ def create(
 def update(
     ctx: typer.Context,
     doc_id: Annotated[str, typer.Argument(help="Document ID")],
-    title: Annotated[Optional[str], typer.Option("--title", help="New title")] = None,
-    text: Annotated[Optional[str], typer.Option("--text", help="New body (Markdown)")] = None,
+    title: Annotated[str | None, typer.Option("--title", help="New title")] = None,
+    text: Annotated[str | None, typer.Option("--text", help="New body (Markdown)")] = None,
     append: Annotated[bool, typer.Option("--append", help="Append text instead of replace")] = False,
     done: Annotated[bool, typer.Option("--done", help="Mark as done")] = False,
 ) -> None:
@@ -175,7 +189,7 @@ def delete(
 def search(
     ctx: typer.Context,
     query: Annotated[str, typer.Argument(help="Search query")],
-    collection: Annotated[Optional[str], typer.Option("--collection", "-c", help="Filter by collection ID")] = None,
+    collection: Annotated[str | None, typer.Option("--collection", "-c", help="Filter by collection ID")] = None,
     limit: Annotated[int, typer.Option(help="Max results")] = 25,
 ) -> None:
     """Search documents."""
@@ -229,7 +243,7 @@ def move(
     ctx: typer.Context,
     doc_id: Annotated[str, typer.Argument(help="Document ID")],
     collection_id: Annotated[str, typer.Option("--collection", "-c", help="Target collection ID")] = "",
-    parent_id: Annotated[Optional[str], typer.Option("--parent", help="Target parent document ID")] = None,
+    parent_id: Annotated[str | None, typer.Option("--parent", help="Target parent document ID")] = None,
 ) -> None:
     """Move a document to another collection or parent."""
     c: AppContext = ctx.obj

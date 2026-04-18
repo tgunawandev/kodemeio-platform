@@ -25,11 +25,14 @@ def install_pos58(
     c: AppContext = ctx.obj
     c.output.info(f"Running POS58 driver install script (ID: {SCRIPT_INSTALL_POS58}) on {agent_id}")
 
-    c.client.post(f"/agents/{agent_id}/runscript/", data={
-        "script": SCRIPT_INSTALL_POS58,
-        "output": "forget",
-        "timeout": timeout,
-    })
+    c.client.post(
+        f"/agents/{agent_id}/runscript/",
+        data={
+            "script": SCRIPT_INSTALL_POS58,
+            "output": "forget",
+            "timeout": timeout,
+        },
+    )
     c.output.success(f"POS58 driver install dispatched to {agent_id} (fire-and-forget)")
     c.output.info("Check script history for results: kctl-rmm scripts history --agent " + agent_id)
 
@@ -44,10 +47,13 @@ def check_printer(
     c: AppContext = ctx.obj
     c.output.info(f"Running printer check script (ID: {SCRIPT_CHECK_PRINTER}) on {agent_id}")
 
-    c.client.post(f"/agents/{agent_id}/runscript/", data={
-        "script": SCRIPT_CHECK_PRINTER,
-        "output": "forget",
-        "timeout": timeout,
-    })
+    c.client.post(
+        f"/agents/{agent_id}/runscript/",
+        data={
+            "script": SCRIPT_CHECK_PRINTER,
+            "output": "forget",
+            "timeout": timeout,
+        },
+    )
     c.output.success(f"Printer check dispatched to {agent_id} (fire-and-forget)")
     c.output.info("Check script history for results: kctl-rmm scripts history --agent " + agent_id)

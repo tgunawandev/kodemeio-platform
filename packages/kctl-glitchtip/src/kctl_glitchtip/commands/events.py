@@ -71,9 +71,9 @@ def cleanup(
         else:
             out.error(f"Cleanup failed: {result.stderr.strip()}")
             raise typer.Exit(1)
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         out.error("Docker not found. This command requires Docker access to the GlitchTip container.")
-        raise typer.Exit(1)
-    except subprocess.TimeoutExpired:
+        raise typer.Exit(1) from e
+    except subprocess.TimeoutExpired as e:
         out.error("Cleanup timed out after 5 minutes")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e

@@ -34,6 +34,7 @@ SERVICE_KEY = "outline"
 
 class ServiceConfig(BaseModel):
     """Service-specific config within a profile."""
+
     url: str = ""
     token: str = ""
 
@@ -76,10 +77,7 @@ def _is_service_scoped(profile_data: dict) -> bool:
     New format: profiles.production.outline.url
     Old format: profiles.production.url
     """
-    for key, val in profile_data.items():
-        if isinstance(val, dict):
-            return True
-    return False
+    return any(isinstance(val, dict) for key, val in profile_data.items())
 
 
 def get_service_config(profile_name: str) -> ServiceConfig:
@@ -101,10 +99,7 @@ def get_service_config(profile_name: str) -> ServiceConfig:
             return ServiceConfig(**svc_data)
         return ServiceConfig()
     else:
-        return ServiceConfig(**{
-            k: v for k, v in profile_data.items()
-            if k in ServiceConfig.model_fields
-        })
+        return ServiceConfig(**{k: v for k, v in profile_data.items() if k in ServiceConfig.model_fields})
 
 
 def set_service_config(profile_name: str, svc_config: ServiceConfig) -> None:

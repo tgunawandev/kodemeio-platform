@@ -34,7 +34,7 @@ class Output:
         """Print a Rich table or JSON array."""
         if self.json_mode:
             json_data = data_for_json or [
-                {col[0].lower().replace(" ", "_"): val for col, val in zip(columns, row)} for row in rows
+                {col[0].lower().replace(" ", "_"): val for col, val in zip(columns, row, strict=False)} for row in rows
             ]
             print(json.dumps(json_data, indent=2, default=str))
             return

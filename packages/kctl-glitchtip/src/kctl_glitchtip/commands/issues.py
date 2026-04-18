@@ -28,10 +28,7 @@ def list_(
     if status:
         params["query"] = f"is:{status}"
 
-    if project:
-        endpoint = f"projects/{org_slug}/{project}/issues/"
-    else:
-        endpoint = f"organizations/{org_slug}/issues/"
+    endpoint = f"projects/{org_slug}/{project}/issues/" if project else f"organizations/{org_slug}/issues/"
 
     issues = c.get_list(endpoint, params=params)
 
@@ -72,34 +69,40 @@ def get(
     project = issue.get("project", {})
 
     sections = [
-        ("Issue", [
-            ("ID", str(issue.get("id", ""))),
-            ("Title", issue.get("title", "")),
-            ("Culprit", issue.get("culprit", "-")),
-            ("Status", issue.get("status", "")),
-            ("Level", issue.get("level", "")),
-            ("Project", project.get("slug", "") if isinstance(project, dict) else str(project)),
-            ("Count", str(issue.get("count", 0))),
-            ("User Count", str(issue.get("userCount", issue.get("user_count", 0)))),
-            ("First Seen", str(issue.get("firstSeen") or issue.get("first_seen") or "")),
-            ("Last Seen", str(issue.get("lastSeen") or issue.get("last_seen") or "")),
-        ]),
+        (
+            "Issue",
+            [
+                ("ID", str(issue.get("id", ""))),
+                ("Title", issue.get("title", "")),
+                ("Culprit", issue.get("culprit", "-")),
+                ("Status", issue.get("status", "")),
+                ("Level", issue.get("level", "")),
+                ("Project", project.get("slug", "") if isinstance(project, dict) else str(project)),
+                ("Count", str(issue.get("count", 0))),
+                ("User Count", str(issue.get("userCount", issue.get("user_count", 0)))),
+                ("First Seen", str(issue.get("firstSeen") or issue.get("first_seen") or "")),
+                ("Last Seen", str(issue.get("lastSeen") or issue.get("last_seen") or "")),
+            ],
+        ),
     ]
 
     if metadata:
-        sections.append(("Metadata", [
-            (k, str(v)) for k, v in metadata.items()
-        ]))
+        sections.append(("Metadata", [(k, str(v)) for k, v in metadata.items()]))
 
     # Get latest event
     try:
         latest = c.get(f"issues/{issue_id}/events/latest/")
         if latest:
-            sections.append(("Latest Event", [
-                ("Event ID", str(latest.get("eventID") or latest.get("id", ""))),
-                ("Timestamp", str(latest.get("dateCreated") or latest.get("timestamp") or "")),
-                ("Message", str(latest.get("message", ""))[:100]),
-            ]))
+            sections.append(
+                (
+                    "Latest Event",
+                    [
+                        ("Event ID", str(latest.get("eventID") or latest.get("id", ""))),
+                        ("Timestamp", str(latest.get("dateCreated") or latest.get("timestamp") or "")),
+                        ("Message", str(latest.get("message", ""))[:100]),
+                    ],
+                )
+            )
     except Exception:
         pass
 
@@ -142,9 +145,8 @@ def delete(
     actx: AppContext = ctx.obj
     c, out = actx.client, actx.output
 
-    if not force:
-        if not typer.confirm(f"Delete issue {issue_id}?"):
-            raise typer.Exit(0)
+    if not force and not typer.confirm(f"Delete issue {issue_id}?"):
+        raise typer.Exit(0)
 
     c.delete(f"issues/{issue_id}/")
     out.success(f"Issue {issue_id} deleted")
@@ -161,9 +163,8 @@ def bulk_resolve(
     actx: AppContext = ctx.obj
     c, out = actx.client, actx.output
 
-    if not force:
-        if not typer.confirm(f"Resolve all issues in {org_slug}/{project}?"):
-            raise typer.Exit(0)
+    if not force and not typer.confirm(f"Resolve all issues in {org_slug}/{project}?"):
+        raise typer.Exit(0)
 
     result = c.put(
         f"organizations/{org_slug}/issues/",

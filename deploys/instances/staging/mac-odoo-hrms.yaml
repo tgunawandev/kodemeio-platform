@@ -2,8 +2,8 @@
 kind: instance
 extends: ../../bases/odoo.yaml
 instance:
-  name: mac-odoo-hrms-stg
-  description: MAC — HRMS Staging (employees, attendance, payroll, leaves, expenses)
+  name: mac-odoo-hrms
+  description: MAC — HRMS (employees, attendance, payroll, leaves, expenses)
 project: mac
 environment: staging
 server: tpp-stg-01

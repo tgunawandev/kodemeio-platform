@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -1268,9 +1268,9 @@ def generate_cmd(
     ctx: typer.Context,
     model: Annotated[str, typer.Argument(help="Odoo model name (e.g. form.type, dunning.case)")],
     group_name: Annotated[
-        Optional[str], typer.Option("--group", "-g", help="CLI group name (default: derived from model)")
+        str | None, typer.Option("--group", "-g", help="CLI group name (default: derived from model)")
     ] = None,
-    output: Annotated[Optional[str], typer.Option("--output", "-o", help="Output file path (default: stdout)")] = None,
+    output: Annotated[str | None, typer.Option("--output", "-o", help="Output file path (default: stdout)")] = None,
 ) -> None:
     """Auto-generate a CLI command file from live Odoo model introspection.
 
@@ -1588,7 +1588,7 @@ def model_fields_cmd(
         print("FIELDS = {")
         for fname, finfo in items:
             ftype = finfo.get("type", "?")
-            label = finfo.get("string", fname)
+            finfo.get("string", fname)
             required = finfo.get("required", False)
             relation = finfo.get("relation", "")
             extras = []
@@ -1647,12 +1647,12 @@ def clear_field_cache_cmd(ctx: typer.Context) -> None:
 @app.command("audit")
 def audit(
     ctx: typer.Context,
-    module: Annotated[Optional[str], typer.Argument(help="Module name (default: all private modules)")] = None,
+    module: Annotated[str | None, typer.Argument(help="Module name (default: all private modules)")] = None,
     all_modules: Annotated[bool, typer.Option("--all", help="Audit all private modules")] = False,
     min_score: Annotated[
         int, typer.Option("--min-score", help="Minimum passing score (CI/CD gate, exit 1 if below)")
     ] = 0,
-    output: Annotated[Optional[str], typer.Option("--output", "-o", help="Export results to JSON file")] = None,
+    output: Annotated[str | None, typer.Option("--output", "-o", help="Export results to JSON file")] = None,
 ) -> None:
     """Comprehensive module audit with scored report card.
 
@@ -1677,10 +1677,10 @@ def audit(
         kctl-odoo dev audit sfa_management --json
         kctl-odoo dev audit --all -o audit_report.json
     """
-    from pathlib import Path as _Path
     import ast
-    import re
     import json as json_mod
+    import re
+    from pathlib import Path as _Path
 
     actx: AppContext = ctx.obj
     out = actx.output
@@ -2272,7 +2272,7 @@ def audit_fix(
         bool, typer.Option("--dry-run", help="Show what would be fixed without modifying files")
     ] = False,
     categories: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--categories", "-c", help="Comma-separated categories to fix: acl,docs,manifest (default: all safe)"
         ),
@@ -2550,7 +2550,7 @@ def audit_fix(
 def audit_prompt(
     ctx: typer.Context,
     module: Annotated[str, typer.Argument(help="Module name")],
-    output: Annotated[Optional[str], typer.Option("--output", "-o", help="Save prompt to file")] = None,
+    output: Annotated[str | None, typer.Option("--output", "-o", help="Save prompt to file")] = None,
 ) -> None:
     """Generate an AI agent prompt from audit results for human-in-loop fixes.
 
@@ -2563,8 +2563,8 @@ def audit_prompt(
         kctl-odoo dev audit-prompt sfa_management -o /tmp/fix-sfa.md
     """
     import ast
-    import re
     import json as json_mod  # noqa: F401
+    import re
 
     actx: AppContext = ctx.obj
     out = actx.output
@@ -2825,7 +2825,7 @@ def audit_prompt(
             f"kctl-odoo dev audit {module}",
             "```",
             "",
-            f"Target: Score should improve from current level toward 90+% (Grade A).",
+            "Target: Score should improve from current level toward 90+% (Grade A).",
         ]
     )
 
@@ -2853,7 +2853,7 @@ def audit_prompt(
 @app.command("audit-views")
 def audit_views(
     ctx: typer.Context,
-    module: Annotated[Optional[str], typer.Argument(help="Module name (default: all)")] = None,
+    module: Annotated[str | None, typer.Argument(help="Module name (default: all)")] = None,
 ) -> None:
     """Audit XML views for performance — field count, deprecated patterns.
 
@@ -2916,7 +2916,7 @@ def audit_views(
 @app.command("audit-compute")
 def audit_compute(
     ctx: typer.Context,
-    module: Annotated[Optional[str], typer.Argument(help="Module name (default: all)")] = None,
+    module: Annotated[str | None, typer.Argument(help="Module name (default: all)")] = None,
 ) -> None:
     """Find computed fields without store=True.
 
@@ -2978,7 +2978,7 @@ def audit_compute(
 @app.command("audit-blocking")
 def audit_blocking(
     ctx: typer.Context,
-    module: Annotated[Optional[str], typer.Argument(help="Module name (default: all)")] = None,
+    module: Annotated[str | None, typer.Argument(help="Module name (default: all)")] = None,
 ) -> None:
     """Find blocking operations inside HTTP controllers.
 
@@ -3088,7 +3088,7 @@ def check_log_level(ctx: typer.Context) -> None:
 @app.command("audit-api")
 def audit_api(
     ctx: typer.Context,
-    module: Annotated[Optional[str], typer.Argument(help="Module name (default: all with routers)")] = None,
+    module: Annotated[str | None, typer.Argument(help="Module name (default: all with routers)")] = None,
 ) -> None:
     """Audit FastAPI router code for common performance issues.
 
@@ -3252,7 +3252,7 @@ def audit_api(
 @app.command("audit-logic")
 def audit_logic(
     ctx: typer.Context,
-    module: Annotated[Optional[str], typer.Argument(help="Module name (default: all private modules)")] = None,
+    module: Annotated[str | None, typer.Argument(help="Module name (default: all private modules)")] = None,
 ) -> None:
     """Audit Odoo business logic for common errors.
 
@@ -3336,12 +3336,14 @@ def audit_logic(
                         # Check for @api.constrains decorator
                         if isinstance(item, ast.FunctionDef):
                             for decorator in item.decorator_list:
-                                if isinstance(decorator, ast.Attribute) and decorator.attr == "constrains":
-                                    has_constrains = True
-                                elif (
-                                    isinstance(decorator, ast.Call)
-                                    and isinstance(decorator.func, ast.Attribute)
-                                    and decorator.func.attr == "constrains"
+                                if (
+                                    isinstance(decorator, ast.Attribute)
+                                    and decorator.attr == "constrains"
+                                    or (
+                                        isinstance(decorator, ast.Call)
+                                        and isinstance(decorator.func, ast.Attribute)
+                                        and decorator.func.attr == "constrains"
+                                    )
                                 ):
                                     has_constrains = True
 
@@ -3514,7 +3516,7 @@ def audit_logic(
 @app.command("audit-ou")
 def audit_ou(
     ctx: typer.Context,
-    module: Annotated[Optional[str], typer.Argument(help="Module name (default: all private modules)")] = None,
+    module: Annotated[str | None, typer.Argument(help="Module name (default: all private modules)")] = None,
 ) -> None:
     """Audit Operating Unit (multi-branch) isolation gaps.
 
@@ -3530,10 +3532,9 @@ def audit_ou(
         kctl-odoo dev audit-ou sfa_management
         kctl-odoo dev audit-ou
     """
-    from pathlib import Path
     import ast
-    import re
     import xml.etree.ElementTree as ET
+    from pathlib import Path
 
     actx: AppContext = ctx.obj
     out = actx.output
@@ -3632,7 +3633,7 @@ def audit_ou(
                                     rel_path,
                                     model_name,
                                     "No OU field",
-                                    f"Transactional model without operating_unit_id",
+                                    "Transactional model without operating_unit_id",
                                 ]
                             )
 
@@ -3681,7 +3682,7 @@ def audit_ou(
                                 rel_path,
                                 model_ref,
                                 "Model has no OU rule",
-                                f"Model has record rules but none filter by operating_unit",
+                                "Model has record rules but none filter by operating_unit",
                             ]
                         )
 
@@ -3799,7 +3800,6 @@ def _collect_xml_ids(mod_dir: Path) -> tuple[set[str], dict[str, str]]:
 
     Returns: (all_xml_ids, {view_xml_id: model_name})
     """
-    import xml.etree.ElementTree as ET
 
     xml_ids: set[str] = set()
     view_models: dict[str, str] = {}
@@ -3937,8 +3937,8 @@ def audit_ui(
 
         checks: list[dict] = []
 
-        def _check(cat: str, name: str, passed: bool, detail: str = ""):
-            checks.append({"cat": cat, "name": name, "passed": passed, "detail": detail})
+        def _check(cat: str, name: str, passed: bool, detail: str = "", *, _checks: list[dict] = checks) -> None:
+            _checks.append({"cat": cat, "name": name, "passed": passed, "detail": detail})
 
         # Load manifest
         try:
@@ -4286,14 +4286,12 @@ def audit_ui(
         data_indices = [i for i, f in enumerate(data_files) if f.startswith("data/")]
         order_ok = True
         order_detail = ""
-        if sec_indices and view_indices:
-            if max(sec_indices) > min(view_indices):
-                order_ok = False
-                order_detail = "Security files should come before view files"
-        if sec_indices and data_indices:
-            if max(sec_indices) > min(data_indices):
-                order_ok = False
-                order_detail = "Security files should come before data files"
+        if sec_indices and view_indices and max(sec_indices) > min(view_indices):
+            order_ok = False
+            order_detail = "Security files should come before view files"
+        if sec_indices and data_indices and max(sec_indices) > min(data_indices):
+            order_ok = False
+            order_detail = "Security files should come before data files"
         _check("Manifest", "Data file order (security → views → data)", order_ok, order_detail or "Correct order")
 
         # =====================================================================

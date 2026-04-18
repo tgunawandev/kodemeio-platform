@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -16,7 +16,7 @@ def list_(
     ctx: typer.Context,
     offset: Annotated[int, typer.Option(help="Pagination offset")] = 0,
     limit: Annotated[int, typer.Option(help="Results per page")] = 25,
-    filter_: Annotated[Optional[str], typer.Option("--filter", help="Filter: all, active, invited, suspended")] = None,
+    filter_: Annotated[str | None, typer.Option("--filter", help="Filter: all, active, invited, suspended")] = None,
 ) -> None:
     """List users."""
     c: AppContext = ctx.obj
@@ -62,21 +62,30 @@ def get(
     c.output.detail(
         f"User: {user.get('name', '')}",
         [
-            ("Identity", [
-                ("ID", user.get("id", "")),
-                ("Name", user.get("name", "")),
-                ("Email", user.get("email", "")),
-                ("Role", user.get("role", "")),
-            ]),
-            ("Status", [
-                ("Suspended", str(user.get("isSuspended", False))),
-                ("Admin", str(user.get("isAdmin", False))),
-                ("Viewer", str(user.get("isViewer", False))),
-                ("Last Active", user.get("lastActiveAt", "never")),
-            ]),
-            ("Dates", [
-                ("Created", user.get("createdAt", "")),
-            ]),
+            (
+                "Identity",
+                [
+                    ("ID", user.get("id", "")),
+                    ("Name", user.get("name", "")),
+                    ("Email", user.get("email", "")),
+                    ("Role", user.get("role", "")),
+                ],
+            ),
+            (
+                "Status",
+                [
+                    ("Suspended", str(user.get("isSuspended", False))),
+                    ("Admin", str(user.get("isAdmin", False))),
+                    ("Viewer", str(user.get("isViewer", False))),
+                    ("Last Active", user.get("lastActiveAt", "never")),
+                ],
+            ),
+            (
+                "Dates",
+                [
+                    ("Created", user.get("createdAt", "")),
+                ],
+            ),
         ],
         data_for_json=user,
     )
@@ -98,15 +107,15 @@ def invite(
     if sent:
         c.output.success(f"Invitation sent to {email}")
     else:
-        c.output.warn(f"Invitation may not have been sent (user may already exist)")
+        c.output.warn("Invitation may not have been sent (user may already exist)")
 
 
 @app.command()
 def update(
     ctx: typer.Context,
     user_id: Annotated[str, typer.Argument(help="User ID")],
-    name: Annotated[Optional[str], typer.Option("--name", help="New display name")] = None,
-    role: Annotated[Optional[str], typer.Option("--role", help="New role: admin, member, viewer")] = None,
+    name: Annotated[str | None, typer.Option("--name", help="New display name")] = None,
+    role: Annotated[str | None, typer.Option("--role", help="New role: admin, member, viewer")] = None,
 ) -> None:
     """Update a user."""
     c: AppContext = ctx.obj

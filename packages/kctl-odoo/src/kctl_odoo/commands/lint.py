@@ -128,12 +128,15 @@ def _check_python_quality(mod_dir: Path) -> list[tuple[str, str, str]]:
             # Only flag f-strings that are arguments to .execute() calls,
             # not display messages that happen to contain SQL keywords
             stripped = line.strip()
-            if re.search(r'\.execute\(\s*f["\']', stripped) or re.search(r'\.execute\([^)]*\+\s*f["\']', stripped):
-                issues.append(("error", f"{rel}:{i}", "f-string in SQL — use psycopg2.sql or %s params"))
-            elif re.search(
-                r'f["\'].*(?:SELECT\s|INSERT\s|UPDATE\s\w+\sSET|DELETE\s+FROM|CREATE\s+TABLE|DROP\s+TABLE|ALTER\s+TABLE)',
-                line,
-            ) and re.search(r"\.execute\(", line):
+            if (
+                re.search(r'\.execute\(\s*f["\']', stripped)
+                or re.search(r'\.execute\([^)]*\+\s*f["\']', stripped)
+                or re.search(
+                    r'f["\'].*(?:SELECT\s|INSERT\s|UPDATE\s\w+\sSET|DELETE\s+FROM|CREATE\s+TABLE|DROP\s+TABLE|ALTER\s+TABLE)',
+                    line,
+                )
+                and re.search(r"\.execute\(", line)
+            ):
                 issues.append(("error", f"{rel}:{i}", "f-string in SQL — use psycopg2.sql or %s params"))
 
             # Bare except

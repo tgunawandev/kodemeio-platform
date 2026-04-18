@@ -1,8 +1,11 @@
 """Tests for FastAPI audit commands."""
 
 from __future__ import annotations
+
 from unittest.mock import MagicMock
+
 import typer
+
 from kctl_odoo.core.callbacks import AppContext
 
 

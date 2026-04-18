@@ -7,11 +7,11 @@ given file by walking upward toward the configured root.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class SSoTMode(str, Enum):
+class SSoTMode(StrEnum):
     GIT = "git"
     OUTLINE = "outline"
 

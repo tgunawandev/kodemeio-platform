@@ -110,9 +110,8 @@ def delete(
 
     org_slug = org or _get_org_slug(actx)
 
-    if not force:
-        if not typer.confirm(f"Delete monitor {monitor_id}?"):
-            raise typer.Exit(0)
+    if not force and not typer.confirm(f"Delete monitor {monitor_id}?"):
+        raise typer.Exit(0)
 
     c.delete(f"organizations/{org_slug}/monitors/{monitor_id}/")
     out.success(f"Monitor {monitor_id} deleted")

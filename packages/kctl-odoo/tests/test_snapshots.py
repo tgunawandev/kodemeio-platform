@@ -22,7 +22,6 @@ from kctl_odoo.core.snapshots import (
     save_snapshot,
 )
 
-
 # ---------------------------------------------------------------------------
 # Data model construction
 # ---------------------------------------------------------------------------
@@ -254,7 +253,7 @@ class TestLoadSnapshot:
     def test_load_nonexistent_file_raises(self, tmp_path: Path) -> None:
         """Loading a file that does not exist raises an error."""
         missing = tmp_path / "does_not_exist.json"
-        with pytest.raises(Exception):
+        with pytest.raises((FileNotFoundError, OSError)):
             load_snapshot(missing)
 
 

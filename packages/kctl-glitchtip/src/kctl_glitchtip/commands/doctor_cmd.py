@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import typer
+from kctl_lib.doctor_base import CheckResult, DoctorCheck, run_doctor
 
 from kctl_glitchtip.core.callbacks import AppContext
-from kctl_lib.doctor_base import CheckResult, DoctorCheck, run_doctor
 
 
 @dataclass

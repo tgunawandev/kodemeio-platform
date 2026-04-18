@@ -43,6 +43,7 @@ class AppContext(AppContextBase):
                 ssh_user=str(s.get("ssh_user", "root")),
                 compose_path=str(s["compose_path"]),
                 compose_service=str(s.get("compose_service", "mattermost")),
+                compose_project=(str(s["compose_project"]) if s.get("compose_project") else None),
             )
         return self._mm_exec
 

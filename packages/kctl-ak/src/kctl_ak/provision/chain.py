@@ -107,7 +107,7 @@ class ProvisionChain:
             return result
 
         # Step 2: Mailcow
-        self._step_mailcow_create(email, name, result)
+        self._step_mailcow_create(email, name, company_cfg, result)
 
         # Step 3: Odoo targets
         self._step_odoo_sync(email, name, company_code, company_cfg, result)
@@ -157,19 +157,28 @@ class ProvisionChain:
         result.add(step, StepStatus.SUCCESS, f"created (uid: {pk})")
         return pk
 
-    def _step_mailcow_create(self, email: str, name: str, result: ChainResult) -> None:
+    def _step_mailcow_create(self, email: str, name: str, company_cfg: CompanyConfig, result: ChainResult) -> None:
         step = "Mailcow mailbox"
         if self.dry_run:
             result.add(step, StepStatus.SKIPPED, "dry-run")
             return
-        if not self.mailcow_api_key:
-            result.add(step, StepStatus.SKIPPED, "no MAILCOW_API_KEY configured")
+
+        mailcow_url = company_cfg.mailcow_url or self.config.mailcow.api_url
+        if not mailcow_url:
+            result.add(step, StepStatus.SKIPPED, "no mailcow_url for this company")
             return
 
-        mc = MailcowProvisionClient(
-            api_url=self.config.mailcow.api_url,
-            api_key=self.mailcow_api_key,
-        )
+        api_key = ""
+        if company_cfg.mailcow_key_env:
+            api_key = os.getenv(company_cfg.mailcow_key_env, "")
+        if not api_key:
+            api_key = self.mailcow_api_key
+        if not api_key:
+            key_hint = company_cfg.mailcow_key_env or "MAILCOW_API_KEY"
+            result.add(step, StepStatus.SKIPPED, f"no {key_hint} configured")
+            return
+
+        mc = MailcowProvisionClient(api_url=mailcow_url, api_key=api_key)
 
         if mc.mailbox_exists(email):
             mailbox = mc.get_mailbox(email)
@@ -260,9 +269,10 @@ class ProvisionChain:
 
     # --- OFFBOARD ---
 
-    def offboard(self, email: str) -> ChainResult:
+    def offboard(self, email: str, company: str | None = None) -> ChainResult:
         """Disable user across all systems."""
         result = ChainResult(email=email, action="offboard")
+        _, company_cfg = self._company_config(email, company)
 
         self.output.header(f"Deprovisioning {email}")
 
@@ -276,7 +286,7 @@ class ProvisionChain:
             self._step_ak_kill_sessions(user_id, result)
 
         # Step 3: Disable Mailcow
-        self._step_mailcow_disable(email, result)
+        self._step_mailcow_disable(email, company_cfg, result)
 
         # Step 4: Deactivate Odoo
         self._step_odoo_deactivate(email, result)
@@ -322,19 +332,28 @@ class ProvisionChain:
         except Exception as e:
             result.add(step, StepStatus.FAILED, str(e))
 
-    def _step_mailcow_disable(self, email: str, result: ChainResult) -> None:
+    def _step_mailcow_disable(self, email: str, company_cfg: CompanyConfig, result: ChainResult) -> None:
         step = "Mailcow disable"
         if self.dry_run:
             result.add(step, StepStatus.SKIPPED, "dry-run")
             return
-        if not self.mailcow_api_key:
-            result.add(step, StepStatus.SKIPPED, "no MAILCOW_API_KEY configured")
+
+        mailcow_url = company_cfg.mailcow_url or self.config.mailcow.api_url
+        if not mailcow_url:
+            result.add(step, StepStatus.SKIPPED, "no mailcow_url for this company")
             return
 
-        mc = MailcowProvisionClient(
-            api_url=self.config.mailcow.api_url,
-            api_key=self.mailcow_api_key,
-        )
+        api_key = ""
+        if company_cfg.mailcow_key_env:
+            api_key = os.getenv(company_cfg.mailcow_key_env, "")
+        if not api_key:
+            api_key = self.mailcow_api_key
+        if not api_key:
+            key_hint = company_cfg.mailcow_key_env or "MAILCOW_API_KEY"
+            result.add(step, StepStatus.SKIPPED, f"no {key_hint} configured")
+            return
+
+        mc = MailcowProvisionClient(api_url=mailcow_url, api_key=api_key)
 
         if not mc.mailbox_exists(email):
             result.add(step, StepStatus.SKIPPED, "no mailbox found")

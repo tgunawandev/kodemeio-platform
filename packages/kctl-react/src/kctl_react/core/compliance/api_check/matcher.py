@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from .hooks import HookCall
@@ -14,8 +15,6 @@ class MatchResult:
     orphan_endpoints: list[Operation] = field(default_factory=list)
     dead_endpoints: list[HookCall] = field(default_factory=list)
 
-
-import re
 
 _PATH_PARAM_RE = re.compile(r"\{[^}]+\}")
 

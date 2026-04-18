@@ -35,6 +35,7 @@ def values_equal(local: str, remote: str) -> bool:
 
 class ChangeType(Enum):
     """Type of change detected."""
+
     ADDED = "added"
     REMOVED = "removed"
     MODIFIED = "modified"
@@ -44,6 +45,7 @@ class ChangeType(Enum):
 @dataclass
 class FieldChange:
     """Represents a change to a single field."""
+
     key: str
     change_type: ChangeType
     local_value: str | None = None
@@ -57,6 +59,7 @@ class FieldChange:
 @dataclass
 class DiffResult:
     """Result of comparing local and remote .env files."""
+
     local_fields: OrderedDict[str, str]
     remote_fields: OrderedDict[str, str]
     changes: list[FieldChange]
@@ -102,36 +105,44 @@ def compute_diff(
 
         if local_value is None:
             # Key exists in remote but not local (will be removed)
-            changes.append(FieldChange(
-                key=key,
-                change_type=ChangeType.REMOVED,
-                local_value=None,
-                remote_value=remote_value,
-            ))
+            changes.append(
+                FieldChange(
+                    key=key,
+                    change_type=ChangeType.REMOVED,
+                    local_value=None,
+                    remote_value=remote_value,
+                )
+            )
         elif remote_value is None:
             # Key exists in local but not remote (will be added)
-            changes.append(FieldChange(
-                key=key,
-                change_type=ChangeType.ADDED,
-                local_value=local_value,
-                remote_value=None,
-            ))
+            changes.append(
+                FieldChange(
+                    key=key,
+                    change_type=ChangeType.ADDED,
+                    local_value=local_value,
+                    remote_value=None,
+                )
+            )
         elif not values_equal(local_value, remote_value):
             # Key exists in both but values differ
-            changes.append(FieldChange(
-                key=key,
-                change_type=ChangeType.MODIFIED,
-                local_value=local_value,
-                remote_value=remote_value,
-            ))
+            changes.append(
+                FieldChange(
+                    key=key,
+                    change_type=ChangeType.MODIFIED,
+                    local_value=local_value,
+                    remote_value=remote_value,
+                )
+            )
         else:
             # Values are the same (after normalization)
-            changes.append(FieldChange(
-                key=key,
-                change_type=ChangeType.UNCHANGED,
-                local_value=local_value,
-                remote_value=remote_value,
-            ))
+            changes.append(
+                FieldChange(
+                    key=key,
+                    change_type=ChangeType.UNCHANGED,
+                    local_value=local_value,
+                    remote_value=remote_value,
+                )
+            )
 
     return DiffResult(
         local_fields=local,
@@ -208,6 +219,6 @@ def _truncate_value(value: str, max_length: int = 50) -> str:
             return value[:4] + "*" * (len(value) - 8) + value[-4:]
 
     if len(value) > max_length:
-        return value[:max_length - 3] + "..."
+        return value[: max_length - 3] + "..."
 
     return value

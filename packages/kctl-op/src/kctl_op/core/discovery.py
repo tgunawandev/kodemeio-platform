@@ -11,6 +11,7 @@ from kctl_op.core.op_config import get_config
 @dataclass
 class EnvFile:
     """Represents a discovered .env file."""
+
     path: Path
     project: str
     environment: str
@@ -126,12 +127,14 @@ def _scan_root_for_env_files(scan_root: Path, config) -> list[EnvFile]:
         project = get_project_name(file_path, scan_root)
         environment = get_environment_name(filename, config)
 
-        env_files.append(EnvFile(
-            path=file_path,
-            project=project,
-            environment=environment,
-            scan_root=scan_root,
-        ))
+        env_files.append(
+            EnvFile(
+                path=file_path,
+                project=project,
+                environment=environment,
+                scan_root=scan_root,
+            )
+        )
 
     return env_files
 

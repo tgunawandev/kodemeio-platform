@@ -1,6 +1,7 @@
 """Tests for enhanced data quality checks (HR, manufacturing, cross-module)."""
 
 from __future__ import annotations
+
 from unittest.mock import MagicMock
 
 import typer

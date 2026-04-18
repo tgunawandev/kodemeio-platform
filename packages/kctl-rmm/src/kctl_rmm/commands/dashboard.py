@@ -76,16 +76,22 @@ def _display_dashboard(ctx: AppContext, data: dict) -> None:
     alerts = data["alerts"]
 
     sections: list[tuple[str, list[tuple[str, str]]]] = [
-        ("Agents", [
-            ("Total", str(total)),
-            ("Online", f"[green]{online}[/green]"),
-            ("Offline", f"[red]{offline}[/red]" if offline else "0"),
-        ]),
-        ("Resources", [
-            ("Clients", str(data["clients"])),
-            ("Active Alerts", f"[red]{alerts}[/red]" if alerts else "0"),
-            ("Scripts", str(data["scripts"])),
-        ]),
+        (
+            "Agents",
+            [
+                ("Total", str(total)),
+                ("Online", f"[green]{online}[/green]"),
+                ("Offline", f"[red]{offline}[/red]" if offline else "0"),
+            ],
+        ),
+        (
+            "Resources",
+            [
+                ("Clients", str(data["clients"])),
+                ("Active Alerts", f"[red]{alerts}[/red]" if alerts else "0"),
+                ("Scripts", str(data["scripts"])),
+            ],
+        ),
     ]
 
     out.detail("Tactical RMM Dashboard", sections, data_for_json=data)

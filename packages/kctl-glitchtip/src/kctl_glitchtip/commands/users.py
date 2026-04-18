@@ -52,7 +52,16 @@ def create(
         out.info(f"Creating superuser {email} via Django management command...")
         try:
             result = subprocess.run(
-                ["docker", "exec", "kodemeio-glitchtip", "./manage.py", "createsuperuser", "--email", email, "--noinput"],
+                [
+                    "docker",
+                    "exec",
+                    "kodemeio-glitchtip",
+                    "./manage.py",
+                    "createsuperuser",
+                    "--email",
+                    email,
+                    "--noinput",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -63,9 +72,9 @@ def create(
             else:
                 out.error(f"Failed: {result.stderr.strip()}")
                 raise typer.Exit(1)
-        except FileNotFoundError:
+        except FileNotFoundError as e:
             out.error("Docker not found. Superuser creation requires Docker access.")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
     else:
         # Use the org members API to invite a user
         c = actx.client

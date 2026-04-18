@@ -26,12 +26,14 @@ def list_(
     for p in patches:
         severity = p.get("severity", "")
         sev_display = f"[red]{severity}[/red]" if "critical" in severity.lower() else severity
-        rows.append([
-            p.get("kb_article_ids", p.get("kb", "")),
-            p.get("title", ""),
-            sev_display,
-            str(p.get("installed", False)),
-        ])
+        rows.append(
+            [
+                p.get("kb_article_ids", p.get("kb", "")),
+                p.get("title", ""),
+                sev_display,
+                str(p.get("installed", False)),
+            ]
+        )
 
     c.output.table(
         f"Patches ({len(patches)})",

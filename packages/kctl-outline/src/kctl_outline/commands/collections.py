@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -93,7 +93,7 @@ def create(
     permission: Annotated[
         str, typer.Option("--permission", help="Default permission: read, read_write")
     ] = "read_write",
-    color: Annotated[Optional[str], typer.Option("--color", help="Hex color (e.g. #FF0000)")] = None,
+    color: Annotated[str | None, typer.Option("--color", help="Hex color (e.g. #FF0000)")] = None,
 ) -> None:
     """Create a new collection."""
     c: AppContext = ctx.obj
@@ -126,10 +126,10 @@ def create(
 def update(
     ctx: typer.Context,
     collection_id: Annotated[str, typer.Argument(help="Collection ID")],
-    name: Annotated[Optional[str], typer.Option("--name", help="New name")] = None,
-    description: Annotated[Optional[str], typer.Option("--description", "-d", help="New description")] = None,
-    permission: Annotated[Optional[str], typer.Option("--permission", help="Default permission")] = None,
-    color: Annotated[Optional[str], typer.Option("--color", help="Hex color")] = None,
+    name: Annotated[str | None, typer.Option("--name", help="New name")] = None,
+    description: Annotated[str | None, typer.Option("--description", "-d", help="New description")] = None,
+    permission: Annotated[str | None, typer.Option("--permission", help="Default permission")] = None,
+    color: Annotated[str | None, typer.Option("--color", help="Hex color")] = None,
 ) -> None:
     """Update a collection."""
     c: AppContext = ctx.obj

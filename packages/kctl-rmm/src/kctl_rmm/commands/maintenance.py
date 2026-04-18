@@ -16,9 +16,16 @@ from kctl_rmm.core.callbacks import AppContext
 app = typer.Typer(help="RMM stack maintenance (docker services).")
 
 SERVICES = [
-    "postgres", "mongodb", "redis", "nats",
-    "tactical-init", "tactical-backend", "tactical-websocket",
-    "tactical-frontend", "tactical-celery", "tactical-celerybeat",
+    "postgres",
+    "mongodb",
+    "redis",
+    "nats",
+    "tactical-init",
+    "tactical-backend",
+    "tactical-websocket",
+    "tactical-frontend",
+    "tactical-celery",
+    "tactical-celerybeat",
     "meshcentral",
 ]
 

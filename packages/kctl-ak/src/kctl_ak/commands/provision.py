@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 
@@ -17,15 +17,19 @@ app = typer.Typer(help="Cross-system user provisioning (Authentik + Mailcow + Od
 
 
 def _resolve_config_path() -> Path:
-    """Find provision-config.yaml — check env, cwd, then package default."""
+    """Find provision-config.yaml — check env, cwd, then shared config dir."""
     env_path = os.getenv("PROVISION_CONFIG")
     if env_path:
         return Path(env_path)
-    cwd = Path.cwd() / "provision-config.yaml"
-    if cwd.exists():
-        return cwd
+    candidates = [
+        Path.cwd() / "provision-config.yaml",
+        Path.home() / ".config" / "kodemeio" / "provision-config.yaml",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
     raise FileNotFoundError(
-        "provision-config.yaml not found. Set PROVISION_CONFIG env var or place in current directory."
+        f"provision-config.yaml not found. Checked: $PROVISION_CONFIG, {candidates[0]}, {candidates[1]}"
     )
 
 
@@ -115,12 +119,13 @@ def onboard(
 def offboard(
     ctx: typer.Context,
     email: Annotated[str, typer.Argument(help="Employee email to deactivate")],
+    company: Annotated[str | None, typer.Option("--company", "-c", help="Company code (mac/tpp/kod)")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen")] = False,
 ) -> None:
     """Disable user across Authentik, Mailcow, and Odoo."""
     c: AppContext = ctx.obj
     chain = _build_chain(ctx, dry_run)
-    result = chain.offboard(email=email)
+    result = chain.offboard(email=email, company=company)
     _print_result(c, result)
 
     if not result.success:
@@ -338,7 +343,6 @@ def setup_webhook(
         raise typer.Exit(1)
 
     from kctl_ak.provision.webhook_setup import (
-        AUTOMATION_NAME,
         generate_webhook_code,
         build_automation_vals,
         find_existing_automation,

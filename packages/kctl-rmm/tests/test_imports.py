@@ -30,6 +30,7 @@ def test_cli_app_has_all_groups():
             "rustdesk",
             "scripts",
             "services",
+            "skill",
             "software",
             "tasks",
             "winupdates",

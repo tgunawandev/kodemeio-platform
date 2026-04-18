@@ -26,12 +26,14 @@ def list_(
     for s in services:
         status = s.get("status", "")
         status_display = "[green]running[/green]" if status.lower() == "running" else f"[dim]{status}[/dim]"
-        rows.append([
-            s.get("name", ""),
-            s.get("display_name", ""),
-            status_display,
-            s.get("start_type", ""),
-        ])
+        rows.append(
+            [
+                s.get("name", ""),
+                s.get("display_name", ""),
+                status_display,
+                s.get("start_type", ""),
+            ]
+        )
 
     c.output.table(
         f"Services ({len(services)})",

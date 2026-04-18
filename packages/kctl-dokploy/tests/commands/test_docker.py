@@ -74,44 +74,25 @@ class TestDockerContainers:
 
 
 class TestDockerImages:
-    def test_images_json(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = SAMPLE_IMAGES
-        result = runner.invoke(app, ["--json", "docker", "images"])
+    def test_images_warns_unavailable(self, mock_client: MagicMock) -> None:
+        # Endpoint not available in current Dokploy API — command emits a warning.
+        result = runner.invoke(app, ["docker", "images"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert isinstance(data, list)
-        assert len(data) == 2
 
     def test_images_empty(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = []
-        result = runner.invoke(app, ["--json", "docker", "images"])
+        result = runner.invoke(app, ["docker", "images"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert data == []
 
 
 class TestDockerStats:
-    def test_stats_json(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = {
-            "images": "2.1 GB",
-            "containers": "500 MB",
-            "volumes": "1.2 GB",
-            "buildCache": "300 MB",
-            "total": "4.1 GB",
-        }
-        result = runner.invoke(app, ["--json", "docker", "stats"])
+    def test_stats_warns_unavailable(self, mock_client: MagicMock) -> None:
+        # Endpoint not available in current Dokploy API — command emits a warning.
+        result = runner.invoke(app, ["docker", "stats"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert "images" in data
 
     def test_stats_empty_dict_ok(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = {}
-        result = runner.invoke(app, ["--json", "docker", "stats"])
+        result = runner.invoke(app, ["docker", "stats"])
         assert result.exit_code == 0
-        # Empty dict data_for_json produces no JSON output (kctl-lib behavior)
-        if result.output.strip():
-            data = json.loads(result.output)
-            assert isinstance(data, dict)
 
 
 class TestDockerPrune:

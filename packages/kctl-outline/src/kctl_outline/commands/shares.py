@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -36,7 +36,14 @@ def list_(
 
     c.output.table(
         f"Shares ({len(shares)})",
-        [("ID", "cyan"), ("Document", "green"), ("Children", ""), ("Published", ""), ("URL", "dim"), ("Created", "dim")],
+        [
+            ("ID", "cyan"),
+            ("Document", "green"),
+            ("Children", ""),
+            ("Published", ""),
+            ("URL", "dim"),
+            ("Created", "dim"),
+        ],
         rows,
         data_for_json=shares,
     )
@@ -50,20 +57,28 @@ def create(
 ) -> None:
     """Create a share link for a document."""
     c: AppContext = ctx.obj
-    result = c.client.post("shares.create", data={
-        "documentId": document_id,
-        "includeChildDocuments": include_children,
-    })
+    result = c.client.post(
+        "shares.create",
+        data={
+            "documentId": document_id,
+            "includeChildDocuments": include_children,
+        },
+    )
     share = result.get("data", {})
 
     c.output.detail(
         "Share Created",
-        [("Details", [
-            ("ID", share.get("id", "")),
-            ("Document", share.get("documentId", "")),
-            ("URL", share.get("url", "")),
-            ("Children", str(share.get("includeChildDocuments", False))),
-        ])],
+        [
+            (
+                "Details",
+                [
+                    ("ID", share.get("id", "")),
+                    ("Document", share.get("documentId", "")),
+                    ("URL", share.get("url", "")),
+                    ("Children", str(share.get("includeChildDocuments", False))),
+                ],
+            )
+        ],
         data_for_json=share,
     )
 
@@ -77,9 +92,8 @@ def revoke(
     """Revoke a share link."""
     c: AppContext = ctx.obj
 
-    if not force:
-        if not typer.confirm(f"Revoke share {share_id}?"):
-            raise typer.Abort()
+    if not force and not typer.confirm(f"Revoke share {share_id}?"):
+        raise typer.Abort()
 
     c.client.post("shares.revoke", data={"id": share_id})
     c.output.success(f"Share {share_id} revoked")

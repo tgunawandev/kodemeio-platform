@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -503,7 +503,7 @@ def snapshot(
             )
         )
 
-    date_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    date_str = datetime.now(tz=UTC).strftime("%Y-%m-%d")
     database = c.database
     profile = actx.profile or ""
 
@@ -515,10 +515,7 @@ def snapshot(
         modules=entries,
     )
 
-    if output:
-        dest = Path(output)
-    else:
-        dest = Path(f"snapshot-{database}-{date_str}.json")
+    dest = Path(output) if output else Path(f"snapshot-{database}-{date_str}.json")
 
     save_snapshot(snap, dest)
     out.success(f"Snapshot saved: {dest} ({len(entries)} modules)")

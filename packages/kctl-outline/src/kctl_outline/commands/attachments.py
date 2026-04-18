@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -16,7 +16,7 @@ app = typer.Typer(help="File attachment management.")
 def create(
     ctx: typer.Context,
     file: Annotated[Path, typer.Option("--file", "-f", help="File path to upload", exists=True)],
-    document_id: Annotated[Optional[str], typer.Option("--document-id", "-d", help="Document ID to associate")] = None,
+    document_id: Annotated[str | None, typer.Option("--document-id", "-d", help="Document ID to associate")] = None,
 ) -> None:
     """Upload a file attachment."""
     c: AppContext = ctx.obj
@@ -47,7 +47,7 @@ def create(
         )
     except httpx.HTTPError as e:
         c.output.error(f"Upload failed: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     if response.status_code >= 400:
         c.output.error(f"Upload failed: HTTP {response.status_code}")

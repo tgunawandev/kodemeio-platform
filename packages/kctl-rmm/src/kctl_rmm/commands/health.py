@@ -30,6 +30,7 @@ def _check_health(ctx: AppContext) -> dict:
     mesh_url = resolve_mesh_url(ctx.profile)
     if mesh_url:
         import httpx
+
         try:
             r = httpx.get(mesh_url, timeout=5, follow_redirects=True, verify=False)
             results["mesh"] = r.status_code < 500
@@ -60,13 +61,19 @@ def _display_health(ctx: AppContext, results: dict) -> None:
     score_color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
 
     sections: list[tuple[str, list[tuple[str, str]]]] = [
-        ("Services", [
-            ("API (health endpoint)", f"{status_icon(results['api'])} (HTTP {results.get('api_status', '?')})"),
-            ("MeshCentral", f"{status_icon(results['mesh'])} ({results.get('mesh_url', 'not configured')})"),
-        ]),
-        ("Health Score", [
-            ("Score", f"[{score_color}]{score}/100[/{score_color}]"),
-        ]),
+        (
+            "Services",
+            [
+                ("API (health endpoint)", f"{status_icon(results['api'])} (HTTP {results.get('api_status', '?')})"),
+                ("MeshCentral", f"{status_icon(results['mesh'])} ({results.get('mesh_url', 'not configured')})"),
+            ],
+        ),
+        (
+            "Health Score",
+            [
+                ("Score", f"[{score_color}]{score}/100[/{score_color}]"),
+            ],
+        ),
     ]
 
     out.detail("Health Check", sections, data_for_json=results)

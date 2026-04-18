@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import json
-import subprocess
-from dataclasses import dataclass
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from kctl_dokploy.core.deployer import Deployer, PhaseResult
 from kctl_dokploy.core.manifest import (

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import typer
@@ -224,7 +224,7 @@ def history(
         out.warn(_TRANSACTION_HINT)
         return
 
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
     domain: list = [("create_date", ">=", cutoff)]
     if provider:
         domain.append(("provider_id.name", "ilike", provider))
@@ -319,7 +319,7 @@ def reconcile(
         out.warn(_TRANSACTION_HINT)
         return
 
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    cutoff = (datetime.now(UTC) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
 
     preferred = ["display_name", "reference", "amount", "currency_id", "provider_id", "state", "create_date"]
     fields = safe_fields(c, _TRANSACTION_MODEL, preferred)

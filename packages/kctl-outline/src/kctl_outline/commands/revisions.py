@@ -60,9 +60,8 @@ def restore(
     """Restore a document to a specific revision."""
     c: AppContext = ctx.obj
 
-    if not force:
-        if not typer.confirm(f"Restore document {document_id[:8]} to revision {revision_id[:8]}?"):
-            raise typer.Abort()
+    if not force and not typer.confirm(f"Restore document {document_id[:8]} to revision {revision_id[:8]}?"):
+        raise typer.Abort()
 
     c.client.post(
         "documents.restore",

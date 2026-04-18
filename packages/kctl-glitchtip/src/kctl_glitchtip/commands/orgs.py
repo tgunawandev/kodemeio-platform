@@ -46,12 +46,15 @@ def get(
     org = c.get(f"organizations/{org_slug}/")
 
     sections = [
-        ("Organization", [
-            ("Name", org.get("name", "")),
-            ("Slug", org.get("slug", "")),
-            ("Date Created", str(org.get("dateCreated", ""))),
-            ("Open Membership", str(org.get("openMembership", ""))),
-        ]),
+        (
+            "Organization",
+            [
+                ("Name", org.get("name", "")),
+                ("Slug", org.get("slug", "")),
+                ("Date Created", str(org.get("dateCreated", ""))),
+                ("Open Membership", str(org.get("openMembership", ""))),
+            ],
+        ),
     ]
 
     # Get members

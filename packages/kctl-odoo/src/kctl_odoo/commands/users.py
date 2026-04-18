@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -467,10 +467,9 @@ def set_password(
 
     user = users[0]
 
-    if not force:
-        if not typer.confirm(f"Set password for {user['name']} ({user['login']})?"):
-            out.info("Cancelled.")
-            raise typer.Exit(0)
+    if not force and not typer.confirm(f"Set password for {user['name']} ({user['login']})?"):
+        out.info("Cancelled.")
+        raise typer.Exit(0)
 
     try:
         c.execute_kw("res.users", "write", [[user["id"]], {"password": password}])

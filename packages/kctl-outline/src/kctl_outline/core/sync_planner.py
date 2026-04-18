@@ -7,19 +7,19 @@ are passed in by the caller.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from kctl_outline.core.sync_config import SyncMapping
 from kctl_outline.core.sync_state import (
-    FileSyncEntry,
     MappingSyncEntry,
     compute_file_hash,
 )
 
 
-class PlannedActionKind(str, Enum):
+class PlannedActionKind(StrEnum):
     CREATE = "create"
     UPDATE = "update"
     SKIP = "skip"
@@ -36,7 +36,7 @@ class PlannedAction:
     content_hash: str
     doc_id: str = ""
 
-    def __lt__(self, other: "PlannedAction") -> bool:  # for sorting in tests
+    def __lt__(self, other: PlannedAction) -> bool:  # for sorting in tests
         return (self.kind.value, self.rel_path) < (other.kind.value, other.rel_path)
 
 
@@ -52,7 +52,7 @@ def _title_from_path(rel: str) -> str:
     return " ".join(w.capitalize() for w in words)
 
 
-def _glob_to_regex(pattern: str) -> "re.Pattern[str]":
+def _glob_to_regex(pattern: str) -> re.Pattern[str]:
     """Translate a gitignore-style glob into a regex.
 
     Supports `**` (recursive zero-or-more path segments), `*` (any chars

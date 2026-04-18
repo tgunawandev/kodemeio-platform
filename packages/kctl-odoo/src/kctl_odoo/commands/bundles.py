@@ -834,10 +834,7 @@ def _create_profile_yaml(
 
     Raises FileExistsError if the file already exists.
     """
-    if not name.startswith("profile-"):
-        filename = f"profile-{name}.yaml"
-    else:
-        filename = f"{name}.yaml"
+    filename = f"profile-{name}.yaml" if not name.startswith("profile-") else f"{name}.yaml"
 
     path = install_dir / filename
 

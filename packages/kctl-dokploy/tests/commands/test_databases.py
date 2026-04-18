@@ -89,7 +89,7 @@ class TestDatabasesCreatePostgres:
         mock_client.post.return_value = {"postgresId": "pg-new-001"}
         result = runner.invoke(
             app,
-            ["--json", "databases", "create-postgres", "--name", "mydb", "--project", "proj-abc-123"],
+            ["--json", "databases", "create-postgres", "--name", "mydb", "--environment", "env-abc-123"],
         )
         assert result.exit_code == 0
         assert "mydb" in result.output
@@ -103,8 +103,8 @@ class TestDatabasesCreatePostgres:
                 "create-postgres",
                 "--name",
                 "mydb",
-                "--project",
-                "proj-abc-123",
+                "--environment",
+                "env-abc-123",
                 "--version",
                 "15",
             ],

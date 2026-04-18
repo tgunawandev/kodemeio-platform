@@ -44,7 +44,7 @@ class TestEnvList:
 
 class TestEnvGet:
     def test_get_existing_var(self, mock_client: MagicMock) -> None:
-        mock_client.post.return_value = {"environment": ENV_STRING}
+        mock_client.get.return_value = {"env": ENV_STRING}
         result = runner.invoke(app, ["--json", "env", "get", "comp-xyz-789", "DATABASE_URL"])
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -52,7 +52,7 @@ class TestEnvGet:
         assert data["value"] == "postgres://localhost/mydb"
 
     def test_get_missing_var_exits_1(self, mock_client: MagicMock) -> None:
-        mock_client.post.return_value = {"environment": ENV_STRING}
+        mock_client.get.return_value = {"env": ENV_STRING}
         result = runner.invoke(app, ["env", "get", "comp-xyz-789", "NONEXISTENT_VAR"])
         assert result.exit_code == 1
 

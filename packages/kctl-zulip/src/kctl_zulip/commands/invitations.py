@@ -23,7 +23,9 @@ def list_(ctx: typer.Context) -> None:
         [
             str(inv.get("id", "")),
             inv.get("email", ""),
-            inv.get("invited_by", {}).get("email", "") if isinstance(inv.get("invited_by"), dict) else str(inv.get("invited_by", "")),
+            inv.get("invited_by", {}).get("email", "")
+            if isinstance(inv.get("invited_by"), dict)
+            else str(inv.get("invited_by", "")),
             "yes" if inv.get("is_multiuse") else "no",
             str(inv.get("invited_at", "")),
         ]
@@ -42,9 +44,13 @@ def list_(ctx: typer.Context) -> None:
 def create(
     ctx: typer.Context,
     emails: Annotated[str, typer.Argument(help="Comma-separated email addresses")],
-    streams: Annotated[Optional[str], typer.Option("--streams", "-s", help="Comma-separated stream IDs to auto-subscribe")] = None,
+    streams: Annotated[
+        Optional[str], typer.Option("--streams", "-s", help="Comma-separated stream IDs to auto-subscribe")
+    ] = None,
     message: Annotated[Optional[str], typer.Option("--message", "-m", help="Invitation message")] = None,
-    invite_expires_in_minutes: Annotated[int, typer.Option("--expires", help="Invitation expiry in minutes (0=never)")] = 10080,
+    invite_expires_in_minutes: Annotated[
+        int, typer.Option("--expires", help="Invitation expiry in minutes (0=never)")
+    ] = 10080,
 ) -> None:
     """Send email invitations to join the Zulip organization."""
     c: AppContext = ctx.obj

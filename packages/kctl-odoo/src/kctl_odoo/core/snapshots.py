@@ -8,11 +8,10 @@ network access or Docker runtime.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-
 
 # ============================================================================
 # Data Models
@@ -75,7 +74,7 @@ def save_snapshot(snapshot: ModuleSnapshot, path: Path) -> None:
         path: Destination file path (created or overwritten).
     """
     if not snapshot.metadata.exported_at:
-        snapshot.metadata.exported_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        snapshot.metadata.exported_at = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%S")
 
     path.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
 

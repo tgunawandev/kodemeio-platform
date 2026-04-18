@@ -29,7 +29,9 @@ def _fetch_dashboard(actx: AppContext) -> dict:
             total_tests += len(list(src.rglob("*.test.ts"))) + len(list(src.rglob("*.test.tsx")))
 
     built_apps = sum(
-        1 for a in actx.app_names if (get_app_dir(root, a) / "dist").is_dir() or (get_app_dir(root, a) / ".next").is_dir()
+        1
+        for a in actx.app_names
+        if (get_app_dir(root, a) / "dist").is_dir() or (get_app_dir(root, a) / ".next").is_dir()
     )
 
     running = 0

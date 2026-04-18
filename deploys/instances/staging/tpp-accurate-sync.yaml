@@ -9,7 +9,6 @@ environment: staging
 server: tpp-stg-01
 env_file: ../../env/staging/.env.tpp-accurate-sync
 env_overrides:
-  COMPOSE_PROJECT_NAME: tpp-accurate-sync
   TENANT: tpp
   PGDATABASE: stg_tpp_odoo_erp
   PGUSER: odoo

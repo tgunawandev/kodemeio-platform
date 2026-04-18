@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -9,7 +10,6 @@ import tempfile
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-
 
 STATE_DIR = Path.home() / ".config" / "kodemeio"
 STATE_FILE = STATE_DIR / "outline-sync.json"
@@ -66,10 +66,10 @@ class SyncState(BaseModel):
     mappings: dict[str, MappingSyncEntry] = Field(default_factory=dict)
 
 
-def migrate_v1_to_v2(data: dict) -> "SyncState":
+def migrate_v1_to_v2(data: dict) -> SyncState:
     """Convert a v1 state dict (read from disk) into a v2 SyncState object."""
     new_mappings: dict[str, MappingSyncEntry] = {}
-    for repo_key, repo in (data.get("repos") or {}).items():
+    for _repo_key, repo in (data.get("repos") or {}).items():
         m = MappingSyncEntry(
             repo_path=repo["repo_path"],
             src=".",
@@ -122,8 +122,6 @@ def save_sync_state(state: SyncState) -> None:
             json.dump(data, f, indent=2)
         os.replace(tmp_path, STATE_FILE)
     except BaseException:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path)
-        except OSError:
-            pass
         raise

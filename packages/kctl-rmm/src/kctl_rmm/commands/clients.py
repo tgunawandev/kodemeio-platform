@@ -23,12 +23,14 @@ def list_(ctx: typer.Context) -> None:
     for cl in clients:
         sites = cl.get("sites", [])
         site_names = ", ".join(s.get("name", "") for s in sites) if sites else "-"
-        rows.append([
-            str(cl.get("id", "")),
-            cl.get("name", ""),
-            str(len(sites)),
-            site_names[:80],
-        ])
+        rows.append(
+            [
+                str(cl.get("id", "")),
+                cl.get("name", ""),
+                str(len(sites)),
+                site_names[:80],
+            ]
+        )
 
     c.output.table(
         f"Clients ({len(clients)})",
@@ -52,10 +54,13 @@ def get(
         raise typer.Exit(1)
 
     sections: list[tuple[str, list[tuple[str, str]]]] = [
-        ("Client Info", [
-            ("ID", str(client.get("id", ""))),
-            ("Name", client.get("name", "")),
-        ]),
+        (
+            "Client Info",
+            [
+                ("ID", str(client.get("id", ""))),
+                ("Name", client.get("name", "")),
+            ],
+        ),
     ]
 
     sites = client.get("sites", [])
@@ -84,11 +89,13 @@ def sites(
     all_sites: list[dict] = []
     for cl in clients:
         for site in cl.get("sites", []):
-            rows.append([
-                str(site.get("id", "")),
-                site.get("name", ""),
-                cl.get("name", ""),
-            ])
+            rows.append(
+                [
+                    str(site.get("id", "")),
+                    site.get("name", ""),
+                    cl.get("name", ""),
+                ]
+            )
             all_sites.append({**site, "client_name": cl.get("name", "")})
 
     c.output.table(

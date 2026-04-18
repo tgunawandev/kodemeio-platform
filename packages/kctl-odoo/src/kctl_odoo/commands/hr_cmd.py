@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -847,9 +847,9 @@ def get_employee(
 @app.command("attendance-report")
 def attendance_report(
     ctx: typer.Context,
-    date_from: Annotated[Optional[str], typer.Option("--date-from", help="Start date (YYYY-MM-DD)")] = None,
-    date_to: Annotated[Optional[str], typer.Option("--date-to", help="End date (YYYY-MM-DD)")] = None,
-    employee: Annotated[Optional[str], typer.Option("--employee", "-e", help="Filter by employee name")] = None,
+    date_from: Annotated[str | None, typer.Option("--date-from", help="Start date (YYYY-MM-DD)")] = None,
+    date_to: Annotated[str | None, typer.Option("--date-to", help="End date (YYYY-MM-DD)")] = None,
+    employee: Annotated[str | None, typer.Option("--employee", "-e", help="Filter by employee name")] = None,
     limit: Annotated[int, typer.Option("--limit", "-l", help="Max results")] = 50,
 ) -> None:
     """Attendance report for a date range.
@@ -1084,7 +1084,7 @@ def get_payslip(
 @app.command("leave-summary")
 def leave_summary(
     ctx: typer.Context,
-    department: Annotated[Optional[str], typer.Option("--department", "-d", help="Filter by department name")] = None,
+    department: Annotated[str | None, typer.Option("--department", "-d", help="Filter by department name")] = None,
 ) -> None:
     """Leave summary by department — approved leaves count and total days.
 

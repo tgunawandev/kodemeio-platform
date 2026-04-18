@@ -288,9 +288,10 @@ class TestMailboxesAdd:
                 ],
             )
         assert result.exit_code == 0
-        mock_client.mc_edit.assert_called_once()
-        edit_call = mock_client.mc_edit.call_args[0]
-        assert edit_call[0] == "domain"
+        # mc_edit is called for: (1) expanding domain quota, and (2) setting OIDC authsource on the new mailbox.
+        domain_edits = [call for call in mock_client.mc_edit.call_args_list if call.args[0] == "domain"]
+        assert len(domain_edits) == 1
+        edit_call = domain_edits[0].args
         assert edit_call[1]["items"] == ["example.com"]
         assert edit_call[1]["attr"]["quota"] > DOMAIN_TIGHT["max_quota_for_domain"]
         mock_client.mc_add.assert_called_once()

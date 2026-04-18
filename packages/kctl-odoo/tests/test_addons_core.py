@@ -11,7 +11,6 @@ Tests marked ``@pytest.mark.integration`` read real addons from the project's
 
 from __future__ import annotations
 
-import ast
 import os
 from pathlib import Path
 from unittest.mock import patch
@@ -356,9 +355,8 @@ class TestFindRepoRoot:
         with patch.dict(os.environ, {}, clear=True):
             # Remove KCTL_ODOO_REPO if set
             env = {k: v for k, v in os.environ.items() if k != "KCTL_ODOO_REPO"}
-            with patch.dict(os.environ, env, clear=True):
-                with patch("os.getcwd", return_value=str(subdir)):
-                    root = _find_repo_root()
+            with patch.dict(os.environ, env, clear=True), patch("os.getcwd", return_value=str(subdir)):
+                root = _find_repo_root()
         assert root == repo
 
     def test_returns_none_when_not_found(self, tmp_path: Path) -> None:
@@ -366,9 +364,8 @@ class TestFindRepoRoot:
         isolated = tmp_path / "isolated"
         isolated.mkdir()
         env = {k: v for k, v in os.environ.items() if k != "KCTL_ODOO_REPO"}
-        with patch.dict(os.environ, env, clear=True):
-            with patch("os.getcwd", return_value=str(isolated)):
-                root = _find_repo_root()
+        with patch.dict(os.environ, env, clear=True), patch("os.getcwd", return_value=str(isolated)):
+            root = _find_repo_root()
         # None or a path — shouldn't raise
         assert root is None or isinstance(root, Path)
 

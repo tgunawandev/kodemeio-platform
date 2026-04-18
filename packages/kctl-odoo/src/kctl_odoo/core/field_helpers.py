@@ -64,7 +64,7 @@ _COMMON_FIELDS = {"name", "active", "state", "company_id", "sequence"}
 
 
 def safe_fields(
-    client: "OdooClient",
+    client: OdooClient,
     model: str,
     preferred: list[str],
     *,
@@ -121,7 +121,7 @@ def safe_fields(
 
 
 def get_model_fields(
-    client: "OdooClient",
+    client: OdooClient,
     model: str,
     *,
     use_cache: bool = True,

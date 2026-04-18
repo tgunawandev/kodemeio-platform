@@ -22,13 +22,15 @@ def list_(ctx: typer.Context) -> None:
 
     rows: list[list[str]] = []
     for s in scripts:
-        rows.append([
-            str(s.get("id", "")),
-            s.get("name", ""),
-            s.get("shell", ""),
-            s.get("script_type", ""),
-            s.get("description", "")[:60],
-        ])
+        rows.append(
+            [
+                str(s.get("id", "")),
+                s.get("name", ""),
+                s.get("shell", ""),
+                s.get("script_type", ""),
+                s.get("description", "")[:60],
+            ]
+        )
 
     c.output.table(
         f"Scripts ({len(scripts)})",
@@ -52,22 +54,23 @@ def get(
         raise typer.Exit(1)
 
     sections: list[tuple[str, list[tuple[str, str]]]] = [
-        ("Script Info", [
-            ("ID", str(script.get("id", ""))),
-            ("Name", script.get("name", "")),
-            ("Shell", script.get("shell", "")),
-            ("Type", script.get("script_type", "")),
-            ("Description", script.get("description", "")),
-            ("Default Timeout", str(script.get("default_timeout", ""))),
-            ("Args", str(script.get("args", []))),
-        ]),
+        (
+            "Script Info",
+            [
+                ("ID", str(script.get("id", ""))),
+                ("Name", script.get("name", "")),
+                ("Shell", script.get("shell", "")),
+                ("Type", script.get("script_type", "")),
+                ("Description", script.get("description", "")),
+                ("Default Timeout", str(script.get("default_timeout", ""))),
+                ("Args", str(script.get("args", []))),
+            ],
+        ),
     ]
 
     body = script.get("script_body", "")
     if body:
-        sections.append(("Script Body (first 20 lines)", [
-            ("", line) for line in body.split("\n")[:20]
-        ]))
+        sections.append(("Script Body (first 20 lines)", [("", line) for line in body.split("\n")[:20]]))
 
     c.output.detail(f"Script: {script.get('name', script_id)}", sections, data_for_json=script)
 
@@ -111,11 +114,14 @@ def run(
     failed = 0
     for aid in target_agents:
         try:
-            c.client.post(f"/agents/{aid}/runscript/", data={
-                "script": script_id,
-                "output": "forget",
-                "timeout": timeout,
-            })
+            c.client.post(
+                f"/agents/{aid}/runscript/",
+                data={
+                    "script": script_id,
+                    "output": "forget",
+                    "timeout": timeout,
+                },
+            )
             success += 1
         except Exception as e:
             c.output.warn(f"Failed on {aid}: {e}")
@@ -143,13 +149,15 @@ def history(
     for e in entries[:50]:
         retcode = e.get("retcode", "")
         status = "[green]OK[/green]" if retcode == 0 else f"[red]rc={retcode}[/red]"
-        rows.append([
-            str(e.get("id", "")),
-            e.get("agent_id", e.get("agent", "")),
-            e.get("script_name", e.get("script", "")),
-            str(e.get("execution_time", "")),
-            status,
-        ])
+        rows.append(
+            [
+                str(e.get("id", "")),
+                e.get("agent_id", e.get("agent", "")),
+                e.get("script_name", e.get("script", "")),
+                str(e.get("execution_time", "")),
+                status,
+            ]
+        )
 
     c.output.table(
         f"Script History ({len(entries)} entries)",
@@ -181,13 +189,16 @@ def create(
 
     script_body = file.read_text()
 
-    result = c.client.post("/scripts/", data={
-        "name": name,
-        "shell": shell,
-        "script_body": script_body,
-        "description": description,
-        "default_timeout": timeout,
-    })
+    result = c.client.post(
+        "/scripts/",
+        data={
+            "name": name,
+            "shell": shell,
+            "script_body": script_body,
+            "description": description,
+            "default_timeout": timeout,
+        },
+    )
 
     if isinstance(result, dict):
         c.output.success(f"Script created: {result.get('name', name)} (ID: {result.get('id', 'unknown')})")

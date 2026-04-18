@@ -10,7 +10,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # Fast gate: lint and test the shared library first
+  # Fast gate: lint and test the shared library first.
+  # kctl-lib tests depend on workspace-only deps (sshtunnel), so sync workspace-wide.
   kctl-lib:
     runs-on: ubuntu-latest
     strategy:
@@ -27,23 +28,19 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - name: Install dependencies
-        run: uv sync --all-extras
-        working-directory: packages/kctl-lib
+      - name: Install workspace dependencies
+        run: uv sync --all-extras --all-packages
 
       - name: Run tests
-        run: uv run pytest tests/ -v --tb=short
-        working-directory: packages/kctl-lib
+        run: uv run pytest packages/kctl-lib/tests/ -v --tb=short
 
       - name: Run linting
-        run: uv run ruff check src/ tests/
-        working-directory: packages/kctl-lib
+        run: uv run ruff check packages/kctl-lib/src/ packages/kctl-lib/tests/
 
       - name: Check formatting
-        run: uv run ruff format --check src/ tests/
-        working-directory: packages/kctl-lib
+        run: uv run ruff format --check packages/kctl-lib/src/ packages/kctl-lib/tests/
 
-  # Test all CLI packages (Python 3.12 only — 3.13 covered by kctl-lib job)
+  # Test all 27 CLI packages (Python 3.12 only — 3.13 covered by kctl-lib job).
   cli-packages:
     needs: kctl-lib
     runs-on: ubuntu-latest
@@ -62,16 +59,22 @@ jobs:
           - kctl-grafana
           - kctl-hz
           - kctl-linear
+          - kctl-mailcow
+          - kctl-mm
           - kctl-notion
           - kctl-odoo
           - kctl-op
+          - kctl-opencloud
+          - kctl-outline
           - kctl-pg
           - kctl-react
+          - kctl-redis
           - kctl-rmm
           - kctl-rustdesk
           - kctl-sentry
           - kctl-telegram
           - kctl-waha
+          - kctl-zulip
     steps:
       - uses: actions/checkout@v4
 
@@ -88,8 +91,6 @@ jobs:
 
       - name: Run tests
         run: uv run pytest packages/${{ matrix.package }}/tests/ -v --tb=short
-        # Allow packages with no tests to pass (exit 5 = no tests collected)
-        continue-on-error: false
 
       - name: Run linting
         run: uv run ruff check packages/${{ matrix.package }}/src/
@@ -97,6 +98,8 @@ jobs:
       - name: Check formatting
         run: uv run ruff format --check packages/${{ matrix.package }}/src/
 
+      # Mypy is tracked but not blocking — 26/27 CLIs still have type debt.
+      # Ratchet plan: drop continue-on-error as each package is cleaned up.
       - name: Type check
         run: uv run mypy packages/${{ matrix.package }}/src/
         continue-on-error: true

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -909,9 +909,7 @@ def exec_summary(ctx: typer.Context) -> None:
 
 
 @app.command("gross-margin")
-def gross_margin(
-    ctx: typer.Context, date_from: Optional[str] = None, date_to: Optional[str] = None, limit: int = 20
-) -> None:
+def gross_margin(ctx: typer.Context, date_from: str | None = None, date_to: str | None = None, limit: int = 20) -> None:
     """Gross margin report — revenue vs COGS per product.
 
     Calculates margin from confirmed sale order lines.

@@ -21,12 +21,15 @@ def send(
     """Send an announcement to a stream topic."""
     c: AppContext = ctx.obj
 
-    result = c.client.post("messages", data={
-        "type": "stream",
-        "to": stream,
-        "topic": topic,
-        "content": message,
-    })
+    result = c.client.post(
+        "messages",
+        data={
+            "type": "stream",
+            "to": stream,
+            "topic": topic,
+            "content": message,
+        },
+    )
 
     msg_id = result.get("id", "")
     c.output.success(f"Announcement sent to #{stream} > {topic} (ID: {msg_id})")

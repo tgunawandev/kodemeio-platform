@@ -17,9 +17,16 @@ from tests.conftest import _make_actx, _make_ctx
 
 class TestZones:
     def test_zones_list_json(self, mock_client: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
-        mock_client.get.return_value = [
-            {"name": "kodeme.io", "status": "active", "plan": {"name": "Free"}, "name_servers": ["ns1", "ns2"]},
-        ]
+        # zones.list_ uses the raw _request() path with pagination — mock the full envelope.
+        mock_response = MagicMock()
+        mock_response.content = b"{}"
+        mock_response.json.return_value = {
+            "result": [
+                {"name": "kodeme.io", "status": "active", "plan": {"name": "Free"}, "name_servers": ["ns1", "ns2"]},
+            ],
+            "result_info": {"total_pages": 1},
+        }
+        mock_client._request.return_value = mock_response
         actx = _make_actx(json_mode=True, client=mock_client)
         ctx = _make_ctx(actx)
 

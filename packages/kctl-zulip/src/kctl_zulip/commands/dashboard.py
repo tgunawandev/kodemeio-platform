@@ -83,20 +83,30 @@ def _display_dashboard(ctx: AppContext, data: dict) -> None:
     # Server info
     settings = data.get("settings") or {}
     if settings:
-        sections.append(("Server", [
-            ("Realm", settings.get("realm_name", "unknown")),
-            ("Zulip Version", settings.get("zulip_version", "unknown")),
-            ("Feature Level", str(settings.get("zulip_feature_level", "unknown"))),
-            ("Push Notifications", str(settings.get("push_notifications_enabled", False))),
-        ]))
+        sections.append(
+            (
+                "Server",
+                [
+                    ("Realm", settings.get("realm_name", "unknown")),
+                    ("Zulip Version", settings.get("zulip_version", "unknown")),
+                    ("Feature Level", str(settings.get("zulip_feature_level", "unknown"))),
+                    ("Push Notifications", str(settings.get("push_notifications_enabled", False))),
+                ],
+            )
+        )
 
     # Current user
     me = data.get("me")
     if me:
-        sections.append(("Authenticated As", [
-            ("Email", me.get("email", "")),
-            ("Name", me.get("full_name", "")),
-        ]))
+        sections.append(
+            (
+                "Authenticated As",
+                [
+                    ("Email", me.get("email", "")),
+                    ("Name", me.get("full_name", "")),
+                ],
+            )
+        )
 
     # Counts
     count_kvs: list[tuple[str, str]] = []

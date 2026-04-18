@@ -930,6 +930,7 @@ def bulk_recovery_links(
                     "wilayah": entry.get("wilayah", ""),
                     "position": entry.get("position", ""),
                     "link": link,
+                    "password": entry.get("password", ""),
                 },
             )
         except Exception as e:
@@ -969,39 +970,17 @@ def bulk_recovery_links(
                     if label and target:
                         app_pairs.append((label, target))
 
-        # 2. Create/update the static "Install aplikasi" index doc (shared across batches)
-        if app_pairs:
+        # 2. Upload app-install QRs once (reused as inline attachments in every user doc)
+        app_install_attachments: list[tuple[str, str]] = []  # (label, attachment_url)
+        for label, target in app_pairs:
             try:
-                index_lines = [
-                    "> **RAHASIA — hanya untuk HR & IT.** Buka dokumen ini sekali untuk install aplikasi di HP karyawan baru.",
-                    "",
-                    "## 📱 Install aplikasi Mattermost",
-                    "",
-                    "Scan QR yang sesuai dengan HP karyawan. Setelah install, minta karyawan buka dokumen QR aktivasi mereka.",
-                    "",
-                ]
-                for label, target in app_pairs:
-                    index_lines.extend([f"### {label}", ""])
-                    try:
-                        png = _generate_qr_png(target)
-                        att_url = _outline_upload(ol_url, ol_token, f"app-install-{label.lower()}.png", png)
-                        index_lines.append(f"![{label}]({att_url})")
-                    except Exception as e:
-                        c.output.warn(f"App-install QR upload failed for {label}: {e}")
-                        index_lines.append(f"(upload failed: {label})")
-                    index_lines.append("")
-                index_url = _outline_create_doc(
-                    ol_url,
-                    ol_token,
-                    outline_collection,
-                    "📱 Install Aplikasi Mattermost",
-                    "\n".join(index_lines),
-                )
-                c.output.success(f"Index doc: {index_url}")
+                png = _generate_qr_png(target)
+                att_url = _outline_upload(ol_url, ol_token, f"app-install-{label.lower()}.png", png)
+                app_install_attachments.append((label, att_url))
             except Exception as e:
-                c.output.warn(f"Could not create index doc: {e}")
+                c.output.warn(f"App-install QR upload failed for {label}: {e}")
 
-        # 3. Create one doc per user
+        # 3. Create one doc per user (app-install QRs embedded inline, no shared index doc)
         created_docs = 0
         for i, r in enumerate(roster, 1):
             display_name = r["name"] or r["username"]
@@ -1031,6 +1010,23 @@ def bulk_recovery_links(
             except Exception as e:
                 c.output.warn(f"QR upload failed for {r['username']}: {e}")
                 lines.append(f"(upload failed: {r['username']})")
+
+            # Fallback: copy-paste link below the QR (for when scanning isn't possible)
+            lines.extend(
+                [
+                    "",
+                    "**Link aktivasi** (salin jika QR tidak bisa dipindai):",
+                    "",
+                    f"```\n{r['link']}\n```",
+                    "",
+                ]
+            )
+
+            # Inline app-install QRs at the bottom of each user doc
+            if app_install_attachments:
+                lines.extend(["", "## 📱 Install Aplikasi Mattermost", ""])
+                for label, att_url in app_install_attachments:
+                    lines.extend([f"### {label}", "", f"![{label}]({att_url})", ""])
 
             try:
                 _outline_create_doc(

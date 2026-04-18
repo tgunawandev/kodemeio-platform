@@ -32,7 +32,9 @@ class RustDeskExecutor:
             return cmd
         remote_cmd = shlex.join(cmd)
         return [
-            "ssh", "-o", "StrictHostKeyChecking=accept-new",
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
             f"{self.config.ssh_user}@{self.config.host}",
             remote_cmd,
         ]
@@ -49,9 +51,12 @@ class RustDeskExecutor:
     def _dc_cmd(self) -> list[str]:
         """Base docker compose command."""
         return [
-            "docker", "compose",
-            "-f", self.config.compose_file,
-            "-p", self.config.project_name,
+            "docker",
+            "compose",
+            "-f",
+            self.config.compose_file,
+            "-p",
+            self.config.project_name,
         ]
 
     def docker_exec(self, container: str, cmd: list[str], check: bool = True) -> str:
@@ -139,9 +144,14 @@ class RustDeskExecutor:
     def get_container_stats(self, service: str) -> dict[str, str]:
         """Get CPU/memory stats for a container."""
         output = self.shell(
-            ["docker", "stats", "--no-stream", "--format",
-             "{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}",
-             f"{self.config.project_name}-{service}-1"],
+            [
+                "docker",
+                "stats",
+                "--no-stream",
+                "--format",
+                "{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}",
+                f"{self.config.project_name}-{service}-1",
+            ],
             check=False,
         )
         parts = output.split("\t") if output else []

@@ -8,7 +8,6 @@ from typing import Annotated
 import typer
 
 from kctl_outline.core.callbacks import AppContext
-from kctl_outline.core.exceptions import KctlError
 
 app = typer.Typer(help="Health checks and diagnostics.")
 
@@ -79,33 +78,53 @@ def _display_health(ctx: AppContext, results: dict) -> None:
     sections: list[tuple[str, list[tuple[str, str]]]] = []
 
     # Health probe
-    sections.append(("Probes", [
-        ("Health endpoint", status_icon(results["healthy"])),
-        ("API auth", status_icon(results["auth"] is not None)),
-    ]))
+    sections.append(
+        (
+            "Probes",
+            [
+                ("Health endpoint", status_icon(results["healthy"])),
+                ("API auth", status_icon(results["auth"] is not None)),
+            ],
+        )
+    )
 
     # Auth info
     auth = results.get("auth")
     if auth:
-        sections.append(("Authentication", [
-            ("User", auth.get("user", "unknown")),
-            ("Role", auth.get("role", "unknown")),
-        ]))
+        sections.append(
+            (
+                "Authentication",
+                [
+                    ("User", auth.get("user", "unknown")),
+                    ("Role", auth.get("role", "unknown")),
+                ],
+            )
+        )
 
     # Team info
     team = results.get("team")
     if team:
-        sections.append(("Team", [
-            ("Name", team.get("name", "unknown")),
-            ("Members", str(team.get("members", 0))),
-            ("Documents", str(team.get("documents", 0))),
-            ("Collections", str(team.get("collections", 0))),
-        ]))
+        sections.append(
+            (
+                "Team",
+                [
+                    ("Name", team.get("name", "unknown")),
+                    ("Members", str(team.get("members", 0))),
+                    ("Documents", str(team.get("documents", 0))),
+                    ("Collections", str(team.get("collections", 0))),
+                ],
+            )
+        )
 
     # Score
-    sections.append(("Health Score", [
-        ("Score", f"[{score_color}]{score}/100[/{score_color}]"),
-    ]))
+    sections.append(
+        (
+            "Health Score",
+            [
+                ("Score", f"[{score_color}]{score}/100[/{score_color}]"),
+            ],
+        )
+    )
 
     out.detail("Health Check", sections, data_for_json=results)
 

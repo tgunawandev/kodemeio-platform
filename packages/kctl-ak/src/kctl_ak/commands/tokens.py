@@ -128,7 +128,7 @@ def create(
     if description:
         payload["description"] = description
 
-    t = c.client.post(_ENDPOINT, data=payload)
+    c.client.post(_ENDPOINT, data=payload)
     c.output.success(f"Token '{identifier}' created.")
 
     # Retrieve the key

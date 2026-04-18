@@ -73,9 +73,8 @@ def delete(
     """Delete an API token."""
     c: AppContext = ctx.obj
 
-    if not force:
-        if not typer.confirm(f"Delete API token {token_id[:8]}?"):
-            raise typer.Abort()
+    if not force and not typer.confirm(f"Delete API token {token_id[:8]}?"):
+        raise typer.Abort()
 
     c.client.post("apiKeys.delete", data={"id": token_id})
     c.output.success(f"API token {token_id[:8]} deleted")

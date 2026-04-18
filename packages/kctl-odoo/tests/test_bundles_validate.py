@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import yaml
 
 from kctl_odoo.commands.bundles import (
@@ -19,7 +18,6 @@ from kctl_odoo.commands.bundles import (
     _has_circular_dep,
 )
 from kctl_odoo.core.bundles import Bundle, BundleGroup
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

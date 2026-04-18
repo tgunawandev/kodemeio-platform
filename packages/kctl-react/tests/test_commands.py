@@ -526,7 +526,7 @@ class TestPerfBundle:
     def test_bundle_no_build(self, mock_monorepo: Path) -> None:
         result = runner.invoke(app, ["--root", str(mock_monorepo), "perf", "bundle", "sfa"])
         assert result.exit_code == 0
-        assert "not built" in result.output
+        assert "has not been built" in result.output
 
     def test_bundle_with_build(self, mock_monorepo: Path) -> None:
         dist = mock_monorepo / "apps" / "sfa" / "dist" / "assets"

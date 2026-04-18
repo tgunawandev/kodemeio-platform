@@ -391,10 +391,9 @@ def _run_api_health_for_app(
     client = HealthClient(base_url=base_url, token=token, timeout=timeout)
 
     # Authenticate if no token provided
-    auth_failed = False
     if not client.token:
         if not client.authenticate(app_path, app_name):
-            auth_failed = True
+            pass
 
     endpoints = sample_endpoints(schema)
     results = run_health_checks(client, endpoints)

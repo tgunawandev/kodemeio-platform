@@ -7,9 +7,9 @@ direction (push/pull/mixed) and .ssot marker awareness.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -219,7 +219,7 @@ def _execute_push(
     state: SyncState,
 ) -> None:
     """Apply CREATE/UPDATE/SKIP actions to Outline."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     repo_label = (Path(repo_path).name + "/" + str(mapping.src)).rstrip("/")
 
     collection_id = _ensure_collection(client, mapping.collection)
@@ -227,10 +227,7 @@ def _execute_push(
 
     # When subpath is set, nest all docs under a parent doc with that title.
     # When subpath is empty, put docs directly at the collection root (no wrapper).
-    if mapping.subpath:
-        root_parent_id = _ensure_parent_doc(client, collection_id, mapping.subpath)
-    else:
-        root_parent_id = None  # None = collection root
+    root_parent_id = _ensure_parent_doc(client, collection_id, mapping.subpath) if mapping.subpath else None
     section_cache: dict[str, str] = {}
 
     key = _mapping_key(str(repo_path), mapping.collection, str(mapping.src))
@@ -341,7 +338,7 @@ def _execute_pull(
     key = _mapping_key(str(repo_path), mapping.collection, str(mapping.src))
     entry = state.mappings.get(key)
     result = pull_mapping_with_reconcile(client, repo_path, mapping, state_entry=entry)
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     new_entry = entry or MappingSyncEntry(
         repo_path=str(repo_path),
@@ -377,16 +374,19 @@ def _execute_pull(
 @app.command("run")
 def sync_run(
     ctx: typer.Context,
-    path: Annotated[Optional[str], typer.Argument(help="Path to repo directory")] = None,
+    path: Annotated[str | None, typer.Argument(help="Path to repo directory")] = None,
     no_dry_run: Annotated[bool, typer.Option("--no-dry-run", help="Actually write changes")] = False,
     mode_filter: Annotated[
-        Optional[str], typer.Option("--mode", help="Run only mappings with this mode (push/pull/mixed)")
+        str | None, typer.Option("--mode", help="Run only mappings with this mode (push/pull/mixed)")
     ] = None,
     config_file: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--config",
-            help="Sync config file (default: .outline-sync.yaml). Use this to point at .outline-sync.kod.yaml or .outline-sync.tpp.yaml.",
+            help=(
+                "Sync config file (default: .outline-sync.yaml). "
+                "Use this to point at .outline-sync.kod.yaml or .outline-sync.tpp.yaml."
+            ),
         ),
     ] = None,
 ) -> None:
@@ -443,7 +443,7 @@ def sync_run(
 @app.command("status")
 def sync_status(
     ctx: typer.Context,
-    path: Annotated[Optional[str], typer.Argument(help="Filter by repo path")] = None,
+    path: Annotated[str | None, typer.Argument(help="Filter by repo path")] = None,
 ) -> None:
     """Show tracked sync state (per-mapping in v2)."""
     c: AppContext = ctx.obj
@@ -452,7 +452,7 @@ def sync_status(
         c.output.info("No mappings synced yet.")
         return
     rows = []
-    for key, m in state.mappings.items():
+    for _key, m in state.mappings.items():
         rows.append(
             [
                 Path(m.repo_path).name,
@@ -474,7 +474,7 @@ def sync_diff(
     ctx: typer.Context,
     path: Annotated[str, typer.Argument(help="Path to repo directory")],
     config_file: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--config", help="Sync config file (default: .outline-sync.yaml)"),
     ] = None,
 ) -> None:

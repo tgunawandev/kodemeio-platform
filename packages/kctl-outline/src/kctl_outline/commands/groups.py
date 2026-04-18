@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -60,15 +60,21 @@ def get(
     c.output.detail(
         f"Group: {group.get('name', '')}",
         [
-            ("Details", [
-                ("ID", group.get("id", "")),
-                ("Name", group.get("name", "")),
-                ("Member Count", str(group.get("memberCount", 0))),
-            ]),
-            ("Dates", [
-                ("Created", group.get("createdAt", "")),
-                ("Updated", group.get("updatedAt", "")),
-            ]),
+            (
+                "Details",
+                [
+                    ("ID", group.get("id", "")),
+                    ("Name", group.get("name", "")),
+                    ("Member Count", str(group.get("memberCount", 0))),
+                ],
+            ),
+            (
+                "Dates",
+                [
+                    ("Created", group.get("createdAt", "")),
+                    ("Updated", group.get("updatedAt", "")),
+                ],
+            ),
         ],
         data_for_json=group,
     )

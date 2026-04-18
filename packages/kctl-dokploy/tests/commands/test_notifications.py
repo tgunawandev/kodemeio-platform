@@ -101,5 +101,5 @@ class TestNotificationsRemove:
 
     def test_test_notification_channel(self, mock_client: MagicMock) -> None:
         mock_client.post.return_value = {}
-        result = runner.invoke(app, ["notifications", "test", "ntf-aaa-111"])
+        result = runner.invoke(app, ["notifications", "test", "ntf-aaa-111", "--type", "slack"])
         assert result.exit_code == 0

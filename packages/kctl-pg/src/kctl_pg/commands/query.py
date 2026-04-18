@@ -34,7 +34,7 @@ def query(
     try:
         if is_ddl:
             c.execute(sql)
-            out.success(f"Statement executed successfully")
+            out.success("Statement executed successfully")
             if out.json_mode:
                 out.raw_json({"status": "ok", "statement": sql})
             return

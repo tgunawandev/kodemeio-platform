@@ -57,12 +57,15 @@ def get(
     proj_names = ", ".join(p.get("slug", "") for p in projects) if projects else "-"
 
     sections = [
-        ("Team", [
-            ("Name", team.get("name", "")),
-            ("Slug", team.get("slug", "")),
-            ("Created", str(team.get("dateCreated", ""))),
-            ("Projects", proj_names),
-        ]),
+        (
+            "Team",
+            [
+                ("Name", team.get("name", "")),
+                ("Slug", team.get("slug", "")),
+                ("Created", str(team.get("dateCreated", ""))),
+                ("Projects", proj_names),
+            ],
+        ),
     ]
 
     if members:
@@ -104,9 +107,8 @@ def delete(
     actx: AppContext = ctx.obj
     c, out = actx.client, actx.output
 
-    if not force:
-        if not typer.confirm(f"Delete team '{team_slug}'?"):
-            raise typer.Exit(0)
+    if not force and not typer.confirm(f"Delete team '{team_slug}'?"):
+        raise typer.Exit(0)
 
     c.delete(f"teams/{org_slug}/{team_slug}/")
     out.success(f"Team '{team_slug}' deleted")

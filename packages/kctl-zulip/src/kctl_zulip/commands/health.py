@@ -72,36 +72,56 @@ def _display_health(ctx: AppContext, results: dict) -> None:
     sections: list[tuple[str, list[tuple[str, str]]]] = []
 
     # Connectivity
-    sections.append(("Connectivity", [
-        ("API Reachable", status_icon(results["api_reachable"])),
-        ("Authenticated", status_icon(results["authenticated"])),
-    ]))
+    sections.append(
+        (
+            "Connectivity",
+            [
+                ("API Reachable", status_icon(results["api_reachable"])),
+                ("Authenticated", status_icon(results["authenticated"])),
+            ],
+        )
+    )
 
     # Server info
     settings = results.get("server_settings") or {}
     if settings:
-        sections.append(("Server", [
-            ("Zulip Version", settings.get("zulip_version", "unknown")),
-            ("Feature Level", str(settings.get("zulip_feature_level", "unknown"))),
-            ("Realm", settings.get("realm_name", "unknown")),
-            ("Push Notifications", status_icon(settings.get("push_notifications_enabled", False))),
-        ]))
+        sections.append(
+            (
+                "Server",
+                [
+                    ("Zulip Version", settings.get("zulip_version", "unknown")),
+                    ("Feature Level", str(settings.get("zulip_feature_level", "unknown"))),
+                    ("Realm", settings.get("realm_name", "unknown")),
+                    ("Push Notifications", status_icon(settings.get("push_notifications_enabled", False))),
+                ],
+            )
+        )
     else:
         sections.append(("Server", [("Status", "[red]Unreachable[/red]")]))
 
     # Authenticated user
     user = results.get("user")
     if user:
-        sections.append(("Authenticated As", [
-            ("Email", user.get("email", "")),
-            ("Name", user.get("full_name", "")),
-            ("Role", str(user.get("role", ""))),
-        ]))
+        sections.append(
+            (
+                "Authenticated As",
+                [
+                    ("Email", user.get("email", "")),
+                    ("Name", user.get("full_name", "")),
+                    ("Role", str(user.get("role", ""))),
+                ],
+            )
+        )
 
     # Score
-    sections.append(("Health Score", [
-        ("Score", f"[{score_color}]{score}/100[/{score_color}]"),
-    ]))
+    sections.append(
+        (
+            "Health Score",
+            [
+                ("Score", f"[{score_color}]{score}/100[/{score_color}]"),
+            ],
+        )
+    )
 
     out.detail("Health Check", sections, data_for_json=results)
 

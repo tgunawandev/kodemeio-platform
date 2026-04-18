@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-import pytest
 
 from kctl_dokploy.core.migration_manifest import MigrationManifest, load_migration_manifest
-from kctl_dokploy.core.migrator import Migrator, MigrationState, MigrationStep, _STATE_DIR
+from kctl_dokploy.core.migrator import Migrator, MigrationState
 
 
 def _make_manifest(**kwargs) -> MigrationManifest:

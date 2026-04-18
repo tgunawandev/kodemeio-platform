@@ -8,7 +8,7 @@ deploy types.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import httpx
 
@@ -310,8 +310,8 @@ class DeployValidator:
         domain_host = self.manifest.domain.host
         base_url = f"https://{domain_host}"
 
-        odoo_db = env.get("PGDATABASE") or env.get("ODOO_DB_NAME") or ""
-        odoo_password = env.get("ODOO_ADMIN_PASSWD") or ""
+        env.get("PGDATABASE") or env.get("ODOO_DB_NAME") or ""
+        env.get("ODOO_ADMIN_PASSWD") or ""
 
         # JWT secrets check
         try:

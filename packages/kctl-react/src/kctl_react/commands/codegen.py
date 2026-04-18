@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 import subprocess
-from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -62,7 +61,7 @@ def codegen(
 
         out.info(f"Regenerating types for erp/{module}...")
         try:
-            result = subprocess.run(
+            subprocess.run(
                 ["pnpm", "--filter", "@kodemeio/erp", "exec", "openapi-ts", "--config", str(config_path)],
                 cwd=root,
                 timeout=60,

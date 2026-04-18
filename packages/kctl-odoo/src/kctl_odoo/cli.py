@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from typing import Annotated
 
 import typer
@@ -11,18 +9,15 @@ from kctl_lib import KctlError, handle_cli_error
 
 from kctl_odoo import __version__
 from kctl_odoo.commands.accounting_cmd import app as accounting_app
-from kctl_odoo.commands.crm_cmd import app as crm_app
-from kctl_odoo.commands.delivery_cmd import app as delivery_app
-from kctl_odoo.commands.products_cmd import app as products_app
-from kctl_odoo.commands.assets_cmd import app as assets_app
-from kctl_odoo.commands.bank_cmd import app as bank_app
+from kctl_odoo.commands.addons_cmd import app as addons_app
 from kctl_odoo.commands.approvals_cmd import app as approvals_app
+from kctl_odoo.commands.assets_cmd import app as assets_app
 from kctl_odoo.commands.audit_cmd import app as audit_app
 from kctl_odoo.commands.auto_maintain_cmd import app as auto_maintain_app
 from kctl_odoo.commands.automation_cmd import app as automation_app
 from kctl_odoo.commands.backup import app as backup_app
+from kctl_odoo.commands.bank_cmd import app as bank_app
 from kctl_odoo.commands.budget_cmd import app as budget_app
-from kctl_odoo.commands.addons_cmd import app as addons_app
 from kctl_odoo.commands.bundles import app as bundles_app
 from kctl_odoo.commands.cleanup import app as cleanup_app
 from kctl_odoo.commands.companies import app as companies_app
@@ -30,17 +25,19 @@ from kctl_odoo.commands.compliance_cmd import app as compliance_app
 from kctl_odoo.commands.config_cmd import app as config_app
 from kctl_odoo.commands.config_server import app as config_server_app
 from kctl_odoo.commands.configure import app as configure_app
+from kctl_odoo.commands.crm_cmd import app as crm_app
 from kctl_odoo.commands.cron import app as cron_app
 from kctl_odoo.commands.currency_cmd import app as currency_app
 from kctl_odoo.commands.dashboard import app as dashboard_app
 from kctl_odoo.commands.data_quality_cmd import app as data_quality_app
 from kctl_odoo.commands.databases import app as databases_app
+from kctl_odoo.commands.delivery_cmd import app as delivery_app
 from kctl_odoo.commands.deploy import app as deploy_app
 from kctl_odoo.commands.dev import app as dev_app
-from kctl_odoo.commands.e2e import app as e2e_app
 from kctl_odoo.commands.dev_mode import app as dev_mode_app
 from kctl_odoo.commands.diff import app as diff_app
 from kctl_odoo.commands.dunning_cmd import app as dunning_app
+from kctl_odoo.commands.e2e import app as e2e_app
 from kctl_odoo.commands.events_cmd import app as events_app
 from kctl_odoo.commands.export_cmd import app as export_app
 from kctl_odoo.commands.fastapi_cmd import app as fastapi_app
@@ -55,7 +52,6 @@ from kctl_odoo.commands.integration import app as integration_app
 from kctl_odoo.commands.inventory_cmd import app as inventory_app
 from kctl_odoo.commands.jobs import app as jobs_app
 from kctl_odoo.commands.kpi_cmd import app as kpi_app
-from kctl_odoo.commands.mis_reports_cmd import app as mis_reports_app
 from kctl_odoo.commands.lint import app as lint_app
 from kctl_odoo.commands.local import app as local_app
 from kctl_odoo.commands.logs import app as logs_app
@@ -63,10 +59,11 @@ from kctl_odoo.commands.mail import app as mail_app
 from kctl_odoo.commands.maintenance import app as maintenance_app
 from kctl_odoo.commands.manifest_cmd import app as manifest_app
 from kctl_odoo.commands.migrate import app as migrate_app
+from kctl_odoo.commands.mis_reports_cmd import app as mis_reports_app
 from kctl_odoo.commands.modules import app as modules_app
 from kctl_odoo.commands.monitor_cmd import app as monitor_app
-from kctl_odoo.commands.onboarding_cmd import app as onboarding_app
 from kctl_odoo.commands.mrp_cmd import app as mrp_app
+from kctl_odoo.commands.onboarding_cmd import app as onboarding_app
 from kctl_odoo.commands.orm_cmd import app as orm_app
 from kctl_odoo.commands.partners import app as partners_app
 from kctl_odoo.commands.payment_gateways_cmd import app as payment_gateways_app
@@ -74,6 +71,7 @@ from kctl_odoo.commands.performance import app as performance_app
 from kctl_odoo.commands.periods_cmd import app as periods_app
 from kctl_odoo.commands.pipeline import app as pipeline_app
 from kctl_odoo.commands.pos_cmd import app as pos_app
+from kctl_odoo.commands.products_cmd import app as products_app
 from kctl_odoo.commands.project_cmd import app as project_app
 from kctl_odoo.commands.purchasing_cmd import app as purchasing_app
 from kctl_odoo.commands.quality_cmd import app as quality_app

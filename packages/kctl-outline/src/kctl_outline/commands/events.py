@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -17,9 +17,9 @@ def list_(
     ctx: typer.Context,
     offset: Annotated[int, typer.Option(help="Pagination offset")] = 0,
     limit: Annotated[int, typer.Option(help="Results per page")] = 25,
-    name: Annotated[Optional[str], typer.Option("--name", help="Filter by event name (e.g. documents.create)")] = None,
-    collection_id: Annotated[Optional[str], typer.Option("--collection", "-c", help="Filter by collection ID")] = None,
-    document_id: Annotated[Optional[str], typer.Option("--document", "-d", help="Filter by document ID")] = None,
+    name: Annotated[str | None, typer.Option("--name", help="Filter by event name (e.g. documents.create)")] = None,
+    collection_id: Annotated[str | None, typer.Option("--collection", "-c", help="Filter by collection ID")] = None,
+    document_id: Annotated[str | None, typer.Option("--document", "-d", help="Filter by document ID")] = None,
 ) -> None:
     """List recent events (activity feed)."""
     c: AppContext = ctx.obj

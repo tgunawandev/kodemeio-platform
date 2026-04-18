@@ -1,9 +1,8 @@
 """Tests for performance optimizations."""
 
 from __future__ import annotations
-from pathlib import Path
+
 from unittest.mock import MagicMock
-import json
 
 
 class TestFieldCache:
@@ -110,6 +109,7 @@ class TestParallelSelfTest:
     def test_concurrent_futures_used(self):
         """Verify the parallel implementation structure is in place."""
         import inspect
+
         from kctl_odoo.commands import self_test as st_module
 
         source = inspect.getsource(st_module)

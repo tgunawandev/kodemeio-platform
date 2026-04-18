@@ -111,9 +111,10 @@ def add(
             raise typer.Exit(code=1)
 
     existing = get_service_config(name)
-    if existing.url:
-        if not typer.confirm(f"Profile '{name}' already has {SERVICE_KEY} config ({existing.url}). Overwrite?"):
-            raise typer.Exit(0)
+    if existing.url and not typer.confirm(
+        f"Profile '{name}' already has {SERVICE_KEY} config ({existing.url}). Overwrite?"
+    ):
+        raise typer.Exit(0)
 
     svc = ServiceConfig(url=api_url, token=api_token)
     set_service_config(name, svc)

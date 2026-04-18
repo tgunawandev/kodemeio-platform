@@ -44,6 +44,7 @@ class ServiceConfig(BaseModel):
     ssh_user: str = "root"
     compose_path: str = "/etc/dokploy/compose/kod-mattermost/code/docker-compose.prod.yml"
     compose_service: str = "mattermost"
+    compose_project: str = ""  # Dokploy compose project name (override docker compose default)
     timeout: str = "30"
 
 

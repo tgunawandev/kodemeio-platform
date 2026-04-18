@@ -21,8 +21,6 @@ import httpx
 
 from kctl_dokploy.core.deploy_validators import DeployValidator
 from kctl_dokploy.core.manifest import DeployManifest, load_env_file
-
-_logger = logging.getLogger(__name__)
 from kctl_dokploy.core.validators import (
     resolve_server_ip,
     validate_dns_ip,
@@ -31,8 +29,9 @@ from kctl_dokploy.core.validators import (
     find_github_app_id,
     disable_autodeploy,
     validate_service_name,
-    check_domain_routing,
 )
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -181,7 +180,6 @@ class Deployer:
         if not self._compose_id or self.dry_run:
             return
         try:
-            from kctl_dokploy.core.callbacks import AppContext
             from kctl_dokploy.core.client import DokployClient
             from kctl_lib.config import load_config
 

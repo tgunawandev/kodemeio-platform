@@ -9,6 +9,7 @@ Here we validate the CLI-level wiring and output consistency.
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -23,7 +24,6 @@ from kctl_odoo.core.snapshots import (
     load_snapshot,
     save_snapshot,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -369,7 +369,6 @@ class TestSnapshotCommand:
 
     def test_snapshot_default_filename(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """snapshot without --output creates snapshot-{db}-{date}.json in cwd."""
-        import os
 
         monkeypatch.chdir(tmp_path)
 
@@ -384,8 +383,8 @@ class TestSnapshotCommand:
 
         snapshot(ctx, output=None, state="installed")
 
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        date_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        date_str = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         expected = tmp_path / f"snapshot-mydb-{date_str}.json"
         assert expected.exists()

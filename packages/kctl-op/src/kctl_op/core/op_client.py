@@ -11,22 +11,26 @@ from typing import Any
 
 class OnePasswordError(Exception):
     """Error from 1Password CLI."""
+
     pass
 
 
 class NotSignedInError(OnePasswordError):
     """User is not signed in to 1Password."""
+
     pass
 
 
 class NotInstalledError(OnePasswordError):
     """1Password CLI is not installed."""
+
     pass
 
 
 @dataclass
 class OnePasswordItem:
     """Represents a 1Password item."""
+
     id: str
     title: str
     vault: str
@@ -175,10 +179,14 @@ def create_item(
     Returns the item ID.
     """
     args = [
-        "item", "create",
-        "--category", "Secure Note",
-        "--title", title,
-        "--vault", vault,
+        "item",
+        "create",
+        "--category",
+        "Secure Note",
+        "--title",
+        title,
+        "--vault",
+        vault,
     ]
 
     # Add tags

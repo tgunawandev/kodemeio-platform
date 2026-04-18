@@ -7,7 +7,7 @@ Uses service-scoped config: each profile contains per-service sections.
 from __future__ import annotations
 
 import os
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -56,9 +56,9 @@ def _test_connection(url: str, token: str) -> tuple[bool, str]:
 @app.command()
 def init(
     ctx: typer.Context,
-    url: Annotated[Optional[str], typer.Option("--url", help="Outline base URL.")] = None,
-    token: Annotated[Optional[str], typer.Option("--token", help="API token.")] = None,
-    name: Annotated[Optional[str], typer.Option("--name", "-n", help="Profile name.")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="Outline base URL.")] = None,
+    token: Annotated[str | None, typer.Option("--token", help="API token.")] = None,
+    name: Annotated[str | None, typer.Option("--name", "-n", help="Profile name.")] = None,
 ) -> None:
     """Initialize CLI configuration (interactive if no flags given)."""
     actx: AppContext = ctx.obj
@@ -94,8 +94,8 @@ def init(
 def add(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Profile name (e.g. abcfood, staging)")],
-    url: Annotated[Optional[str], typer.Option("--url", help="Outline base URL.")] = None,
-    token: Annotated[Optional[str], typer.Option("--token", help="API token.")] = None,
+    url: Annotated[str | None, typer.Option("--url", help="Outline base URL.")] = None,
+    token: Annotated[str | None, typer.Option("--token", help="API token.")] = None,
     set_default: Annotated[bool, typer.Option("--default", help="Set as default profile.")] = False,
 ) -> None:
     """Add or update a profile's Outline connection.
@@ -118,9 +118,10 @@ def add(
             raise typer.Exit(code=1)
 
     existing = get_service_config(name)
-    if existing.url:
-        if not typer.confirm(f"Profile '{name}' already has {SERVICE_KEY} config ({existing.url}). Overwrite?"):
-            raise typer.Exit(0)
+    if existing.url and not typer.confirm(
+        f"Profile '{name}' already has {SERVICE_KEY} config ({existing.url}). Overwrite?"
+    ):
+        raise typer.Exit(0)
 
     svc = ServiceConfig(url=api_url, token=api_token)
     set_service_config(name, svc)
@@ -174,7 +175,9 @@ def remove(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Profile name to remove")],
     force: Annotated[bool, typer.Option("--force", help="Skip confirmation")] = False,
-    service_only: Annotated[bool, typer.Option("--service-only", help="Only remove outline config, keep other services")] = False,
+    service_only: Annotated[
+        bool, typer.Option("--service-only", help="Only remove outline config, keep other services")
+    ] = False,
 ) -> None:
     """Remove a profile or just its Outline config."""
     actx: AppContext = ctx.obj
@@ -230,12 +233,17 @@ def show(ctx: typer.Context) -> None:
 
     sections: list[tuple[str, list[tuple[str, str]]]] = []
 
-    sections.append(("General", [
-        ("Config file", str(CONFIG_FILE)),
-        ("Default profile", default),
-        ("Total profiles", str(len(profiles))),
-        ("This CLI", f"kctl-outline -> service key: {SERVICE_KEY}"),
-    ]))
+    sections.append(
+        (
+            "General",
+            [
+                ("Config file", str(CONFIG_FILE)),
+                ("Default profile", default),
+                ("Total profiles", str(len(profiles))),
+                ("This CLI", f"kctl-outline -> service key: {SERVICE_KEY}"),
+            ],
+        )
+    )
 
     for pname in profiles:
         marker = " [green](default)[/green]" if pname == default else ""
@@ -263,7 +271,7 @@ def set_(
     ctx: typer.Context,
     key: Annotated[str, typer.Argument(help="Config key (e.g. url, token, or default_profile)")],
     value: Annotated[str, typer.Argument(help="Value to set")],
-    profile_arg: Annotated[Optional[str], typer.Option("--profile-name", help="Target profile (default: active)")] = None,
+    profile_arg: Annotated[str | None, typer.Option("--profile-name", help="Target profile (default: active)")] = None,
 ) -> None:
     """Set a configuration value for the current service.
 
@@ -332,14 +340,16 @@ def profiles(ctx: typer.Context) -> None:
         other_str = ", ".join(other_services) if other_services else "[dim]-[/dim]"
 
         rows.append([pname, svc.url or "-", conn_status, other_str, status_marker])
-        json_data.append({
-            "name": pname,
-            "outline_url": svc.url,
-            "connected": bool(svc.url) and ok,
-            "other_services": other_services,
-            "active": is_active,
-            "default": pname == default,
-        })
+        json_data.append(
+            {
+                "name": pname,
+                "outline_url": svc.url,
+                "connected": bool(svc.url) and ok,
+                "other_services": other_services,
+                "active": is_active,
+                "default": pname == default,
+            }
+        )
 
     out.table(
         "Profiles",
@@ -372,37 +382,42 @@ def current(ctx: typer.Context) -> None:
         source = "KCTL_OUTLINE_PROFILE env var"
 
     sections: list[tuple[str, list[tuple[str, str]]]] = [
-        ("Active Connection", [
-            ("Profile", active),
-            ("Service", SERVICE_KEY),
-            ("Source", source),
-            ("URL", resolved_url or "[red]not set[/red]"),
-            ("Token", _mask_token(resolved_token)),
-            ("Status", f"[green]Connected -- {info}[/green]" if ok else f"[red]{info}[/red]"),
-        ]),
+        (
+            "Active Connection",
+            [
+                ("Profile", active),
+                ("Service", SERVICE_KEY),
+                ("Source", source),
+                ("URL", resolved_url or "[red]not set[/red]"),
+                ("Token", _mask_token(resolved_token)),
+                ("Status", f"[green]Connected -- {info}[/green]" if ok else f"[red]{info}[/red]"),
+            ],
+        ),
     ]
 
     all_services = get_all_services_in_profile(active)
     other = {k: v for k, v in all_services.items() if k != SERVICE_KEY and isinstance(v, dict)}
     if other:
-        sections.append(("Other Services in Profile", [
-            (svc_name, v.get("url", "(no url)")) for svc_name, v in other.items()
-        ]))
+        sections.append(
+            ("Other Services in Profile", [(svc_name, v.get("url", "(no url)")) for svc_name, v in other.items()])
+        )
 
     all_profiles = [p for p in get_profile_names() if p != active]
     if all_profiles:
-        sections.append(("Other Profiles", [
-            (p, get_service_config(p).url or "(no outline)") for p in all_profiles
-        ]))
+        sections.append(("Other Profiles", [(p, get_service_config(p).url or "(no outline)") for p in all_profiles]))
 
-    out.detail("Current Profile", sections, data_for_json={
-        "profile": active,
-        "service": SERVICE_KEY,
-        "source": source,
-        "url": resolved_url,
-        "connected": ok,
-        "info": info if ok else None,
-    })
+    out.detail(
+        "Current Profile",
+        sections,
+        data_for_json={
+            "profile": active,
+            "service": SERVICE_KEY,
+            "source": source,
+            "url": resolved_url,
+            "connected": ok,
+            "info": info if ok else None,
+        },
+    )
 
 
 @app.command()
@@ -427,13 +442,18 @@ def test(ctx: typer.Context) -> None:
 
     out.detail(
         "Connection Test",
-        [("Result", [
-            ("Profile", active),
-            ("Service", SERVICE_KEY),
-            ("Status", "[green]Connected[/green]"),
-            ("User", user.get("name", "unknown")),
-            ("Team", team.get("name", "unknown")),
-        ])],
+        [
+            (
+                "Result",
+                [
+                    ("Profile", active),
+                    ("Service", SERVICE_KEY),
+                    ("Status", "[green]Connected[/green]"),
+                    ("User", user.get("name", "unknown")),
+                    ("Team", team.get("name", "unknown")),
+                ],
+            )
+        ],
         data_for_json=data,
     )
 

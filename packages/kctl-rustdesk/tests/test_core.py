@@ -293,10 +293,12 @@ class TestCLIRegistration:
                 "backup",
                 "config",
                 "dashboard",
+                "doctor",
                 "health",
                 "maintenance",
                 "peers",
                 "setup",
+                "skill",
                 "users",
             ]
         )

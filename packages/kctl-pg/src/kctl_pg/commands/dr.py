@@ -26,7 +26,6 @@ def verify_backup(
     """Restore backup to a temp database, run integrity checks, then drop it."""
     actx: AppContext = ctx.obj
     out = actx.output
-    db = database or "postgres"
     temp_db = f"_dr_verify_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
     c = actx.client

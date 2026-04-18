@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Annotated
 
 import httpx
@@ -763,7 +764,7 @@ _PWA_MODULES = [
 ]
 
 
-def _find_private_root() -> "Path | None":
+def _find_private_root() -> Path | None:
     """Locate src/private/ from CWD or known paths."""
     from pathlib import Path
 
@@ -784,7 +785,7 @@ def _find_private_root() -> "Path | None":
     return None
 
 
-def _read_file(path: "Path") -> str:
+def _read_file(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
     except Exception:
@@ -824,7 +825,6 @@ def audit_standards(
         kctl-odoo fastapi audit-standards all --fix-hint
         kctl-odoo fastapi audit-standards --json
     """
-    from pathlib import Path
 
     actx: AppContext = ctx.obj
     out = actx.output
@@ -835,10 +835,7 @@ def audit_standards(
         raise typer.Exit(1)
 
     # Determine which modules to check
-    if module and module != "all":
-        modules = [module]
-    else:
-        modules = [m for m in _PWA_MODULES if (private_root / m).is_dir()]
+    modules = [module] if module and module != "all" else [m for m in _PWA_MODULES if (private_root / m).is_dir()]
 
     if not modules:
         out.error("No PWA modules found")
@@ -880,12 +877,12 @@ def audit_standards(
                 model_sources[f.name] = _read_file(f)
 
         all_router_code = "\n".join(router_sources.values())
-        all_model_code = "\n".join(model_sources.values())
+        "\n".join(model_sources.values())
 
         checks: list[dict] = []
 
-        def _check(category: str, name: str, passed: bool, hint: str = ""):
-            checks.append(
+        def _check(category: str, name: str, passed: bool, hint: str = "", *, _checks: list[dict] = checks) -> None:
+            _checks.append(
                 {
                     "category": category,
                     "name": name,
@@ -1332,7 +1329,7 @@ _APP_TO_MODULE = {
 }
 
 
-def _count_source_routers(private_root: "Path", module_name: str) -> int:
+def _count_source_routers(private_root: Path, module_name: str) -> int:
     """Count router registrations in fastapi_endpoint_*.py source."""
     import re
 
@@ -1387,10 +1384,7 @@ def audit_live(
     actx: AppContext = ctx.obj
     out = actx.output
 
-    if app_name == "all":
-        apps_to_check = list(_APP_TO_MODULE.keys())
-    else:
-        apps_to_check = [app_name]
+    apps_to_check = list(_APP_TO_MODULE.keys()) if app_name == "all" else [app_name]
 
     private_root = _find_private_root()
     all_results: list[dict] = []
@@ -1425,8 +1419,8 @@ def audit_live(
 
         checks: list[dict] = []
 
-        def _check(category: str, name: str, passed: bool, detail: str = ""):
-            checks.append({"category": category, "name": name, "passed": passed, "detail": detail})
+        def _check(category: str, name: str, passed: bool, detail: str = "", *, _checks: list[dict] = checks) -> None:
+            _checks.append({"category": category, "name": name, "passed": passed, "detail": detail})
 
         # =================================================================
         # 1. ROUTER SYNC CHECK
@@ -1475,7 +1469,7 @@ def audit_live(
         # =================================================================
         has_response_schema = 0
         no_schema_endpoints: list[str] = []
-        global_security = spec.get("security", [])
+        spec.get("security", [])
 
         for path_str, methods in paths.items():
             for method_str, detail in methods.items():
@@ -1684,7 +1678,6 @@ def audit_live(
             # =============================================================
             # 5. ERROR FORMAT CHECK
             # =============================================================
-            error_format_ok = False
             with httpx.Client(timeout=10) as http:
                 # Send POST to /auth/login with empty body
                 try:
@@ -1696,7 +1689,6 @@ def audit_live(
                             # FastAPI 422 returns {"detail": [...]}, our custom errors return {"detail": {"error_code":...}}
                             detail = err_body.get("detail")
                             if isinstance(detail, dict) and "error_code" in detail:
-                                error_format_ok = True
                                 _check(
                                     "Error",
                                     "Error response has {error_code, message}",
@@ -1705,7 +1697,6 @@ def audit_live(
                                 )
                             elif isinstance(detail, list):
                                 # Pydantic validation error (422) — also acceptable
-                                error_format_ok = True
                                 _check(
                                     "Error",
                                     "Error response has {error_code, message}",

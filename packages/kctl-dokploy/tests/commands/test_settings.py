@@ -13,14 +13,19 @@ from kctl_dokploy.core.callbacks import AppContext
 
 runner = CliRunner()
 
-SAMPLE_SETTINGS = {
-    "serverIp": "10.0.0.1",
-    "letsEncryptEmail": "admin@kodeme.io",
-    "isTraefikEnabled": True,
-    "cleanupCacheEnabled": True,
-    "dockerVersion": "24.0.5",
-    "os": "Ubuntu 22.04",
-}
+SAMPLE_SERVERS = [
+    {
+        "name": "prod-01",
+        "ipAddress": "10.0.0.1",
+        "serverStatus": "active",
+        "serverType": "dedicated",
+        "enableDockerCleanup": True,
+        "username": "root",
+        "port": 22,
+        "totalSum": 5,
+        "createdAt": "2026-01-01T00:00:00Z",
+    },
+]
 
 
 @pytest.fixture(autouse=True)
@@ -31,12 +36,12 @@ def _patch_client(mock_client: MagicMock):
 
 class TestSettingsShow:
     def test_show_json(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = SAMPLE_SETTINGS
+        mock_client.get.return_value = SAMPLE_SERVERS
         result = runner.invoke(app, ["--json", "settings", "show"])
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data["letsEncryptEmail"] == "admin@kodeme.io"
-        assert data["isTraefikEnabled"] is True
+        assert data["servers"][0]["name"] == "prod-01"
+        assert data["servers"][0]["ipAddress"] == "10.0.0.1"
 
     def test_show_empty_settings(self, mock_client: MagicMock) -> None:
         mock_client.get.return_value = {}

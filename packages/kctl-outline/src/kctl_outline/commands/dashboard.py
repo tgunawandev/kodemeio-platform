@@ -64,20 +64,30 @@ def _display_dashboard(ctx: AppContext, data: dict) -> None:
     user = auth.get("user", {}) if auth else {}
 
     if team:
-        sections.append(("Team", [
-            ("Name", team.get("name", "unknown")),
-            ("Members", str(team.get("memberCount", 0))),
-            ("Documents", str(team.get("documentCount", 0))),
-            ("Collections", str(team.get("collectionCount", 0))),
-        ]))
+        sections.append(
+            (
+                "Team",
+                [
+                    ("Name", team.get("name", "unknown")),
+                    ("Members", str(team.get("memberCount", 0))),
+                    ("Documents", str(team.get("documentCount", 0))),
+                    ("Collections", str(team.get("collectionCount", 0))),
+                ],
+            )
+        )
     else:
         sections.append(("Team", [("Status", "[red]Unavailable[/red]")]))
 
     if user:
-        sections.append(("Authenticated As", [
-            ("User", user.get("name", "")),
-            ("Role", user.get("role", "")),
-        ]))
+        sections.append(
+            (
+                "Authenticated As",
+                [
+                    ("User", user.get("name", "")),
+                    ("Role", user.get("role", "")),
+                ],
+            )
+        )
 
     # Collections section
     collections = data.get("collections", [])

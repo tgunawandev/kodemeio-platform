@@ -1635,7 +1635,7 @@ def report_verify_accurate(
         lid = exp["label_id"]
         got = by_line_id.get(lid)
         if got is None:
-            got = by_label.get(exp.get("label_accurate", ""), None)
+            got = by_label.get(exp.get("label_accurate", ""))
         if got is None:
             out.error(f"  MISSING  {lid:30s} (Accurate: {exp.get('label_accurate', '?')!r})")
             fails += 1

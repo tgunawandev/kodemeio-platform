@@ -51,6 +51,13 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B", "SIM"]
+# TODO(kctl-odoo debt): the ignores below track pre-existing issues, not a policy choice.
+#   B904 (raise ... from): 36 sites — add `from e` / `from None` when refactoring each module.
+#   E741 (ambiguous names l/I/O): 22 sites in tax/accounting code where `l` = "line".
+#   E501 (line-too-long): 10 long f-strings/docstrings — break when touched.
+#   B007 (unused loop var): 5 sites — rename to `_`.
+#   SIM102/SIM105/SIM108: prefer as-written for readability in this module.
+ignore = ["B904", "E741", "E501", "B007", "SIM102", "SIM105", "SIM108"]
 
 [tool.mypy]
 python_version = "3.12"

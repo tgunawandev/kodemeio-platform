@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -1529,7 +1529,7 @@ def valuation(
         json_data.append({"product": product, "qty": qty, "unit_cost": unit_cost, "total_value": value})
 
     # Sort by value descending
-    combined = sorted(zip(rows, json_data), key=lambda x: x[1]["total_value"], reverse=True)
+    combined = sorted(zip(rows, json_data, strict=False), key=lambda x: x[1]["total_value"], reverse=True)
     rows = [r for r, _ in combined]
     json_data = [d for _, d in combined]
 
@@ -1845,7 +1845,7 @@ def reorder_rules(ctx: typer.Context, triggered: bool = False, limit: int = 50) 
 
 
 @app.command("locations")
-def locations(ctx: typer.Context, warehouse: Optional[str] = None, limit: int = 50) -> None:
+def locations(ctx: typer.Context, warehouse: str | None = None, limit: int = 50) -> None:
     """List stock locations.
 
     Examples:

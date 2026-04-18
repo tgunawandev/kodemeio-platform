@@ -1,9 +1,10 @@
 """Tests for field_helpers module."""
 
 from __future__ import annotations
+
 from unittest.mock import MagicMock
 
-from kctl_odoo.core.field_helpers import safe_fields, get_model_fields, classify_fields
+from kctl_odoo.core.field_helpers import classify_fields, get_model_fields, safe_fields
 
 
 class TestSafeFields:

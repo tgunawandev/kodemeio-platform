@@ -10,7 +10,7 @@ to a single push mapping for backwards compatibility.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +18,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
-class SyncMode(str, Enum):
+class SyncMode(StrEnum):
     PUSH = "push"
     PULL = "pull"
     MIXED = "mixed"

@@ -23,7 +23,7 @@ class PulledFile:
 class PullResult:
     """Outcome of a pull operation, including reconciliation actions."""
 
-    written: list["PulledFile"]
+    written: list[PulledFile]
     deleted: list[Path]  # files removed because their Outline doc no longer exists
 
 

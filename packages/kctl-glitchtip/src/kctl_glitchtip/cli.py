@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from typing import Annotated
 
 import typer
@@ -11,18 +10,18 @@ from kctl_lib import KctlError, handle_cli_error
 from kctl_glitchtip import __version__
 from kctl_glitchtip.commands.alerts import app as alerts_app
 from kctl_glitchtip.commands.config_cmd import app as config_app
+from kctl_glitchtip.commands.doctor_cmd import app as doctor_app
 from kctl_glitchtip.commands.events import app as events_app
 from kctl_glitchtip.commands.health import app as health_app
 from kctl_glitchtip.commands.issues import app as issues_app
 from kctl_glitchtip.commands.orgs import app as orgs_app
 from kctl_glitchtip.commands.projects import app as projects_app
+from kctl_glitchtip.commands.skill_cmd import app as skill_app
 from kctl_glitchtip.commands.teams import app as teams_app
 from kctl_glitchtip.commands.uptime import app as uptime_app
 from kctl_glitchtip.commands.users import app as users_app
 from kctl_glitchtip.core.callbacks import AppContext
 from kctl_glitchtip.core.plugins import discover_and_load_plugins
-from kctl_glitchtip.commands.doctor_cmd import app as doctor_app
-from kctl_glitchtip.commands.skill_cmd import app as skill_app
 
 
 def version_callback(value: bool) -> None:

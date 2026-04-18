@@ -732,12 +732,37 @@ def unused_modules(
     candidates = []
     for mod in modules:
         mod_name = mod["name"]
-        if mod_name.startswith((
-            "base", "web", "mail", "bus", "auth_", "account", "sale", "stock",
-            "purchase", "hr", "mrp", "crm", "project", "delivery", "payment",
-            "l10n_", "board", "digest", "calendar", "contacts", "portal",
-            "product", "uom", "barcodes", "resource", "phone_", "sms",
-        )):
+        if mod_name.startswith(
+            (
+                "base",
+                "web",
+                "mail",
+                "bus",
+                "auth_",
+                "account",
+                "sale",
+                "stock",
+                "purchase",
+                "hr",
+                "mrp",
+                "crm",
+                "project",
+                "delivery",
+                "payment",
+                "l10n_",
+                "board",
+                "digest",
+                "calendar",
+                "contacts",
+                "portal",
+                "product",
+                "uom",
+                "barcodes",
+                "resource",
+                "phone_",
+                "sms",
+            )
+        ):
             continue
 
         try:
@@ -765,12 +790,14 @@ def unused_modules(
                     total_records += c.search_count(mi["model"], [])
 
             if total_records == 0 and model_count > 0:
-                candidates.append([
-                    mod_name,
-                    mod.get("shortdesc", ""),
-                    str(model_count),
-                    "0",
-                ])
+                candidates.append(
+                    [
+                        mod_name,
+                        mod.get("shortdesc", ""),
+                        str(model_count),
+                        "0",
+                    ]
+                )
         except Exception:
             pass
 

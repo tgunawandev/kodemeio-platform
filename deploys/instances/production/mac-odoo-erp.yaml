@@ -23,15 +23,11 @@ env_file: ../../env/production/.env.mac-odoo-erp
 env_overrides:
   COMPOSE_PROJECT_NAME: mac-odoo-erp
   TENANT: mac
-  PGHOST: postgres
-  PGPORT: '5432'
   PGDATABASE: mac_odoo_erp
   PGUSER: odoo
-  PGPASSWORD: TdPoCbKb8bPeqKnzxbiOyPkibovSn5eJ
   ODOO_DB_FILTER: ^mac_odoo_erp$
   DOMAIN: mac-odoo-erp.idtpp.com
   ODOO_WORKERS: '2'
-  ODOO_SERVER_WIDE_MODULES: base,web,bus,bus_alt_connection,session_db,dbfilter_from_header
 post_deploy:
   odoo_profile: profile-erp
   odoo_install_bundle: ''

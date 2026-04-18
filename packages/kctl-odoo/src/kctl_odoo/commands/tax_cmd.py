@@ -888,10 +888,7 @@ def pph21_summary(
             year -= 1
 
     date_from = f"{year}-{mon:02d}-01"
-    if mon == 12:
-        date_to = f"{year + 1}-01-01"
-    else:
-        date_to = f"{year}-{mon + 1:02d}-01"
+    date_to = f"{year + 1}-01-01" if mon == 12 else f"{year}-{mon + 1:02d}-01"
 
     # Try payslip approach
     if model_available(c, "hr.payslip"):

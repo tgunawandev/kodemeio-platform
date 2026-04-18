@@ -28,13 +28,15 @@ def list_(
     rows: list[list[str]] = []
     for t in tasks:
         enabled = "[green]yes[/green]" if t.get("enabled", False) else "[red]no[/red]"
-        rows.append([
-            str(t.get("id", "")),
-            t.get("name", ""),
-            t.get("task_type", t.get("schedule", "")),
-            enabled,
-            str(t.get("agent", t.get("agent_id", ""))),
-        ])
+        rows.append(
+            [
+                str(t.get("id", "")),
+                t.get("name", ""),
+                t.get("task_type", t.get("schedule", "")),
+                enabled,
+                str(t.get("agent", t.get("agent_id", ""))),
+            ]
+        )
 
     c.output.table(
         f"Tasks ({len(tasks)})",

@@ -8,7 +8,7 @@ project: mac
 environment: production
 server: tpp-prod-02
 source_overrides:
-  compose_path: ./compose/docker-compose.hrm.yml
+  compose_path: compose/docker-compose.hrm.yml
 dns:
   zone: idtpp.com
   name: mac-hrm

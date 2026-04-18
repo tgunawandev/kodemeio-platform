@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -22,8 +22,6 @@ from kctl_odoo.commands.addons_cmd import (
     app,
 )
 from kctl_odoo.core.addons import Addon, discover_addons, score_health
-from kctl_odoo.core.bundles import discover_bundles, resolve_modules
-
 
 # ---------------------------------------------------------------------------
 # Command registration
@@ -158,9 +156,11 @@ class TestDiscoverWithLabels:
         }
         (addon_dir / "__manifest__.py").write_text(repr(manifest), encoding="utf-8")
 
-        with patch("kctl_odoo.commands.addons_cmd.get_default_addon_paths", return_value=[tmp_path]):
-            with patch("kctl_odoo.commands.addons_cmd.get_addon_path_labels", return_value={}):
-                addons = _discover_with_labels(None)
+        with (
+            patch("kctl_odoo.commands.addons_cmd.get_default_addon_paths", return_value=[tmp_path]),
+            patch("kctl_odoo.commands.addons_cmd.get_addon_path_labels", return_value={}),
+        ):
+            addons = _discover_with_labels(None)
         # May or may not find depending on resolution; at least no error
         assert isinstance(addons, list)
 

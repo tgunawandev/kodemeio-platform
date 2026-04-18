@@ -42,7 +42,7 @@ def _patch_client(mock_client: MagicMock):
 class TestDeploymentsList:
     def test_list_all_json(self, mock_client: MagicMock) -> None:
         mock_client.get.return_value = SAMPLE_DEPLOYMENTS
-        result = runner.invoke(app, ["--json", "deployments", "list"])
+        result = runner.invoke(app, ["--json", "deployments", "list", "--compose", "comp-xyz-789"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert isinstance(data, list)
@@ -50,7 +50,7 @@ class TestDeploymentsList:
 
     def test_list_empty_returns_empty_list(self, mock_client: MagicMock) -> None:
         mock_client.get.return_value = []
-        result = runner.invoke(app, ["--json", "deployments", "list"])
+        result = runner.invoke(app, ["--json", "deployments", "list", "--compose", "comp-xyz-789"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data == []
@@ -71,7 +71,7 @@ class TestDeploymentsList:
 
     def test_list_with_limit(self, mock_client: MagicMock) -> None:
         mock_client.get.return_value = SAMPLE_DEPLOYMENTS
-        result = runner.invoke(app, ["--json", "deployments", "list", "--limit", "1"])
+        result = runner.invoke(app, ["--json", "deployments", "list", "--compose", "comp-xyz-789", "--limit", "1"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data) == 1
@@ -79,7 +79,7 @@ class TestDeploymentsList:
 
 class TestDeploymentsGet:
     def test_get_deployment_json(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = SAMPLE_DEPLOYMENTS[0]
+        mock_client.get.return_value = SAMPLE_DEPLOYMENTS
         result = runner.invoke(app, ["--json", "deployments", "get", "dep-aaa-111"])
         assert result.exit_code == 0
         data = json.loads(result.output)

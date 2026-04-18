@@ -6,9 +6,9 @@ instance:
   description: MAC — ERP PWA
 project: mac
 environment: staging
-server: tpp-prod-02
+server: tpp-stg-01
 source_overrides:
-  compose_path: ./compose/docker-compose.erp.yml
+  compose_path: compose/docker-compose.erp.yml
 dns:
   zone: idtpp.com
   name: stg-mac-erp

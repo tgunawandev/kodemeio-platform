@@ -146,9 +146,8 @@ def delete(
     actx: AppContext = ctx.obj
     c, out = actx.client, actx.output
 
-    if not force:
-        if not typer.confirm(f"Delete project '{project_slug}'?"):
-            raise typer.Exit(0)
+    if not force and not typer.confirm(f"Delete project '{project_slug}'?"):
+        raise typer.Exit(0)
 
     c.delete(f"projects/{org_slug}/{project_slug}/")
     out.success(f"Project '{project_slug}' deleted")

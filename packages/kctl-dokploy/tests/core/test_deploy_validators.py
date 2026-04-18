@@ -9,7 +9,6 @@ import pytest
 
 from kctl_dokploy.core.deploy_validators import (
     KNOWN_TYPES,
-    CheckResult,
     DeployValidator,
 )
 from kctl_dokploy.core.manifest import (

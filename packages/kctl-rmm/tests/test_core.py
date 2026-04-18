@@ -301,6 +301,7 @@ class TestCLIRegistration:
                 "rustdesk",
                 "scripts",
                 "services",
+                "skill",
                 "software",
                 "tasks",
                 "winupdates",

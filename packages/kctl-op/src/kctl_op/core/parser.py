@@ -28,16 +28,16 @@ def parse_env_file(file_path: Path) -> OrderedDict[str, str]:
         line = lines[i].strip()
 
         # Skip empty lines and comments
-        if not line or line.startswith('#'):
+        if not line or line.startswith("#"):
             i += 1
             continue
 
         # Remove export prefix
-        if line.startswith('export '):
+        if line.startswith("export "):
             line = line[7:]
 
         # Parse key=value
-        match = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)=(.*)$', line)
+        match = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", line)
         if not match:
             i += 1
             continue
@@ -49,7 +49,7 @@ def parse_env_file(file_path: Path) -> OrderedDict[str, str]:
         if value.startswith('"') or value.startswith("'"):
             quote_char = value[0]
             # Check if it's a complete quoted string
-            if len(value) > 1 and value.endswith(quote_char) and not value.endswith(f'\\{quote_char}'):
+            if len(value) > 1 and value.endswith(quote_char) and not value.endswith(f"\\{quote_char}"):
                 # Single line quoted value
                 value = value[1:-1]
             else:
@@ -58,15 +58,15 @@ def parse_env_file(file_path: Path) -> OrderedDict[str, str]:
                 i += 1
                 while i < len(lines):
                     next_line = lines[i]
-                    if next_line.rstrip().endswith(quote_char) and not next_line.rstrip().endswith(f'\\{quote_char}'):
-                        multiline_value += '\n' + next_line.rstrip()[:-1]  # Remove closing quote
+                    if next_line.rstrip().endswith(quote_char) and not next_line.rstrip().endswith(f"\\{quote_char}"):
+                        multiline_value += "\n" + next_line.rstrip()[:-1]  # Remove closing quote
                         break
-                    multiline_value += '\n' + next_line
+                    multiline_value += "\n" + next_line
                     i += 1
                 value = multiline_value
 
         # Unescape common escape sequences
-        value = value.replace('\\n', '\n').replace('\\t', '\t').replace('\\"', '"').replace("\\'", "'")
+        value = value.replace("\\n", "\n").replace("\\t", "\t").replace('\\"', '"').replace("\\'", "'")
 
         env_vars[key] = value
         i += 1
@@ -81,21 +81,21 @@ def serialize_env_vars(env_vars: OrderedDict[str, str]) -> str:
     for key, value in env_vars.items():
         # Check if value needs quoting
         needs_quotes = (
-            '\n' in value or
-            '\t' in value or
-            ' ' in value or
-            '"' in value or
-            "'" in value or
-            '#' in value or
-            value.startswith(' ') or
-            value.endswith(' ')
+            "\n" in value
+            or "\t" in value
+            or " " in value
+            or '"' in value
+            or "'" in value
+            or "#" in value
+            or value.startswith(" ")
+            or value.endswith(" ")
         )
 
         if needs_quotes:
             # Escape special characters and wrap in double quotes
-            escaped = value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\t', '\\t')
+            escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\t", "\\t")
             lines.append(f'{key}="{escaped}"')
         else:
-            lines.append(f'{key}={value}')
+            lines.append(f"{key}={value}")
 
-    return '\n'.join(lines) + '\n' if lines else ''
+    return "\n".join(lines) + "\n" if lines else ""

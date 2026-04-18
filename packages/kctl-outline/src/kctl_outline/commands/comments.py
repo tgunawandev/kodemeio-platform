@@ -47,10 +47,13 @@ def create(
 ) -> None:
     """Add a comment to a document."""
     c: AppContext = ctx.obj
-    result = c.client.post("comments.create", data={
-        "documentId": document_id,
-        "data": {"text": text},
-    })
+    result = c.client.post(
+        "comments.create",
+        data={
+            "documentId": document_id,
+            "data": {"text": text},
+        },
+    )
     comment = result.get("data", {})
     c.output.success(f"Comment created (ID: {comment.get('id', '')[:8]})")
 
@@ -64,9 +67,8 @@ def delete(
     """Delete a comment."""
     c: AppContext = ctx.obj
 
-    if not force:
-        if not typer.confirm(f"Delete comment {comment_id}?"):
-            raise typer.Abort()
+    if not force and not typer.confirm(f"Delete comment {comment_id}?"):
+        raise typer.Abort()
 
     c.client.post("comments.delete", data={"id": comment_id})
     c.output.success(f"Comment {comment_id} deleted")

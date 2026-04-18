@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import textwrap
 
-import typer
 
 from kctl_lib.exceptions import KctlError
 from kctl_lib.ssh import ssh_run

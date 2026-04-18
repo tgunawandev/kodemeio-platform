@@ -8,7 +8,7 @@ Includes:
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -590,7 +590,7 @@ def sync_base_url(
 def params_export(
     ctx: typer.Context,
     output: Annotated[str, typer.Option("--output", "-o", help="Output file (YAML or JSON)")] = "params.yaml",
-    search: Annotated[Optional[str], typer.Option("--search", "-s", help="Filter by key pattern")] = None,
+    search: Annotated[str | None, typer.Option("--search", "-s", help="Filter by key pattern")] = None,
 ) -> None:
     """Export system parameters to YAML or JSON file.
 
@@ -719,10 +719,9 @@ def params_import(
         out.info("DRY RUN — no changes applied.")
         return
 
-    if not force:
-        if not typer.confirm(f"Apply {len(changes) + len(new_keys)} changes?"):
-            out.info("Cancelled.")
-            return
+    if not force and not typer.confirm(f"Apply {len(changes) + len(new_keys)} changes?"):
+        out.info("Cancelled.")
+        return
 
     applied = 0
     for key, value in data.items():

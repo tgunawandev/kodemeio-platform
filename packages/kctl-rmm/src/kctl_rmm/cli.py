@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from typing import Annotated
 
 import typer
@@ -24,11 +23,11 @@ from kctl_rmm.commands.remote import app as remote_app
 from kctl_rmm.commands.rustdesk import app as rustdesk_app
 from kctl_rmm.commands.scripts import app as scripts_app
 from kctl_rmm.commands.services import app as services_app
+from kctl_rmm.commands.skill_cmd import app as skill_app
 from kctl_rmm.commands.software import app as software_app
 from kctl_rmm.commands.tasks import app as tasks_app
 from kctl_rmm.commands.winupdates import app as winupdates_app
 from kctl_rmm.core.callbacks import AppContext
-from kctl_rmm.commands.skill_cmd import app as skill_app
 
 
 def version_callback(value: bool) -> None:

@@ -227,8 +227,8 @@ class TestResolveModulesDeduplication:
 class TestResolveModulesUnknownGroup:
     """Test that unknown group names are silently skipped."""
 
-    def test_unknown_group_skipped(self, tmp_path: Path) -> None:
-        """An unknown group name does not raise, just returns nothing for it."""
+    def test_unknown_group_raises(self, tmp_path: Path) -> None:
+        """Unknown group names fail loud — catches typos early."""
         data = {
             "name": "skip-test",
             "groups": {
@@ -240,11 +240,11 @@ class TestResolveModulesUnknownGroup:
         path.write_text(yaml.dump(data), encoding="utf-8")
 
         bundle = load_bundle(path)
-        modules = resolve_modules(bundle, ["real", "nonexistent"])
-        assert modules == ["mod_a"]
+        with pytest.raises(ValueError, match="has no groups: nonexistent"):
+            resolve_modules(bundle, ["real", "nonexistent"])
 
-    def test_all_unknown_returns_empty(self, tmp_path: Path) -> None:
-        """If all requested groups are unknown, result is empty."""
+    def test_all_unknown_raises(self, tmp_path: Path) -> None:
+        """If all requested groups are unknown, resolve_modules raises ValueError."""
         data = {
             "name": "empty-resolve",
             "groups": {
@@ -255,8 +255,8 @@ class TestResolveModulesUnknownGroup:
         path.write_text(yaml.dump(data), encoding="utf-8")
 
         bundle = load_bundle(path)
-        modules = resolve_modules(bundle, ["ghost", "phantom"])
-        assert modules == []
+        with pytest.raises(ValueError, match="has no groups: ghost, phantom"):
+            resolve_modules(bundle, ["ghost", "phantom"])
 
 
 class TestResolveModulesFlat:

@@ -78,20 +78,26 @@ def get(
     c.output.detail(
         f"Stream: {s.get('name', '')}",
         [
-            ("Details", [
-                ("ID", str(s.get("stream_id", ""))),
-                ("Name", s.get("name", "")),
-                ("Description", s.get("description", "")),
-                ("Private", str(s.get("invite_only", False))),
-                ("Web Public", str(s.get("is_web_public", False))),
-                ("History Public", str(s.get("history_public_to_subscribers", True))),
-            ]),
-            ("Activity", [
-                ("Subscribers", str(subscriber_count) if subscriber_count >= 0 else "unknown"),
-                ("Weekly Traffic", str(s.get("stream_weekly_traffic", 0))),
-                ("Date Created", s.get("date_created", "")),
-                ("First Message ID", str(s.get("first_message_id", ""))),
-            ]),
+            (
+                "Details",
+                [
+                    ("ID", str(s.get("stream_id", ""))),
+                    ("Name", s.get("name", "")),
+                    ("Description", s.get("description", "")),
+                    ("Private", str(s.get("invite_only", False))),
+                    ("Web Public", str(s.get("is_web_public", False))),
+                    ("History Public", str(s.get("history_public_to_subscribers", True))),
+                ],
+            ),
+            (
+                "Activity",
+                [
+                    ("Subscribers", str(subscriber_count) if subscriber_count >= 0 else "unknown"),
+                    ("Weekly Traffic", str(s.get("stream_weekly_traffic", 0))),
+                    ("Date Created", s.get("date_created", "")),
+                    ("First Message ID", str(s.get("first_message_id", ""))),
+                ],
+            ),
         ],
         data_for_json=s,
     )
@@ -109,17 +115,18 @@ def create(
     c: AppContext = ctx.obj
 
     subscriptions = [{"name": name, "description": description}]
-    result = c.client.post("users/me/subscriptions", data={
-        "subscriptions": json.dumps(subscriptions),
-        "invite_only": json.dumps(private),
-        "history_public_to_subscribers": json.dumps(history_public),
-    })
+    result = c.client.post(
+        "users/me/subscriptions",
+        data={
+            "subscriptions": json.dumps(subscriptions),
+            "invite_only": json.dumps(private),
+            "history_public_to_subscribers": json.dumps(history_public),
+        },
+    )
 
     c.output.success(f"Stream '{name}' created")
     if result.get("subscribed"):
-        c.output.kv("Subscribed", ", ".join(
-            email for email, streams in result["subscribed"].items()
-        ))
+        c.output.kv("Subscribed", ", ".join(email for email, streams in result["subscribed"].items()))
 
 
 @app.command()
@@ -174,7 +181,9 @@ def delete(
 def subscribe(
     ctx: typer.Context,
     stream: Annotated[str, typer.Argument(help="Stream name")],
-    principals: Annotated[Optional[str], typer.Option("--users", help="Comma-separated user IDs or emails to subscribe")] = None,
+    principals: Annotated[
+        Optional[str], typer.Option("--users", help="Comma-separated user IDs or emails to subscribe")
+    ] = None,
 ) -> None:
     """Subscribe users to a stream."""
     c: AppContext = ctx.obj
@@ -209,7 +218,9 @@ def subscribe(
 def unsubscribe(
     ctx: typer.Context,
     stream: Annotated[str, typer.Argument(help="Stream name")],
-    principals: Annotated[Optional[str], typer.Option("--users", help="Comma-separated user IDs or emails to unsubscribe")] = None,
+    principals: Annotated[
+        Optional[str], typer.Option("--users", help="Comma-separated user IDs or emails to unsubscribe")
+    ] = None,
 ) -> None:
     """Unsubscribe users from a stream."""
     c: AppContext = ctx.obj

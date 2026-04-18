@@ -19,7 +19,6 @@ app = typer.Typer(help="Health checks and diagnostics.")
 def _check_health(ctx: AppContext) -> dict:
     """Run all health checks and return results dict."""
     c = ctx.client
-    out = ctx.output
 
     results: dict = {
         "live": False,
@@ -114,7 +113,6 @@ def _display_health(ctx: AppContext, results: dict) -> None:
         sys_kvs.append(("Python", runtime.get("python_version", "unknown")))
         sys_kvs.append(("Platform", runtime.get("platform", "unknown")))
         sys_kvs.append(("Uname", runtime.get("uname", "unknown")))
-        server_info = sys_info.get("http_headers", {})
         embedded_outpost = sys_info.get("embedded_outpost_host", "")
         if embedded_outpost:
             sys_kvs.append(("Embedded Outpost", embedded_outpost))

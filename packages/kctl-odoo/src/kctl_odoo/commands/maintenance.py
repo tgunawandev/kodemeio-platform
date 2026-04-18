@@ -1570,9 +1570,8 @@ def check_data(
     # MANUFACTURING CHECKS
     # =====================================================================
 
-    if cat in ("all", "mfg"):
-        if not model_available(c, "mrp.production") and cat == "mfg":
-            out.warn("MRP module (mrp) is not installed — manufacturing checks skipped")
+    if cat in ("all", "mfg") and not model_available(c, "mrp.production") and cat == "mfg":
+        out.warn("MRP module (mrp) is not installed — manufacturing checks skipped")
 
     if cat in ("all", "mfg") and model_available(c, "mrp.production"):
         try:
@@ -2445,7 +2444,7 @@ def check_financial_statements(
         kctl-odoo maintenance check-financial-statements --date 2026-03-31
         kctl-odoo maintenance check-financial-statements --date 2026-03-31 --period-start 2026-01-01
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     actx: AppContext = ctx.obj
     out = actx.output
@@ -2803,7 +2802,7 @@ def check_financial_statements(
     # =====================================================================
     try:
         # Revenue entries after period end (next month entries dated in this period)
-        next_month_start = as_of[:8] + "01"  # crude — just informational
+        as_of[:8] + "01"  # crude — just informational
         revenue_after = c.search_count(
             "account.move",
             [

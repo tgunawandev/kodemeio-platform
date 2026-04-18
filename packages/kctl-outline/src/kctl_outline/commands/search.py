@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -12,7 +12,7 @@ from kctl_outline.core.callbacks import AppContext
 def search_command(
     ctx: typer.Context,
     query: Annotated[str, typer.Argument(help="Search query")],
-    collection: Annotated[Optional[str], typer.Option("--collection", "-c", help="Filter by collection ID")] = None,
+    collection: Annotated[str | None, typer.Option("--collection", "-c", help="Filter by collection ID")] = None,
     limit: Annotated[int, typer.Option("--limit", "-n", help="Max results")] = 25,
 ) -> None:
     """Search across all documents."""

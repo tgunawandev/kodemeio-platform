@@ -57,7 +57,7 @@ class TestGitList:
 
 class TestGitGet:
     def test_get_provider_json(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = SAMPLE_GIT_PROVIDERS[0]
+        mock_client.get.return_value = SAMPLE_GIT_PROVIDERS
         result = runner.invoke(app, ["--json", "git", "get", "gp-aaa-111"])
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -65,7 +65,7 @@ class TestGitGet:
         assert data["gitProviderType"] == "github"
 
     def test_get_not_found_exits_1(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = "not a dict"
+        mock_client.get.return_value = []
         result = runner.invoke(app, ["git", "get", "nonexistent"])
         assert result.exit_code == 1
 

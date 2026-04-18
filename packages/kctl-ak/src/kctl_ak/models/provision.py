@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 
 class MailcowConfig(BaseModel):
-    api_url: str
+    api_url: str | None = None  # default/fallback; prefer per-company mailcow_url
 
 
 class ProvisionDefaults(BaseModel):
@@ -20,10 +20,12 @@ class CompanyConfig(BaseModel):
     domain: str
     hrms: str | None = None
     odoo_targets: list[str] = []
+    mailcow_url: str | None = None  # per-company Mailcow endpoint
+    mailcow_key_env: str | None = None  # env var name holding the Mailcow API key
 
 
 class ProvisionConfig(BaseModel):
-    mailcow: MailcowConfig
+    mailcow: MailcowConfig = MailcowConfig()
     defaults: ProvisionDefaults = ProvisionDefaults()
     companies: dict[str, CompanyConfig] = {}
 

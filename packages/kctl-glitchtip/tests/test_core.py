@@ -147,7 +147,7 @@ class TestGlitchTipClientInit:
         assert GlitchTipClient.AUTH_HEADER == "Authorization"
 
     def test_auth_prefix_constant(self) -> None:
-        assert GlitchTipClient.AUTH_PREFIX == "Token"
+        assert GlitchTipClient.AUTH_PREFIX == "Bearer"
 
     def test_api_prefix_constant(self) -> None:
         assert GlitchTipClient.API_PREFIX == "/api/0"

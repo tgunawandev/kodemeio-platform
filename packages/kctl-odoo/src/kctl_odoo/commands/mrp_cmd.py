@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -956,7 +956,7 @@ def create_order(
     ctx: typer.Context,
     product: Annotated[str, typer.Argument(help="Product name or numeric ID")],
     qty: Annotated[float, typer.Option("--qty", "-q", help="Production quantity")] = 1.0,
-    bom: Annotated[Optional[str], typer.Option("--bom", help="BOM reference or numeric ID (optional)")] = None,
+    bom: Annotated[str | None, typer.Option("--bom", help="BOM reference or numeric ID (optional)")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview without creating")] = False,
 ) -> None:
     """Create a manufacturing order.
@@ -985,7 +985,7 @@ def create_order(
         raise typer.Exit(1) from e
 
     # Resolve BOM if provided
-    bom_id: Optional[int] = None
+    bom_id: int | None = None
     bom_display = ""
     if bom is not None:
         try:

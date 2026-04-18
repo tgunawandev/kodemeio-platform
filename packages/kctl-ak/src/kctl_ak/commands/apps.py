@@ -131,7 +131,7 @@ def update(
 ) -> None:
     """Update an application field."""
     c = ctx.obj
-    result = c.client.patch(f"core/applications/{slug}/", data={field: value})
+    c.client.patch(f"core/applications/{slug}/", data={field: value})
     c.output.success(f"Updated '{slug}' field '{field}'")
 
 
@@ -497,7 +497,7 @@ def sync(
                     if icon and (icon.startswith("http://") or icon.startswith("https://")):
                         payload["meta_icon"] = icon
 
-                    result = c.client.post("core/applications/", data=payload)
+                    c.client.post("core/applications/", data=payload)
                     c.output.success(f"[create] {slug}")
 
                     # Upload local icon file after create

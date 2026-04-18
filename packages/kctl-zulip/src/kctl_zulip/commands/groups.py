@@ -60,16 +60,22 @@ def get(
     c.output.detail(
         f"Group: {group.get('name', '')}",
         [
-            ("Details", [
-                ("ID", str(group.get("id", ""))),
-                ("Name", group.get("name", "")),
-                ("Description", group.get("description", "")),
-                ("System Group", str(group.get("is_system_group", False))),
-            ]),
-            ("Members", [
-                ("Count", str(len(members))),
-                ("Member IDs", ", ".join(str(m) for m in members[:20]) if members else "(none)"),
-            ]),
+            (
+                "Details",
+                [
+                    ("ID", str(group.get("id", ""))),
+                    ("Name", group.get("name", "")),
+                    ("Description", group.get("description", "")),
+                    ("System Group", str(group.get("is_system_group", False))),
+                ],
+            ),
+            (
+                "Members",
+                [
+                    ("Count", str(len(members))),
+                    ("Member IDs", ", ".join(str(m) for m in members[:20]) if members else "(none)"),
+                ],
+            ),
         ],
         data_for_json=group,
     )
@@ -89,11 +95,14 @@ def create(
     if members:
         member_ids = [int(m.strip()) for m in members.split(",") if m.strip()]
 
-    c.client.post("user_groups/create", data={
-        "name": name,
-        "description": description,
-        "members": json.dumps(member_ids),
-    })
+    c.client.post(
+        "user_groups/create",
+        data={
+            "name": name,
+            "description": description,
+            "members": json.dumps(member_ids),
+        },
+    )
 
     c.output.success(f"Group '{name}' created")
 
@@ -149,9 +158,12 @@ def add_member(
     c: AppContext = ctx.obj
 
     ids = [int(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
-    c.client.post(f"user_groups/{group_id}/members", data={
-        "add": json.dumps(ids),
-    })
+    c.client.post(
+        f"user_groups/{group_id}/members",
+        data={
+            "add": json.dumps(ids),
+        },
+    )
     c.output.success(f"Added {len(ids)} member(s) to group {group_id}")
 
 
@@ -165,7 +177,10 @@ def remove_member(
     c: AppContext = ctx.obj
 
     ids = [int(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
-    c.client.post(f"user_groups/{group_id}/members", data={
-        "delete": json.dumps(ids),
-    })
+    c.client.post(
+        f"user_groups/{group_id}/members",
+        data={
+            "delete": json.dumps(ids),
+        },
+    )
     c.output.success(f"Removed {len(ids)} member(s) from group {group_id}")
