@@ -88,6 +88,25 @@ kctl-dokploy deploy troubleshoot --compose OEK_dJRQZZMo9HKbQrQ0z
 kctl-dokploy compose deployments logs --compose <id>
 ```
 
+### Live Container Log Streaming
+
+`kctl-dokploy compose service-logs` fetches runtime container stdout/stderr
+(the actual Odoo/postgres/etc. output — not Dokploy build logs). By default
+it returns a snapshot; pass `-f` / `--follow` to stream until Ctrl-C.
+
+```bash
+# Snapshot — last 200 lines for a specific service
+kctl-dokploy compose service-logs <compose-id> --service odoo-web --tail 200
+
+# Live tail — streams via SSH to the compose's server
+kctl-dokploy compose service-logs <compose-id> --service odoo-web -f
+```
+
+Remote streaming uses `ssh ... docker logs -f <container>` with a 10s
+connect timeout and `StrictHostKeyChecking=accept-new`. Local composes
+skip SSH and invoke `docker logs -f` directly. `kctl-odoo logs tail` wraps
+this command for Odoo-specific filters (module, request, level).
+
 ### Server Migration
 
 ```bash

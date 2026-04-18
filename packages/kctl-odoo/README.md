@@ -33,6 +33,44 @@ kctl-odoo modules list --state installed
 kctl-odoo troubleshoot check
 ```
 
+## Fast debugging — log tailing
+
+`kctl-odoo logs tail` is a unified streaming command for local + remote Odoo
+with structured filters. It auto-detects the transport from the current
+profile URL:
+
+- **local** (`localhost` / `127.0.0.1`) → streams `docker compose logs -f` in
+  the project directory.
+- **remote** → streams `docker logs -f` over SSH via `kctl-dokploy compose
+  service-logs --follow`. Requires `--compose-id` (find with `kctl-dokploy
+  compose list`).
+
+```bash
+# Local dev — stream everything
+kctl-odoo logs tail
+
+# Local dev — only warnings and above from the account.move module
+kctl-odoo logs tail --level WARNING --module account.move
+
+# Remote prod — stream tpp-odoo-erp
+kctl-odoo -p tpp-odoo-erp logs tail \
+    --dokploy-profile idtpp \
+    --compose-id Qki8U2u4Ltstq0_6zW7UE
+
+# Narrow by worker PID or request id in the message
+kctl-odoo logs tail --worker 12 --grep "traceback"
+```
+
+Filter flags compose as AND: `--level`, `--module`, `--request`, `--worker`,
+`--grep`. Lines that don't match Odoo's standard log prefix (tracebacks,
+startup banners) are kept unless you pass `--grep`, so stack traces survive.
+
+Other `logs` subcommands:
+
+- `logs follow` — legacy local-only streamer (kept for back-compat).
+- `logs errors --days N` — finite query against Odoo's `ir.logging` model.
+- `logs search <pattern>` — finite ilike search against `ir.logging`.
+
 ## Command Groups
 
 | Group            | Description                                          |

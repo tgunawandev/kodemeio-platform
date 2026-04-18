@@ -366,11 +366,14 @@ def service_logs(
     compose_id: Annotated[str, typer.Argument(help="Compose service ID")],
     service: Annotated[str, typer.Option("--service", "-s", help="Service name (e.g. 'odoo-init')")] = "",
     tail: Annotated[int, typer.Option("--tail", "-n", help="Number of lines from end")] = 200,
+    follow: Annotated[bool, typer.Option("--follow", "-f", help="Stream logs (like tail -f)")] = False,
 ) -> None:
     """Show Docker container runtime logs for a compose service.
 
-    Fetches actual container stdout/stderr (not Dokploy build logs).
-    Works for services on both the main server and remote servers.
+    Fetches actual container stdout/stderr (not Dokploy build logs). Works for
+    services on both the main server and remote servers. With --follow, opens
+    a streaming connection (SSH for remote, `docker logs -f` for local) until
+    Ctrl-C.
     """
     import subprocess
 
@@ -430,27 +433,29 @@ def service_logs(
             except Exception:
                 pass
 
+    # --follow mode: stream a single container (first match) until Ctrl-C.
+    if follow:
+        if len(matching) > 1 and not service:
+            names = ", ".join(ct.get("name", "") for ct in matching)
+            c.output.warn(f"Multiple containers match; streaming first. Narrow with --service. ({names})")
+        ct = matching[0]
+        container_name = ct.get("name", "")
+        c.output.info(f"Following {container_name} (Ctrl-C to stop)")
+        cmd = _build_docker_logs_cmd(container_name, tail, server_ip, follow=True)
+        try:
+            # Use run (no capture) so output streams directly to the user's terminal.
+            subprocess.run(cmd, check=False)
+        except KeyboardInterrupt:
+            pass
+        return
+
     for ct in matching:
         container_name = ct.get("name", "")
         state = ct.get("state", "")
         status = ct.get("status", "")
         c.output.header(f"{container_name} ({state}, {status})")
 
-        if server_ip:
-            # Remote server — use SSH
-            cmd = [
-                "ssh",
-                "-o",
-                "ConnectTimeout=10",
-                "-o",
-                "StrictHostKeyChecking=accept-new",
-                f"root@{server_ip}",
-                f"docker logs --tail {tail} {container_name} 2>&1",
-            ]
-        else:
-            # Local server
-            cmd = ["docker", "logs", "--tail", str(tail), container_name]
-
+        cmd = _build_docker_logs_cmd(container_name, tail, server_ip, follow=False)
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             log_output = proc.stdout or proc.stderr
@@ -465,6 +470,30 @@ def service_logs(
             c.output.error(f"Timeout fetching logs from {container_name}")
         except Exception as exc:
             c.output.error(f"Failed to fetch logs: {exc}")
+
+
+def _build_docker_logs_cmd(container_name: str, tail: int, server_ip: str, *, follow: bool) -> list[str]:
+    """Build a `docker logs` argv for local or remote invocation.
+
+    Remote SSH is invoked with `-o StrictHostKeyChecking=accept-new` so first-time
+    connections don't hang on prompts, and `ConnectTimeout=10` so dead hosts fail fast.
+    For --follow over SSH we omit capture and let output stream to the terminal.
+    """
+    follow_flag = " -f" if follow else ""
+    if server_ip:
+        return [
+            "ssh",
+            "-o",
+            "ConnectTimeout=10",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            f"root@{server_ip}",
+            f"docker logs --tail {tail}{follow_flag} {container_name} 2>&1",
+        ]
+    local = ["docker", "logs", "--tail", str(tail), container_name]
+    if follow:
+        local.insert(-1, "-f")
+    return local
 
 
 @app.command("cancel")

@@ -244,6 +244,34 @@ kctl-dokploy --profile local  backups download <s3-key> --destination <id> --out
 kctl-dokploy --profile local  backups restore-local /tmp/dump --compose <id> --force
 ```
 
+### Fast Log Debugging (local + prod Odoo)
+
+Two commands for live streaming:
+
+- `kctl-dokploy compose service-logs <id> --service odoo-web -f` — generic
+  live container-log streamer (SSH + `docker logs -f` for remote, direct for
+  local). Works for any compose service, not just Odoo.
+- `kctl-odoo logs tail` — Odoo-specific wrapper that auto-picks local vs
+  remote from the profile URL and layers structured filters on top of the
+  stream: `--level` (WARNING/ERROR/CRITICAL), `--module account.move`,
+  `--request <id>`, `--worker <pid>`, `--grep <regex>`. Filters compose as
+  AND and are applied client-side so they work identically in both modes.
+
+```bash
+# Local dev — watch everything
+kctl-odoo logs tail
+
+# Remote prod — tail tpp-odoo-erp with filters
+kctl-odoo -p tpp-odoo-erp logs tail \
+    --dokploy-profile idtpp --compose-id <id> \
+    --level WARNING --module account.move
+```
+
+For post-mortem querying of errors already persisted to Odoo's `ir.logging`
+table, use `kctl-odoo logs errors --days N` (JSON-RPC, not a stream). There
+is also an Alloy → Loki pipeline deployed on all prod servers, but Odoo
+containers aren't currently shipped to it — wiring that is a separate task.
+
 Uses custom-format `pg_dump -F c` with `pg_restore --exit-on-error` (or `psql -v
 ON_ERROR_STOP=1` for plain SQL). S3 creds live in the Dokploy destination record —
 no additional credential setup needed. Works with Hetzner Object Storage or any
