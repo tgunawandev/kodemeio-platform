@@ -78,6 +78,7 @@ from kctl_odoo.commands.quality_cmd import app as quality_app
 from kctl_odoo.commands.record_rules import app as record_rules_app
 from kctl_odoo.commands.repl import app as repl_app
 from kctl_odoo.commands.report import app as report_app
+from kctl_odoo.commands.report_cmd import app as report_template_app
 from kctl_odoo.commands.sales_cmd import app as sales_app
 from kctl_odoo.commands.security import app as security_app
 from kctl_odoo.commands.self_test import app as self_test_app
@@ -207,6 +208,8 @@ app.add_typer(support_app, name="support", rich_help_panel=_P_DOMAIN)
 # --- Reports & Analytics ---
 _P_REPORT = "Reports & Analytics"
 app.add_typer(report_app, name="report", rich_help_panel=_P_REPORT)
+# Mount the report.template management sub-group under `report template ...`
+report_app.add_typer(report_template_app, name="template")
 app.add_typer(kpi_app, name="kpi", rich_help_panel=_P_REPORT)
 app.add_typer(mis_reports_app, name="mis-reports", rich_help_panel=_P_REPORT)
 app.add_typer(data_quality_app, name="data-quality", rich_help_panel=_P_REPORT)
