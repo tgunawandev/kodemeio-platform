@@ -290,3 +290,23 @@ class TestMigrateConfig:
         once = migrate_config(before)
         twice = migrate_config(once)
         assert once == twice
+
+
+class TestFixtureEndToEnd:
+    def test_dirty_fixture_migrates_to_clean_fixture(self) -> None:
+        from pathlib import Path
+
+        import yaml
+
+        from kctl_lib._migration import migrate_config
+
+        fixtures = Path(__file__).parent / "fixtures"
+        dirty = yaml.safe_load((fixtures / "dirty_config.yaml").read_text())
+        expected = yaml.safe_load((fixtures / "clean_config.yaml").read_text())
+
+        actual = migrate_config(dirty)
+        assert actual == expected, (
+            f"Migration result diverged from expected fixture. "
+            f"Got keys {sorted(actual.get('profiles', {}))}; "
+            f"expected {sorted(expected.get('profiles', {}))}"
+        )
