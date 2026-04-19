@@ -1679,3 +1679,12 @@ class Test{model_class}Router:
     console.print(f"  Router:  controllers/{model_short}_router.py")
     console.print(f"  Schema:  schemas/{model_short}_schema.py")
     console.print(f"  Tests:   tests/test_{model_short}_router.py")
+
+
+# ---------------------------------------------------------------------------
+# scaffold print-report - registered from a dedicated module
+# ---------------------------------------------------------------------------
+
+from kctl_odoo.commands.scaffold_print_report import print_report as _print_report_impl  # noqa: E402
+
+app.command(name="print-report")(_print_report_impl)
