@@ -464,3 +464,74 @@ def test_sync_errors_on_unknown_profile_without_file(mock_get_client):
     assert result.exit_code != 0
     combined = (result.stdout or "") + (result.stderr or "")
     assert "Cannot auto-detect" in combined or "cannot auto-detect" in combined.lower()
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_example_prints_role_profile(mock_get_client, tmp_path, monkeypatch):
+    install_dir = tmp_path / "install"
+    install_dir.mkdir()
+    examples_yaml = install_dir / "roles-hrms.examples.yaml"
+    examples_yaml.write_text(
+        "version: 1\n"
+        "examples:\n"
+        "  hr_user:\n"
+        "    typical_title: HR Officer\n"
+        "    responsibilities:\n"
+        "      - Manage all employees\n"
+        "      - Approve time-off\n"
+        "    real_examples_mac: []\n"
+        "    real_examples_tpp: []\n"
+        "    must_see_apps: [HRM, Employees]\n"
+        "    must_not_see_apps: [Settings]\n"
+        "    typical_ou_arg: '--ous \"*\"'\n"
+        "    capabilities:\n"
+        "      can: [Create employees]\n"
+        "      cannot: [Install modules]\n"
+        "    acceptance_checklist: [Login works]\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    app_ctx = MagicMock()
+    app_ctx.profile = "idtpp-mac-odoo-hrms"
+    app_ctx.client = MagicMock()
+    mock_get_client.return_value = app_ctx.client
+
+    result = runner.invoke(roles_app, ["example", "hr_user"], obj=app_ctx)
+    assert result.exit_code == 0, result.output
+    assert "HR Officer" in result.stdout
+    assert "Manage all employees" in result.stdout
+    assert "HRM" in result.stdout
+    assert "Create employees" in result.stdout
+    assert "Login works" in result.stdout
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_example_errors_on_unknown_role(mock_get_client, tmp_path, monkeypatch):
+    install_dir = tmp_path / "install"
+    install_dir.mkdir()
+    examples_yaml = install_dir / "roles-hrms.examples.yaml"
+    examples_yaml.write_text("version: 1\nexamples:\n  hr_user:\n    typical_title: HR Officer\n")
+    monkeypatch.chdir(tmp_path)
+
+    app_ctx = MagicMock()
+    app_ctx.profile = "idtpp-mac-odoo-hrms"
+    app_ctx.client = MagicMock()
+    mock_get_client.return_value = app_ctx.client
+
+    result = runner.invoke(roles_app, ["example", "ghost_role"], obj=app_ctx)
+    assert result.exit_code != 0
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "not found" in combined.lower() or "ghost_role" in combined
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_example_errors_on_unknown_profile_without_file(mock_get_client):
+    app_ctx = MagicMock()
+    app_ctx.profile = "idtpp-mac-odoo-full"
+    app_ctx.client = MagicMock()
+    mock_get_client.return_value = app_ctx.client
+
+    result = runner.invoke(roles_app, ["example", "hr_user"], obj=app_ctx)
+    assert result.exit_code != 0
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "Cannot auto-detect" in combined or "cannot auto-detect" in combined.lower()

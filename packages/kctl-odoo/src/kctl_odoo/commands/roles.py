@@ -307,6 +307,31 @@ def _resolve_roles_file(profile_name: str | None, file_override: Path | None) ->
     )
 
 
+def _resolve_examples_file(profile_name: str | None, file_override: Path | None) -> Path:
+    """Pick the examples YAML to operate on — parallel to _resolve_roles_file.
+
+    Priority:
+      1. `file_override` (explicit --file)
+      2. Profile suffix: -odoo-hrms → install/roles-hrms.examples.yaml
+                       -odoo-erp  → install/roles.examples.yaml   (legacy name, no -erp suffix)
+      3. Error — user must pass --file
+    """
+    if file_override is not None:
+        return file_override
+    m = _ROLES_FILE_SUFFIX_RE.search(profile_name or "")
+    if not m:
+        raise typer.BadParameter(
+            f"Cannot auto-detect examples file for profile '{profile_name or '<none>'}'.\n"
+            f"Expected profile suffix -odoo-erp or -odoo-hrms.\n"
+            f"Pass --file install/roles.examples.yaml (or -hrms) explicitly, "
+            f"or rename the profile."
+        )
+    variant = m.group(1)
+    if variant == "hrms":
+        return Path("install/roles-hrms.examples.yaml")
+    return Path("install/roles.examples.yaml")
+
+
 @app.command("sync")
 def sync_cmd(
     ctx: typer.Context,
@@ -551,6 +576,87 @@ def _resolve_ous(client, ou_codes: list[str]) -> list[int]:
     if missing:
         raise typer.BadParameter(f"Operating unit code(s) not found: {', '.join(missing)}")
     return [found[c] for c in ou_codes]
+
+
+@app.command("example")
+def example_cmd(
+    ctx: typer.Context,
+    role_id: Annotated[str, typer.Argument(help="Role id (matches install/roles*.examples.yaml key)")],
+    file: Annotated[
+        Path | None,
+        typer.Option(
+            "--file",
+            "-f",
+            help="Path to examples YAML. Auto-detected from profile suffix if omitted.",
+        ),
+    ] = None,
+) -> None:
+    """Show the example profile (typical user, responsibilities, acceptance checklist) for a role."""
+    import yaml as _yaml
+
+    app_ctx: AppContext | None = ctx.obj
+    profile = app_ctx.profile if app_ctx is not None else None
+    resolved_file = _resolve_examples_file(profile, file)
+    if not resolved_file.exists():
+        console.print(f"[red]File not found: {resolved_file}[/red]")
+        raise typer.Exit(1)
+    data = _yaml.safe_load(resolved_file.read_text()) or {}
+    examples = data.get("examples", {}) or {}
+    spec = examples.get(role_id)
+    if spec is None:
+        console.print(
+            f"[red]Role id '{role_id}' not found in {resolved_file}.[/red]\n"
+            f"Available role ids: {', '.join(sorted(examples.keys())) or '(none)'}"
+        )
+        raise typer.Exit(1)
+
+    console.print(f"[bold]Role:[/bold] {role_id}")
+    if spec.get("typical_title"):
+        console.print(f"[bold]Title:[/bold] {spec['typical_title']}")
+    if spec.get("typical_ou_arg"):
+        console.print(f"[bold]OU pattern:[/bold] {spec['typical_ou_arg']}")
+
+    real_mac = spec.get("real_examples_mac") or []
+    real_tpp = spec.get("real_examples_tpp") or []
+
+    def _fmt_user(u: Any) -> str:
+        if isinstance(u, dict):
+            extras = [f"home_ou={u['home_ou']}"] if u.get("home_ou") else []
+            tail = f" ({', '.join(extras)})" if extras else ""
+            return f"{u.get('login', '?')}{tail}"
+        return str(u)
+
+    if real_mac:
+        console.print("[bold]Real examples (MAC):[/bold] " + ", ".join(_fmt_user(u) for u in real_mac))
+    if real_tpp:
+        console.print("[bold]Real examples (TPP):[/bold] " + ", ".join(_fmt_user(u) for u in real_tpp))
+    if not real_mac and not real_tpp:
+        console.print("[dim]No real-user examples assigned yet.[/dim]")
+
+    if spec.get("responsibilities"):
+        console.print("\n[bold]Responsibilities:[/bold]")
+        for r in spec["responsibilities"]:
+            console.print(f"  - {r}")
+
+    if spec.get("must_see_apps"):
+        console.print("\n[bold]Must see apps:[/bold] " + ", ".join(spec["must_see_apps"]))
+    if spec.get("must_not_see_apps"):
+        console.print("[bold]Must NOT see apps:[/bold] " + ", ".join(spec["must_not_see_apps"]))
+
+    caps = spec.get("capabilities") or {}
+    if caps.get("can"):
+        console.print("\n[bold green]Can:[/bold green]")
+        for c in caps["can"]:
+            console.print(f"  ✓ {c}")
+    if caps.get("cannot"):
+        console.print("[bold red]Cannot:[/bold red]")
+        for c in caps["cannot"]:
+            console.print(f"  ✗ {c}")
+
+    if spec.get("acceptance_checklist"):
+        console.print("\n[bold]Acceptance checklist:[/bold]")
+        for item in spec["acceptance_checklist"]:
+            console.print(f"  [ ] {item}")
 
 
 @app.command("assign")
