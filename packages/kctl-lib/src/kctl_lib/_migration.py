@@ -38,3 +38,31 @@ RENAME_MAP: dict[str, str] = {
     "local-tpp": "local-odoo-tpp",
     "dev": "local-odoo-dev",
 }
+
+# Profiles to delete outright.
+# Two groups: (1) test pollution written to the real user config by
+# kctl-lib / kctl-redis tests; (2) stale duplicates where the canonical
+# entry in RENAME_MAP holds the real credentials.
+DROP_PROFILES: frozenset[str] = frozenset(
+    {
+        # Test pollution (kctl-redis / kctl-lib test suites wrote these).
+        "settest",
+        "setbad",
+        "masktest",
+        "shortpass",
+        "longpass",
+        "saved-profile",
+        "full-profile",
+        "myprofile",
+        "show-test",
+        "inttest",
+        "active",
+        "alpha",
+        "beta",
+        "prod",
+        # Stale duplicates (placeholder api_key=admin; canonical renames hold the real key).
+        "mac-erp",  # superseded by idtpp-mac-odoo-erp
+        "odoo-hrms-mac",  # superseded by idtpp-mac-odoo-hrms
+        "odoo-hrms-tpp",  # superseded by idtpp-tpp-odoo-hrms
+    }
+)
