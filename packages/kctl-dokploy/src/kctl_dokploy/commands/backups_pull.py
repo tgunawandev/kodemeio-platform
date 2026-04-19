@@ -38,6 +38,37 @@ from kctl_dokploy.core.callbacks import AppContext
 # ---------------------------------------------------------------------------
 
 
+class _TimestampedLog:
+    """Thin wrapper around AppContext.output that prepends a wall-clock timestamp.
+
+    Used by pull/run-wait/download to give operators a sense of elapsed time
+    for each phase (trigger, poll, download, decompress, restore).
+    """
+
+    def __init__(self, output: Any) -> None:
+        self._out = output
+
+    @staticmethod
+    def _ts() -> str:
+        return datetime.now().strftime("%H:%M:%S")
+
+    def info(self, message: str) -> None:
+        self._out.info(f"[{self._ts()}] {message}")
+
+    def success(self, message: str) -> None:
+        self._out.success(f"[{self._ts()}] {message}")
+
+    def warn(self, message: str) -> None:
+        self._out.warn(f"[{self._ts()}] {message}")
+
+    def error(self, message: str) -> None:
+        self._out.error(f"[{self._ts()}] {message}")
+
+
+def _log(c: AppContext) -> _TimestampedLog:
+    return _TimestampedLog(c.output)
+
+
 def _fetch_backup(c: AppContext, backup_id: str) -> dict[str, Any]:
     data = c.client.get("/backup.one", params={"backupId": backup_id})
     if not isinstance(data, dict):
@@ -176,7 +207,7 @@ def _run_backup_now(c: AppContext, existing: dict[str, Any], backup_id: str) -> 
     else:
         endpoint = endpoint_map["postgres"]
 
-    c.output.info(f"Triggering manual backup via {endpoint} ...")
+    _log(c).info(f"Triggering manual backup via {endpoint} ...")
     c.client.post(endpoint, json={"backupId": backup_id})
 
 
@@ -205,10 +236,10 @@ def _wait_for_new_object(
         if candidates:
             candidates.sort(key=lambda r: r[1])
             newest = candidates[-1][0]
-            c.output.success(f"New backup file detected: {newest}")
+            _log(c).success(f"New backup file detected: {newest}")
             return newest
         remaining = max(0, int(deadline - time.time()))
-        c.output.info(
+        _log(c).info(
             f"  poll #{attempt}: no new files under {pretty_prefixes} yet "
             f"(elapsed {attempt * poll_interval}s, {remaining}s remaining)"
         )
@@ -228,14 +259,14 @@ def _human_size(n: int) -> str:
 
 def _download_key(c: AppContext, s3: Any, bucket: str, key: str, dest_path: Path) -> int:
     """Download `key` from `bucket` to `dest_path`. Returns downloaded size in bytes."""
-    c.output.info(f"Downloading s3://{bucket}/{key} -> {dest_path} ...")
+    _log(c).info(f"Downloading s3://{bucket}/{key} -> {dest_path} ...")
     t0 = time.time()
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     s3.download_file(bucket, key, str(dest_path))
     size = dest_path.stat().st_size
     elapsed = time.time() - t0
     rate = size / elapsed if elapsed > 0 else size
-    c.output.success(f"Downloaded {_human_size(size)} in {elapsed:.1f}s ({_human_size(int(rate))}/s)")
+    _log(c).success(f"Downloaded {_human_size(size)} in {elapsed:.1f}s ({_human_size(int(rate))}/s)")
     return size
 
 
@@ -247,7 +278,7 @@ def _maybe_decompress(c: AppContext, src: Path) -> Path:
     if src.suffix != ".gz":
         return src
     dest = src.with_suffix("")  # strip .gz
-    c.output.info(f"Decompressing {src.name} -> {dest.name} ...")
+    _log(c).info(f"Decompressing {src.name} -> {dest.name} ...")
     with gzip.open(src, "rb") as gz_in, open(dest, "wb") as out:
         shutil.copyfileobj(gz_in, out)
     return dest
@@ -352,7 +383,7 @@ def _terminate_and_recreate_db(
         run_sql(f'CREATE DATABASE "{target_db}" OWNER "{owner}"')
     else:
         run_sql(f'CREATE DATABASE "{target_db}"')
-    c.output.success(f"Target database '{target_db}' recreated.")
+    _log(c).success(f"Target database '{target_db}' recreated.")
 
 
 def _restore_to_raw_host(
@@ -387,7 +418,7 @@ def _restore_to_raw_host(
             target_db,
             str(dump_path),
         ]
-        c.output.info(f"Running pg_restore (custom format) -> {host}:{port}/{target_db} ...")
+        _log(c).info(f"Running pg_restore (custom format) -> {host}:{port}/{target_db} ...")
         proc = subprocess.run(cmd, env=env)  # noqa: S603
     else:
         cmd = [
@@ -405,7 +436,7 @@ def _restore_to_raw_host(
             "-f",
             str(dump_path),
         ]
-        c.output.info(f"Running psql (plain SQL) -> {host}:{port}/{target_db} ...")
+        _log(c).info(f"Running psql (plain SQL) -> {host}:{port}/{target_db} ...")
         proc = subprocess.run(cmd, env=env)  # noqa: S603
 
     # pg_restore often exits 1 on "errors ignored" from --clean --if-exists;
@@ -413,7 +444,7 @@ def _restore_to_raw_host(
     # know the source DB is clean.
     if proc.returncode != 0:
         _die(c, f"Restore command failed with exit code {proc.returncode}")
-    c.output.success("Restore completed.")
+    _log(c).success("Restore completed.")
 
 
 def _restore_to_compose(
@@ -438,17 +469,17 @@ def _restore_to_compose(
             "-d",
             target_db,
         ]
-        c.output.info(f"Running pg_restore via docker exec -> {container_id}:{target_db} ...")
+        _log(c).info(f"Running pg_restore via docker exec -> {container_id}:{target_db} ...")
     else:
         inner = ["psql", "-U", user, "-d", target_db, "-v", "ON_ERROR_STOP=1"]
-        c.output.info(f"Running psql via docker exec -> {container_id}:{target_db} ...")
+        _log(c).info(f"Running psql via docker exec -> {container_id}:{target_db} ...")
 
     cmd = ["docker", "exec", "-i", container_id, *inner]
     with open(dump_path, "rb") as f:
         proc = subprocess.run(cmd, stdin=f)  # noqa: S603
     if proc.returncode != 0:
         _die(c, f"Restore via docker exec failed with exit code {proc.returncode}")
-    c.output.success("Restore completed.")
+    _log(c).success("Restore completed.")
 
 
 def _smoke_test_row_count(
@@ -480,7 +511,7 @@ def _smoke_test_row_count(
         proc = subprocess.run(cmd, env=env, capture_output=True, text=True)  # noqa: S603
         if proc.returncode == 0:
             count = proc.stdout.strip()
-            c.output.info(f"Smoke test: {table} has {count} rows")
+            _log(c).info(f"Smoke test: {table} has {count} rows")
             return
     # None succeeded — silent, not an error.
 
@@ -579,9 +610,9 @@ def pull(
     # bucket that holds multiple DBs under the same compose appName).
     db_contains = source_db if isinstance(source_db, str) and source_db and source_db != "-" else ""
 
-    c.output.info(f"Source backup: {backup_id} (db={source_db})")
-    c.output.info(f"Search prefixes: {prefixes}")
-    c.output.info(f"S3 destination: {destination_id} (bucket={bucket})")
+    _log(c).info(f"Source backup: {backup_id} (db={source_db})")
+    _log(c).info(f"Search prefixes: {prefixes}")
+    _log(c).info(f"S3 destination: {destination_id} (bucket={bucket})")
 
     # --- Decide which key to fetch ---------------------------------------
     if trigger:
@@ -604,7 +635,7 @@ def pull(
                 c,
                 f"No S3 objects found under prefixes {prefixes}. Run with --trigger to create one.",
             )
-        c.output.info(f"Using latest existing S3 key: {key}")
+        _log(c).info(f"Using latest existing S3 key: {key}")
 
     # --- Download --------------------------------------------------------
     basename = Path(key).name
@@ -614,7 +645,7 @@ def pull(
     _download_key(c, s3, bucket, key, local_gz)
     local_file = _maybe_decompress(c, local_gz)
     fmt = _detect_format(local_file)
-    c.output.info(f"Detected format: {fmt}")
+    _log(c).info(f"Detected format: {fmt}")
 
     # --- Restore ---------------------------------------------------------
     effective_password = target_password or os.environ.get("PGPASSWORD", "")
@@ -703,13 +734,13 @@ def pull(
                 local_file.unlink()
             if local_gz.exists() and local_gz != local_file:
                 local_gz.unlink()
-            c.output.info("Cleaned up downloaded files.")
+            _log(c).info("Cleaned up downloaded files.")
         except OSError as exc:
-            c.output.warn(f"Could not clean up downloads: {exc}")
+            _log(c).warn(f"Could not clean up downloads: {exc}")
     else:
-        c.output.info(f"Kept download at {local_file}")
+        _log(c).info(f"Kept download at {local_file}")
 
-    c.output.success(f"Pull complete: {backup_id} -> {target_db}")
+    _log(c).success(f"Pull complete: {backup_id} -> {target_db}")
 
 
 def download(
@@ -778,6 +809,6 @@ def run_wait(
         poll_interval,
         contains=db_contains,
     )
-    c.output.success(f"New backup available: s3://{bucket}/{key}")
+    _log(c).success(f"New backup available: s3://{bucket}/{key}")
     if c.json_mode:
         c.output.raw_json({"backupId": backup_id, "bucket": bucket, "key": key})

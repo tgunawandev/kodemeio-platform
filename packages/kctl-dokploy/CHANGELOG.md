@@ -2,6 +2,15 @@
 
 All notable changes to kctl-dokploy.
 
+## [0.4.3] — 2026-04-19
+
+### Added
+- `backups pull` / `run-wait` / `download` log lines now carry an `[HH:MM:SS]`
+  wall-clock prefix. Operators can see elapsed time between phases (trigger →
+  S3 poll → download → decompress → drop-recreate → pg_restore) at a glance.
+  Implemented via a local `_TimestampedLog` wrapper that delegates to the
+  shared `OutputManager` — no cross-CLI behavior change.
+
 ## [0.4.2] — 2026-04-19
 
 ### Fixed
