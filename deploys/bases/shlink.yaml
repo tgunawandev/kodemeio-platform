@@ -7,7 +7,7 @@ project: kod
 
 source:
   type: github
-  owner: kodemeio
+  owner: tgunawandev
   repo: kodemeio-shlink
   branch: main
 
