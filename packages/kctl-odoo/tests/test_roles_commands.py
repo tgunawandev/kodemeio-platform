@@ -10,7 +10,7 @@ runner = CliRunner()
 @patch("kctl_odoo.commands.roles._get_client")
 def test_roles_list_shows_roles_with_user_counts(mock_get_client):
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [
             {"id": 1, "name": "Branch Staff", "implied_ids": [1, 2, 3]},
             {"id": 2, "name": "Director / Owner", "implied_ids": [1, 2, 3, 4]},
@@ -28,13 +28,15 @@ def test_roles_list_shows_roles_with_user_counts(mock_get_client):
 @patch("kctl_odoo.commands.roles._get_client")
 def test_roles_show_prints_role_detail(mock_get_client):
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [{"id": 1, "name": "Branch Staff", "implied_ids": [10, 20]}],
+        [{"user_id": [46, "intan"]}],
+    ]
+    client.read.side_effect = [
         [
             {"id": 10, "name": "POS User", "full_name": "Point of Sale / User"},
             {"id": 20, "name": "Stock User", "full_name": "Inventory / User"},
         ],
-        [{"user_id": [46, "intan"]}],
     ]
     mock_get_client.return_value = client
     result = runner.invoke(roles_app, ["show", "Branch Staff"])
@@ -46,7 +48,7 @@ def test_roles_show_prints_role_detail(mock_get_client):
 @patch("kctl_odoo.commands.roles._get_client")
 def test_roles_show_errors_on_unknown_role(mock_get_client):
     client = MagicMock()
-    client.execute.return_value = []
+    client.search_read.return_value = []
     mock_get_client.return_value = client
     result = runner.invoke(roles_app, ["show", "Ghost"])
     assert result.exit_code != 0
@@ -62,7 +64,7 @@ def test_roles_sync_dry_run_prints_plan_no_writes(mock_get_client, tmp_path):
     )
 
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [],
         [{"id": 1, "model": "res.groups", "module": "sales_team", "name": "group_sale_salesman", "res_id": 42}],
     ]
@@ -72,12 +74,9 @@ def test_roles_sync_dry_run_prints_plan_no_writes(mock_get_client, tmp_path):
     assert result.exit_code == 0
     assert "create" in result.stdout.lower()
     assert "sales user" in result.stdout.lower() or "sales_user" in result.stdout.lower()
-    write_methods_called = [
-        call.args[1]
-        for call in client.execute.call_args_list
-        if len(call.args) >= 2 and call.args[1] in ("create", "write", "unlink")
-    ]
-    assert write_methods_called == []
+    assert client.create.call_args_list == []
+    assert client.write.call_args_list == []
+    assert client.unlink.call_args_list == []
 
 
 @patch("kctl_odoo.commands.roles._get_client")
@@ -88,19 +87,17 @@ def test_roles_sync_applies_create(mock_get_client, tmp_path):
     )
 
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [],
         [{"id": 1, "model": "res.groups", "module": "sales_team", "name": "group_sale_salesman", "res_id": 42}],
-        999,
     ]
+    client.create.return_value = 999
     mock_get_client.return_value = client
 
     result = runner.invoke(roles_app, ["sync", "--file", str(yaml_file)])
     assert result.exit_code == 0
     create_calls = [
-        call
-        for call in client.execute.call_args_list
-        if len(call.args) >= 2 and call.args[0] == "res.users.role" and call.args[1] == "create"
+        call for call in client.create.call_args_list if len(call.args) >= 1 and call.args[0] == "res.users.role"
     ]
     assert len(create_calls) == 1
 
@@ -119,7 +116,7 @@ def test_roles_sync_warns_on_missing_xmlids(mock_get_client, tmp_path):
     )
 
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [],
         [{"id": 1, "model": "res.groups", "module": "base", "name": "group_user", "res_id": 1}],
     ]
@@ -148,7 +145,7 @@ def test_roles_sync_strict_exits_2_on_missing_xmlid(mock_get_client, tmp_path):
         "      - point_of_sale.group_pos_manager\n"
     )
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [],
         [{"id": 1, "model": "res.groups", "module": "base", "name": "group_user", "res_id": 1}],
     ]
@@ -169,7 +166,7 @@ def test_roles_diff_reports_drift(mock_get_client, tmp_path):
         "version: 1\nroles:\n  sales_user:\n    name: Sales User\n    groups: [sales_team.group_sale_salesman]\n"
     )
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [{"id": 1, "name": "Sales User", "implied_ids": [42, 99]}],
         [{"id": 1, "model": "res.groups", "module": "sales_team", "name": "group_sale_salesman", "res_id": 42}],
     ]
@@ -189,7 +186,7 @@ def test_roles_audit_finds_orphan_groups(mock_get_client, tmp_path):
     ignored_file.write_text("version: 1\nignored: []\n")
 
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [
             {"id": 42, "full_name": "Sales / User"},
             {"id": 99, "full_name": "Fleet / Manager"},
@@ -218,7 +215,7 @@ def test_roles_audit_strict_exits_nonzero_on_findings(mock_get_client, tmp_path)
     ignored_file.write_text("version: 1\nignored: []\n")
 
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [{"id": 99, "full_name": "Fleet / Manager"}],
         [{"id": 11, "model": "res.groups", "module": "fleet", "name": "fleet_manager", "res_id": 99}],
     ]
@@ -234,25 +231,21 @@ def test_roles_audit_strict_exits_nonzero_on_findings(mock_get_client, tmp_path)
 @patch("kctl_odoo.commands.roles._get_client")
 def test_roles_assign_attaches_roles_and_ous(mock_get_client):
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [{"id": 46, "login": "intan.rahayu"}],
         [{"id": 5, "name": "Branch Staff"}],
         [{"id": 1, "code": "BHO"}, {"id": 3, "code": "TSLO1"}],
-        True,
     ]
+    client.write.return_value = True
     mock_get_client.return_value = client
     result = runner.invoke(
         roles_app,
         ["assign", "intan.rahayu", "Branch Staff", "--ous", "BHO,TSLO1"],
     )
     assert result.exit_code == 0
-    write_calls = [
-        c
-        for c in client.execute.call_args_list
-        if len(c.args) >= 2 and c.args[0] == "res.users" and c.args[1] == "write"
-    ]
+    write_calls = [c for c in client.write.call_args_list if len(c.args) >= 1 and c.args[0] == "res.users"]
     assert len(write_calls) == 1
-    payload = write_calls[0].args[3]
+    payload = write_calls[0].args[2]
     assert "role_line_ids" in payload
     assert "assigned_operating_unit_ids" in payload
     assert payload.get("default_operating_unit_id") == 1
@@ -261,16 +254,16 @@ def test_roles_assign_attaches_roles_and_ous(mock_get_client):
 @patch("kctl_odoo.commands.roles._get_client")
 def test_roles_assign_clear_wipes_roles(mock_get_client):
     client = MagicMock()
-    client.execute.side_effect = [
+    client.search_read.side_effect = [
         [{"id": 46, "login": "intan.rahayu"}],
-        True,
     ]
+    client.write.return_value = True
     mock_get_client.return_value = client
     result = runner.invoke(roles_app, ["assign", "intan.rahayu", "--clear"])
     assert result.exit_code == 0
-    write_calls = [c for c in client.execute.call_args_list if len(c.args) >= 2 and c.args[1] == "write"]
+    write_calls = client.write.call_args_list
     assert write_calls
-    payload = write_calls[0].args[3]
+    payload = write_calls[0].args[2]
     assert payload["role_line_ids"] == [(5, 0, 0)]
 
 
@@ -283,5 +276,4 @@ def test_roles_apply_csv_dry_run(mock_get_client, tmp_path):
 
     result = runner.invoke(roles_app, ["apply", str(csv_file), "--dry-run"])
     assert result.exit_code == 0
-    write_calls = [c for c in client.execute.call_args_list if len(c.args) >= 2 and c.args[1] == "write"]
-    assert write_calls == []
+    assert client.write.call_args_list == []

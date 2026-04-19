@@ -133,7 +133,7 @@ def test_load_ignored_file_missing_returns_empty(tmp_path: Path):
 
 def test_resolve_xmlids_returns_map_skip_missing():
     client = MagicMock()
-    client.execute.return_value = [
+    client.search_read.return_value = [
         {"id": 1, "model": "res.groups", "module": "account", "name": "group_account_manager", "res_id": 63},
         {"id": 2, "model": "res.groups", "module": "base", "name": "group_user", "res_id": 1},
     ]

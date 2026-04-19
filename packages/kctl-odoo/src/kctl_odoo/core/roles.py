@@ -103,7 +103,23 @@ def resolve_role_groups(rf: RolesFile, role_id: str) -> list[str]:
 class OdooClientLike(Protocol):
     """Minimal interface for the Odoo JSON-RPC client used by this module."""
 
-    def execute(self, model: str, method: str, *args: Any, **kwargs: Any) -> Any: ...
+    def search_read(
+        self,
+        model: str,
+        domain: list | None = None,
+        fields: list[str] | None = None,
+        limit: int = 0,
+        offset: int = 0,
+        order: str = "",
+    ) -> list[dict]: ...
+
+    def read(self, model: str, ids: list[int], fields: list[str] | None = None) -> list[dict]: ...
+
+    def create(self, model: str, vals: dict) -> int: ...
+
+    def write(self, model: str, ids: list[int], vals: dict) -> bool: ...
+
+    def unlink(self, model: str, ids: list[int]) -> bool: ...
 
 
 @dataclass
@@ -157,7 +173,11 @@ def resolve_xmlids(
         or_clauses.append(("name", "=", name))
     domain = [("model", "=", "res.groups"), *(["|"] * (len(pairs) - 1)), *or_clauses]
 
-    records = client.execute("ir.model.data", "search_read", domain, ["module", "name", "res_id"])
+    records = client.search_read(
+        "ir.model.data",
+        domain,
+        fields=["module", "name", "res_id"],
+    )
 
     resolved: dict[str, int] = {}
     for rec in records:

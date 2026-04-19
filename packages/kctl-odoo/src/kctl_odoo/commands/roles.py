@@ -38,7 +38,7 @@ def _get_client(ctx: typer.Context):
 def list_cmd(ctx: typer.Context) -> None:
     """List roles currently in the DB with user counts."""
     client = _get_client(ctx)
-    roles = client.execute("res.users.role", "search_read", [], ["id", "name", "implied_ids"])
+    roles = client.search_read("res.users.role", [], fields=["id", "name", "implied_ids"])
     if not roles:
         console.print("[yellow]No roles configured in this DB.[/yellow]")
         return
@@ -50,11 +50,10 @@ def list_cmd(ctx: typer.Context) -> None:
     table.add_column("Users", justify="right")
 
     for role in roles:
-        lines = client.execute(
+        lines = client.search_read(
             "res.users.role.line",
-            "search_read",
             [("role_id", "=", role["id"])],
-            ["user_id"],
+            fields=["user_id"],
         )
         table.add_row(
             str(role["id"]),
@@ -72,11 +71,10 @@ def show_cmd(
 ) -> None:
     """Show role detail: groups, implied groups, assigned users."""
     client = _get_client(ctx)
-    roles = client.execute(
+    roles = client.search_read(
         "res.users.role",
-        "search_read",
         [("name", "=", name)],
-        ["id", "name", "implied_ids"],
+        fields=["id", "name", "implied_ids"],
     )
     if not roles:
         console.print(f"[red]Role '{name}' not found.[/red]")
@@ -86,7 +84,7 @@ def show_cmd(
     console.print(f"[bold]Role:[/bold] {role['name']} (id={role['id']})")
 
     if role["implied_ids"]:
-        groups = client.execute("res.groups", "read", role["implied_ids"], ["name", "full_name"])
+        groups = client.read("res.groups", role["implied_ids"], fields=["name", "full_name"])
         group_table = Table(title="Groups")
         group_table.add_column("ID", justify="right")
         group_table.add_column("Full Name")
@@ -96,11 +94,10 @@ def show_cmd(
     else:
         console.print("[dim]No groups.[/dim]")
 
-    user_lines = client.execute(
+    user_lines = client.search_read(
         "res.users.role.line",
-        "search_read",
         [("role_id", "=", role["id"])],
-        ["user_id"],
+        fields=["user_id"],
     )
     if user_lines:
         users_str = ", ".join(line["user_id"][1] for line in user_lines if line.get("user_id"))
@@ -111,7 +108,7 @@ def show_cmd(
 
 def _fetch_db_state(client, requested_xmlids: list[str]) -> RoleDbState:
     """Snapshot current DB roles + resolve xml_ids."""
-    roles = client.execute("res.users.role", "search_read", [], ["id", "name", "implied_ids"])
+    roles = client.search_read("res.users.role", [], fields=["id", "name", "implied_ids"])
     roles_by_name = {r["name"]: {"id": r["id"], "implied_ids": r["implied_ids"]} for r in roles}
     resolved, _missing = resolve_xmlids(client, requested_xmlids)
     return RoleDbState(roles_by_name=roles_by_name, xmlid_to_group_id=resolved)
@@ -140,22 +137,20 @@ def _print_plan(actions: list[SyncAction]) -> None:
 def _apply_plan(client, actions: list[SyncAction]) -> None:
     for a in actions:
         if a.action == "create":
-            new_id = client.execute(
+            new_id = client.create(
                 "res.users.role",
-                "create",
                 {"name": a.role_name, "implied_ids": [(6, 0, a.desired_group_ids)]},
             )
             console.print(f"[green]+ created role '{a.role_name}' (id={new_id})[/green]")
         elif a.action == "update":
-            client.execute(
+            client.write(
                 "res.users.role",
-                "write",
                 [a.existing_role_id],
                 {"implied_ids": [(6, 0, a.desired_group_ids)]},
             )
             console.print(f"[yellow]~ updated role '{a.role_name}' (id={a.existing_role_id})[/yellow]")
         elif a.action == "delete":
-            client.execute("res.users.role", "unlink", [a.existing_role_id])
+            client.unlink("res.users.role", [a.existing_role_id])
             console.print(f"[red]- deleted role '{a.role_name}' (id={a.existing_role_id})[/red]")
 
 
@@ -277,15 +272,14 @@ def audit_cmd(
 
     client = _get_client(ctx)
 
-    all_groups = client.execute("res.groups", "search_read", [], ["id", "full_name"])
+    all_groups = client.search_read("res.groups", [], fields=["id", "full_name"])
     group_xmlid_by_id: dict[int, str] = {}
     all_ids = [g["id"] for g in all_groups]
     if all_ids:
-        data_rows = client.execute(
+        data_rows = client.search_read(
             "ir.model.data",
-            "search_read",
             [("model", "=", "res.groups"), ("res_id", "in", all_ids)],
-            ["module", "name", "res_id"],
+            fields=["module", "name", "res_id"],
         )
         for row in data_rows:
             group_xmlid_by_id[row["res_id"]] = f"{row['module']}.{row['name']}"
@@ -355,7 +349,7 @@ def _suggest_role(xmlid: str) -> str:
 
 
 def _resolve_user(client, login: str) -> int:
-    users = client.execute("res.users", "search_read", [("login", "=", login)], ["id", "login"])
+    users = client.search_read("res.users", [("login", "=", login)], fields=["id", "login"])
     if not users:
         raise typer.BadParameter(f"User with login '{login}' not found.")
     return users[0]["id"]
@@ -364,11 +358,10 @@ def _resolve_user(client, login: str) -> int:
 def _resolve_roles(client, role_names: list[str]) -> list[int]:
     if not role_names:
         return []
-    roles = client.execute(
+    roles = client.search_read(
         "res.users.role",
-        "search_read",
         [("name", "in", role_names)],
-        ["id", "name"],
+        fields=["id", "name"],
     )
     found = {r["name"]: r["id"] for r in roles}
     missing = [n for n in role_names if n not in found]
@@ -381,13 +374,12 @@ def _resolve_ous(client, ou_codes: list[str]) -> list[int]:
     if not ou_codes:
         return []
     if ou_codes == ["*"]:
-        ous = client.execute("operating.unit", "search_read", [], ["id"])
+        ous = client.search_read("operating.unit", [], fields=["id"])
         return [o["id"] for o in ous]
-    ous = client.execute(
+    ous = client.search_read(
         "operating.unit",
-        "search_read",
         [("code", "in", ou_codes)],
-        ["id", "code"],
+        fields=["id", "code"],
     )
     found = {o["code"]: o["id"] for o in ous}
     missing = [c for c in ou_codes if c not in found]
@@ -434,7 +426,7 @@ def assign_cmd(
             if ou_ids:
                 payload["default_operating_unit_id"] = ou_ids[0]
 
-    client.execute("res.users", "write", [uid], payload)
+    client.write("res.users", [uid], payload)
     console.print(f"[green]Assigned roles={roles or '[]'}, ous={ous or '[]'} to {login}[/green]")
 
 
@@ -483,5 +475,5 @@ def apply_cmd(
         }
         if ou_ids:
             payload["default_operating_unit_id"] = ou_ids[0]
-        client.execute("res.users", "write", [uid], payload)
+        client.write("res.users", [uid], payload)
         console.print(f"[green]✓ {login}[/green]")
