@@ -53,7 +53,7 @@ kctl-odoo logs tail
 kctl-odoo logs tail --level WARNING --module account.move
 
 # Remote prod — stream tpp-odoo-erp
-kctl-odoo -p tpp-odoo-erp logs tail \
+kctl-odoo -p idtpp-tpp-odoo-erp logs tail \
     --dokploy-profile idtpp \
     --compose-id Qki8U2u4Ltstq0_6zW7UE
 

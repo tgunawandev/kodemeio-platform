@@ -262,7 +262,7 @@ Two commands for live streaming:
 kctl-odoo logs tail
 
 # Remote prod — tail tpp-odoo-erp with filters
-kctl-odoo -p tpp-odoo-erp logs tail \
+kctl-odoo -p idtpp-tpp-odoo-erp logs tail \
     --dokploy-profile idtpp --compose-id <id> \
     --level WARNING --module account.move
 ```
