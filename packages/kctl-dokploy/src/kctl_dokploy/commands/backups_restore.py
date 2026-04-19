@@ -15,6 +15,7 @@ from typing import Annotated, Any
 
 import typer
 
+from kctl_dokploy.commands.backups_flow import _die
 from kctl_dokploy.core.async_client import build_async_dokploy_client
 from kctl_dokploy.core.callbacks import AppContext
 from kctl_lib.exceptions import APIError
@@ -51,6 +52,30 @@ def restore(
     ] = None,
     backup_type: Annotated[str, typer.Option("--backup-type", help="'compose' (default) or 'database'.")] = "compose",
     db_type: Annotated[str, typer.Option("--db-type", help="postgres|mysql|mariadb|mongo|libsql.")] = "postgres",
+    service_name: Annotated[
+        str | None,
+        typer.Option(
+            "--service-name",
+            help=(
+                "Compose service name for the target database container — REQUIRED "
+                "for compose-embedded databases (e.g. 'postgres')."
+            ),
+        ),
+    ] = None,
+    database_user: Annotated[
+        str | None,
+        typer.Option(
+            "--database-user",
+            help="Database username for restore — REQUIRED for postgres/mariadb/mongo.",
+        ),
+    ] = None,
+    database_password: Annotated[
+        str | None,
+        typer.Option(
+            "--database-password",
+            help=("Database password for restore — REQUIRED for mariadb/mongo; MySQL uses this as the root password."),
+        ),
+    ] = None,
 ) -> None:
     """Restore a database from S3 into a compose via Dokploy's native API.
 
@@ -65,6 +90,15 @@ def restore(
     if backup_file and latest_for:
         c.output.error("Use EITHER --file OR --latest, not both.")
         raise typer.Exit(2)
+
+    # Fail-fast validation for required metadata flags. These mirror the
+    # Dokploy server-side requirements: compose-embedded restores need a
+    # service_name to locate the container, and postgres restores need a
+    # database_user for pg_restore -U.
+    if backup_type == "compose" and service_name is None:
+        _die(c, "--service-name is required when restoring a compose-embedded backup")
+    if db_type == "postgres" and database_user is None:
+        _die(c, "--database-user is required for postgres restores")
 
     if latest_for:
         from kctl_dokploy.commands.backups_flow import (
@@ -82,6 +116,32 @@ def restore(
         backup_file = keys[-1]
         c.output.info(f"--latest resolved to: {backup_file}")
 
+    # Build payload. metadata is only included if at least one metadata flag
+    # was passed — Dokploy tolerates an omitted metadata key for non-compose
+    # restores.
+    metadata: dict[str, Any] = {}
+    if service_name is not None:
+        metadata["serviceName"] = service_name
+
+    if db_type == "postgres":
+        if database_user is not None:
+            metadata["postgres"] = {"databaseUser": database_user}
+    elif db_type == "mariadb":
+        if database_user is not None or database_password is not None:
+            metadata["mariadb"] = {
+                "databaseUser": database_user or "",
+                "databasePassword": database_password or "",
+            }
+    elif db_type == "mongo":
+        if database_user is not None or database_password is not None:
+            metadata["mongo"] = {
+                "databaseUser": database_user or "",
+                "databasePassword": database_password or "",
+            }
+    elif db_type == "mysql":
+        if database_password is not None:
+            metadata["mysql"] = {"databaseRootPassword": database_password}
+
     payload: dict[str, Any] = {
         "json": {
             "backupType": backup_type,
@@ -92,6 +152,8 @@ def restore(
             "backupFile": backup_file,
         }
     }
+    if metadata:
+        payload["json"]["metadata"] = metadata
 
     async def _run() -> int:
         saw_success = False

@@ -14,10 +14,14 @@ kctl-dokploy -p <target-profile> backups restore \
     --compose <target-compose-id> \
     --destination <target-destination-id> \
     --database-name <db-name> \
+    --service-name postgres \
+    --database-user <db-owner> \
     --latest <db-name>
 ```
 
 Picks the newest S3 object whose key contains `<db-name>`, invokes Dokploy's native restore, streams log lines prefixed `[Dokploy]` to your terminal. Exit 0 on success, 1 on error, 2 on transport failure.
+
+> **Note on `--service-name` + `--database-user`** — Dokploy's native compose restore requires `serviceName` (to build `docker ps --filter label=com.docker.compose.service=<serviceName>`) and `databaseUser` (for `pg_restore -U <user>`). These flags pass through to `metadata.serviceName` and `metadata.postgres.databaseUser` in the tRPC payload. Without them the server executes `docker exec -i sh` (no such container) and `pg_restore -U ''` (empty user). The CLI fails fast if either is omitted for compose/postgres restores.
 
 **Example: restore latest prod `mac_odoo_erp` to local:**
 ```bash
@@ -25,6 +29,8 @@ kctl-dokploy -p local backups restore \
     --compose BAP6JmrmLJYnSIJ3YZOb_ \
     --destination v6gJBPvatXxuArLtEqR09 \
     --database-name mac_odoo_erp \
+    --service-name postgres \
+    --database-user odoo \
     --latest mac_odoo_erp
 ```
 
@@ -34,12 +40,14 @@ List candidates first (direct to S3 via rclone — Dokploy's `listBackupFiles` e
 
 ```bash
 docker run --rm rclone/rclone \
-    --s3-provider=s3 \
+    --s3-provider=Other \
     --s3-access-key-id=<KEY> --s3-secret-access-key=<SECRET> \
     --s3-region=<REGION> --s3-endpoint=<ENDPOINT> \
     --s3-no-check-bucket --s3-force-path-style \
     lsl ':s3:<BUCKET>/' | grep <db-name>
 ```
+
+> Note: `--s3-provider=Other` (not `s3`) for Hetzner Object Storage — rclone rejects `"s3"` as a provider value. The Dokploy destination record's `provider` field must also be `"Other"`, not `"s3"`.
 
 Then restore a specific key:
 
@@ -48,8 +56,19 @@ kctl-dokploy -p <target-profile> backups restore \
     --compose <target-compose-id> \
     --destination <target-destination-id> \
     --database-name <db-name> \
+    --service-name postgres \
+    --database-user <db-owner> \
     --file <s3-key>
 ```
+
+### Metadata flags per database type
+
+| `--db-type` | Required metadata flags |
+|---|---|
+| `postgres` (default) | `--service-name`, `--database-user` |
+| `mariadb` | `--service-name`, `--database-user`, `--database-password` |
+| `mongo` | `--service-name`, `--database-user`, `--database-password` |
+| `mysql` | `--service-name`, `--database-password` (used as the MySQL root password) |
 
 ## §3 Target compose prereq — SERVICE_DATABASES
 
