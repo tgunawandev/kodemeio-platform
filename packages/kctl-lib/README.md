@@ -80,6 +80,12 @@ profile_banner(app: str, profile: str, inheritance_chain: list[str], service_sum
 
 `SECRET_FIELDS` frozenset defines field names masked in `kctl-profiles show` output as `first4****last4`. Use `--reveal` to expose plaintext values.
 
+### Follow-up: secret masking rollout
+
+`mask_secret_fields` is adopted in `kctl-odoo config show`. The other 27
+kctl-* CLIs have near-identical `config show` code paths — adopting the
+helper there is a mechanical follow-up task, not in Stage C's scope.
+
 ### kctl-profiles meta-CLI
 
 Entry point installed with kctl-lib (no separate package). Commands: `list`, `show <profile> [--reveal]`, `current [-p <profile>]`, `migrate [--config <path>] [--yes]`.

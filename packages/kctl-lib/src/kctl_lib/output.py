@@ -200,6 +200,41 @@ class Output:
             self.console.print(msg)
 
 
+_SECRET_FIELDS: frozenset[str] = frozenset(
+    {
+        "token",
+        "api_key",
+        "password",
+        "service_account_token",
+        "auth_token",
+        "signature_secret",
+        "dns_token",
+        "s3_secret_key",
+    }
+)
+
+
+def mask_secret_fields(data: dict[str, object]) -> dict[str, object]:
+    """Return a copy of `data` with known secret fields masked (first4****last4).
+
+    Short secrets (≤8 chars) collapse to `****` entirely so length isn't leaked.
+    Non-string values pass through unchanged.
+    """
+
+    def _mask(value: str) -> str:
+        if len(value) <= 8:
+            return "****"
+        return f"{value[:4]}****{value[-4:]}"
+
+    out: dict[str, object] = {}
+    for k, v in data.items():
+        if k in _SECRET_FIELDS and isinstance(v, str):
+            out[k] = _mask(v)
+        else:
+            out[k] = v
+    return out
+
+
 def profile_banner(
     app: str,
     profile: str,

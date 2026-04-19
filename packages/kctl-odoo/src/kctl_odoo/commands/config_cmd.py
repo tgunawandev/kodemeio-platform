@@ -11,6 +11,7 @@ from typing import Annotated
 
 import typer
 
+from kctl_lib.output import mask_secret_fields
 from kctl_odoo.core.callbacks import AppContext
 from kctl_odoo.core.client import OdooClient
 from kctl_odoo.core.config import (
@@ -271,8 +272,11 @@ def remove(
 
 
 @app.command()
-def show(ctx: typer.Context) -> None:
-    """Show full configuration (API keys masked)."""
+def show(
+    ctx: typer.Context,
+    reveal: Annotated[bool, typer.Option("--reveal", help="Show secrets in plaintext (default: masked).")] = False,
+) -> None:
+    """Show full configuration (API keys masked by default; use --reveal to see plaintext)."""
     actx: AppContext = ctx.obj
     out = actx.output
 
@@ -281,17 +285,21 @@ def show(ctx: typer.Context) -> None:
 
     if out.json_mode:
         data = load_raw_config()
-        for _pname, pdata in data.get("profiles", {}).items():
-            for _svc, svc_data in pdata.items():
-                if isinstance(svc_data, dict):
-                    if "api_key" in svc_data:
-                        svc_data["api_key"] = _mask_key(svc_data["api_key"])
-                    if "token" in svc_data:
-                        svc_data["token"] = _mask_key(svc_data["token"])
-            if "api_key" in pdata:
-                pdata["api_key"] = _mask_key(pdata["api_key"])
+        if not reveal:
+            for _pname, pdata in data.get("profiles", {}).items():
+                for _svc, svc_data in pdata.items():
+                    if isinstance(svc_data, dict):
+                        masked = mask_secret_fields(svc_data)
+                        svc_data.update(masked)
+                masked_top = mask_secret_fields({k: v for k, v in pdata.items() if not isinstance(v, dict)})
+                pdata.update(masked_top)
         out.raw_json(data)
         return
+
+    def _display_key(raw_key: str) -> str:
+        if reveal:
+            return raw_key
+        return _mask_key(raw_key)
 
     sections: list[tuple[str, list[tuple[str, str]]]] = []
 
@@ -320,10 +328,10 @@ def show(ctx: typer.Context) -> None:
             extra = ""
             if svc_name == SERVICE_KEY:
                 db = svc_data.get("database", "")
-                key = _mask_key(svc_data.get("api_key", ""))
+                key = _display_key(svc_data.get("api_key", ""))
                 extra = f"  db: {db}  key: {key}"
             else:
-                key = _mask_key(svc_data.get("token", "") or svc_data.get("api_key", ""))
+                key = _display_key(svc_data.get("token", "") or svc_data.get("api_key", ""))
                 extra = f"  key: {key}"
             kvs.append((f"{indicator} {svc_name}", f"{svc_url}{extra}"))
 
