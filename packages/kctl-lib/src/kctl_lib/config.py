@@ -18,7 +18,7 @@ from pydantic import BaseModel
 CONFIG_DIR = Path.home() / ".config" / "kodemeio"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
-_ENV_VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_ENV_VAR_RE = re.compile(r"\$\{(?:env:)?([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 class ConfigFile(BaseModel):
@@ -29,7 +29,12 @@ class ConfigFile(BaseModel):
 
 
 def expand_env(value: str) -> str:
-    """Expand ${ENV_VAR} references in a string value."""
+    """Expand `${VAR}` and `${env:VAR}` references.
+
+    Both forms resolve to the same environment variable. `${env:VAR}` is the
+    preferred explicit form; the bare `${VAR}` form is kept for back-compat.
+    Unset variables are left literal so the user sees the broken reference.
+    """
 
     def _replace(match: re.Match[str]) -> str:
         var_name = match.group(1)
