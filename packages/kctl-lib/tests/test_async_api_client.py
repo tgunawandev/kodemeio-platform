@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from urllib.parse import parse_qs, urlparse
+
 import httpx
 import pytest
 from pytest_httpx import HTTPXMock
@@ -184,3 +187,157 @@ class TestAsyncRetry:
         async with AsyncRetryClient(base_url="https://example.com", credential="key") as c:
             result = await c.get("/recovering")
         assert result == {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# stream_subscription tests — tRPC SSE consumer
+# ---------------------------------------------------------------------------
+
+
+class TestStreamSubscription:
+    """Consume Dokploy tRPC SSE subscription.
+
+    Wire format from Task 1 spike:
+      - GET /api/trpc/<procedure>?input=<url-encoded {"json":{...}}>
+      - Response Content-Type: text/event-stream
+      - `event: connected\\ndata: {}` → skip (control)
+      - `data: {"json":"<line>"}` (unnamed event) → yield "<line>"
+      - `event: serialized-error\\ndata: {"json":{"message":"..."}}`
+        → yield `Error: <message>`
+      - `event: return\\ndata: ` → skip (end-of-stream marker)
+    """
+
+    @pytest.mark.anyio
+    async def test_yields_log_lines_skips_control_events(self) -> None:
+        sse_body = (
+            b"event: connected\n"
+            b"data: {}\n"
+            b"\n"
+            b'data: {"json":"Starting restore..."}\n'
+            b"\n"
+            b'data: {"json":"Downloaded 10.1 MB"}\n'
+            b"\n"
+            b'data: {"json":"Restore completed successfully"}\n'
+            b"\n"
+            b"event: return\n"
+            b"data: \n"
+            b"\n"
+        )
+
+        captured_request: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_request["method"] = request.method
+            captured_request["url"] = str(request.url)
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=sse_body,
+            )
+
+        transport = httpx.MockTransport(handler)
+
+        class _Client(AsyncAPIClient):
+            BASE_URL = "http://localhost:3000"
+            API_PREFIX = "/api"
+            AUTH_HEADER = "x-api-key"
+            AUTH_PREFIX = ""
+
+        c = _Client(credential="T")
+        c._client = httpx.AsyncClient(transport=transport, base_url=c._base_url)
+
+        lines: list[str] = []
+        async for line in c.stream_subscription(
+            "/trpc/backup.restoreBackupWithLogs",
+            {"json": {"backupType": "compose", "databaseId": "cmp-1"}},
+        ):
+            lines.append(line)
+
+        await c._client.aclose()
+
+        # Must GET, not POST.
+        assert captured_request["method"] == "GET"
+        # Must include URL-encoded input= query param carrying the payload.
+        parsed = urlparse(captured_request["url"])
+        qs = parse_qs(parsed.query)
+        assert "input" in qs
+        input_json = json.loads(qs["input"][0])
+        assert input_json == {"json": {"backupType": "compose", "databaseId": "cmp-1"}}
+        # Skips named 'connected' + 'return' events; yields only the log-line strings.
+        assert lines == [
+            "Starting restore...",
+            "Downloaded 10.1 MB",
+            "Restore completed successfully",
+        ]
+
+    @pytest.mark.anyio
+    async def test_serialized_error_event_becomes_error_line(self) -> None:
+        sse_body = (
+            b"event: connected\n"
+            b"data: {}\n"
+            b"\n"
+            b'data: {"json":"Starting..."}\n'
+            b"\n"
+            b"event: serialized-error\n"
+            b'data: {"json":{"message":"pg_restore crashed: exit 1"}}\n'
+            b"\n"
+        )
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=sse_body,
+            )
+
+        transport = httpx.MockTransport(handler)
+
+        class _Client(AsyncAPIClient):
+            BASE_URL = "http://localhost:3000"
+            API_PREFIX = "/api"
+            AUTH_HEADER = "x-api-key"
+            AUTH_PREFIX = ""
+
+        c = _Client(credential="T")
+        c._client = httpx.AsyncClient(transport=transport, base_url=c._base_url)
+
+        lines: list[str] = []
+        async for line in c.stream_subscription("/trpc/foo", {"json": {}}):
+            lines.append(line)
+
+        await c._client.aclose()
+
+        # Log-line + error-line, in order. Error must start with "Error: " so
+        # the downstream command can exit 1 on it.
+        assert lines == [
+            "Starting...",
+            "Error: pg_restore crashed: exit 1",
+        ]
+
+    @pytest.mark.anyio
+    async def test_4xx_raises_api_error_before_stream(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                400,
+                headers={"content-type": "application/json"},
+                json={"error": {"message": "Input validation failed"}},
+            )
+
+        transport = httpx.MockTransport(handler)
+
+        class _Client(AsyncAPIClient):
+            BASE_URL = "http://localhost:3000"
+            API_PREFIX = "/api"
+            AUTH_HEADER = "x-api-key"
+            AUTH_PREFIX = ""
+
+        c = _Client(credential="T")
+        c._client = httpx.AsyncClient(transport=transport, base_url=c._base_url)
+
+        with pytest.raises(APIError) as exc_info:
+            async for _ in c.stream_subscription("/trpc/backup.x", {"json": {}}):
+                pass
+
+        await c._client.aclose()
+
+        assert exc_info.value.status_code == 400

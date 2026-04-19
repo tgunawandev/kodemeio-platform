@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from collections.abc import AsyncIterator
 from random import uniform
 from typing import Any, Self
 
@@ -198,6 +199,86 @@ class AsyncAPIClient:
 
     async def delete(self, endpoint: str, **kwargs: Any) -> Any:
         return self._unwrap_response(await self._request("DELETE", endpoint, **kwargs))
+
+    # ------------------------------------------------------------------
+    # SSE / tRPC subscription streaming
+    # ------------------------------------------------------------------
+
+    async def stream_subscription(
+        self,
+        endpoint: str,
+        payload: dict[str, Any],
+    ) -> AsyncIterator[str]:
+        """Stream a tRPC subscription as one log-line-per-string.
+
+        Wire format (Dokploy 0.29 / tRPC v11 SSE, confirmed in Task 1 spike):
+          - HTTP GET with ``?input=<url-encoded JSON>`` query param
+          - Response Content-Type: text/event-stream
+          - Named control events (``connected``, ``return``) are skipped
+          - Unnamed data events: ``data: {"json":"<line>"}`` → yield ``"<line>"``
+          - ``event: serialized-error`` events: yield ``Error: <message>``
+
+        Raises APIError on 4xx/5xx before the stream opens.
+        """
+        import json as _json
+        from urllib.parse import quote
+
+        input_encoded = quote(_json.dumps(payload), safe="")
+        url = f"{endpoint.lstrip('/')}?input={input_encoded}"
+
+        async with self._client.stream("GET", url) as resp:
+            if resp.status_code >= 400:
+                body = await resp.aread()
+                detail = body.decode(errors="replace")[:500]
+                raise APIError(status_code=resp.status_code, detail=detail)
+
+            # Parse SSE: events are separated by blank lines; within an event,
+            # ``event: <name>`` (optional, defaults to "message") and one or
+            # more ``data: ...`` lines.
+            current_event: str = "message"  # SSE default
+            data_lines: list[str] = []
+
+            async for raw in resp.aiter_lines():
+                line = raw.rstrip("\r")
+                if line == "":
+                    # End of one event — dispatch it.
+                    event_name = current_event
+                    data_str = "\n".join(data_lines)
+                    current_event = "message"
+                    data_lines = []
+
+                    if event_name in ("connected", "return"):
+                        continue  # control events; skip
+
+                    if not data_str:
+                        continue
+
+                    try:
+                        obj = _json.loads(data_str)
+                    except _json.JSONDecodeError:
+                        yield data_str
+                        continue
+
+                    if event_name == "serialized-error":
+                        json_val = obj.get("json", {}) if isinstance(obj, dict) else {}
+                        msg = json_val.get("message", "unknown error") if isinstance(json_val, dict) else str(json_val)
+                        yield f"Error: {msg}"
+                        continue
+
+                    # Default / 'message' event — unwrap {"json": "..."} or yield as-is
+                    if isinstance(obj, dict) and "json" in obj:
+                        val = obj["json"]
+                        if isinstance(val, str):
+                            yield val
+                        else:
+                            yield _json.dumps(val)
+                    else:
+                        yield data_str
+                elif line.startswith("event:"):
+                    current_event = line[len("event:") :].strip()
+                elif line.startswith("data:"):
+                    data_lines.append(line[len("data:") :].lstrip(" "))
+                # else: SSE comments (``:foo``) or unknown fields — ignore
 
     # ------------------------------------------------------------------
     # Async context manager
