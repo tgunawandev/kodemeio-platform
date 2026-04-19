@@ -68,10 +68,18 @@ def create(
     interval: Annotated[int, typer.Option("--interval", help="Check interval in seconds")] = 60,
     monitor_type: Annotated[str, typer.Option("--type", help="Monitor type (e.g. Ping, GET)")] = "Ping",
     expected_status: Annotated[int, typer.Option("--expected-status", help="Expected HTTP status code")] = 200,
+    expected_body: Annotated[
+        str, typer.Option("--expected-body", help="Expected response body substring (empty = any)")
+    ] = "",
     timeout: Annotated[int, typer.Option("--timeout", help="Request timeout in seconds")] = 20,
     project: Annotated[int | None, typer.Option("--project", help="Associated project ID")] = None,
 ) -> None:
-    """Create an uptime monitor."""
+    """Create an uptime monitor.
+
+    GlitchTip's monitor API expects camelCase fields and requires
+    ``expectedBody`` and ``timeout`` — both are sent automatically with
+    sensible defaults (empty body, 20s timeout) unless overridden.
+    """
     actx: AppContext = ctx.obj
     c, out = actx.client, actx.output
 
@@ -83,7 +91,7 @@ def create(
         "interval": interval,
         "monitorType": monitor_type,
         "expectedStatus": expected_status,
-        "expectedBody": "",
+        "expectedBody": expected_body,
         "timeout": timeout,
     }
     if project is not None:
