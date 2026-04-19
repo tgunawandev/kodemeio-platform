@@ -76,28 +76,48 @@ def get_service_config(
     service_key: str,
     valid_fields: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Get a service config dict from a profile."""
+    """Resolve a service config using prefix inheritance.
+
+    Walks the profile's inheritance chain (see `resolve_inheritance_chain`).
+    The first chain member that actually exists in the config AND defines
+    `service_key` wins. If the leaf profile does not exist at all in the
+    config, returns an empty dict (we do NOT silently walk up to a parent
+    when the user-requested profile is itself unknown — that would mask
+    typos).
+    """
     cfg = load_config()
-    profile_data = cfg.profiles.get(profile_name, {})
-    if not profile_data:
+    if profile_name not in cfg.profiles:
         return {}
 
-    if is_service_scoped(profile_data):
-        svc_data = profile_data.get(service_key, {})
-        if not isinstance(svc_data, dict):
-            return {}
-        raw = dict(svc_data)
-    else:
-        raw = dict(profile_data)
+    for candidate in resolve_inheritance_chain(profile_name):
+        profile_data = cfg.profiles.get(candidate)
+        if not profile_data:
+            continue
 
-    for k, v in raw.items():
-        if isinstance(v, str):
-            raw[k] = expand_env(v)
+        if is_service_scoped(profile_data):
+            svc_data = profile_data.get(service_key, {})
+            if not isinstance(svc_data, dict):
+                continue
+            raw = dict(svc_data)
+        else:
+            # Legacy flat profile — treat as matching its own service key only.
+            if candidate != profile_name:
+                continue
+            raw = dict(profile_data)
 
-    if valid_fields is not None:
-        raw = {k: v for k, v in raw.items() if k in valid_fields}
+        if not raw:
+            continue
 
-    return raw
+        for k, v in raw.items():
+            if isinstance(v, str):
+                raw[k] = expand_env(v)
+
+        if valid_fields is not None:
+            raw = {k: v for k, v in raw.items() if k in valid_fields}
+
+        return raw
+
+    return {}
 
 
 def set_service_config(profile_name: str, service_key: str, svc_data: dict[str, Any]) -> None:
