@@ -17,6 +17,7 @@ from kctl_gsc.commands.properties import app as properties_app
 from kctl_gsc.commands.queries import app as queries_app
 from kctl_gsc.commands.reports import app as reports_app
 from kctl_gsc.commands.sitemaps import app as sitemaps_app
+from kctl_gsc.commands.skill_cmd import app as skill_app
 
 
 def version_callback(value: bool) -> None:
@@ -42,6 +43,7 @@ app.add_typer(reports_app, name="reports", rich_help_panel="Reports")
 app.add_typer(export_app, name="export", rich_help_panel="Export")
 app.add_typer(config_app, name="config", rich_help_panel="Admin")
 app.add_typer(doctor_app, name="doctor", rich_help_panel="Tools")
+app.add_typer(skill_app, name="skill", hidden=True)
 
 
 @app.callback()
@@ -70,6 +72,44 @@ def main(
         property_override=property_override,
         credentials_file_override=credentials_file,
     )
+
+
+@app.command("self-update", rich_help_panel="Tools")
+def self_update_cmd(ctx: typer.Context) -> None:
+    """Check for updates and upgrade kctl-gsc."""
+    actx = ctx.obj
+    out = actx.output
+
+    from kctl_lib.self_update import check_update
+    from kctl_lib.self_update import update as do_update
+
+    latest = check_update("kctl-gsc", __version__)
+    if latest:
+        out.info(f"Updating to {latest}...")
+        do_update("kctl-gsc")
+        out.success(f"Updated to {latest}")
+    else:
+        out.success("Already up to date")
+
+
+@app.command(rich_help_panel="Tools")
+def completions(
+    shell: Annotated[str, typer.Argument(help="Shell type: zsh, bash, fish")] = "zsh",
+    install: Annotated[bool, typer.Option("--install", help="Install completions")] = False,
+) -> None:
+    """Generate or install shell completions."""
+    from kctl_lib.completions import get_completion_script, install_completions
+
+    if install:
+        path = install_completions("kctl-gsc", shell)
+        if path:
+            typer.echo(f"Completions installed to {path}")
+        else:
+            typer.echo(f"Could not install completions for {shell}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        script = get_completion_script("kctl-gsc", shell)
+        typer.echo(script)
 
 
 def _run() -> None:

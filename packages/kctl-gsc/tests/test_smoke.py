@@ -12,9 +12,17 @@ def test_help_shows_groups() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    # TODO: restore full list as groups land in later tasks
-    # ("properties", "queries", "pages", "sitemaps", "inspect", "reports", "export", "config", "doctor")
-    for group in ("config",):
+    for group in (
+        "properties",
+        "queries",
+        "pages",
+        "sitemaps",
+        "inspect",
+        "reports",
+        "export",
+        "config",
+        "doctor",
+    ):
         assert group in result.stdout
 
 
