@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from kctl_lib.cli.commands.current import current_profile
 from kctl_lib.cli.commands.list_cmd import list_profiles
 from kctl_lib.cli.commands.show import show_profile
 
@@ -21,6 +22,7 @@ def main() -> None:
 
 app.command("list")(list_profiles)
 app.command("show")(show_profile)
+app.command("current")(current_profile)
 
 
 if __name__ == "__main__":
