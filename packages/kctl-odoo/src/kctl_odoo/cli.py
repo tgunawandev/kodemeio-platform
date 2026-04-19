@@ -48,6 +48,7 @@ from kctl_odoo.commands.helpdesk_cmd import app as helpdesk_app
 from kctl_odoo.commands.history_cmd import app as history_app
 from kctl_odoo.commands.hr_cmd import app as hr_app
 from kctl_odoo.commands.import_cmd import app as import_app
+from kctl_odoo.commands.accurate import app as accurate_app
 from kctl_odoo.commands.integration import app as integration_app
 from kctl_odoo.commands.inventory_cmd import app as inventory_app
 from kctl_odoo.commands.jobs import app as jobs_app
@@ -232,6 +233,7 @@ app.add_typer(storage_app, name="storage", rich_help_panel=_P_INFRA)
 app.add_typer(performance_app, name="performance", rich_help_panel=_P_INFRA)
 app.add_typer(logs_app, name="logs", rich_help_panel=_P_INFRA)
 app.add_typer(integration_app, name="integration", rich_help_panel=_P_INFRA)
+app.add_typer(accurate_app, name="accurate", rich_help_panel=_P_INFRA)
 app.add_typer(maintenance_app, name="maintenance", rich_help_panel=_P_INFRA)
 app.add_typer(audit_app, name="audit", rich_help_panel=_P_INFRA)
 
