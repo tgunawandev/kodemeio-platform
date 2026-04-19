@@ -229,3 +229,59 @@ def test_roles_audit_strict_exits_nonzero_on_findings(mock_get_client, tmp_path)
         ["audit", "--file", str(yaml_file), "--ignored-file", str(ignored_file), "--strict"],
     )
     assert result.exit_code == 1
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_assign_attaches_roles_and_ous(mock_get_client):
+    client = MagicMock()
+    client.execute.side_effect = [
+        [{"id": 46, "login": "intan.rahayu"}],
+        [{"id": 5, "name": "Branch Staff"}],
+        [{"id": 1, "code": "BHO"}, {"id": 3, "code": "TSLO1"}],
+        True,
+    ]
+    mock_get_client.return_value = client
+    result = runner.invoke(
+        roles_app,
+        ["assign", "intan.rahayu", "Branch Staff", "--ous", "BHO,TSLO1"],
+    )
+    assert result.exit_code == 0
+    write_calls = [
+        c
+        for c in client.execute.call_args_list
+        if len(c.args) >= 2 and c.args[0] == "res.users" and c.args[1] == "write"
+    ]
+    assert len(write_calls) == 1
+    payload = write_calls[0].args[3]
+    assert "role_line_ids" in payload
+    assert "assigned_operating_unit_ids" in payload
+    assert payload.get("default_operating_unit_id") == 1
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_assign_clear_wipes_roles(mock_get_client):
+    client = MagicMock()
+    client.execute.side_effect = [
+        [{"id": 46, "login": "intan.rahayu"}],
+        True,
+    ]
+    mock_get_client.return_value = client
+    result = runner.invoke(roles_app, ["assign", "intan.rahayu", "--clear"])
+    assert result.exit_code == 0
+    write_calls = [c for c in client.execute.call_args_list if len(c.args) >= 2 and c.args[1] == "write"]
+    assert write_calls
+    payload = write_calls[0].args[3]
+    assert payload["role_line_ids"] == [(5, 0, 0)]
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_apply_csv_dry_run(mock_get_client, tmp_path):
+    csv_file = tmp_path / "users_roles.csv"
+    csv_file.write_text('login,roles,ous\nintan.rahayu,Branch Staff,"BHO,TSLO1"\n')
+    client = MagicMock()
+    mock_get_client.return_value = client
+
+    result = runner.invoke(roles_app, ["apply", str(csv_file), "--dry-run"])
+    assert result.exit_code == 0
+    write_calls = [c for c in client.execute.call_args_list if len(c.args) >= 2 and c.args[1] == "write"]
+    assert write_calls == []

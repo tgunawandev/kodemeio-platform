@@ -5,8 +5,9 @@ See kodemeio-docs/superpowers/specs/2026-04-19-role-standardization-design.md
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -351,3 +352,136 @@ def _suggest_role(xmlid: str) -> str:
         if xmlid in prefixes or any(m.startswith(p) for p in prefixes):
             return role
     return "? (manual review)"
+
+
+def _resolve_user(client, login: str) -> int:
+    users = client.execute("res.users", "search_read", [("login", "=", login)], ["id", "login"])
+    if not users:
+        raise typer.BadParameter(f"User with login '{login}' not found.")
+    return users[0]["id"]
+
+
+def _resolve_roles(client, role_names: list[str]) -> list[int]:
+    if not role_names:
+        return []
+    roles = client.execute(
+        "res.users.role",
+        "search_read",
+        [("name", "in", role_names)],
+        ["id", "name"],
+    )
+    found = {r["name"]: r["id"] for r in roles}
+    missing = [n for n in role_names if n not in found]
+    if missing:
+        raise typer.BadParameter(f"Role(s) not found: {', '.join(missing)}")
+    return [found[n] for n in role_names]
+
+
+def _resolve_ous(client, ou_codes: list[str]) -> list[int]:
+    if not ou_codes:
+        return []
+    if ou_codes == ["*"]:
+        ous = client.execute("operating.unit", "search_read", [], ["id"])
+        return [o["id"] for o in ous]
+    ous = client.execute(
+        "operating.unit",
+        "search_read",
+        [("code", "in", ou_codes)],
+        ["id", "code"],
+    )
+    found = {o["code"]: o["id"] for o in ous}
+    missing = [c for c in ou_codes if c not in found]
+    if missing:
+        raise typer.BadParameter(f"Operating unit code(s) not found: {', '.join(missing)}")
+    return [found[c] for c in ou_codes]
+
+
+@app.command("assign")
+def assign_cmd(
+    ctx: typer.Context,
+    login: Annotated[str, typer.Argument(help="User login")],
+    roles: Annotated[
+        list[str] | None,
+        typer.Argument(help="One or more role names (use quotes for names with spaces)"),
+    ] = None,
+    ous: Annotated[
+        str,
+        typer.Option("--ous", help="Comma-separated OU codes (use '*' for all)"),
+    ] = "",
+    clear: Annotated[
+        bool,
+        typer.Option("--clear", help="Remove ALL roles + OUs from user"),
+    ] = False,
+) -> None:
+    """Assign role(s) + OU(s) to a user (or clear)."""
+    client = _get_client(ctx)
+    uid = _resolve_user(client, login)
+
+    payload: dict[str, Any] = {}
+    if clear:
+        payload["role_line_ids"] = [(5, 0, 0)]
+        payload["assigned_operating_unit_ids"] = [(5, 0, 0)]
+        payload["default_operating_unit_id"] = False
+    else:
+        if not roles:
+            raise typer.BadParameter("Pass role name(s) or use --clear.")
+        role_ids = _resolve_roles(client, roles)
+        payload["role_line_ids"] = [(5, 0, 0)] + [(0, 0, {"role_id": rid}) for rid in role_ids]
+        if ous:
+            ou_codes = [c.strip() for c in ous.split(",") if c.strip()]
+            ou_ids = _resolve_ous(client, ou_codes)
+            payload["assigned_operating_unit_ids"] = [(6, 0, ou_ids)]
+            if ou_ids:
+                payload["default_operating_unit_id"] = ou_ids[0]
+
+    client.execute("res.users", "write", [uid], payload)
+    console.print(f"[green]Assigned roles={roles or '[]'}, ous={ous or '[]'} to {login}[/green]")
+
+
+@app.command("apply")
+def apply_cmd(
+    ctx: typer.Context,
+    csv_file: Annotated[
+        Path,
+        typer.Argument(
+            help="CSV with columns: login, roles (pipe-separated), ous (comma-separated, quote when multiple)"
+        ),
+    ],
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+) -> None:
+    """Bulk-assign from a CSV."""
+    client = _get_client(ctx)
+    rows: list[dict[str, str]] = []
+    with csv_file.open() as fh:
+        reader = csv.DictReader(line for line in fh if not line.lstrip().startswith("#"))
+        for row in reader:
+            rows.append(row)
+
+    table = Table(title=f"Apply plan ({len(rows)} rows)")
+    table.add_column("login")
+    table.add_column("roles")
+    table.add_column("ous")
+    for r in rows:
+        table.add_row(r.get("login", ""), r.get("roles", ""), r.get("ous", ""))
+    console.print(table)
+
+    if dry_run:
+        console.print("[dim]--dry-run: no writes.[/dim]")
+        return
+
+    for r in rows:
+        login = r["login"]
+        roles_list = [s.strip() for s in r.get("roles", "").split("|") if s.strip()]
+        ou_raw = r.get("ous", "")
+        ou_codes = [c.strip() for c in ou_raw.split(",") if c.strip()] if ou_raw else []
+        uid = _resolve_user(client, login)
+        role_ids = _resolve_roles(client, roles_list)
+        ou_ids = _resolve_ous(client, ou_codes)
+        payload: dict[str, Any] = {
+            "role_line_ids": [(5, 0, 0)] + [(0, 0, {"role_id": rid}) for rid in role_ids],
+            "assigned_operating_unit_ids": [(6, 0, ou_ids)],
+        }
+        if ou_ids:
+            payload["default_operating_unit_id"] = ou_ids[0]
+        client.execute("res.users", "write", [uid], payload)
+        console.print(f"[green]✓ {login}[/green]")
