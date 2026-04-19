@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """One-shot migration of ~/.config/kodemeio/config.yaml to the new taxonomy.
 
+DEPRECATED: prefer `kctl-profiles migrate` (same behavior, proper CLI).
+This script is retained so Stage A's history remains reproducible.
+
 See docs/superpowers/specs/2026-04-19-kctl-profiles-standardization-design.md.
 
 Usage:
@@ -58,7 +61,9 @@ def _backup(path: Path) -> Path:
 def _atomic_write(path: Path, content: str) -> None:
     """Write atomically via tempfile + rename (same filesystem)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    fd, tmp = tempfile.mkstemp(
+        dir=str(path.parent), prefix=path.name + ".", suffix=".tmp"
+    )
     try:
         with os.fdopen(fd, "w") as f:
             f.write(content)

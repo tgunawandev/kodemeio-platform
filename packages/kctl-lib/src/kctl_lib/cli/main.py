@@ -6,6 +6,7 @@ import typer
 
 from kctl_lib.cli.commands.current import current_profile
 from kctl_lib.cli.commands.list_cmd import list_profiles
+from kctl_lib.cli.commands.migrate import migrate
 from kctl_lib.cli.commands.show import show_profile
 
 app = typer.Typer(
@@ -23,6 +24,7 @@ def main() -> None:
 app.command("list")(list_profiles)
 app.command("show")(show_profile)
 app.command("current")(current_profile)
+app.command("migrate")(migrate)
 
 
 if __name__ == "__main__":
