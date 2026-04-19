@@ -1,24 +1,20 @@
 # tests/test_roles_core.py
 from pathlib import Path
 from unittest.mock import MagicMock
+
 import pytest
-import yaml
 
 from kctl_odoo.core.roles import (
-    RoleSpec,
-    RolesFile,
-    IgnoredFile,
-    load_roles_file,
-    load_ignored_file,
-    resolve_role_groups,
     CircularExtendError,
-    UnknownExtendError,
-    resolve_xmlids,
     RoleDbState,
-    plan_sync,
-    SyncAction,
-    MenuVisibilityAction,
+    RolesFile,
+    UnknownExtendError,
+    load_ignored_file,
+    load_roles_file,
     plan_menu_visibility,
+    plan_sync,
+    resolve_role_groups,
+    resolve_xmlids,
 )
 
 

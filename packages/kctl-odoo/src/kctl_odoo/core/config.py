@@ -31,6 +31,7 @@ from typing import Any
 
 import yaml
 from kctl_lib.config import ConfigFile, is_service_scoped
+from kctl_lib.exceptions import ConfigError
 from pydantic import BaseModel
 
 CONFIG_DIR = Path.home() / ".config" / "kodemeio"
@@ -284,5 +285,18 @@ def resolve_connection(
         username = username_override
     if api_key_override:
         api_key = api_key_override
+
+    # If nothing resolved the URL, check whether the profile itself is unknown
+    # and surface a clearer error than the downstream "No Odoo URL configured".
+    if not url:
+        all_profiles = get_profile_names()
+        if pname not in all_profiles:
+            listing = ", ".join(sorted(all_profiles)) if all_profiles else "(none configured)"
+            raise ConfigError(
+                f"Profile '{pname}' not found in {CONFIG_FILE}.\n"
+                f"Available profiles: {listing}\n"
+                f"Run 'kctl-odoo config profiles' to list, "
+                f"or 'kctl-odoo config add <name> ...' to create one."
+            )
 
     return url, database, username, api_key
