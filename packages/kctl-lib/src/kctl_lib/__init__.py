@@ -76,7 +76,12 @@ def handle_cli_error(e: KctlError) -> None:
         except KctlError as e:
             handle_cli_error(e)
     """
+    import sys
+
     import typer
 
     typer.echo(f"Error: {e}", err=True)
-    raise typer.Exit(1) from e
+    # Use sys.exit rather than typer.Exit — typer.Exit is only swallowed inside
+    # typer's own main(), so raising it from here bubbles up as an uncaught
+    # exception and prints a Python traceback to the user.
+    sys.exit(1)
