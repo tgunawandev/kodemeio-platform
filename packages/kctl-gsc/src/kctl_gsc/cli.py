@@ -8,6 +8,7 @@ import typer
 from kctl_lib import KctlError, handle_cli_error
 
 from kctl_gsc import __version__
+from kctl_gsc.commands.config_cmd import app as config_app
 
 
 def version_callback(value: bool) -> None:
@@ -23,6 +24,8 @@ app = typer.Typer(
     rich_markup_mode="rich",
     pretty_exceptions_enable=False,
 )
+
+app.add_typer(config_app, name="config", rich_help_panel="Admin")
 
 
 @app.callback()
