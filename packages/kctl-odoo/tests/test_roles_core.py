@@ -73,7 +73,7 @@ def test_resolve_role_groups_detects_circular():
             },
         }
     )
-    with pytest.raises(CircularExtendError):
+    with pytest.raises(CircularExtendError, match=r"a -> b -> a"):
         resolve_role_groups(rf, "a")
 
 
@@ -84,8 +84,14 @@ def test_resolve_role_groups_detects_unknown_extend():
             "roles": {"a": {"name": "A", "extends": "ghost", "groups": []}},
         }
     )
-    with pytest.raises(UnknownExtendError):
+    with pytest.raises(UnknownExtendError, match=r"'ghost'.*'extends'.*'a'"):
         resolve_role_groups(rf, "a")
+
+
+def test_resolve_role_groups_entry_unknown_has_clear_message():
+    rf = RolesFile.model_validate({"version": 1, "roles": {}})
+    with pytest.raises(UnknownExtendError, match=r"Role 'ghost' not defined"):
+        resolve_role_groups(rf, "ghost")
 
 
 def test_resolve_dedupes_groups_preserving_order():

@@ -73,14 +73,15 @@ def resolve_role_groups(rf: RolesFile, role_id: str) -> list[str]:
         raise UnknownExtendError(f"Role '{role_id}' not defined")
 
     chain: list[str] = []
-    seen: set[str] = set()
     current: str | None = role_id
     while current is not None:
-        if current in seen:
-            raise CircularExtendError(f"Circular extends chain at role '{current}' (chain: {list(seen)})")
-        seen.add(current)
+        if current in chain:
+            cycle = " -> ".join([*chain, current])
+            raise CircularExtendError(f"Circular extends chain: {cycle}")
         if current not in rf.roles:
-            raise UnknownExtendError(f"Role '{role_id}' extends unknown role '{current}'")
+            # We only reach here via an `extends` pointer from the previous link.
+            parent_of = chain[-1]
+            raise UnknownExtendError(f"Role '{current}' referenced by 'extends' in '{parent_of}' is not defined")
         chain.append(current)
         current = rf.roles[current].extends
 
