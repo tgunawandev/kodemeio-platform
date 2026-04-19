@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 
 from kctl_lib.cli.commands.list_cmd import list_profiles
+from kctl_lib.cli.commands.show import show_profile
 
 app = typer.Typer(
     name="kctl-profiles",
@@ -19,6 +20,7 @@ def main() -> None:
 
 
 app.command("list")(list_profiles)
+app.command("show")(show_profile)
 
 
 if __name__ == "__main__":
