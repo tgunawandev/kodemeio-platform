@@ -133,3 +133,30 @@ def test_roles_sync_warns_on_missing_xmlids(mock_get_client, tmp_path):
         or "missing" in result.stdout.lower()
         or "not installed" in result.stdout.lower()
     )
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_sync_strict_exits_2_on_missing_xmlid(mock_get_client, tmp_path):
+    yaml_file = tmp_path / "roles.yaml"
+    yaml_file.write_text(
+        "version: 1\n"
+        "roles:\n"
+        "  director_owner:\n"
+        "    name: Director / Owner\n"
+        "    groups:\n"
+        "      - base.group_user\n"
+        "      - point_of_sale.group_pos_manager\n"
+    )
+    client = MagicMock()
+    client.execute.side_effect = [
+        [],
+        [{"id": 1, "model": "res.groups", "module": "base", "name": "group_user", "res_id": 1}],
+    ]
+    mock_get_client.return_value = client
+
+    result = runner.invoke(
+        roles_app,
+        ["sync", "--file", str(yaml_file), "--dry-run", "--strict"],
+    )
+    assert result.exit_code == 2
+    assert "point_of_sale.group_pos_manager" in result.stdout
