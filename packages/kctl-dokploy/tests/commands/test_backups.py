@@ -138,6 +138,22 @@ class TestBackupsRestore:
 
 class TestBackupsListFiles:
     def test_list_files(self, mock_client: MagicMock) -> None:
-        mock_client.get.return_value = ["backup-2026-04-01.sql.gz", "backup-2026-04-02.sql.gz"]
-        result = runner.invoke(app, ["--json", "backups", "list-files", "--destination", "dst-001"])
+        """After the fix, list-files talks to S3 directly via boto3 (not Dokploy).
+
+        We patch the S3 client builder to return no objects. The command must
+        succeed with an empty list (previously: API rejected empty --search
+        with "Input validation failed").
+        """
+        mock_client.get.return_value = SAMPLE_DESTINATIONS[0]
+
+        class _FakePaginator:
+            def paginate(self, **_kwargs: object) -> list[dict]:
+                return [{"Contents": []}]
+
+        class _FakeS3:
+            def get_paginator(self, _name: str) -> "_FakePaginator":
+                return _FakePaginator()
+
+        with patch("kctl_dokploy.commands.backups_flow._build_s3_client", return_value=_FakeS3()):
+            result = runner.invoke(app, ["--json", "backups", "list-files", "--destination", "dst-001"])
         assert result.exit_code == 0

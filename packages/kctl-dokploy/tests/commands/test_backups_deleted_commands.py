@@ -1,7 +1,16 @@
-"""Regression guard: these commands were deleted in the Dokploy-native redesign.
+"""Regression guard: which backup workflow commands exist (or are gone).
 
-If someone re-introduces one of them, this test fails loudly so the
-SSH+docker-exec code doesn't sneak back.
+History: the Dokploy-native redesign deleted SSH+docker-exec commands
+(``dump-compose``, ``restore-local``, ``refresh``). Those remain deleted.
+
+2026-04-19: ``download``, ``run-wait``, and ``pull`` were *re-introduced*
+as thin boto3-backed helpers (no SSH), because the native
+``backup.restoreBackupWithLogs`` stream only covers Dokploy-managed
+targets — devs pulling a prod dump onto a local/raw postgres still need
+a way to download and restore.
+
+If someone re-introduces one of the still-deleted commands, this test
+fails loudly so the old SSH+docker-exec code doesn't sneak back.
 """
 
 from __future__ import annotations
@@ -16,21 +25,28 @@ from kctl_dokploy.cli import app
     "cmd",
     [
         ["backups", "dump-compose"],
-        ["backups", "download"],
         ["backups", "restore-local"],
         ["backups", "refresh"],
-        ["backups", "run-wait"],
     ],
 )
 def test_removed_command_rejected(cmd: list[str]) -> None:
     runner = CliRunner()
     result = runner.invoke(app, [*cmd, "--help"])
-    # Typer returns non-zero and prints "No such command" when the command
-    # is absent. We assert on exit code, not exact text, because Typer's
-    # wording has varied across versions.
     assert result.exit_code != 0, (
-        f"Command `{' '.join(cmd)}` still exists — it was supposed to be "
-        f"deleted in the Dokploy-native redesign. See spec "
-        f"kodemeio-docs/superpowers/specs/2026-04-19-kctl-dokploy-backup-"
-        f"restore-redesign-design.md."
+        f"Command `{' '.join(cmd)}` still exists — it was supposed to be deleted in the Dokploy-native redesign."
     )
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        ["backups", "pull"],
+        ["backups", "download"],
+        ["backups", "run-wait"],
+    ],
+)
+def test_reintroduced_command_present(cmd: list[str]) -> None:
+    """These were re-added 2026-04-19 for the dev-loop pull-to-local workflow."""
+    runner = CliRunner()
+    result = runner.invoke(app, [*cmd, "--help"])
+    assert result.exit_code == 0, f"Command `{' '.join(cmd)}` should exist but --help returned non-zero."

@@ -358,34 +358,80 @@ def run_backup(
 def list_files(
     ctx: typer.Context,
     destination_id: Annotated[str, typer.Option("--destination", "-d", help="S3 destination ID")],
-    search: Annotated[str, typer.Option("--search", "-s", help="Search filter (e.g. database name or prefix)")] = "",
-    server_id: Annotated[str | None, typer.Option("--server", help="Server ID (for remote servers)")] = None,
+    search: Annotated[
+        str,
+        typer.Option("--search", "-s", help="Case-sensitive substring filter on the key (empty = list all)"),
+    ] = "",
+    prefix: Annotated[str, typer.Option("--prefix", help="S3-side prefix filter (e.g. 'compose-foo/postgres/')")] = "",
+    limit: Annotated[int, typer.Option("--limit", help="Max rows to show (default 200, 0=unlimited)")] = 200,
 ) -> None:
-    """List backup files stored in an S3 destination."""
+    """List backup files in an S3 destination via boto3 (bypasses Dokploy's buggy endpoint).
+
+    Dokploy's native ``/backup.listBackupFiles`` rejects empty searches with
+    "Input validation failed" and silently truncates results for compose
+    backups. This command talks directly to S3 using the destination's stored
+    credentials and paginates through the full bucket.
+    """
+    from kctl_dokploy.commands.backups_flow import _build_s3_client, _fetch_destination
+
     c: AppContext = ctx.obj
-    params: dict = {"destinationId": destination_id, "search": search}
-    if server_id:
-        params["serverId"] = server_id
-    data = c.client.get("/backup.listBackupFiles", params=params)
-    if not isinstance(data, list):
-        data = []
-    rows = []
-    for f in data:
-        if isinstance(f, str):
-            rows.append([f])
-        elif isinstance(f, dict):
-            rows.append([f.get("name", f.get("key", str(f)))])
+    dest = _fetch_destination(c, destination_id)
+    bucket = dest.get("bucket") or ""
+    if not bucket:
+        c.output.error(f"Destination '{destination_id}' has no bucket")
+        raise typer.Exit(1)
+    s3 = _build_s3_client(dest)
+
+    # Paginate list_objects_v2 under `prefix`, filter by `search` substring,
+    # collect (key, size, lastmod). Sort by lastmod desc.
+    entries: list[tuple[str, int, object]] = []
+    paginator = s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []) or []:
+            k = obj.get("Key")
+            if not isinstance(k, str):
+                continue
+            if search and search not in k:
+                continue
+            size = int(obj.get("Size") or 0)
+            lm = obj.get("LastModified")
+            entries.append((k, size, lm))
+    # Newest first
+    entries.sort(key=lambda r: (r[2] is None, r[2]), reverse=True)
+    if limit and limit > 0:
+        entries = entries[:limit]
+
+    def _fmt_size(n: int) -> str:
+        f = float(n)
+        for unit in ("B", "KB", "MB", "GB"):
+            if f < 1024.0:
+                return f"{f:.1f} {unit}" if unit != "B" else f"{int(f)} B"
+            f /= 1024.0
+        return f"{f:.1f} TB"
+
+    rows = [[k, _fmt_size(size), str(lm) if lm is not None else "-"] for k, size, lm in entries]
+    data_for_json = [
+        {"key": k, "size": size, "lastModified": str(lm) if lm is not None else None} for k, size, lm in entries
+    ]
     c.output.table(
-        "Backup Files",
-        [("File", "cyan")],
+        f"Backup Files in s3://{bucket}/{prefix}",
+        [("Key", "cyan"), ("Size", ""), ("Last Modified", "dim")],
         rows,
-        data_for_json=data,
+        data_for_json=data_for_json,
     )
 
 
+from kctl_dokploy.commands.backups_pull import (  # noqa: E402
+    download as _download_impl,
+    pull as _pull_impl,
+    run_wait as _run_wait_impl,
+)
 from kctl_dokploy.commands.backups_restore import restore as _restore_impl  # noqa: E402
 
 app.command("restore")(_restore_impl)
+app.command("pull")(_pull_impl)
+app.command("download")(_download_impl)
+app.command("run-wait")(_run_wait_impl)
 
 
 @app.command()
