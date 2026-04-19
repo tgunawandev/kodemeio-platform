@@ -148,3 +148,41 @@ class TestProfileCRUD:
         save_raw_config(data)
         set_default_profile("b")
         assert get_default_profile() == "b"
+
+
+import pytest
+
+
+class TestExplicitProfileRequired:
+    def test_raises_when_no_profile_and_no_env(
+        self, tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import yaml
+
+        from kctl_lib.config import resolve_active_profile_name
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(yaml.dump({"profiles": {"idtpp": {}}}))
+        monkeypatch.setattr("kctl_lib.config.CONFIG_FILE", config_file)
+        monkeypatch.setattr("kctl_lib.config.CONFIG_DIR", tmp_path)
+        monkeypatch.delenv("KCTL_DOKPLOY_PROFILE", raising=False)
+
+        try:
+            resolve_active_profile_name(None, "KCTL_DOKPLOY")
+        except ValueError as exc:
+            assert "--profile" in str(exc)
+            assert "KCTL_DOKPLOY_PROFILE" in str(exc)
+        else:
+            raise AssertionError("Expected ValueError")
+
+    def test_env_var_still_works(self, tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+        from kctl_lib.config import resolve_active_profile_name
+
+        monkeypatch.setenv("KCTL_DOKPLOY_PROFILE", "idtpp")
+        assert resolve_active_profile_name(None, "KCTL_DOKPLOY") == "idtpp"
+
+    def test_explicit_flag_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from kctl_lib.config import resolve_active_profile_name
+
+        monkeypatch.setenv("KCTL_DOKPLOY_PROFILE", "abcfood")
+        assert resolve_active_profile_name("kodemeio", "KCTL_DOKPLOY") == "kodemeio"

@@ -179,13 +179,21 @@ def remove_profile(name: str) -> None:
 
 
 def resolve_active_profile_name(profile_name: str | None, env_prefix: str) -> str:
-    """Resolve active profile: explicit > env > default."""
+    """Resolve active profile: explicit flag > env var. No silent default.
+
+    Raises:
+        ValueError: when neither source is set. The message lists available
+            profiles and the env-var name the caller should export.
+    """
     if profile_name:
         return profile_name
     env_var = f"{env_prefix}_PROFILE"
     if env := os.environ.get(env_var):
         return env
-    return get_default_profile()
+
+    available = get_profile_names()
+    listing = ", ".join(sorted(available)) if available else "(none configured)"
+    raise ValueError(f"No profile specified. Pass --profile/-p or export {env_var}.\nAvailable profiles: {listing}")
 
 
 def resolve_inheritance_chain(profile_name: str) -> list[str]:
