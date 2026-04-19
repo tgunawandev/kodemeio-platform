@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 
-from kctl_lib.output import Output
+from kctl_lib.output import Output, profile_banner
 
 
 @dataclass
@@ -23,6 +24,7 @@ class AppContextBase:
     format: str = "pretty"
     no_header: bool = False
     _output: Output | None = field(default=None, repr=False)
+    _banner_emitted: bool = field(default=False, repr=False)
 
     @property
     def output(self) -> Output:
@@ -35,3 +37,27 @@ class AppContextBase:
                 no_header=self.no_header,
             )
         return self._output
+
+    def emit_banner(
+        self,
+        app: str,
+        inheritance_chain: list[str],
+        service_summary: str | None,
+    ) -> None:
+        """Emit the profile banner to stderr, exactly once.
+
+        Suppressed in `--quiet` and `--json` modes. JSON callers should embed
+        `_profile` in their stdout JSON body instead.
+        """
+        if self._banner_emitted or self.quiet or self.json_mode:
+            return
+        if not self.profile:
+            return
+        text = profile_banner(
+            app=app,
+            profile=self.profile,
+            inheritance_chain=inheritance_chain,
+            service_summary=service_summary,
+        )
+        sys.stderr.write(text)
+        self._banner_emitted = True

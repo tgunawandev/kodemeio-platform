@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import io
+import sys
 from pathlib import Path
+
+import pytest
 
 from kctl_lib.callbacks import AppContextBase
 from kctl_lib.output import Output
@@ -61,3 +65,68 @@ class TestMockOutput:
         profiles = {"default": {"next": {"project_root": "/test"}}}
         path = temp_config(profiles, base_dir=tmp_path)
         assert path.exists()
+
+
+class TestBannerEmission:
+    def test_emit_banner_writes_to_stderr(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from kctl_lib.callbacks import AppContextBase
+
+        buf = io.StringIO()
+        monkeypatch.setattr(sys, "stderr", buf)
+
+        ctx = AppContextBase(profile="idtpp")
+        ctx.emit_banner(
+            app="kctl-dokploy",
+            inheritance_chain=["idtpp"],
+            service_summary="https://dokploy.idtpp.com",
+        )
+
+        out = buf.getvalue()
+        assert "kctl-dokploy" in out
+        assert "idtpp" in out
+
+    def test_quiet_suppresses_banner(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from kctl_lib.callbacks import AppContextBase
+
+        buf = io.StringIO()
+        monkeypatch.setattr(sys, "stderr", buf)
+
+        ctx = AppContextBase(profile="idtpp", quiet=True)
+        ctx.emit_banner(
+            app="kctl-dokploy",
+            inheritance_chain=["idtpp"],
+            service_summary=None,
+        )
+
+        assert buf.getvalue() == ""
+
+    def test_json_mode_suppresses_stderr_banner(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from kctl_lib.callbacks import AppContextBase
+
+        buf = io.StringIO()
+        monkeypatch.setattr(sys, "stderr", buf)
+
+        ctx = AppContextBase(profile="idtpp", json_mode=True)
+        ctx.emit_banner(
+            app="kctl-dokploy",
+            inheritance_chain=["idtpp"],
+            service_summary=None,
+        )
+
+        # In JSON mode the banner should not go to stderr; consumers
+        # embed `_profile` in the stdout JSON body instead.
+        assert buf.getvalue() == ""
+
+    def test_emit_once_even_if_called_twice(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from kctl_lib.callbacks import AppContextBase
+
+        buf = io.StringIO()
+        monkeypatch.setattr(sys, "stderr", buf)
+
+        ctx = AppContextBase(profile="idtpp")
+        ctx.emit_banner(app="kctl-x", inheritance_chain=["idtpp"], service_summary=None)
+        first = buf.getvalue()
+        ctx.emit_banner(app="kctl-x", inheritance_chain=["idtpp"], service_summary=None)
+        second = buf.getvalue()
+
+        assert first == second  # second call was a no-op
