@@ -22,11 +22,9 @@ domain:
   cloudflare_proxied: false   # Plausible WS / LiveView — keep direct
 
 dns:
-  provider: cloudflare
   zone: kodeme.io
-  record: plausible
+  name: plausible
   type: A
-  target: 49.13.116.191
-  proxied: false
+  # content auto-resolved from server IP via Gate 1 validation
 
 env_file: ../../env/production/.env.kod-infra-plausible
