@@ -15,6 +15,7 @@ def _env(monkeypatch: pytest.MonkeyPatch, tmp_path: object) -> None:
     monkeypatch.setenv("KCTL_DBGATE_URL", BASE)
     monkeypatch.setenv("KCTL_DBGATE_LOGIN", "admin")
     monkeypatch.setenv("KCTL_DBGATE_PASSWORD", "hunter2")
+    monkeypatch.setenv("KCTL_DBGATE_PROFILE", "default")
     # Force an empty config so profile resolution uses env vars.
     monkeypatch.setattr(
         "kctl_dbgate.core.config.get_service_config",

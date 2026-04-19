@@ -14,13 +14,6 @@ from kctl_dbgate.cli import app
 BASE = "https://dbgate.example.com"
 
 
-@pytest.fixture(autouse=True)
-def _env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("KCTL_DBGATE_URL", BASE)
-    monkeypatch.setenv("KCTL_DBGATE_LOGIN", "admin")
-    monkeypatch.setenv("KCTL_DBGATE_PASSWORD", "hunter2")
-
-
 def _mock_login(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(method="POST", url=f"{BASE}/auth/login", json={"accessToken": "tok"})
 
