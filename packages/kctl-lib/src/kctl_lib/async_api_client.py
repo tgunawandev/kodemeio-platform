@@ -223,10 +223,13 @@ class AsyncAPIClient:
         import json as _json
         from urllib.parse import quote
 
+        import httpx as _httpx
+
         input_encoded = quote(_json.dumps(payload), safe="")
         url = f"{endpoint.lstrip('/')}?input={input_encoded}"
 
-        async with self._client.stream("GET", url) as resp:
+        stream_timeout = _httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0)
+        async with self._client.stream("GET", url, timeout=stream_timeout) as resp:
             if resp.status_code >= 400:
                 body = await resp.aread()
                 detail = body.decode(errors="replace")[:500]
