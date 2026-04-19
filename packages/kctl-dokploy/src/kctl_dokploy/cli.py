@@ -106,6 +106,24 @@ def main(
         api_key_override=api_key,
     )
 
+    # Emit the profile banner once per invocation (no-op when profile is None,
+    # quiet, or json mode — emit_banner handles those guards internally).
+    if profile:
+        from kctl_lib.config import get_service_config, resolve_inheritance_chain
+
+        chain = resolve_inheritance_chain(profile)
+        summary: str | None = None
+        try:
+            dokploy_cfg = get_service_config(profile, "dokploy")
+            summary = dokploy_cfg.get("url") if dokploy_cfg else None
+        except Exception:
+            summary = None
+        ctx.obj.emit_banner(
+            app="kctl-dokploy",
+            inheritance_chain=chain,
+            service_summary=summary,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Top-level command groups (platform-wide resources)
