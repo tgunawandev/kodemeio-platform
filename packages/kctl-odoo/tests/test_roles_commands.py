@@ -228,4 +228,4 @@ def test_roles_audit_strict_exits_nonzero_on_findings(mock_get_client, tmp_path)
         roles_app,
         ["audit", "--file", str(yaml_file), "--ignored-file", str(ignored_file), "--strict"],
     )
-    assert result.exit_code != 0
+    assert result.exit_code == 1
