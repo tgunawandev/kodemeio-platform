@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import typer
 
+from kctl_lib.cli.commands.list_cmd import list_profiles
+
 app = typer.Typer(
     name="kctl-profiles",
     help="Inspect and manage kctl-* profiles in ~/.config/kodemeio/config.yaml.",
@@ -14,6 +16,9 @@ app = typer.Typer(
 @app.callback()
 def main() -> None:
     """Inspect and manage kctl-* profiles in ~/.config/kodemeio/config.yaml."""
+
+
+app.command("list")(list_profiles)
 
 
 if __name__ == "__main__":
