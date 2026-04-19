@@ -9,6 +9,7 @@ from kctl_lib import KctlError, handle_cli_error
 
 from kctl_gsc import __version__
 from kctl_gsc.commands.config_cmd import app as config_app
+from kctl_gsc.commands.export_cmd import app as export_app
 from kctl_gsc.commands.inspect import app as inspect_app
 from kctl_gsc.commands.pages import app as pages_app
 from kctl_gsc.commands.properties import app as properties_app
@@ -37,6 +38,7 @@ app.add_typer(pages_app, name="pages", rich_help_panel="Browse")
 app.add_typer(sitemaps_app, name="sitemaps", rich_help_panel="Indexing")
 app.add_typer(inspect_app, name="inspect", rich_help_panel="Indexing")
 app.add_typer(reports_app, name="reports", rich_help_panel="Reports")
+app.add_typer(export_app, name="export", rich_help_panel="Export")
 app.add_typer(config_app, name="config", rich_help_panel="Admin")
 
 
