@@ -311,23 +311,26 @@ def _resolve_roles_file(profile_name: str | None, file_override: Path | None) ->
 def sync_cmd(
     ctx: typer.Context,
     file: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             "--file",
             "-f",
-            help="Path to roles.yaml (default: install/roles.yaml relative to cwd)",
+            help="Path to roles YAML. Auto-detected from profile suffix -odoo-erp or -odoo-hrms if omitted.",
         ),
-    ] = Path("install/roles.yaml"),
+    ] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show plan without applying")] = False,
     prune: Annotated[bool, typer.Option("--prune", help="Also delete DB roles missing from YAML")] = False,
     strict: Annotated[bool, typer.Option("--strict", help="Fail if any xml_id is missing")] = False,
 ) -> None:
-    """Apply install/roles.yaml to the DB idempotently."""
-    if not file.exists():
-        console.print(f"[red]File not found: {file}[/red]")
+    """Apply install/roles-<type>.yaml to the DB idempotently."""
+    app_ctx: AppContext | None = ctx.obj
+    profile_name = app_ctx.profile if app_ctx is not None else None
+    resolved_file = _resolve_roles_file(profile_name, file)
+    if not resolved_file.exists():
+        console.print(f"[red]File not found: {resolved_file}[/red]")
         raise typer.Exit(1)
 
-    rf = load_roles_file(file)
+    rf = load_roles_file(resolved_file)
     all_xmlids: list[str] = []
     for role_id in rf.roles:
         all_xmlids.extend(resolve_role_groups(rf, role_id))
@@ -364,16 +367,19 @@ def sync_cmd(
 def diff_cmd(
     ctx: typer.Context,
     file: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             "--file",
             "-f",
-            help="Path to roles.yaml (default: install/roles.yaml relative to cwd)",
+            help="Path to roles YAML. Auto-detected from profile suffix -odoo-erp or -odoo-hrms if omitted.",
         ),
-    ] = Path("install/roles.yaml"),
+    ] = None,
 ) -> None:
     """Compare live DB roles vs. YAML (drift detection)."""
-    rf = load_roles_file(file)
+    app_ctx: AppContext | None = ctx.obj
+    profile_name = app_ctx.profile if app_ctx is not None else None
+    resolved_file = _resolve_roles_file(profile_name, file)
+    rf = load_roles_file(resolved_file)
     all_xmlids: list[str] = []
     for role_id in rf.roles:
         all_xmlids.extend(resolve_role_groups(rf, role_id))
@@ -394,13 +400,13 @@ def diff_cmd(
 def audit_cmd(
     ctx: typer.Context,
     file: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             "--file",
             "-f",
-            help="Path to roles.yaml (default: install/roles.yaml relative to cwd)",
+            help="Path to roles YAML. Auto-detected from profile suffix -odoo-erp or -odoo-hrms if omitted.",
         ),
-    ] = Path("install/roles.yaml"),
+    ] = None,
     ignored_file: Annotated[
         Path,
         typer.Option(
@@ -418,7 +424,10 @@ def audit_cmd(
     ] = False,
 ) -> None:
     """Report orphan groups, dead xml_id references, and drift."""
-    rf = load_roles_file(file)
+    app_ctx: AppContext | None = ctx.obj
+    profile_name = app_ctx.profile if app_ctx is not None else None
+    resolved_file = _resolve_roles_file(profile_name, file)
+    rf = load_roles_file(resolved_file)
     ignored = load_ignored_file(ignored_file)
 
     all_xmlids: list[str] = []

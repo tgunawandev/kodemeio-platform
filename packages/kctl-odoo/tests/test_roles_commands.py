@@ -397,3 +397,70 @@ def test_resolve_roles_file_explicit_override_wins():
 def test_resolve_roles_file_staging_suffix_is_unknown():
     with pytest.raises(typer.BadParameter):
         _resolve_roles_file("idtpp-tpp-odoo-hrms-stg", None)
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_sync_auto_detects_erp_file_from_profile(mock_get_client, tmp_path, monkeypatch):
+    # Given an ERP profile and install/roles-erp.yaml in cwd.
+    install_dir = tmp_path / "install"
+    install_dir.mkdir()
+    erp_yaml = install_dir / "roles-erp.yaml"
+    erp_yaml.write_text("version: 1\nroles:\n  x_role:\n    name: X Role\n    groups: [base.group_user]\n")
+    monkeypatch.chdir(tmp_path)
+
+    client = MagicMock()
+    client.search_read.side_effect = [
+        [],  # existing roles
+        [{"id": 1, "model": "res.groups", "module": "base", "name": "group_user", "res_id": 1}],  # xmlid resolve
+    ]
+    client.create.return_value = 999
+    mock_get_client.return_value = client
+
+    # Simulate ctx.obj with profile="idtpp-mac-odoo-erp"
+    app_ctx = MagicMock()
+    app_ctx.profile = "idtpp-mac-odoo-erp"
+    app_ctx.client = client
+
+    result = runner.invoke(roles_app, ["sync"], obj=app_ctx)
+    assert result.exit_code == 0, result.output
+    # Verify the ERP YAML was loaded by checking the created role name appears
+    assert "X Role" in result.stdout or "x_role" in result.stdout.lower()
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_sync_auto_detects_hrms_file_from_profile(mock_get_client, tmp_path, monkeypatch):
+    install_dir = tmp_path / "install"
+    install_dir.mkdir()
+    hrms_yaml = install_dir / "roles-hrms.yaml"
+    hrms_yaml.write_text("version: 1\nroles:\n  hr_role:\n    name: HR Role\n    groups: [base.group_user]\n")
+    monkeypatch.chdir(tmp_path)
+
+    client = MagicMock()
+    client.search_read.side_effect = [
+        [],
+        [{"id": 1, "model": "res.groups", "module": "base", "name": "group_user", "res_id": 1}],
+    ]
+    client.create.return_value = 999
+    mock_get_client.return_value = client
+
+    app_ctx = MagicMock()
+    app_ctx.profile = "idtpp-mac-odoo-hrms"
+    app_ctx.client = client
+
+    result = runner.invoke(roles_app, ["sync"], obj=app_ctx)
+    assert result.exit_code == 0, result.output
+    assert "HR Role" in result.stdout or "hr_role" in result.stdout.lower()
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_sync_errors_on_unknown_profile_without_file(mock_get_client):
+    client = MagicMock()
+    mock_get_client.return_value = client
+    app_ctx = MagicMock()
+    app_ctx.profile = "idtpp-mac-odoo-full"
+    app_ctx.client = client
+
+    result = runner.invoke(roles_app, ["sync"], obj=app_ctx)
+    assert result.exit_code != 0
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "Cannot auto-detect" in combined or "cannot auto-detect" in combined.lower()
