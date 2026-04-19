@@ -52,3 +52,84 @@ def test_roles_show_errors_on_unknown_role(mock_get_client):
     assert result.exit_code != 0
     combined = (result.stdout or "") + (result.stderr or "")
     assert "not found" in combined.lower()
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_sync_dry_run_prints_plan_no_writes(mock_get_client, tmp_path):
+    yaml_file = tmp_path / "roles.yaml"
+    yaml_file.write_text(
+        "version: 1\nroles:\n  sales_user:\n    name: Sales User\n    groups: [sales_team.group_sale_salesman]\n"
+    )
+
+    client = MagicMock()
+    client.execute.side_effect = [
+        [],
+        [{"id": 1, "model": "res.groups", "module": "sales_team", "name": "group_sale_salesman", "res_id": 42}],
+    ]
+    mock_get_client.return_value = client
+
+    result = runner.invoke(roles_app, ["sync", "--file", str(yaml_file), "--dry-run"])
+    assert result.exit_code == 0
+    assert "create" in result.stdout.lower()
+    assert "sales user" in result.stdout.lower() or "sales_user" in result.stdout.lower()
+    write_methods_called = [
+        call.args[1]
+        for call in client.execute.call_args_list
+        if len(call.args) >= 2 and call.args[1] in ("create", "write", "unlink")
+    ]
+    assert write_methods_called == []
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_sync_applies_create(mock_get_client, tmp_path):
+    yaml_file = tmp_path / "roles.yaml"
+    yaml_file.write_text(
+        "version: 1\nroles:\n  sales_user:\n    name: Sales User\n    groups: [sales_team.group_sale_salesman]\n"
+    )
+
+    client = MagicMock()
+    client.execute.side_effect = [
+        [],
+        [{"id": 1, "model": "res.groups", "module": "sales_team", "name": "group_sale_salesman", "res_id": 42}],
+        999,
+    ]
+    mock_get_client.return_value = client
+
+    result = runner.invoke(roles_app, ["sync", "--file", str(yaml_file)])
+    assert result.exit_code == 0
+    create_calls = [
+        call
+        for call in client.execute.call_args_list
+        if len(call.args) >= 2 and call.args[0] == "res.users.role" and call.args[1] == "create"
+    ]
+    assert len(create_calls) == 1
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_sync_warns_on_missing_xmlids(mock_get_client, tmp_path):
+    yaml_file = tmp_path / "roles.yaml"
+    yaml_file.write_text(
+        "version: 1\n"
+        "roles:\n"
+        "  director_owner:\n"
+        "    name: Director / Owner\n"
+        "    groups:\n"
+        "      - base.group_user\n"
+        "      - point_of_sale.group_pos_manager\n"
+    )
+
+    client = MagicMock()
+    client.execute.side_effect = [
+        [],
+        [{"id": 1, "model": "res.groups", "module": "base", "name": "group_user", "res_id": 1}],
+    ]
+    mock_get_client.return_value = client
+
+    result = runner.invoke(roles_app, ["sync", "--file", str(yaml_file), "--dry-run"])
+    assert result.exit_code == 0
+    assert "point_of_sale.group_pos_manager" in result.stdout
+    assert (
+        "skipped" in result.stdout.lower()
+        or "missing" in result.stdout.lower()
+        or "not installed" in result.stdout.lower()
+    )
