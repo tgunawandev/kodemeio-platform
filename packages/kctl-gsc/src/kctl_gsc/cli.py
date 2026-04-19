@@ -9,6 +9,7 @@ from kctl_lib import KctlError, handle_cli_error
 
 from kctl_gsc import __version__
 from kctl_gsc.commands.config_cmd import app as config_app
+from kctl_gsc.commands.properties import app as properties_app
 
 
 def version_callback(value: bool) -> None:
@@ -25,6 +26,7 @@ app = typer.Typer(
     pretty_exceptions_enable=False,
 )
 
+app.add_typer(properties_app, name="properties", rich_help_panel="Browse")
 app.add_typer(config_app, name="config", rich_help_panel="Admin")
 
 
