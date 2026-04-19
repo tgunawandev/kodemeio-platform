@@ -150,9 +150,22 @@ Each tenant can define production + staging environments. The deployer targets t
 | production | main / 18.0 | (none) | (none) | false (manual) |
 | staging | main / 18.0 | stg- | stg_ | true (on push) |
 
-Server mapping:
-- **mac**: `mac-prod-01` / `mac-stg-01` (dedicated)
-- **kod, tpp, tkz, pro, tgw, kid**: `kod-prod-01` / `kod-prod-02` (shared)
+Server mapping (Hetzner):
+- **idtpp account** (`trigunawan.note@gmail.com`, nbg1-dc3, private net `10.0.0.0/24`):
+  - `tpp-prod-01` (`178.104.127.104` / `10.0.0.2`) — shared postgres, authentik, mailcow
+  - `tpp-prod-02` (`46.224.93.123` / `10.0.0.3`) — **MAC production** (compose-embedded postgres)
+  - `tpp-prod-03` (`46.225.215.106` / `10.0.0.4`)
+  - `tpp-prod-04` (`178.104.169.250` / `10.0.0.6`) — mattermost
+  - `tpp-prod-05` (`178.104.171.122` / `10.0.0.5`)
+  - Hosts both `tpp` and `mac` tenants.
+- **kodemeio account** (`tri.gunawan@live.com`, fsn1-dc14, private net `10.0.0.0/24`):
+  - `kod-prod-01` (`49.13.116.191` / `10.0.0.2`)
+  - `kod-prod-02` (`49.13.14.79` / `10.0.0.3`)
+  - Hosts `kod`, `tkz`, `pro`, `tgw`, `kid` tenants.
+
+> Historical note: a separate MAC-only Hetzner account once ran `mac-prod-01` at
+> `91.98.80.207` (fsn1-dc14). It was merged into the `idtpp` account; MAC now
+> runs on `tpp-prod-02`.
 
 ### Deploy Commands
 
@@ -181,7 +194,7 @@ kctl-dokploy deploy post -f <manifest>    # Stage 3: Backup + Schedules + Post-d
 # Preflight checks (pre-deploy validation)
 kctl-dokploy deploy preflight -f <manifest>                   # Single manifest
 kctl-dokploy deploy preflight-all -d deploys/instances/production/  # All production
-kctl-dokploy deploy preflight-all -d deploys/instances/production/ --server mac-prod-01  # Filter by server
+kctl-dokploy deploy preflight-all -d deploys/instances/production/ --server tpp-prod-02  # Filter by server
 
 # Preflight with specific gates
 kctl-dokploy deploy preflight -f <manifest> --gates dns,database,env_sync
