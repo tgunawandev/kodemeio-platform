@@ -15,6 +15,19 @@ from kctl_claw.core.gateway_client import GatewayClient
 from kctl_lib.output import Output
 
 
+@pytest.fixture(autouse=True)
+def _set_claw_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Set KCTL_CLAW_PROFILE for every test.
+
+    After kctl-lib Stage B removed the silent default_profile fallback,
+    resolve_active_profile_name raises ValueError when neither --profile
+    nor KCTL_CLAW_PROFILE is set.  CliRunner invocations don't pass
+    --profile, so we provide a default here once rather than amending
+    every invoke call.
+    """
+    monkeypatch.setenv("KCTL_CLAW_PROFILE", "default")
+
+
 @pytest.fixture
 def runner() -> CliRunner:
     """Typer CLI test runner."""
