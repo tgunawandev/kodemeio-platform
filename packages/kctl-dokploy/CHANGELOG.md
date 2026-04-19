@@ -2,6 +2,23 @@
 
 All notable changes to kctl-dokploy.
 
+## [0.4.2] — 2026-04-19
+
+### Fixed
+- `backups pull` (and `backups run-wait`) now discover backups under the
+  NEW hierarchical S3 layout used by current Dokploy versions. Previous
+  Dokploy releases wrote objects under a flat
+  `<backup.prefix>-<timestamp>.<ext>` layout; recent Dokploy versions now
+  write them under `<compose.appName>_<serviceName>/<backup.prefix>/<timestamp>.<ext>`
+  (falling back to `<compose.appName>/<backup.prefix>/<timestamp>.<ext>`
+  when no `serviceName` is set on the backup config). The pull helper was
+  only scanning `<backup.prefix>` and therefore picked stale files (or
+  timed out waiting for a fresh trigger) on upgraded instances. The
+  helper now scans all candidate prefixes and returns the globally-newest
+  object. Non-compose backup types (postgres/mysql/mariadb/mongo) retain
+  the single-prefix behavior. Matches are filtered by DB name as
+  defense-in-depth.
+
 ## [0.4.1] — 2026-04-19
 
 ### Added

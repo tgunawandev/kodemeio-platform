@@ -7,7 +7,7 @@ restoring INTO a Dokploy-managed compose on the same host. These commands are
 for the common dev-loop case of pulling a production dump onto a developer's
 workstation (a raw postgres, not Dokploy-managed).
 
-Shared helpers (`_fetch_destination`, `_build_s3_client`, `_list_s3_keys`,
+Shared helpers (`_fetch_destination`, `_build_s3_client`,
 `_get_compose_app_name`) live in ``backups_flow.py``.
 """
 
@@ -28,7 +28,7 @@ from kctl_dokploy.commands.backups_flow import (
     _build_s3_client,
     _die,
     _fetch_destination,
-    _list_s3_keys,
+    _get_compose_app_name,
 )
 from kctl_dokploy.core.callbacks import AppContext
 
@@ -43,6 +43,106 @@ def _fetch_backup(c: AppContext, backup_id: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         _die(c, f"Backup '{backup_id}' not found")
     return data  # type: ignore[return-value]
+
+
+def _get_search_prefixes(c: AppContext, backup: dict[str, Any]) -> list[str]:
+    """Return the list of candidate S3 prefixes to search for this backup config.
+
+    Dokploy's S3 path convention changed across versions:
+
+    * OLD (flat, legacy):
+      ``<backup.prefix>-<timestamp>.<ext>``  — e.g.
+      ``tpp-infra-postgres/tpp_odoo_erp-2026-04-18T04-09-13Z.dump``
+    * NEW (hierarchical, current Dokploy):
+      ``<compose.appName>_<serviceName>/<backup.prefix>/<timestamp>.<ext>`` — e.g.
+      ``compose-foo_postgres/tpp-infra-postgres/tpp_odoo_erp/2026-04-19T11-24-29Z.sql.gz``
+
+    When ``serviceName`` is absent we also try ``<appName>/`` as a looser
+    fallback. The prefix is used verbatim (no forced trailing slash): the
+    OLD layout concatenates ``<prefix>-<timestamp>`` with a ``-`` separator,
+    while the NEW layout puts the prefix inside a directory and appends a
+    bare ``<timestamp>.<ext>`` filename.
+
+    For compose backups we return BOTH new/old candidates, de-duplicated,
+    new-first. For non-compose backup types (postgres/mysql/mariadb/mongo)
+    there is no compose wrapping, so we return just the stored prefix.
+    """
+    raw_prefix = (backup.get("prefix") or "").strip("/")
+    old_prefix = raw_prefix
+
+    compose_id = backup.get("composeId")
+    if not compose_id or not isinstance(compose_id, str):
+        return [old_prefix] if old_prefix else []
+
+    app_name = _get_compose_app_name(c, compose_id).strip("/")
+    if not app_name:
+        return [old_prefix] if old_prefix else []
+
+    service_name = (backup.get("serviceName") or "").strip("/")
+    # Build the NEW hierarchical directory prefix. Prefer
+    # "<appName>_<serviceName>/" (matches observed Dokploy behavior);
+    # also try the bare "<appName>/" as a looser fallback.
+    new_dirs: list[str] = []
+    if service_name:
+        new_dirs.append(f"{app_name}_{service_name}")
+    new_dirs.append(app_name)
+
+    candidates: list[str] = []
+    for d in new_dirs:
+        candidates.append(f"{d}/{raw_prefix}/" if raw_prefix else f"{d}/")
+    candidates.append(old_prefix)
+
+    # De-dup while preserving order (new first — prefer hierarchical layout).
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in candidates:
+        if p and p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
+
+
+def _collect_s3_objects_under_prefixes(
+    s3: Any,
+    bucket: str,
+    prefixes: list[str],
+    contains: str = "",
+) -> list[tuple[str, datetime]]:
+    """Return ``(key, LastModified)`` tuples across all candidate prefixes.
+
+    Missing / empty prefixes are silently skipped. If ``contains`` is set,
+    only keys whose name contains that substring are included (defense-in-depth
+    filter for DB name).
+    """
+    rows: list[tuple[str, datetime]] = []
+    paginator = s3.get_paginator("list_objects_v2")
+    for prefix in prefixes:
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []) or []:
+                k = obj.get("Key")
+                lm = obj.get("LastModified")
+                if not isinstance(k, str) or lm is None:
+                    continue
+                if contains and contains not in k:
+                    continue
+                if lm.tzinfo is None:
+                    lm = lm.replace(tzinfo=UTC)
+                rows.append((k, lm))
+    return rows
+
+
+def _find_latest_s3_key(
+    s3: Any,
+    bucket: str,
+    prefixes: list[str],
+    contains: str = "",
+) -> str | None:
+    """Return the newest ``Key`` across all candidate prefixes, or ``None``."""
+    rows = _collect_s3_objects_under_prefixes(s3, bucket, prefixes, contains=contains)
+    if not rows:
+        return None
+    rows.sort(key=lambda r: r[1])
+    return rows[-1][0]
 
 
 def _run_backup_now(c: AppContext, existing: dict[str, Any], backup_id: str) -> None:
@@ -84,32 +184,24 @@ def _wait_for_new_object(
     c: AppContext,
     s3: Any,
     bucket: str,
-    prefix: str,
+    prefixes: list[str],
     after: datetime,
     timeout: int,
     poll_interval: int,
+    contains: str = "",
 ) -> str:
-    """Poll S3 until an object whose LastModified is strictly after `after` appears.
+    """Poll S3 until an object whose ``LastModified`` is strictly after ``after`` appears.
 
-    Returns the newest matching key. Exits 1 on timeout.
+    Scans all candidate prefixes (new hierarchical + old flat) and returns
+    the newest matching key found under ANY of them. Exits 1 on timeout.
     """
     deadline = time.time() + timeout
     attempt = 0
+    pretty_prefixes = ", ".join(repr(p) for p in prefixes) or "''"
     while time.time() < deadline:
         attempt += 1
-        candidates: list[tuple[str, datetime]] = []
-        paginator = s3.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-            for obj in page.get("Contents", []) or []:
-                k = obj.get("Key")
-                lm = obj.get("LastModified")
-                if not isinstance(k, str) or lm is None:
-                    continue
-                # Normalize tz — boto3 returns tz-aware datetimes; `after` is UTC.
-                if lm.tzinfo is None:
-                    lm = lm.replace(tzinfo=UTC)
-                if lm > after:
-                    candidates.append((k, lm))
+        all_rows = _collect_s3_objects_under_prefixes(s3, bucket, prefixes, contains=contains)
+        candidates = [(k, lm) for k, lm in all_rows if lm > after]
         if candidates:
             candidates.sort(key=lambda r: r[1])
             newest = candidates[-1][0]
@@ -117,11 +209,11 @@ def _wait_for_new_object(
             return newest
         remaining = max(0, int(deadline - time.time()))
         c.output.info(
-            f"  poll #{attempt}: no new files under {prefix!r} yet "
+            f"  poll #{attempt}: no new files under {pretty_prefixes} yet "
             f"(elapsed {attempt * poll_interval}s, {remaining}s remaining)"
         )
         time.sleep(poll_interval)
-    _die(c, f"Timed out after {timeout}s waiting for a new backup under prefix '{prefix}'")
+    _die(c, f"Timed out after {timeout}s waiting for a new backup under prefixes {pretty_prefixes}")
     return ""  # unreachable — _die raises
 
 
@@ -472,7 +564,6 @@ def pull(
     backup = _fetch_backup(c, backup_id)
     destination_id = backup.get("destinationId")
     source_db = backup.get("database", "-")
-    prefix = backup.get("prefix") or ""
     if not isinstance(destination_id, str) or not destination_id:
         _die(c, f"Backup '{backup_id}' has no destinationId")
     # mypy: destinationId is str now
@@ -482,19 +573,37 @@ def pull(
         _die(c, f"Destination '{destination_id}' has no bucket")
     s3 = _build_s3_client(dest)
 
-    c.output.info(f"Source backup: {backup_id} (db={source_db}, prefix={prefix!r})")
+    # Build candidate prefixes (new hierarchical first, old flat fallback).
+    prefixes = _get_search_prefixes(c, backup)
+    # Filter to only keys containing the DB name (defense-in-depth against a
+    # bucket that holds multiple DBs under the same compose appName).
+    db_contains = source_db if isinstance(source_db, str) and source_db and source_db != "-" else ""
+
+    c.output.info(f"Source backup: {backup_id} (db={source_db})")
+    c.output.info(f"Search prefixes: {prefixes}")
     c.output.info(f"S3 destination: {destination_id} (bucket={bucket})")
 
     # --- Decide which key to fetch ---------------------------------------
     if trigger:
         trigger_time = datetime.now(UTC)
         _run_backup_now(c, backup, backup_id)
-        key = _wait_for_new_object(c, s3, bucket, prefix, trigger_time, wait_timeout, poll_interval)
+        key = _wait_for_new_object(
+            c,
+            s3,
+            bucket,
+            prefixes,
+            trigger_time,
+            wait_timeout,
+            poll_interval,
+            contains=db_contains,
+        )
     else:
-        keys = _list_s3_keys(s3, bucket, prefix=prefix)
-        if not keys:
-            _die(c, f"No S3 objects found under prefix '{prefix}'. Run with --trigger to create one.")
-        key = keys[-1]
+        key = _find_latest_s3_key(s3, bucket, prefixes, contains=db_contains)
+        if not key:
+            _die(
+                c,
+                f"No S3 objects found under prefixes {prefixes}. Run with --trigger to create one.",
+            )
         c.output.info(f"Using latest existing S3 key: {key}")
 
     # --- Download --------------------------------------------------------
@@ -645,7 +754,7 @@ def run_wait(
     c: AppContext = ctx.obj
     backup = _fetch_backup(c, backup_id)
     destination_id = backup.get("destinationId")
-    prefix = backup.get("prefix") or ""
+    source_db = backup.get("database", "-")
     if not isinstance(destination_id, str) or not destination_id:
         _die(c, f"Backup '{backup_id}' has no destinationId")
     dest = _fetch_destination(c, str(destination_id))
@@ -654,9 +763,21 @@ def run_wait(
         _die(c, f"Destination '{destination_id}' has no bucket")
     s3 = _build_s3_client(dest)
 
+    prefixes = _get_search_prefixes(c, backup)
+    db_contains = source_db if isinstance(source_db, str) and source_db and source_db != "-" else ""
+
     trigger_time = datetime.now(UTC)
     _run_backup_now(c, backup, backup_id)
-    key = _wait_for_new_object(c, s3, bucket, prefix, trigger_time, timeout, poll_interval)
+    key = _wait_for_new_object(
+        c,
+        s3,
+        bucket,
+        prefixes,
+        trigger_time,
+        timeout,
+        poll_interval,
+        contains=db_contains,
+    )
     c.output.success(f"New backup available: s3://{bucket}/{key}")
     if c.json_mode:
         c.output.raw_json({"backupId": backup_id, "bucket": bucket, "key": key})
