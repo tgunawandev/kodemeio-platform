@@ -8,6 +8,7 @@ from kctl_lib.cli.commands.current import current_profile
 from kctl_lib.cli.commands.list_cmd import list_profiles
 from kctl_lib.cli.commands.migrate import migrate
 from kctl_lib.cli.commands.show import show_profile
+from kctl_lib.cli.commands.validate import validate
 
 app = typer.Typer(
     name="kctl-profiles",
@@ -25,6 +26,7 @@ app.command("list")(list_profiles)
 app.command("show")(show_profile)
 app.command("current")(current_profile)
 app.command("migrate")(migrate)
+app.command("validate")(validate)
 
 
 if __name__ == "__main__":
