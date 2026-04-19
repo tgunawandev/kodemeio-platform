@@ -51,6 +51,8 @@ def test_provision_onboard_dry_run(runner: CliRunner, provision_config_file: Pat
         result = runner.invoke(
             app,
             [
+                "--profile",
+                "default",
                 "--token",
                 "test",
                 "--url",
@@ -82,6 +84,8 @@ def test_provision_offboard_dry_run(runner: CliRunner, provision_config_file: Pa
         result = runner.invoke(
             app,
             [
+                "--profile",
+                "default",
                 "--token",
                 "test",
                 "--url",

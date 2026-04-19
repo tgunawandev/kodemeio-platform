@@ -21,6 +21,7 @@ class TestResolveActiveProfile:
 
 class TestResolveConnection:
     def test_cli_flags_override_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("KCTL_MAILCOW_PROFILE", "default")  # Stage B: explicit profile required
         monkeypatch.setenv("KCTL_MAILCOW_URL", "https://env.example.com")
         monkeypatch.setenv("KCTL_MAILCOW_API_KEY", "env-key")
         url, key = resolve_connection(
@@ -31,6 +32,7 @@ class TestResolveConnection:
         assert key == "flag-key"
 
     def test_env_vars_used(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("KCTL_MAILCOW_PROFILE", "default")  # Stage B: explicit profile required
         monkeypatch.setenv("KCTL_MAILCOW_URL", "https://env.example.com")
         monkeypatch.setenv("KCTL_MAILCOW_API_KEY", "env-key")
         url, key = resolve_connection()

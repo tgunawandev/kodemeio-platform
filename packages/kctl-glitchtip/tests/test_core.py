@@ -261,6 +261,7 @@ class TestResolveConnection:
         with patch.dict(
             os.environ,
             {
+                "KCTL_GLITCHTIP_PROFILE": "default",  # Stage B: explicit profile required
                 "KCTL_GLITCHTIP_URL": "https://env.example.com",
                 "KCTL_GLITCHTIP_TOKEN": "env-token",
             },
@@ -276,6 +277,7 @@ class TestResolveConnection:
         with patch.dict(
             os.environ,
             {
+                "KCTL_GLITCHTIP_PROFILE": "default",  # Stage B: explicit profile required
                 "GLITCHTIP_API_URL": "https://gt-env.example.com",
                 "GLITCHTIP_API_TOKEN": "gt-env-token",
                 "KCTL_GLITCHTIP_URL": "https://kctl-env.example.com",
@@ -294,9 +296,10 @@ class TestResolveConnection:
         # Ensure KCTL vars are not set
         clean = {k: v for k, v in os.environ.items() if not k.startswith("KCTL_GLITCHTIP")}
         clean.update(env)
-        # Also strip KCTL vars explicitly
+        # Also strip KCTL URL/TOKEN vars explicitly but keep PROFILE for Stage B
         for key in ("KCTL_GLITCHTIP_URL", "KCTL_GLITCHTIP_TOKEN"):
             clean.pop(key, None)
+        clean["KCTL_GLITCHTIP_PROFILE"] = "default"  # Stage B: explicit profile required
 
         with patch.dict(os.environ, clean, clear=True):
             url, token = resolve_connection()
@@ -304,18 +307,21 @@ class TestResolveConnection:
         assert token == "gt-env-token"
 
     def test_returns_empty_strings_when_no_config(self) -> None:
+        # Stage B: kctl-lib no longer silently falls back to default_profile.
+        # When no profile is specified (no CLI flag, no KCTL_GLITCHTIP_PROFILE env var),
+        # resolve_connection raises ValueError instead of returning empty strings.
         clean_env = {k: v for k, v in os.environ.items() if not k.startswith(("KCTL_GLITCHTIP", "GLITCHTIP"))}
-        with patch("kctl_glitchtip.core.config.get_service_config") as mock_svc:
-            mock_svc.return_value = ServiceConfig()
-            with patch.dict(os.environ, clean_env, clear=True):
-                url, token = resolve_connection()
-        assert url == ""
-        assert token == ""
+        with patch.dict(os.environ, clean_env, clear=True):
+            with pytest.raises(ValueError, match="No profile specified"):
+                resolve_connection()
 
     def test_cli_override_takes_precedence_over_env_vars(self) -> None:
         with patch.dict(
             os.environ,
-            {"GLITCHTIP_API_URL": "https://env.example.com"},
+            {
+                "KCTL_GLITCHTIP_PROFILE": "default",  # Stage B: explicit profile required
+                "GLITCHTIP_API_URL": "https://env.example.com",
+            },
         ):
             url, _token = resolve_connection(url_override="https://override.example.com")
         assert url == "https://override.example.com"

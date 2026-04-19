@@ -119,7 +119,7 @@ class TestHealth:
     def test_health_check_ok(self, mock_client: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
         self._setup_healthy_client(mock_client)
         actx = _make_actx(json_mode=True, client=mock_client)
-        actx.profile = None
+        actx.profile = "default"  # Stage B: explicit profile required
         ctx = _make_ctx(actx)
 
         from kctl_cf.commands.health import check
@@ -137,7 +137,7 @@ class TestHealth:
         mock_client.account_id = ""
         mock_client.get.return_value = []
         actx = _make_actx(json_mode=True, client=mock_client)
-        actx.profile = None
+        actx.profile = "default"  # Stage B: explicit profile required
         ctx = _make_ctx(actx)
 
         from kctl_cf.commands.health import check

@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from kctl_lib.config import ConfigFile, expand_env, is_service_scoped
 
 from kctl_hz.core.config import (
@@ -83,11 +85,12 @@ class TestResolveActiveProfileName:
             assert resolve_active_profile_name(None) == "production"
 
     def test_default_profile(self) -> None:
-        with (
-            patch.dict(os.environ, {}, clear=True),
-            patch("kctl_lib.config.get_default_profile", return_value="my-default"),
-        ):
-            assert resolve_active_profile_name(None) == "my-default"
+        # Stage B: kctl-lib no longer silently falls back to default_profile.
+        # When no profile is specified (no CLI flag, no KCTL_HZ_PROFILE env var),
+        # resolve_active_profile_name raises ValueError instead of returning the default.
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="No profile specified"):
+                resolve_active_profile_name(None)
 
 
 class TestResolveConnection:
@@ -95,7 +98,9 @@ class TestResolveConnection:
 
     def test_env_override(self) -> None:
         with (
-            patch.dict(os.environ, {"HCLOUD_TOKEN": "env-cloud", "HETZNER_DNS_TOKEN": "env-dns"}),
+            patch.dict(
+                os.environ, {"KCTL_HZ_PROFILE": "default", "HCLOUD_TOKEN": "env-cloud", "HETZNER_DNS_TOKEN": "env-dns"}
+            ),  # Stage B: explicit profile required
             patch("kctl_hz.core.config.get_service_config", return_value=ServiceConfig()),
         ):
             token, dns = resolve_connection()
@@ -104,7 +109,9 @@ class TestResolveConnection:
 
     def test_cli_override_wins(self) -> None:
         with (
-            patch.dict(os.environ, {"HCLOUD_TOKEN": "env-cloud"}),
+            patch.dict(
+                os.environ, {"KCTL_HZ_PROFILE": "default", "HCLOUD_TOKEN": "env-cloud"}
+            ),  # Stage B: explicit profile required
             patch("kctl_hz.core.config.get_service_config", return_value=ServiceConfig()),
         ):
             token, dns = resolve_connection(token_override="cli-token", dns_token_override="cli-dns")
@@ -113,7 +120,10 @@ class TestResolveConnection:
 
     def test_kctl_env_override(self) -> None:
         with (
-            patch.dict(os.environ, {"KCTL_HZ_TOKEN": "kctl-cloud", "KCTL_HZ_DNS_TOKEN": "kctl-dns"}),
+            patch.dict(
+                os.environ,
+                {"KCTL_HZ_PROFILE": "default", "KCTL_HZ_TOKEN": "kctl-cloud", "KCTL_HZ_DNS_TOKEN": "kctl-dns"},
+            ),  # Stage B: explicit profile required
             patch("kctl_hz.core.config.get_service_config", return_value=ServiceConfig()),
         ):
             token, dns = resolve_connection()

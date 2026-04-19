@@ -145,7 +145,7 @@ class TestConfigSetCommand:
 
         set_service_config("default", ServiceConfig(url="https://old.io", api_key="key123"))
         ctx = make_context()
-        result = runner.invoke(app, ["config", "set", "url", "https://new.io"], obj=ctx)
+        result = runner.invoke(app, ["--profile", "default", "config", "set", "url", "https://new.io"], obj=ctx)
         assert result.exit_code == 0
 
     def test_set_default_profile(self, runner: CliRunner, isolated_config: Path) -> None:
@@ -172,7 +172,7 @@ class TestConfigSetCommand:
         ctx = make_context()
         result = runner.invoke(
             app,
-            ["config", "set", "api_key", "newkey_abcd_efgh_1234"],
+            ["--profile", "default", "config", "set", "api_key", "newkey_abcd_efgh_1234"],
             obj=ctx,
         )
         assert result.exit_code == 0
@@ -192,7 +192,7 @@ class TestConfigProfilesCommand:
         set_service_config("prod", ServiceConfig(url="", api_key=""))
         ctx = make_context()
         with patch("kctl_telegram.commands.config_cmd._test_connection", return_value=(False, "no url")):
-            result = runner.invoke(app, ["config", "profiles"], obj=ctx)
+            result = runner.invoke(app, ["--profile", "default", "config", "profiles"], obj=ctx)
         assert result.exit_code == 0
 
 

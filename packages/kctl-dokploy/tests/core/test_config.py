@@ -105,6 +105,7 @@ class TestResolveConnection:
         tmp_config.write_text(
             yaml.dump({"profiles": {"default": {"dokploy": {"url": "https://config.io", "api_key": "cfg"}}}})
         )
+        monkeypatch.setenv("KCTL_DOKPLOY_PROFILE", "default")  # Stage B: explicit profile required
         monkeypatch.setenv("KCTL_DOKPLOY_URL", "https://env.io")
         url, key = resolve_connection(url_override="https://cli.io", api_key_override="cli-key")
         assert url == "https://cli.io"
@@ -114,6 +115,7 @@ class TestResolveConnection:
         tmp_config.write_text(
             yaml.dump({"profiles": {"default": {"dokploy": {"url": "https://config.io", "api_key": "cfg"}}}})
         )
+        monkeypatch.setenv("KCTL_DOKPLOY_PROFILE", "default")  # Stage B: explicit profile required
         monkeypatch.setenv("KCTL_DOKPLOY_URL", "https://env.io")
         monkeypatch.setenv("KCTL_DOKPLOY_API_KEY", "env-key")
         url, key = resolve_connection()
@@ -126,6 +128,7 @@ class TestResolveConnection:
         # Clear KCTL vars
         monkeypatch.delenv("KCTL_DOKPLOY_URL", raising=False)
         monkeypatch.delenv("KCTL_DOKPLOY_API_KEY", raising=False)
+        monkeypatch.setenv("KCTL_DOKPLOY_PROFILE", "default")  # Stage B: explicit profile required
         url, key = resolve_connection()
         assert url == "https://legacy.io"
         assert key == "legacy-key"
