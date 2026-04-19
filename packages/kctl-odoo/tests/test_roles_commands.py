@@ -160,3 +160,72 @@ def test_roles_sync_strict_exits_2_on_missing_xmlid(mock_get_client, tmp_path):
     )
     assert result.exit_code == 2
     assert "point_of_sale.group_pos_manager" in result.stdout
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_diff_reports_drift(mock_get_client, tmp_path):
+    yaml_file = tmp_path / "roles.yaml"
+    yaml_file.write_text(
+        "version: 1\nroles:\n  sales_user:\n    name: Sales User\n    groups: [sales_team.group_sale_salesman]\n"
+    )
+    client = MagicMock()
+    client.execute.side_effect = [
+        [{"id": 1, "name": "Sales User", "implied_ids": [42, 99]}],
+        [{"id": 1, "model": "res.groups", "module": "sales_team", "name": "group_sale_salesman", "res_id": 42}],
+    ]
+    mock_get_client.return_value = client
+    result = runner.invoke(roles_app, ["diff", "--file", str(yaml_file)])
+    assert result.exit_code == 0
+    assert "drift" in result.stdout.lower() or "update" in result.stdout.lower()
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_audit_finds_orphan_groups(mock_get_client, tmp_path):
+    yaml_file = tmp_path / "roles.yaml"
+    yaml_file.write_text(
+        "version: 1\nroles:\n  sales_user:\n    name: Sales User\n    groups: [sales_team.group_sale_salesman]\n"
+    )
+    ignored_file = tmp_path / "roles.ignored.yaml"
+    ignored_file.write_text("version: 1\nignored: []\n")
+
+    client = MagicMock()
+    client.execute.side_effect = [
+        [
+            {"id": 42, "full_name": "Sales / User"},
+            {"id": 99, "full_name": "Fleet / Manager"},
+        ],
+        [
+            {"id": 10, "model": "res.groups", "module": "sales_team", "name": "group_sale_salesman", "res_id": 42},
+            {"id": 11, "model": "res.groups", "module": "fleet", "name": "fleet_manager", "res_id": 99},
+        ],
+        [{"id": 10, "model": "res.groups", "module": "sales_team", "name": "group_sale_salesman", "res_id": 42}],
+    ]
+    mock_get_client.return_value = client
+
+    result = runner.invoke(
+        roles_app,
+        ["audit", "--file", str(yaml_file), "--ignored-file", str(ignored_file)],
+    )
+    assert result.exit_code == 0
+    assert "fleet.fleet_manager" in result.stdout or "fleet_manager" in result.stdout
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_audit_strict_exits_nonzero_on_findings(mock_get_client, tmp_path):
+    yaml_file = tmp_path / "roles.yaml"
+    yaml_file.write_text("version: 1\nroles: {}\n")
+    ignored_file = tmp_path / "roles.ignored.yaml"
+    ignored_file.write_text("version: 1\nignored: []\n")
+
+    client = MagicMock()
+    client.execute.side_effect = [
+        [{"id": 99, "full_name": "Fleet / Manager"}],
+        [{"id": 11, "model": "res.groups", "module": "fleet", "name": "fleet_manager", "res_id": 99}],
+    ]
+    mock_get_client.return_value = client
+
+    result = runner.invoke(
+        roles_app,
+        ["audit", "--file", str(yaml_file), "--ignored-file", str(ignored_file), "--strict"],
+    )
+    assert result.exit_code != 0
