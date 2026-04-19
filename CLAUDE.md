@@ -313,7 +313,8 @@ Spec: [`kodemeio-docs/superpowers/specs/2026-04-19-kctl-profiles-standardization
 
 - **Platform profiles** (4 fixed): `abcfood`, `kodemeio`, `idtpp`, `local`
 - **App profiles**: `<platform>-<tenant>-<stack>-<app>[-<env>]`
-  - Examples: `idtpp-tpp-odoo-erp`, `idtpp-tpp-odoo-erp-stg`, `abcfood-tmi-odoo`, `local-odoo-full`
+  - Examples: `idtpp-tpp-odoo-erp`, `idtpp-tpp-odoo-erp-stg`, `abcfood-tmi-odoo-erp`, `local-dev-odoo-hrms`, `local-tpp-odoo-erp`
+  - Strict 4-segment rule — every app profile has `platform-tenant-stack-app`; infra-only overrides use `stack=infra` (e.g., `idtpp-mac-infra-hetzner`, `idtpp-mac-infra-postgres`)
 
 ### Prefix inheritance
 
