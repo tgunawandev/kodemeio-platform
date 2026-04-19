@@ -120,68 +120,45 @@ kctl-dokploy deploy migrate cleanup  -f deploys/migrations/mac-to-dedicated.yaml
 
 ### Compose Postgres Backup → S3 → Local Restore
 
-Dokploy's `/backup.manualBackupCompose` endpoint is unreliable for compose-embedded
-postgres. kctl-dokploy ships an alternative that runs `pg_dump` via SSH+docker exec
-and streams straight to S3, then restores into a local compose's postgres container.
+`backups restore` streams Dokploy's native SSE restore endpoint. Dokploy's server
+does `pg_restore` via `docker exec` — no SSH or temp files from the client side.
 
-**One-time setup** (per bucket):
+**One-time setup** (register the S3 bucket on the target Dokploy):
 
 ```bash
-# 1. Create Hetzner S3 bucket
-kctl-hz s3 mb hz-tpp-postgres-backup
-
-# 2. Register as a Dokploy destination on source AND target profiles
-kctl-dokploy --profile idtpp backups add-destination \
-    --name hz-tpp-postgres-backup --bucket hz-tpp-postgres-backup \
-    --access-key "$HZ_ACCESS" --secret-key "$HZ_SECRET" \
-    --region fsn1 --endpoint https://fsn1.your-objectstorage.com
-
 kctl-dokploy --profile local backups add-destination \
     --name hz-tpp-postgres-backup --bucket hz-tpp-postgres-backup \
     --access-key "$HZ_ACCESS" --secret-key "$HZ_SECRET" \
     --region fsn1 --endpoint https://fsn1.your-objectstorage.com
 ```
 
-**One-shot refresh** (prod → local):
+> Set destination `provider: "Other"` (not `"s3"`) for Hetzner Object Storage.
+> rclone rejects `"s3"` as a provider value for this endpoint type.
+
+**One-shot restore** (latest S3 key for a database):
 
 ```bash
-kctl-dokploy --profile local backups refresh \
-    --source-profile idtpp \
-    --source-compose 2iEl8DzSWOMFOClweOhiZ \
-    --source-destination <idtpp-dest-id> \
-    --target-compose <local-compose-id> \
-    --database authentik \
-    --force
-```
-
-**Step-by-step flow** (for scripting or when you want intermediate artifacts):
-
-```bash
-# 1. Dump source compose's DB → S3 (auto-SSHes to compose's server)
-kctl-dokploy --profile idtpp backups dump-compose \
-    --compose 2iEl8DzSWOMFOClweOhiZ --destination <dest-id> \
-    --database authentik --service postgres
-
-# 2. Download the dump from S3 to local disk
-kctl-dokploy --profile local backups download \
-    tpp-infra-postgres/authentik-2026-04-18T03-37-23Z.dump \
+kctl-dokploy -p local backups restore \
+    --compose <local-compose-id> \
     --destination <local-dest-id> \
-    --output /tmp/authentik.dump
-
-# 3. Restore into local compose's postgres container
-kctl-dokploy --profile local backups restore-local \
-    /tmp/authentik.dump --compose <local-compose-id> \
-    --service postgres --db-name authentik --force
+    --database-name tpp_odoo_erp \
+    --service-name postgres \
+    --database-user odoo \
+    --latest tpp_odoo_erp
 ```
 
-**How it works:**
-- `dump-compose` resolves the compose's `serverId` from Dokploy API, SSHes to that
-  server, finds the postgres container via `docker ps` + `com.docker.compose.service`
-  label, runs `pg_dump -F c`, and streams stdout straight to S3 (no local disk).
-- `restore-local` auto-resolves the target postgres container using the compose's
-  `appName` + service label. Uses `pg_restore --exit-on-error` for custom-format
-  dumps (magic bytes `PGDMP`), `psql -v ON_ERROR_STOP=1` for plain SQL.
-- `refresh` orchestrates both in a single call with proper cleanup of temp files.
+Streams log lines prefixed `[Dokploy]` to stdout. Exit 0 on success,
+1 on Dokploy error, 2 on transport/auth failure.
+
+**Prerequisites:**
+- Target DB must already exist with `OWNER=odoo` — Dokploy's restore does not create it.
+  Use `SERVICE_DATABASES` in the `kodemeio-postgres` compose env to pre-create on start.
+- `odoo` role must be SUPERUSER on the target postgres instance.
+- `--service-name` and `--database-user` are required; omitting either causes an
+  immediate exit 1 (empty `pg_restore -U ''` or wrong container).
+
+See `runbooks/postgres-restore.md` for the full reference including historical-key
+restore, metadata flag table, and common compose IDs.
 
 ## Command Groups
 
@@ -216,7 +193,7 @@ The `compose` group mirrors Dokploy's UI tabs for managing individual services:
 
 | Sub-group         | Description                                                    |
 |-------------------|----------------------------------------------------------------|
-| `compose backups`        | Backup CRUD + S3 workflow (`dump-compose`, `download`, `restore-local`, `refresh`) |
+| `compose backups`        | Backup CRUD + native restore workflow (`restore`, `add-destination`, `destinations`, `list-files`) |
 | `compose domains`        | Traefik domain routing and SSL configuration            |
 | `compose env`            | Environment variable management (push, pull, diff)      |
 | `compose deployments`    | Deployment history, logs, and redeploy triggers         |

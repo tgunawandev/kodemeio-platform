@@ -239,26 +239,25 @@ Source: `kodemeio-odoo` repo → `compose/odoo.prod.yml` (4 containers: init →
 
 ### Compose Postgres Backup → S3 → Local Restore
 
-Dokploy's `/backup.manualBackupCompose` endpoint is unreliable for compose-embedded
-postgres. `kctl-dokploy backups` ships a reliable alternative that streams `pg_dump`
-straight to S3 via SSH + docker exec, then restores into a local compose's postgres
-container.
+`kctl-dokploy backups restore` streams Dokploy's native SSE restore endpoint.
+Dokploy's server handles `pg_restore` via `docker exec` — no SSH or temp files
+from the client side.
 
 ```bash
-# One-shot refresh (prod → local)
-kctl-dokploy --profile local backups refresh \
-    --source-profile idtpp \
-    --source-compose <prod-compose-id> \
-    --source-destination <idtpp-dest-id> \
-    --target-compose <local-compose-id> \
-    --database authentik \
-    --force
-
-# Or step-by-step: dump-compose → download → restore-local
-kctl-dokploy --profile idtpp backups dump-compose --compose <id> --destination <id> --database <db>
-kctl-dokploy --profile local  backups download <s3-key> --destination <id> --output /tmp/dump
-kctl-dokploy --profile local  backups restore-local /tmp/dump --compose <id> --force
+# One-shot restore — latest S3 key for a database (prod → local)
+kctl-dokploy -p local backups restore \
+    --compose <local-compose-id> \
+    --destination <local-dest-id> \
+    --database-name <db-name> \
+    --service-name postgres \
+    --database-user odoo \
+    --latest <db-name>
 ```
+
+Prereqs: target DB pre-created with `OWNER=odoo` (use `SERVICE_DATABASES` env);
+`odoo` role SUPERUSER on target postgres; destination `provider: "Other"` for Hetzner.
+
+See `runbooks/postgres-restore.md` for the full reference.
 
 ### Fast Log Debugging (local + prod Odoo)
 
@@ -288,10 +287,9 @@ table, use `kctl-odoo logs errors --days N` (JSON-RPC, not a stream). There
 is also an Alloy → Loki pipeline deployed on all prod servers, but Odoo
 containers aren't currently shipped to it — wiring that is a separate task.
 
-Uses custom-format `pg_dump -F c` with `pg_restore --exit-on-error` (or `psql -v
-ON_ERROR_STOP=1` for plain SQL). S3 creds live in the Dokploy destination record —
-no additional credential setup needed. Works with Hetzner Object Storage or any
-S3-compatible endpoint. See `packages/kctl-dokploy/README.md` for full details.
+Dokploy's server uses `pg_restore` inside the target container — S3 creds come from
+the destination record, no separate credential setup needed. See
+`packages/kctl-dokploy/README.md` and `runbooks/postgres-restore.md` for full details.
 
 ## kctl-lib Modules
 
