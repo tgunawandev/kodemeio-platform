@@ -77,7 +77,7 @@ def apply_rename_and_drop(config: dict[str, Any]) -> dict[str, Any]:
         ValueError: if a rename target already exists as a distinct profile
             (would silently merge otherwise).
     """
-    profiles = dict(config.get("profiles", {}))
+    profiles: dict[str, Any] = dict(config.get("profiles", {}))
     out: dict[str, Any] = {}
 
     for name, data in profiles.items():
