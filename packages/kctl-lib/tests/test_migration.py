@@ -238,3 +238,55 @@ class TestStripDefaultProfile:
         before = {"profiles": {}}
         after = strip_default_profile(before)
         assert after == {"profiles": {}}
+
+
+class TestMigrateConfig:
+    def test_composes_all_transforms(self) -> None:
+        from kctl_lib._migration import migrate_config
+
+        before = {
+            "default_profile": "idtpp",
+            "profiles": {
+                "idtpp": {
+                    "dokploy": {"url": "https://dokploy.idtpp.com"},
+                    "op": {"vault": "TPP"},
+                    "onepassword": {"vault": "TPP-legacy"},
+                },
+                "kodemeio": {
+                    "glitchtip": {"url": "https://glitchtip.kodeme.io", "token": "x"},
+                    "sentry": {"url": "https://glitchtip.kodeme.io", "auth_token": "x"},
+                },
+                "tpp-odoo-erp": {"odoo": {"database": "tpp_odoo_erp"}},
+                "mac-erp": {"odoo": {"api_key": "admin"}},
+                "settest": {"redis": {"host": "10.0.0.99"}},
+            },
+        }
+        after = migrate_config(before)
+
+        # default_profile gone
+        assert "default_profile" not in after
+        # rename applied
+        assert "tpp-odoo-erp" not in after["profiles"]
+        assert "idtpp-tpp-odoo-erp" in after["profiles"]
+        # stale duplicate dropped
+        assert "mac-erp" not in after["profiles"]
+        # test pollution dropped
+        assert "settest" not in after["profiles"]
+        # dedupe: onepassword gone, op kept
+        assert "onepassword" not in after["profiles"]["idtpp"]
+        assert after["profiles"]["idtpp"]["op"] == {"vault": "TPP"}
+        # dedupe: sentry dropped in kodemeio
+        assert "sentry" not in after["profiles"]["kodemeio"]
+        # untouched fields preserved
+        assert after["profiles"]["idtpp"]["dokploy"]["url"] == "https://dokploy.idtpp.com"
+
+    def test_idempotent(self) -> None:
+        from kctl_lib._migration import migrate_config
+
+        before = {
+            "default_profile": "idtpp",
+            "profiles": {"tpp-odoo-erp": {"odoo": {"database": "tpp_odoo_erp"}}},
+        }
+        once = migrate_config(before)
+        twice = migrate_config(once)
+        assert once == twice

@@ -137,3 +137,18 @@ def strip_default_profile(config: dict[str, Any]) -> dict[str, Any]:
     here we just strip the key from the file.
     """
     return {k: v for k, v in config.items() if k != "default_profile"}
+
+
+def migrate_config(config: dict[str, Any]) -> dict[str, Any]:
+    """Apply the full Stage A migration pipeline, in order.
+
+    1. Strip top-level `default_profile`.
+    2. Drop test-pollution profiles and stale duplicates; rename keepers.
+    3. Dedupe service keys within each remaining profile.
+
+    Idempotent — applying twice returns the same result as applying once.
+    """
+    result = strip_default_profile(config)
+    result = apply_rename_and_drop(result)
+    result = dedupe_service_keys(result)
+    return result
