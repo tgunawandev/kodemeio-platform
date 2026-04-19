@@ -17,6 +17,8 @@ from kctl_odoo.core.roles import (
     RoleDbState,
     plan_sync,
     SyncAction,
+    MenuVisibilityAction,
+    plan_menu_visibility,
 )
 
 
@@ -215,3 +217,86 @@ def test_plan_sync_without_prune_ignores_extra_roles():
     )
     plan = plan_sync(rf, db_state, prune=False)
     assert plan == []
+
+
+def test_plan_menu_visibility_adds_missing_exclusions():
+    rf = RolesFile.model_validate(
+        {
+            "version": 1,
+            "roles": {
+                "hr_user": {
+                    "name": "HR Officer",
+                    "groups": ["hr.group_hr_user"],
+                    "hide_menus": ["Sales", "Dashboards"],
+                },
+            },
+        }
+    )
+    actions = plan_menu_visibility(
+        rf,
+        role_backing_groups={"hr_user": 233},
+        menu_ids_by_name={"Sales": 100, "Dashboards": 101, "Unused": 999},
+        current_exclusions={100: set(), 101: set()},
+    )
+    assert len(actions) == 2
+    assert all(a.action == "add" for a in actions)
+    assert all(a.group_id == 233 for a in actions)
+    assert sorted(a.menu_name for a in actions) == ["Dashboards", "Sales"]
+
+
+def test_plan_menu_visibility_skips_existing():
+    rf = RolesFile.model_validate(
+        {
+            "version": 1,
+            "roles": {
+                "hr_user": {"name": "HR Officer", "groups": [], "hide_menus": ["Sales"]},
+            },
+        }
+    )
+    actions = plan_menu_visibility(
+        rf,
+        role_backing_groups={"hr_user": 233},
+        menu_ids_by_name={"Sales": 100},
+        current_exclusions={100: {233}},  # already excluded
+    )
+    assert actions == []
+
+
+def test_plan_menu_visibility_prune_removes_stale():
+    rf = RolesFile.model_validate(
+        {
+            "version": 1,
+            "roles": {
+                "hr_user": {"name": "HR Officer", "groups": [], "hide_menus": []},
+            },
+        }
+    )
+    actions = plan_menu_visibility(
+        rf,
+        role_backing_groups={"hr_user": 233},
+        menu_ids_by_name={"Sales": 100},
+        current_exclusions={100: {233}},  # was excluded; YAML doesn't ask for it now
+        prune=True,
+    )
+    assert len(actions) == 1
+    assert actions[0].action == "remove"
+    assert actions[0].menu_id == 100
+    assert actions[0].group_id == 233
+
+
+def test_plan_menu_visibility_skips_unknown_menu_names():
+    rf = RolesFile.model_validate(
+        {
+            "version": 1,
+            "roles": {
+                "x": {"name": "X", "groups": [], "hide_menus": ["Ghost Menu"]},
+            },
+        }
+    )
+    actions = plan_menu_visibility(
+        rf,
+        role_backing_groups={"x": 1},
+        menu_ids_by_name={},  # "Ghost Menu" unknown
+        current_exclusions={},
+    )
+    assert actions == []

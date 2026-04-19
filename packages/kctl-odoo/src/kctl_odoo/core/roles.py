@@ -32,6 +32,10 @@ class RoleSpec(BaseModel):
     category: str | None = None
     extends: str | None = None
     groups: list[str] = Field(default_factory=list)
+    hide_menus: list[str] = Field(default_factory=list)
+    """Top-level menu NAMES to hide from this role via
+    base_menu_visibility_restriction. Does NOT inherit via `extends` —
+    each role must list its own hides explicitly."""
 
 
 class RolesFile(BaseModel):
@@ -246,6 +250,105 @@ def plan_sync(
                         action="delete",
                         role_name=db_name,
                         existing_role_id=db_role["id"],
+                    )
+                )
+
+    return actions
+
+
+@dataclass
+class MenuVisibilityAction:
+    """One write against ir.ui.menu.excluded_group_ids.
+
+    `action="add"` appends `group_id` to the menu's excluded_group_ids
+    (hides the menu from users in that group). `action="remove"` does
+    the opposite. `role_id` is the YAML key (for logging).
+    """
+
+    action: Literal["add", "remove"]
+    menu_id: int
+    menu_name: str
+    group_id: int
+    role_id: str
+
+
+def plan_menu_visibility(
+    rf: RolesFile,
+    role_backing_groups: dict[str, int],
+    menu_ids_by_name: dict[str, int],
+    current_exclusions: dict[int, set[int]],
+    prune: bool = False,
+) -> list[MenuVisibilityAction]:
+    """Plan menu-visibility updates via ir.ui.menu.excluded_group_ids.
+
+    For each role with `hide_menus`: for each menu NAME the role wants
+    hidden, emit an `add` action if the role's backing group isn't
+    already in that menu's excluded_group_ids. With `prune=True`,
+    also emit `remove` actions for role/menu pairs the YAML no longer
+    requests.
+
+    Unknown menu names (not in `menu_ids_by_name`) are silently skipped —
+    the caller is expected to log a warning.
+
+    Prune scope: only touches exclusions whose group id is a tracked
+    role-backing group. Any other group a human may have manually added
+    (e.g., a one-off Settings group) is left alone.
+
+    `hide_menus` does NOT inherit via `extends`; each role lists its
+    own hides explicitly.
+    """
+    # Desired: {menu_id: {group_ids}} from YAML
+    desired: dict[int, set[int]] = {}
+    for role_id, spec in rf.roles.items():
+        if not spec.hide_menus:
+            continue
+        gid = role_backing_groups.get(role_id)
+        if gid is None:
+            # Role not synced yet — caller should warn.
+            continue
+        for menu_name in spec.hide_menus:
+            mid = menu_ids_by_name.get(menu_name)
+            if mid is None:
+                # Unknown menu — caller warns.
+                continue
+            desired.setdefault(mid, set()).add(gid)
+
+    actions: list[MenuVisibilityAction] = []
+    relevant_groups = set(role_backing_groups.values())
+    menu_names_by_id = {mid: name for name, mid in menu_ids_by_name.items()}
+
+    # Adds — deterministic order (menu_id asc, then group_id asc).
+    for mid in sorted(desired):
+        want = desired[mid]
+        current = current_exclusions.get(mid, set())
+        missing = want - current
+        for gid in sorted(missing):
+            role_id = next((rid for rid, v in role_backing_groups.items() if v == gid), "")
+            actions.append(
+                MenuVisibilityAction(
+                    action="add",
+                    menu_id=mid,
+                    menu_name=menu_names_by_id.get(mid, ""),
+                    group_id=gid,
+                    role_id=role_id,
+                )
+            )
+
+    # Prunes — only on exclusions we would track (role backing groups).
+    if prune:
+        for mid in sorted(current_exclusions):
+            current = current_exclusions[mid]
+            want = desired.get(mid, set())
+            stale = (current & relevant_groups) - want
+            for gid in sorted(stale):
+                role_id = next((rid for rid, v in role_backing_groups.items() if v == gid), "")
+                actions.append(
+                    MenuVisibilityAction(
+                        action="remove",
+                        menu_id=mid,
+                        menu_name=menu_names_by_id.get(mid, ""),
+                        group_id=gid,
+                        role_id=role_id,
                     )
                 )
 

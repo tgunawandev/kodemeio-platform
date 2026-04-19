@@ -16,9 +16,11 @@ from rich.table import Table
 from kctl_odoo.core.callbacks import AppContext
 from kctl_odoo.core.roles import (
     RoleDbState,
+    RolesFile,
     SyncAction,
     load_ignored_file,
     load_roles_file,
+    plan_menu_visibility,
     plan_sync,
     resolve_role_groups,
     resolve_xmlids,
@@ -105,6 +107,25 @@ def show_cmd(
     else:
         console.print("[dim]No users assigned.[/dim]")
 
+    # Hidden menus via base_menu_visibility_restriction — look up the role's
+    # backing group, then find top-level menus where that group appears in
+    # excluded_group_ids.
+    group_id: int | None = None
+    role_record_full = client.read("res.users.role", [role["id"]], fields=["group_id"])
+    if role_record_full and role_record_full[0].get("group_id"):
+        gid_field = role_record_full[0]["group_id"]
+        group_id = gid_field[0] if isinstance(gid_field, list) else gid_field
+
+    if group_id:
+        hidden_menus = client.search_read(
+            "ir.ui.menu",
+            [("parent_id", "=", False), ("excluded_group_ids", "in", [group_id])],
+            fields=["name"],
+        )
+        if hidden_menus:
+            menus_str = ", ".join(m["name"] for m in hidden_menus)
+            console.print(f"[bold]Hidden menus ({len(hidden_menus)}):[/bold] {menus_str}")
+
 
 def _fetch_db_state(client, requested_xmlids: list[str]) -> RoleDbState:
     """Snapshot current DB roles + resolve xml_ids."""
@@ -154,6 +175,96 @@ def _apply_plan(client, actions: list[SyncAction]) -> None:
             console.print(f"[red]- deleted role '{a.role_name}' (id={a.existing_role_id})[/red]")
 
 
+def _sync_menu_visibility(client, rf: RolesFile, prune: bool, dry_run: bool) -> None:
+    """Apply `hide_menus` declarations via ir.ui.menu.excluded_group_ids.
+
+    No-op when no role declares `hide_menus` — so existing tests that
+    don't exercise this feature don't need fresh mock setups.
+    """
+    roles_with_hides = [rid for rid, spec in rf.roles.items() if spec.hide_menus]
+    if not roles_with_hides:
+        return
+
+    # Fetch backing groups for roles that declared hide_menus.
+    wanted_names = [rf.roles[rid].name for rid in roles_with_hides]
+    db_roles = client.search_read(
+        "res.users.role",
+        [("name", "in", wanted_names)],
+        fields=["id", "name", "group_id"],
+    )
+    name_to_role_id = {spec.name: rid for rid, spec in rf.roles.items()}
+    role_backing_groups: dict[str, int] = {}
+    for r in db_roles:
+        rid = name_to_role_id.get(r["name"])
+        gid_field = r.get("group_id")
+        if rid and gid_field:
+            role_backing_groups[rid] = gid_field[0] if isinstance(gid_field, list) else gid_field
+
+    missing_roles = [rid for rid in roles_with_hides if rid not in role_backing_groups]
+    if missing_roles:
+        console.print(
+            "[yellow]⚠ hide_menus: role(s) missing on DB or without backing group (run role sync first):[/yellow]"
+        )
+        for rid in missing_roles:
+            console.print(f"  - {rid} ({rf.roles[rid].name})")
+
+    # Fetch top-level menus.
+    menus = client.search_read(
+        "ir.ui.menu",
+        [("parent_id", "=", False)],
+        fields=["id", "name", "excluded_group_ids"],
+    )
+    menu_ids_by_name: dict[str, int] = {m["name"]: m["id"] for m in menus}
+    current_exclusions: dict[int, set[int]] = {m["id"]: set(m.get("excluded_group_ids") or []) for m in menus}
+
+    # Warn on unknown menu names up-front.
+    unknown: set[str] = set()
+    for spec in rf.roles.values():
+        for name in spec.hide_menus:
+            if name not in menu_ids_by_name:
+                unknown.add(name)
+    if unknown:
+        console.print("[yellow]⚠ hide_menus references unknown top-level menus (skipped):[/yellow]")
+        for name in sorted(unknown):
+            console.print(f"  - {name}")
+
+    actions = plan_menu_visibility(
+        rf,
+        role_backing_groups,
+        menu_ids_by_name,
+        current_exclusions,
+        prune=prune,
+    )
+    if not actions:
+        console.print("[dim]Menu visibility: nothing to do.[/dim]")
+        return
+
+    table = Table(title=f"Menu visibility plan ({len(actions)} actions)")
+    table.add_column("Action", style="bold")
+    table.add_column("Role")
+    table.add_column("Menu")
+    for a in actions:
+        style = "green" if a.action == "add" else "red"
+        sym = "+" if a.action == "add" else "-"
+        table.add_row(f"[{style}]{sym} hide[/{style}]", a.role_id, a.menu_name)
+    console.print(table)
+
+    if dry_run:
+        return
+
+    # Apply — batch per-menu writes, so one client.write per menu.
+    writes_by_menu: dict[int, list[tuple[int, int]]] = {}
+    for a in actions:
+        writes_by_menu.setdefault(a.menu_id, []).append((4 if a.action == "add" else 3, a.group_id))
+    for mid, ops in writes_by_menu.items():
+        client.write(
+            "ir.ui.menu",
+            [mid],
+            {"excluded_group_ids": [(cmd, gid) for cmd, gid in ops]},
+        )
+    console.print(f"[green]Menu visibility: applied {len(actions)} change(s).[/green]")
+
+
 @app.command("sync")
 def sync_cmd(
     ctx: typer.Context,
@@ -197,11 +308,14 @@ def sync_cmd(
 
     if dry_run:
         console.print("[dim]--dry-run: no changes applied.[/dim]")
+        _sync_menu_visibility(client, rf, prune=prune, dry_run=True)
         return
 
     if actions:
         _apply_plan(client, actions)
         console.print("[green]Sync complete.[/green]")
+
+    _sync_menu_visibility(client, rf, prune=prune, dry_run=False)
 
 
 @app.command("diff")

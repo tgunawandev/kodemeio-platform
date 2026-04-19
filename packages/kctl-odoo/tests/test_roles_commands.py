@@ -31,18 +31,40 @@ def test_roles_show_prints_role_detail(mock_get_client):
     client.search_read.side_effect = [
         [{"id": 1, "name": "Branch Staff", "implied_ids": [10, 20]}],
         [{"user_id": [46, "intan"]}],
+        [],  # hidden menus lookup (no hides for this role)
     ]
     client.read.side_effect = [
         [
             {"id": 10, "name": "POS User", "full_name": "Point of Sale / User"},
             {"id": 20, "name": "Stock User", "full_name": "Inventory / User"},
         ],
+        [{"id": 1, "group_id": [500, "Branch Staff Group"]}],  # role group_id lookup
     ]
     mock_get_client.return_value = client
     result = runner.invoke(roles_app, ["show", "Branch Staff"])
     assert result.exit_code == 0
     assert "Point of Sale / User" in result.stdout
     assert "intan" in result.stdout
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_show_displays_hidden_menus(mock_get_client):
+    client = MagicMock()
+    client.search_read.side_effect = [
+        [{"id": 1, "name": "HR Officer", "implied_ids": [10]}],
+        [],  # no users assigned
+        [{"id": 77, "name": "Sales"}, {"id": 78, "name": "CRM"}],  # hidden menus
+    ]
+    client.read.side_effect = [
+        [{"id": 10, "name": "HR User", "full_name": "HR / User"}],
+        [{"id": 1, "group_id": [501, "HR Officer Group"]}],
+    ]
+    mock_get_client.return_value = client
+    result = runner.invoke(roles_app, ["show", "HR Officer"])
+    assert result.exit_code == 0
+    assert "Hidden menus" in result.stdout
+    assert "Sales" in result.stdout
+    assert "CRM" in result.stdout
 
 
 @patch("kctl_odoo.commands.roles._get_client")
@@ -265,6 +287,70 @@ def test_roles_assign_clear_wipes_roles(mock_get_client):
     assert write_calls
     payload = write_calls[0].args[2]
     assert payload["role_line_ids"] == [(5, 0, 0)]
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_sync_applies_menu_visibility(mock_get_client, tmp_path):
+    yaml_file = tmp_path / "roles.yaml"
+    yaml_file.write_text(
+        "version: 1\n"
+        "roles:\n"
+        "  hr_user:\n"
+        "    name: HR Officer\n"
+        "    groups: [hr.group_hr_user]\n"
+        "    hide_menus: [Sales]\n"
+    )
+
+    client = MagicMock()
+    client.search_read.side_effect = [
+        # _fetch_db_state: list roles (HR Officer already exists, same group)
+        [{"id": 5, "name": "HR Officer", "implied_ids": [1]}],
+        # _fetch_db_state: resolve xml_ids
+        [{"id": 1, "model": "res.groups", "module": "hr", "name": "group_hr_user", "res_id": 1}],
+        # _sync_menu_visibility: fetch role backing group
+        [{"id": 5, "name": "HR Officer", "group_id": [999, "Role HR Officer"]}],
+        # _sync_menu_visibility: fetch top-level menus
+        [{"id": 77, "name": "Sales", "excluded_group_ids": []}],
+    ]
+    client.write.return_value = True
+    mock_get_client.return_value = client
+
+    result = runner.invoke(roles_app, ["sync", "--file", str(yaml_file)])
+    assert result.exit_code == 0, result.output
+    # Verify a write was issued to ir.ui.menu
+    menu_writes = [c for c in client.write.call_args_list if c.args and c.args[0] == "ir.ui.menu"]
+    assert len(menu_writes) == 1
+    assert menu_writes[0].args[1] == [77]
+    assert menu_writes[0].args[2] == {"excluded_group_ids": [(4, 999)]}
+
+
+@patch("kctl_odoo.commands.roles._get_client")
+def test_roles_sync_menu_visibility_dry_run_no_writes(mock_get_client, tmp_path):
+    yaml_file = tmp_path / "roles.yaml"
+    yaml_file.write_text(
+        "version: 1\n"
+        "roles:\n"
+        "  hr_user:\n"
+        "    name: HR Officer\n"
+        "    groups: [hr.group_hr_user]\n"
+        "    hide_menus: [Sales]\n"
+    )
+
+    client = MagicMock()
+    client.search_read.side_effect = [
+        [{"id": 5, "name": "HR Officer", "implied_ids": [1]}],
+        [{"id": 1, "model": "res.groups", "module": "hr", "name": "group_hr_user", "res_id": 1}],
+        [{"id": 5, "name": "HR Officer", "group_id": [999, "Role HR Officer"]}],
+        [{"id": 77, "name": "Sales", "excluded_group_ids": []}],
+    ]
+    mock_get_client.return_value = client
+
+    result = runner.invoke(roles_app, ["sync", "--file", str(yaml_file), "--dry-run"])
+    assert result.exit_code == 0
+    # No writes to ir.ui.menu in dry-run
+    menu_writes = [c for c in client.write.call_args_list if c.args and c.args[0] == "ir.ui.menu"]
+    assert menu_writes == []
+    assert "Menu visibility plan" in result.stdout or "menu visibility" in result.stdout.lower()
 
 
 @patch("kctl_odoo.commands.roles._get_client")
