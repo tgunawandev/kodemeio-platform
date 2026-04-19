@@ -1,0 +1,38 @@
+# kodemeio-platform/deploys/bases/shlink.yaml
+kind: base
+type: infrastructure
+
+server: kodeme-service
+project: kod
+
+source:
+  type: github
+  repo: kodemeio-shlink
+  branch: main
+
+healthcheck:
+  path: /rest/health
+  port: 8080
+  service: shlink
+  expected_status: 200
+  timeout: 60
+  interval: 10
+
+env_defaults:
+  TZ: "Asia/Jakarta"
+  TIMEZONE: "Asia/Jakarta"
+  PG_PORT: "5432"
+  PG_USER: shlink
+  PG_DATABASE: shlink
+  IS_HTTPS_ENABLED: "true"
+  DISABLE_TRACK_PARAM: "no-track"
+  REDIRECT_STATUS_CODE: "302"
+  DEFAULT_SHORT_CODES_LENGTH: "6"
+  ENABLE_PERIODIC_VISIT_LOCATE: "true"
+
+backup:
+  destination: kodemeio-s3-backups
+  type: postgres
+  schedule: "0 3 * * *"
+  prefix_template: "{instance_name}"
+  keep_latest: 14

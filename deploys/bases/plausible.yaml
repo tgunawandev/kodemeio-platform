@@ -1,0 +1,42 @@
+# kodemeio-platform/deploys/bases/plausible.yaml
+kind: base
+type: infrastructure
+
+server: kodeme-service
+project: kod
+
+source:
+  type: github
+  repo: kodemeio-plausible
+  branch: main
+
+healthcheck:
+  path: /api/health
+  port: 8000
+  service: plausible
+  expected_status: 200
+  timeout: 120
+  interval: 10
+
+env_defaults:
+  TZ: "Asia/Jakarta"
+  PG_PORT: "5432"
+  PG_USER: plausible
+  PG_DATABASE: plausible
+  SMTP_HOST_ADDR: "mail.kodeme.io"
+  SMTP_HOST_PORT: "587"
+  MAILER_EMAIL: "noreply@kodeme.io"
+  DISABLE_REGISTRATION: "true"
+
+backup:
+  destination: kodemeio-s3-backups
+  type: postgres
+  schedule: "0 3 * * *"
+  prefix_template: "{instance_name}"
+  keep_latest: 14
+
+schedules:
+  - name: clickhouse-backup
+    cron: "30 3 * * *"
+    service: clickhouse
+    command: "/usr/local/bin/backup-clickhouse.sh"
