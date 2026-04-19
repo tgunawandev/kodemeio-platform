@@ -19,9 +19,26 @@ error    Error: bash: line 15: null: command not found
 
 6 consecutive failures in 24 hours.
 
-## Root cause
+## Root cause (REVISED 2026-04-19)
 
-The backup config on Dokploy (backup ID `C82NKt1WHggpibGkxH1oe`) specifies `Database: pos` — this database **does not exist** in the compose. Dokploy's generated backup script pulls the database name into a shell command; when the DB doesn't exist, an intermediate `jq`/`psql` call returns `null`, which then gets `eval`'d as a command name → `bash: line 15: null: command not found`.
+Deeper investigation showed the `Database: pos` typo was a symptom, not the root cause. The actual bug is that Dokploy's compose-backup template depends on `backup.metadata.<db_type>.databaseUser` being set — and our `kctl-dokploy backups create` was not sending it. Dokploy's server source at `utils/backups/utils.js`:
+
+```javascript
+if (backupType === "compose" && backup.metadata?.postgres) {
+    return getPostgresBackupCommand(backup.database, backup.metadata.postgres.databaseUser);
+}
+// ... falls through to: return null;
+```
+
+When `metadata.postgres` is missing, `generateBackupCommand()` returns `null`. Dokploy then bakes `null` into the shell template:
+```bash
+BACKUP_OUTPUT=$(null 2>&1 >/dev/null) || { echo "Backup failed"; exit 1; }
+```
+→ `bash: line 15: null: command not found`.
+
+Fix requires BOTH: (a) a valid database name in the compose's postgres, and (b) `metadata.postgres.databaseUser` set to a role with `--no-password` trust auth inside the container — use `postgres` (superuser) unless you have a specific reason not to.
+
+`kctl-dokploy backups create --database-user postgres` now populates this automatically (added 2026-04-19).
 
 ### Why did it end up as `pos`?
 
@@ -101,11 +118,14 @@ for entry in "${entries[@]}"; do
         --service postgres \
         --database "$db" \
         --type postgres \
+        --database-user postgres \
         --prefix "tpp-infra-postgres/$db" \
         --schedule "$schedule" \
         --enabled
 done
 ```
+
+> `--database-user postgres` is **required** for compose-type postgres backups. Omitting it produces the `null: command not found` failure at runtime (see Root cause above).
 
 ### Step 3 — Verify each was created
 

@@ -44,6 +44,37 @@ def list_(
     )
 
 
+def _build_compose_metadata(
+    db_type: str,
+    database_user: str | None,
+    database_password: str | None,
+) -> dict | None:
+    """Build the `metadata` payload Dokploy requires for compose-type backups.
+
+    For compose backups, Dokploy resolves the dump command from
+    `backup.metadata.<db_type>.databaseUser` (and password for mysql/mariadb/mongo).
+    If not provided, Dokploy's shell template emits `null` as the backup command,
+    producing `bash: line 15: null: command not found` at run time.
+    """
+    if db_type == "postgres":
+        if not database_user:
+            return None
+        return {"postgres": {"databaseUser": database_user}}
+    if db_type == "mariadb":
+        if not database_user or not database_password:
+            return None
+        return {"mariadb": {"databaseUser": database_user, "databasePassword": database_password}}
+    if db_type == "mysql":
+        if not database_password:
+            return None
+        return {"mysql": {"databaseRootPassword": database_password}}
+    if db_type == "mongo":
+        if not database_user or not database_password:
+            return None
+        return {"mongo": {"databaseUser": database_user, "databasePassword": database_password}}
+    return None
+
+
 @app.command("create")
 def create(
     ctx: typer.Context,
@@ -61,6 +92,21 @@ def create(
     ] = None,
     service_name: Annotated[
         str | None, typer.Option("--service", help="Service name in compose (e.g. 'postgres')")
+    ] = None,
+    database_user: Annotated[
+        str | None,
+        typer.Option(
+            "--database-user",
+            "-u",
+            help="DB role/user used inside pg_dump/mysqldump. REQUIRED for compose backups of postgres/mariadb/mongo.",
+        ),
+    ] = None,
+    database_password: Annotated[
+        str | None,
+        typer.Option(
+            "--database-password",
+            help="DB user password — REQUIRED for compose backups of mysql/mariadb/mongo (not postgres).",
+        ),
     ] = None,
     schedule: Annotated[str, typer.Option("--schedule", "-s", help="Cron schedule")] = "0 2 * * *",
     prefix: Annotated[str, typer.Option("--prefix", help="Backup file prefix")] = "backup",
@@ -90,6 +136,20 @@ def create(
         payload["composeId"] = compose_id
     if service_name:
         payload["serviceName"] = service_name
+
+    # Compose backups REQUIRE metadata.<db_type>.databaseUser (and password for
+    # mysql/mariadb/mongo). Without it Dokploy's runtime emits a null command.
+    if backup_type == "compose" and db_type in {"postgres", "mariadb", "mysql", "mongo"}:
+        metadata = _build_compose_metadata(db_type, database_user, database_password)
+        if metadata is None:
+            c.output.error(
+                f"Compose backups of type '{db_type}' require --database-user"
+                + (" and --database-password" if db_type in {"mariadb", "mysql", "mongo"} else "")
+                + ". Without it, Dokploy's backup script fails with 'null: command not found' at runtime."
+            )
+            raise typer.Exit(1)
+        payload["metadata"] = metadata
+
     result = c.client.post("/backup.create", json=payload)
     bid = result.get("backupId", "") if isinstance(result, dict) else ""
     c.output.success(f"Backup config created: {bid}")
@@ -135,10 +195,44 @@ def update(
     prefix: Annotated[str | None, typer.Option("--prefix", help="New backup file prefix")] = None,
     enabled: Annotated[bool | None, typer.Option("--enabled/--disabled", help="Enable or disable")] = None,
     destination_id: Annotated[str | None, typer.Option("--destination", "-d", help="New destination ID")] = None,
+    database_user: Annotated[
+        str | None,
+        typer.Option(
+            "--database-user",
+            "-u",
+            help="DB role/user for compose backups (sets metadata.<db_type>.databaseUser).",
+        ),
+    ] = None,
+    database_password: Annotated[
+        str | None,
+        typer.Option(
+            "--database-password",
+            help="DB user password for compose backups of mysql/mariadb/mongo.",
+        ),
+    ] = None,
 ) -> None:
-    """Update a backup configuration."""
+    """Update a backup configuration.
+
+    Dokploy's /backup.update requires the full backup record (not just diffs),
+    so we GET the existing record, apply overrides, and PUT it back. This
+    matches the UI's behavior and avoids 400 validation errors from sending
+    partial payloads.
+    """
     c: AppContext = ctx.obj
-    payload: dict = {"backupId": backup_id}
+
+    if all(v is None for v in (schedule, prefix, enabled, destination_id, database_user, database_password)):
+        c.output.error("Nothing to update. Provide at least one option.")
+        raise typer.Exit(1)
+
+    # Dokploy's update endpoint requires all primary fields — fetch then merge.
+    existing = c.client.get("/backup.one", params={"backupId": backup_id})
+    if not isinstance(existing, dict):
+        c.output.error(f"Backup '{backup_id}' not found")
+        raise typer.Exit(1)
+
+    # Keep only primitive fields + `metadata` from the existing record.
+    payload = {k: v for k, v in existing.items() if not isinstance(v, (dict, list)) or k == "metadata"}
+
     if schedule is not None:
         payload["schedule"] = schedule
     if prefix is not None:
@@ -147,9 +241,27 @@ def update(
         payload["enabled"] = enabled
     if destination_id is not None:
         payload["destinationId"] = destination_id
-    if len(payload) == 1:
-        c.output.error("Nothing to update. Provide at least one option.")
-        raise typer.Exit(1)
+
+    # Update metadata for compose backups when the DB user/password changes.
+    if database_user is not None or database_password is not None:
+        db_type = existing.get("databaseType", "")
+        backup_type = existing.get("backupType", "")
+        if backup_type != "compose":
+            c.output.warn("--database-user / --database-password only apply to compose backups; ignoring.")
+        else:
+            existing_meta = existing.get("metadata") or {}
+            db_meta = (existing_meta.get(db_type) or {}).copy()
+            if database_user is not None:
+                if db_type in {"postgres", "mariadb", "mongo"}:
+                    db_meta["databaseUser"] = database_user
+            if database_password is not None:
+                if db_type == "mysql":
+                    db_meta["databaseRootPassword"] = database_password
+                elif db_type in {"mariadb", "mongo"}:
+                    db_meta["databasePassword"] = database_password
+            if db_meta:
+                payload["metadata"] = {db_type: db_meta}
+
     result = c.client.post("/backup.update", json=payload)
     c.output.success(f"Backup '{backup_id}' updated")
     if c.json_mode:
@@ -177,10 +289,23 @@ def run_backup(
     ctx: typer.Context,
     backup_id: Annotated[str, typer.Argument(help="Backup config ID")],
     backup_type: Annotated[
-        str, typer.Option("--type", "-t", help="Backup type: postgres, mysql, mariadb, mongo, compose, web-server")
-    ] = "postgres",
+        str | None,
+        typer.Option(
+            "--type",
+            "-t",
+            help="Override auto-detection. Values: postgres, mysql, mariadb, mongo, compose, web-server, libsql.",
+        ),
+    ] = None,
 ) -> None:
-    """Trigger a manual backup run."""
+    """Trigger a manual backup run.
+
+    Auto-detects the backup type by looking up the config via /backup.one when
+    --type isn't given. For `backupType=compose`, Dokploy uses
+    /backup.manualBackupCompose — this endpoint requires the backup's
+    metadata.<db_type>.databaseUser field to be populated (otherwise the
+    resulting shell script runs `$(null ...)` and fails with
+    `bash: line 15: null: command not found`).
+    """
     c: AppContext = ctx.obj
     endpoint_map = {
         "postgres": "/backup.manualBackupPostgres",
@@ -191,6 +316,33 @@ def run_backup(
         "web-server": "/backup.manualBackupWebServer",
         "libsql": "/backup.manualBackupLibsql",
     }
+
+    # Auto-detect when --type not given.
+    if backup_type is None:
+        existing = c.client.get("/backup.one", params={"backupId": backup_id})
+        if not isinstance(existing, dict):
+            c.output.error(f"Backup '{backup_id}' not found")
+            raise typer.Exit(1)
+        bt = existing.get("backupType")
+        dt = existing.get("databaseType")
+        if bt == "compose":
+            backup_type = "compose"
+            # Pre-flight check: Dokploy's compose-backup template needs metadata.
+            if dt in {"postgres", "mariadb", "mysql", "mongo"}:
+                meta = (existing.get("metadata") or {}).get(dt)
+                if not meta:
+                    c.output.error(
+                        f"Backup '{backup_id}' (compose, {dt}) has no metadata.{dt} set.\n"
+                        f"Dokploy's template will emit a null command. Run:\n"
+                        f"  kctl-dokploy backups update {backup_id} --database-user <role>"
+                        + (" --database-password <pass>" if dt in {"mariadb", "mysql", "mongo"} else "")
+                    )
+                    raise typer.Exit(1)
+        elif bt == "database":
+            backup_type = dt or "postgres"
+        else:
+            backup_type = "postgres"
+
     endpoint = endpoint_map.get(backup_type)
     if not endpoint:
         c.output.error(f"Unknown backup type '{backup_type}'. Use: {', '.join(endpoint_map)}")
