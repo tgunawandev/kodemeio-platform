@@ -35,6 +35,9 @@ for the authoritative list + quality scores.
 #### Shared Library
 - **kctl-lib** — Shared CLI infrastructure (v0.4.0, published to PyPI)
 
+#### Meta-CLIs
+- **kctl-profiles** (installed from kctl-lib) — Meta-CLI for profile inspection and migration
+
 #### Infrastructure & Ops
 - **kctl-dokploy** — Dokploy deployment platform
 - **kctl-hz** — Hetzner Cloud infrastructure
@@ -302,6 +305,60 @@ S3-compatible endpoint. See `packages/kctl-dokploy/README.md` for full details.
 | `async_api_client.py` | `AsyncAPIClient` — async HTTP base client with retry, auth header, error mapping |
 | `skill_generator.py` | `SkillGenerator` — Typer app introspection → SKILL.md auto-generation (`skill generate`) |
 
+## Profile System
+
+Spec: [`kodemeio-docs/superpowers/specs/2026-04-19-kctl-profiles-standardization-design.md`](../kodemeio-docs/superpowers/specs/2026-04-19-kctl-profiles-standardization-design.md)
+
+### Two-tier taxonomy
+
+- **Platform profiles** (4 fixed): `abcfood`, `kodemeio`, `idtpp`, `local`
+- **App profiles**: `<platform>-<tenant>-<stack>-<app>[-<env>]`
+  - Examples: `idtpp-tpp-odoo-erp`, `idtpp-tpp-odoo-erp-stg`, `abcfood-tmi-odoo`, `local-odoo-full`
+
+### Prefix inheritance
+
+`get_service_config(profile, service_key)` walks the inheritance chain — leaf → drop trailing segment → ... → platform. First match wins; missing ancestors are skipped.
+
+```
+idtpp-tpp-odoo-erp  →  idtpp-tpp-odoo  →  idtpp-tpp  →  idtpp
+```
+
+Example: `postgres` config not on `idtpp-tpp-odoo-erp` falls through to `idtpp`.
+
+### No default profile
+
+`resolve_active_profile_name` raises `ValueError` (listing available profiles) if neither `-p/--profile` nor `KCTL_{SERVICE}_PROFILE` is set.
+
+### Profile banner (kctl-dokploy; other CLIs follow-up)
+
+Every invocation prints to stderr:
+
+```
+▶ kctl-dokploy
+  profile : idtpp-tpp-odoo-erp  ←  idtpp
+  target  : https://dokploy.idtpp.com
+```
+
+Suppressed by `--quiet` and `--json`.
+
+### kctl-profiles meta-CLI
+
+Installed automatically with kctl-lib; no extra package.
+
+| Command | Purpose |
+|---------|---------|
+| `kctl-profiles list` | Tabular list of all profiles + services |
+| `kctl-profiles show <profile> [--reveal]` | Resolved view with inheritance; secrets masked (`first4****last4`) unless `--reveal` |
+| `kctl-profiles current [-p <profile>]` | Active profile + source |
+| `kctl-profiles migrate [--config <path>] [--yes]` | Stage A config rewrite (preview by default; `--yes` applies, backs up first) |
+
+> `scripts/migrate_profiles.py` is **DEPRECATED** — use `kctl-profiles migrate` instead.
+> `~/.config/kodemeio/config.yaml` is already migrated: 21 profiles (4 platform + 17 app).
+
+### Test isolation
+
+`packages/kctl-lib/tests/conftest.py` autouse fixture monkeypatches `CONFIG_FILE` to `tmp_path` for every test. Opt-out: `@pytest.mark.real_config`.
+
 ## CLI Standards
 
 ### Global Options (all CLIs)
@@ -309,6 +366,8 @@ S3-compatible endpoint. See `packages/kctl-dokploy/README.md` for full details.
 
 ### Config Subcommands (all CLIs)
 init, add, use, show, validate, remove, set, profiles, current
+
+> **kctl-lib 0.5+:** `-p/--profile` or `KCTL_{SERVICE}_PROFILE` env var is required — no silent default. Missing profile raises `ValueError` listing available profiles.
 
 ### Standard Commands (all 28 CLIs, since Quality Sweep 2026-04-18)
 | Command | Purpose |
