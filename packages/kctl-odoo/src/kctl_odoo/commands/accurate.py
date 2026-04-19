@@ -143,16 +143,15 @@ def companies_show(
     )
 
     out.section(f"{rec['name']} ({rec['slug']})")
-    out.kv(
-        [
-            ("State", rec["state"]),
-            ("Current Phase", rec.get("current_phase") or "-"),
-            ("Phase State", rec.get("current_phase_state") or "-"),
-            ("Progress", f"{rec.get('progress_percent', 0)}%"),
-            ("Sync Enabled", "yes" if rec.get("sync_enabled") else "no"),
-            ("Last Sync", str(rec.get("last_sync_at") or "-")),
-        ]
-    )
+    for k, v in [
+        ("State", rec["state"]),
+        ("Current Phase", rec.get("current_phase") or "-"),
+        ("Phase State", rec.get("current_phase_state") or "-"),
+        ("Progress", f"{rec.get('progress_percent', 0)}%"),
+        ("Sync Enabled", "yes" if rec.get("sync_enabled") else "no"),
+        ("Last Sync", str(rec.get("last_sync_at") or "-")),
+    ]:
+        out.kv(k, v)
     if phases:
         rows = [
             [
@@ -254,12 +253,11 @@ def setup(
         {"coa_template_xmlid": coa_template},
     )
     out.success("Setup PASSED.")
-    out.kv(
-        [
-            ("CoA Installed", str(summary.get("coa_installed", "-"))),
-            ("Mapping Rows Seeded", str(summary.get("mapping_rows_seeded", 0))),
-        ]
-    )
+    for k, v in [
+        ("CoA Installed", str(summary.get("coa_installed", "-"))),
+        ("Mapping Rows Seeded", str(summary.get("mapping_rows_seeded", 0))),
+    ]:
+        out.kv(k, v)
     pph = summary.get("pph_accounts") or {}
     if pph:
         rows = []
@@ -356,13 +354,12 @@ def cutover(
         {"cutover_date": cutover_date, "mode": mode},
     )
     out.success("Cutover config committed.")
-    out.kv(
-        [
-            ("Cutover Date", summary.get("cutover_date", "-")),
-            ("Current FY Start", summary.get("current_fy_start", "-")),
-            ("Mode", summary.get("mode", "-")),
-        ]
-    )
+    for k, v in [
+        ("Cutover Date", summary.get("cutover_date", "-")),
+        ("Current FY Start", summary.get("current_fy_start", "-")),
+        ("Mode", summary.get("mode", "-")),
+    ]:
+        out.kv(k, v)
 
 
 # --- foundation --------------------------------------------------------
@@ -536,12 +533,11 @@ def attachments(
     else:
         out.success("Attachments phase complete.")
         if isinstance(summary, dict):
-            out.kv(
-                [
-                    ("Migrated", str(summary.get("migrated_count", 0))),
-                    ("Skipped", str(summary.get("skipped_count", 0))),
-                ]
-            )
+            for k, v in [
+                ("Migrated", str(summary.get("migrated_count", 0))),
+                ("Skipped", str(summary.get("skipped_count", 0))),
+            ]:
+                out.kv(k, v)
 
 
 # --- migrate convenience -----------------------------------------------
