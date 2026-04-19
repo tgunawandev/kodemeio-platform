@@ -508,6 +508,42 @@ def go_live(
     out.success(f"{rec['slug']} is LIVE — incremental cron sync enabled.")
 
 
+@app.command("attachments")
+def attachments(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID")],
+) -> None:
+    """Phase 9 Attachments — migrate Accurate attachments to ir.attachment.
+
+    Optional phase. Requires accurate.company.attachments_enabled=True.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    out.info(f"Running attachments phase for {rec['slug']}...")
+    try:
+        summary = c.execute_kw(
+            "accurate.company",
+            "action_run_attachments",
+            [[rec["id"]]],
+        )
+    except Exception as exc:
+        out.error(f"Attachments failed: {exc}")
+        raise typer.Exit(1)
+    if summary and summary.get("skipped"):
+        out.warn("Attachments phase skipped — attachments_enabled=False.")
+    else:
+        out.success("Attachments phase complete.")
+        if isinstance(summary, dict):
+            out.kv(
+                [
+                    ("Migrated", str(summary.get("migrated_count", 0))),
+                    ("Skipped", str(summary.get("skipped_count", 0))),
+                ]
+            )
+
+
 # --- migrate convenience -----------------------------------------------
 
 
@@ -529,6 +565,7 @@ def migrate(
         ("foundation", "action_run_foundation"),
         ("transactions_prior", "action_run_transactions_prior"),
         ("transactions_current", "action_run_transactions_current"),
+        ("attachments", "action_run_attachments"),
         ("verify", "action_run_verification"),
         ("go-live", "action_run_go_live"),
     ]
@@ -551,7 +588,161 @@ def migrate(
     out.success("All phases complete.")
 
 
+# --- errors ------------------------------------------------------------
+
+
+errors_app = typer.Typer(help="Migration-error inspection and bulk retry.")
+
+
+@errors_app.command("list")
+def errors_list(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Company slug or ID")],
+    error_kind: Annotated[
+        str | None,
+        typer.Option("--error-kind", help="Filter by error_kind"),
+    ] = None,
+    error_class: Annotated[
+        str | None,
+        typer.Option(
+            "--error-class",
+            help="transient|rate_limited|data_integrity|config_broken|unknown",
+        ),
+    ] = None,
+    retry_status: Annotated[
+        str | None,
+        typer.Option("--retry-status", help="pending|ignored|retried|succeeded|abandoned"),
+    ] = None,
+    limit: Annotated[int, typer.Option("--limit", "-l")] = 50,
+) -> None:
+    """List migration errors for a company."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    domain = [("company_id", "=", rec["id"])]
+    if error_kind:
+        domain.append(("error_kind", "=", error_kind))
+    if error_class:
+        domain.append(("error_class", "=", error_class))
+    if retry_status:
+        domain.append(("retry_status", "=", retry_status))
+    errors = c.search_read(
+        "accurate.migration.error",
+        domain=domain,
+        fields=[
+            "id",
+            "module",
+            "accurate_id",
+            "error_class",
+            "error_kind",
+            "error_message",
+            "retry_status",
+            "retry_count",
+            "create_date",
+        ],
+        limit=limit,
+        order="create_date desc",
+    )
+    rows = [
+        [
+            str(e["id"]),
+            e["module"],
+            str(e.get("accurate_id") or "-"),
+            e["error_class"],
+            e.get("error_kind") or "-",
+            (e.get("error_message") or "")[:40],
+            e["retry_status"],
+            str(e.get("retry_count") or 0),
+        ]
+        for e in errors
+    ]
+    out.table(
+        f"Migration Errors — {rec['slug']} ({len(errors)})",
+        [
+            ("ID", "cyan"),
+            ("Module", ""),
+            ("Accurate ID", "dim"),
+            ("Class", ""),
+            ("Kind", "dim"),
+            ("Message", "dim"),
+            ("Retry Status", ""),
+            ("Retries", "dim"),
+        ],
+        rows,
+        data_for_json=errors,
+    )
+
+
+@errors_app.command("retry")
+def errors_retry(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Company slug or ID")],
+    ids: Annotated[
+        str | None,
+        typer.Option("--ids", help="Comma-separated error IDs"),
+    ] = None,
+    error_kind: Annotated[
+        str | None,
+        typer.Option("--error-kind", help="Retry all errors matching this kind"),
+    ] = None,
+) -> None:
+    """Retry selected errors (by IDs or filtered by error_kind)."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    domain = [("company_id", "=", rec["id"]), ("retry_status", "=", "pending")]
+    if ids:
+        id_list = [int(x) for x in ids.split(",") if x.strip()]
+        domain.append(("id", "in", id_list))
+    elif error_kind:
+        domain.append(("error_kind", "=", error_kind))
+    else:
+        out.error("Provide either --ids or --error-kind to select errors to retry.")
+        raise typer.Exit(2)
+    error_ids = c.search("accurate.migration.error", domain=domain, limit=500)
+    if not error_ids:
+        out.warn("No matching errors found.")
+        return
+    c.execute_kw(
+        "accurate.migration.error",
+        "action_retry_selected",
+        [error_ids],
+    )
+    out.success(f"Queued retry of {len(error_ids)} error(s) for {rec['slug']}.")
+
+
+@errors_app.command("ignore")
+def errors_ignore(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Company slug or ID")],
+    ids: Annotated[str, typer.Option("--ids", help="Comma-separated error IDs")],
+    reason: Annotated[str, typer.Option("--reason", help="Ignore reason (audit trail)")],
+) -> None:
+    """Mark selected errors as ignored (exclude from phase-failure threshold)."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    id_list = [int(x) for x in ids.split(",") if x.strip()]
+    if not id_list:
+        out.error("Empty --ids.")
+        raise typer.Exit(2)
+    # Verify all belong to this company
+    belong = c.search(
+        "accurate.migration.error",
+        domain=[("id", "in", id_list), ("company_id", "=", rec["id"])],
+    )
+    if len(belong) != len(id_list):
+        out.error(f"Some IDs do not belong to {rec['slug']} (found {len(belong)} of {len(id_list)}).")
+        raise typer.Exit(2)
+    c.write("accurate.migration.error", id_list, {"retry_status": "ignored", "ignore_reason": reason})
+    out.success(f"Marked {len(id_list)} error(s) as ignored for {rec['slug']}.")
+
+
 # --- attach sub-apps ---------------------------------------------------
 
 
 app.add_typer(companies_app, name="companies")
+app.add_typer(errors_app, name="errors")
