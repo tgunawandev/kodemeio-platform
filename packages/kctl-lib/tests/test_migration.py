@@ -76,3 +76,72 @@ class TestDropProfiles:
 
         overlap = DROP_PROFILES & set(RENAME_MAP.keys())
         assert not overlap, f"Profiles cannot be both dropped and renamed: {overlap}"
+
+
+class TestApplyRenameAndDrop:
+    def test_renames_canonical_keepers(self) -> None:
+        from kctl_lib._migration import apply_rename_and_drop
+
+        before = {
+            "profiles": {
+                "tpp-odoo-erp": {"odoo": {"database": "tpp_odoo_erp"}},
+                "idtpp": {"dokploy": {"url": "https://dokploy.idtpp.com"}},
+            }
+        }
+        after = apply_rename_and_drop(before)
+        assert "tpp-odoo-erp" not in after["profiles"]
+        assert after["profiles"]["idtpp-tpp-odoo-erp"] == {"odoo": {"database": "tpp_odoo_erp"}}
+        # Unaffected profile is preserved.
+        assert after["profiles"]["idtpp"] == {"dokploy": {"url": "https://dokploy.idtpp.com"}}
+
+    def test_drops_test_pollution(self) -> None:
+        from kctl_lib._migration import apply_rename_and_drop
+
+        before = {
+            "profiles": {
+                "settest": {"redis": {"host": "10.0.0.99"}},
+                "idtpp": {"dokploy": {"url": "x"}},
+            }
+        }
+        after = apply_rename_and_drop(before)
+        assert "settest" not in after["profiles"]
+        assert "idtpp" in after["profiles"]
+
+    def test_drops_stale_duplicates(self) -> None:
+        from kctl_lib._migration import apply_rename_and_drop
+
+        before = {
+            "profiles": {
+                "mac-erp": {"odoo": {"api_key": "admin"}},
+                "mac-odoo-erp": {"odoo": {"api_key": "Mac@2026#"}},
+            }
+        }
+        after = apply_rename_and_drop(before)
+        assert "mac-erp" not in after["profiles"]
+        # mac-odoo-erp gets renamed to idtpp-mac-odoo-erp.
+        assert after["profiles"]["idtpp-mac-odoo-erp"] == {"odoo": {"api_key": "Mac@2026#"}}
+
+    def test_preserves_unknown_profiles(self) -> None:
+        from kctl_lib._migration import apply_rename_and_drop
+
+        before = {"profiles": {"some-future-profile": {"odoo": {"url": "x"}}}}
+        after = apply_rename_and_drop(before)
+        assert after["profiles"]["some-future-profile"] == {"odoo": {"url": "x"}}
+
+    def test_rename_collision_raises(self) -> None:
+        from kctl_lib._migration import apply_rename_and_drop
+
+        # If both old and new names already exist, refuse rather than silently merge.
+        before = {
+            "profiles": {
+                "tpp-odoo-erp": {"odoo": {"api_key": "old"}},
+                "idtpp-tpp-odoo-erp": {"odoo": {"api_key": "new"}},
+            }
+        }
+        try:
+            apply_rename_and_drop(before)
+        except ValueError as exc:
+            assert "collision" in str(exc).lower()
+            assert "idtpp-tpp-odoo-erp" in str(exc)
+        else:
+            raise AssertionError("Expected ValueError on rename collision")

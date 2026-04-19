@@ -66,3 +66,26 @@ DROP_PROFILES: frozenset[str] = frozenset(
         "odoo-hrms-tpp",  # superseded by idtpp-tpp-odoo-hrms
     }
 )
+
+
+def apply_rename_and_drop(config: dict[str, Any]) -> dict[str, Any]:
+    """Apply RENAME_MAP and DROP_PROFILES to a config dict.
+
+    Returns a new dict; does not mutate the input.
+
+    Raises:
+        ValueError: if a rename target already exists as a distinct profile
+            (would silently merge otherwise).
+    """
+    profiles = dict(config.get("profiles", {}))
+    out: dict[str, Any] = {}
+
+    for name, data in profiles.items():
+        if name in DROP_PROFILES:
+            continue
+        new_name = RENAME_MAP.get(name, name)
+        if new_name in out:
+            raise ValueError(f"Rename collision for '{new_name}': already present (from profile '{name}')")
+        out[new_name] = data
+
+    return {**config, "profiles": out}
