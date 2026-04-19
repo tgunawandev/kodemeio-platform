@@ -1,11 +1,11 @@
 ---
 name: dokploy-admin
 description: >
-  Dokploy deployment platform administration via kctl-dokploy CLI (52 groups, ~296 commands).
+  Dokploy deployment platform administration via kctl-dokploy CLI (52 groups, ~299 commands).
   MUST use for ANY kctl-dokploy operation.
-  Triggers on: "add-destination", "add-manager", "add-worker", "applications", "apply", "apply-all", "apply-local", "audit", "autodeploy", "backup", "backups", "bl", "branches", "build-servers", "bulk", "by-server", "by-type", "cancel", "certificates", "check", "cl", "clean", "cleanup", "clear-deployments", "cluster", "completions", "compliance", "compose", "config", "container-logs", "containers", "count", "cr", "create-mariadb", "create-mongo", "create-mysql", "create-postgres", "create-redis", "create-ssh-key", "cs", "dashboard", "databases", "delete-destination", "delete-rollback", "deploy", "deploy-all", "deployments", "destinations", "dg", "diagnose", "dl", "docker", "doctor", "domains", "ds", "duplicate", "env", "env-set", "environments", "export", "find", "generate", "get-env", "git", "health", "history", "images", "import", "import-file", "init", "integrity", "kctl-dokploy", "kill", "kill-build", "list-by-service", "list-files", "logs", "maintenance", "mark-delete", "metrics".
+  Triggers on: "add-destination", "add-manager", "add-worker", "applications", "apply", "apply-all", "apply-local", "audit", "autodeploy", "backup", "backups", "bl", "branches", "build-servers", "bulk", "by-server", "by-type", "cancel", "certificates", "check", "cl", "clean", "cleanup", "clear-deployments", "cluster", "completions", "compliance", "compose", "config", "container-logs", "containers", "count", "cr", "create-mariadb", "create-mongo", "create-mysql", "create-postgres", "create-redis", "create-ssh-key", "cs", "dashboard", "databases", "delete-destination", "delete-rollback", "deploy", "deploy-all", "deployments", "destinations", "dg", "diagnose", "dl", "docker", "doctor", "domains", "download", "ds", "duplicate", "env", "env-set", "environments", "export", "find", "generate", "get-env", "git", "health", "history", "images", "import", "import-file", "init", "integrity", "kctl-dokploy", "kill", "kill-build", "list-by-service", "list-files", "logs", "maintenance", "mark-delete".
   Auto-generated: 2026-04-19
-  registry_hash: 3d0b2eb417cd
+  registry_hash: ea4171b1abe8
 ---
 
 # dokploy-admin — kctl-dokploy CLI Reference
@@ -18,7 +18,7 @@ description: >
 
 **CLI:** `kctl-dokploy`
 **Command groups:** 52
-**Total commands:** ~296
+**Total commands:** ~299
 **Install:** `cd cli && uv tool install --editable .`
 
 ## Global Options
@@ -79,13 +79,16 @@ Manage Dokploy backups and S3 destinations.
 | `backups delete-destination <destination_id> [--force]` | Delete an S3 backup destination. |
 | `backups delete-rollback <rollback_id> [--force]` | Delete a rollback record (destructive). |
 | `backups destinations` | List all S3 backup destinations. |
+| `backups download <s3_key> <destination_id> [--output]` | Download an S3 object using a Dokploy destination's credentials. |
 | `backups get <backup_id>` | Get details for a backup configuration. |
 | `backups list [--compose_id]` | List all backup configurations. |
-| `backups list-files <destination_id> [--search] [--server_id]` | List backup files stored in an S3 destination. |
+| `backups list-files <destination_id> [--search] [--prefix] [--limit]` | List backup files in an S3 destination via boto3 (bypasses Dokploy's buggy endpoint). |
+| `backups pull <backup_id> <target_db> [--target_compose] [--target_host] [--target_port] [--target_user] [--target_password] [--target_service] [--trigger] [--wait_timeout] [--poll_interval] [--keep_download] [--download_path] [--owner] [--force] [--smoke_test]` | End-to-end: trigger (optional) -> wait -> download -> restore. |
 | `backups remove <backup_id> [--force]` | Remove a backup configuration (destructive). |
 | `backups restore <compose_id> <destination_id> <database_name> [--backup_file] [--latest_for] [--backup_type] [--db_type] [--service_name] [--database_user] [--database_password]` | Restore a database from S3 into a compose via Dokploy's native API. |
 | `backups rollback <rollback_id> [--force]` | Rollback to a previous state (destructive). |
 | `backups run <backup_id> [--backup_type]` | Trigger a manual backup run. |
+| `backups run-wait <backup_id> [--timeout] [--poll_interval]` | Trigger a manual backup and poll S3 until the new file appears. |
 | `backups test-destination <destination_id>` | Test S3 connection for a destination. |
 | `backups update <backup_id> [--schedule] [--prefix] [--enabled] [--destination_id] [--database_user] [--database_password]` | Update a backup configuration. |
 | `backups update-destination <destination_id> [--name] [--bucket] [--region] [--endpoint] [--access_key] [--secret_key]` | Update an S3 backup destination. |
@@ -680,44 +683,136 @@ kctl-dokploy config validate   # Verify config
 
 ## Compose Postgres Backup → S3 → Local Restore (prod → local)
 
-The canonical restore workflow uses Dokploy's native SSE endpoint
-(`/api/trpc/backup.restoreBackupWithLogs`). Dokploy's server does the
-actual `pg_restore` via `docker exec` on the Dokploy host — no SSH from
-the client, no local temp files.
+Two different "restore" stories, pick the right one:
 
-Full reference: `runbooks/postgres-restore.md`.
+| Target | Command | What happens |
+|---|---|---|
+| Dokploy-managed compose (same or different Dokploy host) | `backups restore` | Streams Dokploy's native SSE log (`backup.restoreBackupWithLogs`). No local download. |
+| Raw postgres on your laptop (or any non-Dokploy postgres) | `backups pull` | boto3 download → decompress → drop+recreate → pg_restore. |
 
-### Prerequisites
+For developers pulling prod dumps down to a local postgres running on
+`localhost:5434`, use `backups pull`. It's the one-command flow below.
 
-- **kctl-dokploy ≥ 0.4.0** with a valid profile in
-  `~/.config/kodemeio/config.yaml`.
-- **S3 destination registered on the target Dokploy** — same bucket as
-  the source. Run `backups add-destination` once against the target
-  profile. Destination `provider` must be `"Other"` (not `"s3"`) for
-  Hetzner Object Storage — rclone rejects the `"s3"` enum value.
-- **`odoo` role is SUPERUSER** on both the source and target postgres
-  instances. On TPP/MAC prod and local, this is already the case.
-- **Target DB pre-created** — Dokploy's native restore does NOT create
-  the DB. Use the `kodemeio-postgres` image's `SERVICE_DATABASES` env var
-  to pre-create with `OWNER=odoo` and `LC_COLLATE=en_US.utf8`. See §3 of
-  the runbook.
-
-### ID lookup cheat sheet
+### One-command recipe — prod → local postgres
 
 ```bash
-# Compose IDs
-kctl-dokploy --profile idtpp compose list
-kctl-dokploy --profile local  compose list
-
-# Destination IDs
-kctl-dokploy --profile idtpp backups destinations
-kctl-dokploy --profile local  backups destinations
-
-# DB name convention: <tenant>_odoo_<app>
-# e.g. tpp_odoo_erp, tpp_odoo_hrms, mac_odoo_erp, mac_odoo_hrms
+kctl-dokploy -p idtpp backups pull <backup_id> \
+    --target-host localhost --target-port 5434 \
+    --target-user odoo --target-password <pwd> \
+    --target-db tpp_odoo_erp \
+    --trigger --force
 ```
 
-### One-shot restore (latest S3 key)
+What this does:
+
+1. Looks up the backup config via `/backup.one` — extracts destinationId,
+   S3 bucket, prefix, source DB name.
+2. With `--trigger`: fires the appropriate `/backup.manualBackup*` endpoint
+   (postgres / compose / mysql / ...) and polls S3 every 10 s (configurable
+   via `--poll-interval`) for a NEW object with `LastModified` after
+   trigger time, up to `--wait-timeout` seconds (default 300).
+3. Without `--trigger`: picks the newest existing object under the backup's
+   prefix — no fresh dump, no production load.
+4. Downloads the object via boto3 using the destination's stored credentials.
+5. Gunzips if `.gz`; magic-byte-detects `PGDMP` for pg_restore custom format
+   vs. plain SQL.
+6. Drops the target DB (terminating active connections via `pg_terminate_backend`)
+   and recreates it with `OWNER=<--owner | --target-user>`. Prompts
+   unless `--force`.
+7. `pg_restore --no-owner --no-privileges --clean --if-exists` (custom) or
+   `psql -f` (plain) against `--target-host:--target-port`.
+8. Smoke test: `SELECT count(*) FROM res_users` (best-effort, non-fatal).
+9. Cleans up the downloaded file unless `--keep-download`.
+
+### Finding the backup_id
+
+```bash
+# 1. List composes on the source profile, grab the composeId for the DB service.
+kctl-dokploy -p idtpp compose list
+
+# 2. List backup configs scoped to that compose.
+kctl-dokploy -p idtpp backups list --compose <compose_id>
+
+# 3. Pick the row whose "Database" matches the DB you want — that's <backup_id>.
+kctl-dokploy -p idtpp backups get <backup_id>
+```
+
+### `--trigger` vs. latest existing
+
+- **Default (no `--trigger`)**: reuses the newest scheduled backup already in
+  S3. Zero production load, dump freshness = `<= schedule interval`.
+- **`--trigger`**: fires a manual dump first. Dump freshness = "right now".
+  Costs prod CPU/IO for the dump duration; use when yesterday's nightly
+  isn't fresh enough (e.g. debugging a bug introduced today).
+
+Prefer `--trigger` when debugging _today's_ state; prefer default when
+catching up development data.
+
+### Target types
+
+**`--target-host` (raw postgres — local dev)**
+
+```bash
+kctl-dokploy -p idtpp backups pull <backup_id> \
+    --target-host localhost --target-port 5434 \
+    --target-user odoo --target-password <pwd> \
+    --target-db tpp_odoo_erp --force
+```
+
+`PGPASSWORD` env var is used as the fallback if `--target-password` is omitted.
+
+**`--target-compose` (Dokploy-managed on the current profile's host)**
+
+```bash
+kctl-dokploy -p local backups pull <backup_id> \
+    --target-compose <target_compose_id> \
+    --target-user odoo --target-db tpp_odoo_erp \
+    --target-service postgres --force
+```
+
+Resolves the running postgres container via `docker ps` labels
+(`com.docker.compose.project=<appName>`, `com.docker.compose.service=<svc>`)
+and runs `docker exec -i <container> pg_restore`. The command that calls
+this needs docker socket access on the local host — for cross-host restores
+use `backups restore` (native Dokploy SSE) instead.
+
+### Other pull-flow commands
+
+**`backups run-wait`** — trigger + poll without downloading/restoring.
+Useful in CI to wait for a nightly without restoring locally:
+
+```bash
+kctl-dokploy -p idtpp backups run-wait <backup_id> --timeout 600
+# prints: s3://<bucket>/<key>
+```
+
+**`backups download`** — standalone S3 download using a destination's creds:
+
+```bash
+kctl-dokploy -p idtpp backups download <s3_key> \
+    --destination <destination_id> --output /tmp/dump.sql.gz
+```
+
+**`backups list-files`** — list objects in a destination (now boto3-backed;
+no more "Input validation failed"):
+
+```bash
+# List everything (up to --limit, default 200)
+kctl-dokploy -p idtpp backups list-files --destination <destination_id>
+
+# Filter client-side by substring
+kctl-dokploy -p idtpp backups list-files --destination <destination_id> --search tpp_odoo_erp
+
+# Filter S3-side by prefix (faster for huge buckets)
+kctl-dokploy -p idtpp backups list-files --destination <destination_id> \
+    --prefix 'compose-xyz/postgres/'
+```
+
+### Dokploy-managed restore (`backups restore`)
+
+When the target lives inside Dokploy (on the same host as the CLI's
+profile), use the native SSE path — Dokploy runs pg_restore itself via
+`docker exec`, no local download:
 
 ```bash
 kctl-dokploy -p <target-profile> backups restore \
@@ -729,38 +824,10 @@ kctl-dokploy -p <target-profile> backups restore \
     --latest <db-name>
 ```
 
-Picks the newest S3 object whose key contains `<db-name>`, invokes
-Dokploy's native restore, streams log lines prefixed `[Dokploy]` to your
-terminal. Exit 0 on success, 1 on Dokploy error, 2 on transport failure.
+Exit 0 on success, 1 on Dokploy error, 2 on transport failure. Dokploy's
+log lines stream to stdout prefixed `[Dokploy]`.
 
-**Example — restore latest prod `mac_odoo_erp` to local:**
-
-```bash
-kctl-dokploy -p local backups restore \
-    --compose BAP6JmrmLJYnSIJ3YZOb_ \
-    --destination v6gJBPvatXxuArLtEqR09 \
-    --database-name mac_odoo_erp \
-    --service-name postgres \
-    --database-user odoo \
-    --latest mac_odoo_erp
-```
-
-### Restore from a specific historical backup
-
-List candidates via rclone (Dokploy's own `listBackupFiles` is buggy):
-
-```bash
-docker run --rm rclone/rclone \
-    --s3-provider=Other \
-    --s3-access-key-id=<KEY> --s3-secret-access-key=<SECRET> \
-    --s3-region=<REGION> --s3-endpoint=<ENDPOINT> \
-    --s3-no-check-bucket --s3-force-path-style \
-    lsl ':s3:<BUCKET>/' | grep <db-name>
-```
-
-Then pass the key with `--file <s3-key>` instead of `--latest`.
-
-### Metadata flags — why they matter
+### Metadata flags — why they matter (applies to `backups restore`)
 
 `--service-name` and `--database-user` map to `metadata.serviceName` and
 `metadata.postgres.databaseUser` in the tRPC payload. Without them
@@ -778,11 +845,14 @@ Dokploy runs `docker exec -i sh` (wrong container) and `pg_restore -U ''`
 | Symptom | Cause + fix |
 |---|---|
 | `Compose '<id>' not found` | Wrong compose ID for that profile. Re-run `kctl-dokploy --profile <name> compose list` and copy the ID column exactly (case-sensitive). |
-| `Error: ... no such container` in Dokploy log | `--service-name` doesn't match the postgres service label in the compose YAML. Check with `kctl-dokploy --profile <name> compose loadServices --compose <id>`. |
-| `pg_restore: error: role "<user>" does not exist` | `--database-user` is wrong or role hasn't been created on the target. Verify with `psql -U postgres -c '\du'`. |
+| `Backup '<id>' not found` (during `backups pull`) | `backup_id` belongs to a different profile. `pull` uses the profile passed to `-p`; run `kctl-dokploy -p <src> backups list --compose <id>` on the correct profile. |
+| `Timed out after Ns waiting for a new backup` (with `--trigger`) | Source dump is slow or cron is disabled. Bump `--wait-timeout 900`; check `backups get <id>` to confirm `enabled=True`. |
+| `No S3 objects found under prefix '...'` (without `--trigger`) | No scheduled dump exists yet. Run once with `--trigger` or verify the nightly schedule via `backups list --compose <id>`. |
+| `Error: ... no such container` in Dokploy log (during `backups restore`) | `--service-name` doesn't match the postgres service label in the compose YAML. Check with `kctl-dokploy --profile <name> compose loadServices --compose <id>`. |
+| `pg_restore: error: role "<user>" does not exist` | `--target-user` / `--database-user` is wrong or role hasn't been created on the target. Verify with `psql -U postgres -c '\du'`. |
+| `docker exec` errors with `No running postgres container found` (during `backups pull --target-compose`) | `--target-service` doesn't match the service in the target compose (default is `postgres`). Inspect with `docker ps --filter label=com.docker.compose.project=<appName>`. |
 | `UndefinedColumn` errors after restore | Source DB schema is ahead of target (module upgraded on source). Run `kctl-odoo -p <target-profile> modules upgrade <module>`. |
-| Transport / auth failure (exit 2) | API key or Dokploy URL wrong for the target profile. Run `kctl-dokploy -p <profile> config test`. |
-| `No S3 files ... contain '<db-name>'` | No scheduled backup written yet for that DB. Check cron schedule via `kctl-dokploy -p idtpp backups list`. |
+| Transport / auth failure (exit 2 from `backups restore`) | API key or Dokploy URL wrong for the target profile. Run `kctl-dokploy -p <profile> config test`. |
 
 ## Fast Log Debugging
 
