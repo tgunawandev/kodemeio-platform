@@ -1,7 +1,11 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+import typer
 from typer.testing import CliRunner
 
+from kctl_odoo.commands.roles import _resolve_roles_file
 from kctl_odoo.commands.roles import app as roles_app
 
 runner = CliRunner()
@@ -363,3 +367,33 @@ def test_roles_apply_csv_dry_run(mock_get_client, tmp_path):
     result = runner.invoke(roles_app, ["apply", str(csv_file), "--dry-run"])
     assert result.exit_code == 0
     assert client.write.call_args_list == []
+
+
+def test_resolve_roles_file_erp_suffix():
+    assert _resolve_roles_file("idtpp-mac-odoo-erp", None) == Path("install/roles-erp.yaml")
+    assert _resolve_roles_file("idtpp-tpp-odoo-erp", None) == Path("install/roles-erp.yaml")
+
+
+def test_resolve_roles_file_hrms_suffix():
+    assert _resolve_roles_file("idtpp-mac-odoo-hrms", None) == Path("install/roles-hrms.yaml")
+    assert _resolve_roles_file("idtpp-tpp-odoo-hrms", None) == Path("install/roles-hrms.yaml")
+
+
+def test_resolve_roles_file_unknown_profile_raises():
+    with pytest.raises(typer.BadParameter) as exc:
+        _resolve_roles_file("idtpp-mac-odoo-full", None)
+    msg = str(exc.value)
+    assert "Cannot auto-detect" in msg
+    assert "-odoo-erp" in msg
+    assert "-odoo-hrms" in msg
+
+
+def test_resolve_roles_file_explicit_override_wins():
+    custom = Path("custom/path/my-roles.yaml")
+    assert _resolve_roles_file("idtpp-mac-odoo-erp", custom) == custom
+    assert _resolve_roles_file("idtpp-mac-odoo-full", custom) == custom
+
+
+def test_resolve_roles_file_staging_suffix_is_unknown():
+    with pytest.raises(typer.BadParameter):
+        _resolve_roles_file("idtpp-tpp-odoo-hrms-stg", None)

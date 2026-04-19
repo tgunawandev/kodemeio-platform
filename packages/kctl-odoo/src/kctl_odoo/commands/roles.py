@@ -6,6 +6,7 @@ See kodemeio-docs/superpowers/specs/2026-04-19-role-standardization-design.md
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -275,6 +276,35 @@ def _sync_menu_visibility(client, rf: RolesFile, prune: bool, dry_run: bool) -> 
             {"excluded_group_ids": [(cmd, gid) for cmd, gid in ops]},
         )
     console.print(f"[green]Menu visibility: applied {len(actions)} change(s).[/green]")
+
+
+# Profile suffix → default roles YAML. Auto-detection rule:
+#   idtpp-mac-odoo-erp  → install/roles-erp.yaml
+#   idtpp-tpp-odoo-hrms → install/roles-hrms.yaml
+# Staging (`-stg`) and non-matching profiles fall through to the error
+# branch — user must pass --file explicitly.
+_ROLES_FILE_SUFFIX_RE = re.compile(r"-odoo-(erp|hrms)$")
+
+
+def _resolve_roles_file(profile_name: str | None, file_override: Path | None) -> Path:
+    """Pick the roles YAML to operate on.
+
+    Priority:
+      1. `file_override` (explicit --file)
+      2. Profile-name suffix match
+      3. Error — user must pass --file
+    """
+    if file_override is not None:
+        return file_override
+    m = _ROLES_FILE_SUFFIX_RE.search(profile_name or "")
+    if m:
+        return Path(f"install/roles-{m.group(1)}.yaml")
+    raise typer.BadParameter(
+        f"Cannot auto-detect roles file for profile '{profile_name or '<none>'}'.\n"
+        f"Expected profile suffix -odoo-erp or -odoo-hrms.\n"
+        f"Pass --file install/roles-erp.yaml (or -hrms) explicitly, "
+        f"or rename the profile."
+    )
 
 
 @app.command("sync")
