@@ -89,3 +89,42 @@ def apply_rename_and_drop(config: dict[str, Any]) -> dict[str, Any]:
         out[new_name] = data
 
     return {**config, "profiles": out}
+
+
+def dedupe_service_keys(config: dict[str, Any]) -> dict[str, Any]:
+    """Remove duplicate service keys within each profile.
+
+    Rules (from spec step 5 of migration):
+        * `onepassword` → merged into `op`. If both exist, `op` wins.
+          If only `onepassword` exists, it is renamed to `op`.
+        * In the `kodemeio` profile only: `sentry` is dropped if it points
+          at the same URL as `glitchtip` (it was a copy-pasted duplicate).
+          A `sentry` block pointing at a different host is preserved.
+
+    Returns a new dict; does not mutate the input.
+    """
+    profiles_out: dict[str, Any] = {}
+
+    for profile_name, profile_data in config.get("profiles", {}).items():
+        if not isinstance(profile_data, dict):
+            profiles_out[profile_name] = profile_data
+            continue
+
+        new_profile = dict(profile_data)
+
+        # Rule 1: onepassword → op.
+        if "onepassword" in new_profile:
+            legacy = new_profile.pop("onepassword")
+            if "op" not in new_profile:
+                new_profile["op"] = legacy
+
+        # Rule 2: drop duplicate sentry in kodemeio.
+        if profile_name == "kodemeio":
+            sentry = new_profile.get("sentry")
+            glitchtip = new_profile.get("glitchtip")
+            if isinstance(sentry, dict) and isinstance(glitchtip, dict) and sentry.get("url") == glitchtip.get("url"):
+                new_profile.pop("sentry")
+
+        profiles_out[profile_name] = new_profile
+
+    return {**config, "profiles": profiles_out}

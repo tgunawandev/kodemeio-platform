@@ -145,3 +145,79 @@ class TestApplyRenameAndDrop:
             assert "idtpp-tpp-odoo-erp" in str(exc)
         else:
             raise AssertionError("Expected ValueError on rename collision")
+
+
+class TestDedupeServiceKeys:
+    def test_drops_onepassword_when_op_present(self) -> None:
+        from kctl_lib._migration import dedupe_service_keys
+
+        before = {
+            "profiles": {
+                "kodemeio": {
+                    "op": {"vault": "Kodemeio", "service_account_token": "keep"},
+                    "onepassword": {"vault": "Kodemeio", "service_account_token": "legacy"},
+                }
+            }
+        }
+        after = dedupe_service_keys(before)
+        assert "onepassword" not in after["profiles"]["kodemeio"]
+        assert after["profiles"]["kodemeio"]["op"]["service_account_token"] == "keep"
+
+    def test_promotes_onepassword_when_op_missing(self) -> None:
+        from kctl_lib._migration import dedupe_service_keys
+
+        before = {"profiles": {"legacy": {"onepassword": {"vault": "Foo", "service_account_token": "legacy"}}}}
+        after = dedupe_service_keys(before)
+        assert "onepassword" not in after["profiles"]["legacy"]
+        assert after["profiles"]["legacy"]["op"] == {"vault": "Foo", "service_account_token": "legacy"}
+
+    def test_drops_sentry_dup_in_kodemeio(self) -> None:
+        from kctl_lib._migration import dedupe_service_keys
+
+        # kodemeio.sentry.auth_token was a copy of kodemeio.glitchtip.token
+        # pointing at the same URL (glitchtip.kodeme.io). Drop it — kctl-sentry
+        # can use the kodemeio.glitchtip block (same Sentry-compat API).
+        before = {
+            "profiles": {
+                "kodemeio": {
+                    "glitchtip": {
+                        "url": "https://glitchtip.kodeme.io",
+                        "token": "abc",
+                    },
+                    "sentry": {
+                        "url": "https://glitchtip.kodeme.io",
+                        "auth_token": "abc",
+                    },
+                }
+            }
+        }
+        after = dedupe_service_keys(before)
+        assert "sentry" not in after["profiles"]["kodemeio"]
+        assert after["profiles"]["kodemeio"]["glitchtip"]["token"] == "abc"
+
+    def test_keeps_sentry_if_distinct_server(self) -> None:
+        from kctl_lib._migration import dedupe_service_keys
+
+        before = {
+            "profiles": {
+                "kodemeio": {
+                    "glitchtip": {
+                        "url": "https://glitchtip.kodeme.io",
+                        "token": "gtip",
+                    },
+                    "sentry": {
+                        "url": "https://sentry.io",
+                        "auth_token": "real-sentry",
+                    },
+                }
+            }
+        }
+        after = dedupe_service_keys(before)
+        assert after["profiles"]["kodemeio"]["sentry"]["url"] == "https://sentry.io"
+
+    def test_leaves_other_profiles_alone(self) -> None:
+        from kctl_lib._migration import dedupe_service_keys
+
+        before = {"profiles": {"abcfood": {"op": {"vault": "ABCFood"}}}}
+        after = dedupe_service_keys(before)
+        assert after == before
