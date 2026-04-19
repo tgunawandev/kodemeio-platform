@@ -1,0 +1,32 @@
+# kodemeio-platform/deploys/instances/production/kod-infra-plausible.yaml
+kind: instance
+extends: ../../bases/plausible.yaml
+
+instance:
+  name: kod-infra-plausible
+  description: "Plausible CE — self-hosted privacy analytics"
+
+project: kod
+server: kod-prod-01
+
+source_overrides:
+  repo: kodemeio-plausible
+  compose_path: ./docker-compose.prod.yml
+
+domain:
+  host: plausible.kodeme.io
+  port: 8000
+  service: plausible
+  https: true
+  cert: letsencrypt
+  cloudflare_proxied: false   # Plausible WS / LiveView — keep direct
+
+dns:
+  provider: cloudflare
+  zone: kodeme.io
+  record: plausible
+  type: A
+  target: 49.13.116.191
+  proxied: false
+
+env_file: ../../env/production/.env.kod-infra-plausible

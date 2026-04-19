@@ -1,0 +1,32 @@
+# kodemeio-platform/deploys/instances/production/kod-infra-shlink.yaml
+kind: instance
+extends: ../../bases/shlink.yaml
+
+instance:
+  name: kod-infra-shlink
+  description: "Shlink — self-hosted URL shortener"
+
+project: kod
+server: kod-prod-01
+
+source_overrides:
+  repo: kodemeio-shlink
+  compose_path: ./docker-compose.prod.yml
+
+domain:
+  host: s.kodeme.io
+  port: 8080
+  service: shlink
+  https: true
+  cert: letsencrypt
+  cloudflare_proxied: true   # Cloudflare caching fine for redirects
+
+dns:
+  provider: cloudflare
+  zone: kodeme.io
+  record: s
+  type: A
+  target: 49.13.116.191
+  proxied: true
+
+env_file: ../../env/production/.env.kod-infra-shlink
