@@ -29,12 +29,10 @@ class ConfigFile(BaseModel):
 
 
 def expand_env(value: str) -> str:
-    """Expand `${VAR}` and `${env:VAR}` references.
+    """Expand `${VAR}`, `${env:VAR}`, and `${op://...}` references."""
+    from kctl_lib.secrets import resolve_op_refs
 
-    Both forms resolve to the same environment variable. `${env:VAR}` is the
-    preferred explicit form; the bare `${VAR}` form is kept for back-compat.
-    Unset variables are left literal so the user sees the broken reference.
-    """
+    value = resolve_op_refs(value)
 
     def _replace(match: re.Match[str]) -> str:
         var_name = match.group(1)
