@@ -75,7 +75,14 @@ def _build_s3_client(dest: dict[str, Any]) -> Any:
 
 
 def _list_backup_keys(c: AppContext, destination_id: str, search: str = "") -> list[str]:
-    """List backup file keys in S3 via Dokploy API."""
+    """List backup file keys in S3 via Dokploy API.
+
+    Kept for backwards-compat. Dokploy's `/backup.listBackupFiles` endpoint
+    is buggy for compose backups (rejects empty search, and when a non-empty
+    search is given, doesn't recurse into sub-prefixes — the actual .sql.gz
+    files land under `<compose-appName>_<service>/...` which the endpoint
+    never returns). Prefer `_list_s3_keys` for new callers.
+    """
     params: dict[str, Any] = {"destinationId": destination_id, "search": search}
     data = c.client.get("/backup.listBackupFiles", params=params)
     if not isinstance(data, list):
@@ -89,6 +96,29 @@ def _list_backup_keys(c: AppContext, destination_id: str, search: str = "") -> l
             if isinstance(name, str):
                 keys.append(name)
     return keys
+
+
+def _list_s3_keys(s3: Any, bucket: str, prefix: str = "", contains: str = "") -> list[str]:
+    """Recursively list all object keys in `bucket` under `prefix` via boto3.
+
+    Handles pagination and filters by a case-sensitive substring. Works for
+    any S3-compatible endpoint and doesn't go through Dokploy's broken
+    listBackupFiles endpoint. Returns keys sorted by `LastModified` ascending
+    — so callers wanting "the latest" can use `keys[-1]`.
+    """
+    rows: list[tuple[str, Any]] = []
+    paginator = s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []) or []:
+            k = obj.get("Key")
+            if not isinstance(k, str):
+                continue
+            if contains and contains not in k:
+                continue
+            rows.append((k, obj.get("LastModified")))
+    # Sort by LastModified; tuples where LastModified is None sink to the top.
+    rows.sort(key=lambda r: (r[1] is None, r[1]))
+    return [k for k, _ in rows]
 
 
 def _get_compose_one(c: AppContext, compose_id: str) -> dict[str, Any]:
@@ -595,25 +625,20 @@ def refresh(
 
     if latest:
         # --- 1a) Find the newest existing S3 file matching the database.
+        # We can't use Dokploy's /backup.listBackupFiles here — it rejects
+        # empty `search` with 400 and, even with a non-empty search, doesn't
+        # recurse into sub-prefixes where compose backups actually land.
+        # List via boto3 directly using the source destination's creds.
         filter_str = key_filter or database
         c.output.info(f"[{source_profile}] --latest: finding newest S3 key containing '{filter_str}'...")
-        raw = source_client.get(
-            "/backup.listBackupFiles",
-            params={"destinationId": source_destination_id, "search": ""},
-        )
-        keys: list[str] = []
-        if isinstance(raw, list):
-            for f in raw:
-                if isinstance(f, str):
-                    keys.append(f)
-                elif isinstance(f, dict):
-                    name = f.get("name") or f.get("key")
-                    if isinstance(name, str):
-                        keys.append(name)
-        matches = sorted(k for k in keys if filter_str in k)
-        if not matches:
-            _die(c, f"No S3 files in bucket '{bucket}' contain '{filter_str}'. Run without --latest for a fresh dump.")
-        s3_key = matches[-1]
+        # _list_s3_keys already sorts by LastModified ascending.
+        keys = _list_s3_keys(s3, bucket, prefix="", contains=filter_str)
+        if not keys:
+            _die(
+                c,
+                f"No S3 files in bucket '{bucket}' contain '{filter_str}'. Run without --latest for a fresh dump.",
+            )
+        s3_key = keys[-1]
         c.output.success(f"  latest: {s3_key}")
     else:
         # --- 1b) Fresh dump via SSH + pg_dump.

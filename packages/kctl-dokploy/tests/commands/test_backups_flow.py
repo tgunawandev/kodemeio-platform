@@ -434,14 +434,37 @@ class TestRefreshLatest:
         source_client = MagicMock()
         source_client.get.side_effect = lambda endpoint, params=None: {
             "/destination.one": SAMPLE_DEST,
-            "/backup.listBackupFiles": [
-                "tpp-infra-postgres/tpp_odoo_erp-2026-04-17T02-00-00Z.dump",
-                "tpp-infra-postgres/tpp_odoo_erp-2026-04-18T02-00-00Z.dump",  # newest
-                "tpp-infra-postgres/other_db-2026-04-18T02-00-00Z.dump",  # different db
-            ],
         }.get(endpoint, {})
 
         fake_s3 = MagicMock()
+
+        # We now list via boto3 paginator (list_objects_v2) instead of Dokploy's
+        # buggy /backup.listBackupFiles. The paginator yields pages containing
+        # Contents lists. _list_s3_keys sorts by LastModified — the test mocks
+        # LastModified as an offset-aware datetime so the newest wins.
+        from datetime import datetime, timezone
+
+        def _paginate(**kwargs: object):  # matches boto3 signature
+            yield {
+                "Contents": [
+                    {
+                        "Key": "tpp-infra-postgres/tpp_odoo_erp-2026-04-17T02-00-00Z.dump",
+                        "LastModified": datetime(2026, 4, 17, 2, 0, tzinfo=timezone.utc),
+                    },
+                    {
+                        "Key": "tpp-infra-postgres/tpp_odoo_erp-2026-04-18T02-00-00Z.dump",  # newest
+                        "LastModified": datetime(2026, 4, 18, 2, 0, tzinfo=timezone.utc),
+                    },
+                    {
+                        "Key": "tpp-infra-postgres/other_db-2026-04-18T02-00-00Z.dump",  # different db
+                        "LastModified": datetime(2026, 4, 18, 2, 0, tzinfo=timezone.utc),
+                    },
+                ],
+            }
+
+        fake_paginator = MagicMock()
+        fake_paginator.paginate.side_effect = _paginate
+        fake_s3.get_paginator.return_value = fake_paginator
 
         def _fake_download(bucket: str, key: str, path: str) -> None:
             # Write PGDMP magic so restore_local recognises as custom-format dump.
@@ -507,13 +530,29 @@ class TestRefreshLatest:
         source_client = MagicMock()
         source_client.get.side_effect = lambda endpoint, params=None: {
             "/destination.one": SAMPLE_DEST,
-            "/backup.listBackupFiles": ["other_db/file-2026-04-18.dump"],
         }.get(endpoint, {})
+
+        # boto3 paginator returns an unrelated file; filter should reject it.
+        from datetime import datetime, timezone
+
+        fake_s3 = MagicMock()
+        fake_pg = MagicMock()
+        fake_pg.paginate.return_value = [
+            {
+                "Contents": [
+                    {
+                        "Key": "other_db/file-2026-04-18.dump",
+                        "LastModified": datetime(2026, 4, 18, 2, 0, tzinfo=timezone.utc),
+                    },
+                ],
+            },
+        ]
+        fake_s3.get_paginator.return_value = fake_pg
 
         with (
             patch.object(AppContext, "client", new_callable=PropertyMock, return_value=MagicMock()),
             patch.object(bf, "_build_source_client", return_value=source_client),
-            patch.object(bf, "_build_s3_client", return_value=MagicMock()),
+            patch.object(bf, "_build_s3_client", return_value=fake_s3),
         ):
             result = runner.invoke(
                 app,
