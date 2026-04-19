@@ -182,11 +182,15 @@ def _sync_menu_visibility(client, rf: RolesFile, prune: bool, dry_run: bool) -> 
     don't exercise this feature don't need fresh mock setups.
     """
     roles_with_hides = [rid for rid, spec in rf.roles.items() if spec.hide_menus]
-    if not roles_with_hides:
+    if not roles_with_hides and not prune:
         return
 
-    # Fetch backing groups for roles that declared hide_menus.
-    wanted_names = [rf.roles[rid].name for rid in roles_with_hides]
+    # Fetch backing groups for ALL roles in the YAML — not just those
+    # with hide_menus. Prune needs every role's backing group to be in
+    # `relevant_groups` so it can detect stale exclusions left behind
+    # by a role whose `hide_menus` was later emptied (e.g., admin roles
+    # that once hid tiles but should no longer).
+    wanted_names = [spec.name for spec in rf.roles.values()]
     db_roles = client.search_read(
         "res.users.role",
         [("name", "in", wanted_names)],
@@ -208,11 +212,19 @@ def _sync_menu_visibility(client, rf: RolesFile, prune: bool, dry_run: bool) -> 
         for rid in missing_roles:
             console.print(f"  - {rid} ({rf.roles[rid].name})")
 
-    # Fetch top-level menus.
-    menus = client.search_read(
+    # Fetch top-level menus. Pass ir.ui.menu.full_list context so
+    # base_menu_visibility_restriction does NOT filter the result by the
+    # caller's own group memberships — otherwise, after the first sync,
+    # the admin running this RPC can no longer see menus they have
+    # excluded themselves from, which breaks incremental sync.
+    menus = client.execute_kw(
         "ir.ui.menu",
-        [("parent_id", "=", False)],
-        fields=["id", "name", "excluded_group_ids"],
+        "search_read",
+        [[("parent_id", "=", False)]],
+        {
+            "fields": ["id", "name", "excluded_group_ids"],
+            "context": {"ir.ui.menu.full_list": True},
+        },
     )
     menu_ids_by_name: dict[str, int] = {m["name"]: m["id"] for m in menus}
     current_exclusions: dict[int, set[int]] = {m["id"]: set(m.get("excluded_group_ids") or []) for m in menus}

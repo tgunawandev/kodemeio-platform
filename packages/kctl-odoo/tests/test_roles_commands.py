@@ -309,9 +309,9 @@ def test_roles_sync_applies_menu_visibility(mock_get_client, tmp_path):
         [{"id": 1, "model": "res.groups", "module": "hr", "name": "group_hr_user", "res_id": 1}],
         # _sync_menu_visibility: fetch role backing group
         [{"id": 5, "name": "HR Officer", "group_id": [999, "Role HR Officer"]}],
-        # _sync_menu_visibility: fetch top-level menus
-        [{"id": 77, "name": "Sales", "excluded_group_ids": []}],
     ]
+    # _sync_menu_visibility: fetch top-level menus (uses execute_kw with full_list context)
+    client.execute_kw.return_value = [{"id": 77, "name": "Sales", "excluded_group_ids": []}]
     client.write.return_value = True
     mock_get_client.return_value = client
 
@@ -341,8 +341,8 @@ def test_roles_sync_menu_visibility_dry_run_no_writes(mock_get_client, tmp_path)
         [{"id": 5, "name": "HR Officer", "implied_ids": [1]}],
         [{"id": 1, "model": "res.groups", "module": "hr", "name": "group_hr_user", "res_id": 1}],
         [{"id": 5, "name": "HR Officer", "group_id": [999, "Role HR Officer"]}],
-        [{"id": 77, "name": "Sales", "excluded_group_ids": []}],
     ]
+    client.execute_kw.return_value = [{"id": 77, "name": "Sales", "excluded_group_ids": []}]
     mock_get_client.return_value = client
 
     result = runner.invoke(roles_app, ["sync", "--file", str(yaml_file), "--dry-run"])
