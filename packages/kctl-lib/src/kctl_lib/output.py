@@ -198,3 +198,28 @@ class Output:
     def text(self, msg: str) -> None:
         if not self.quiet:
             self.console.print(msg)
+
+
+def profile_banner(
+    app: str,
+    profile: str,
+    inheritance_chain: list[str],
+    service_summary: str | None,
+) -> str:
+    """Render the profile banner string (pretty mode).
+
+    Format:
+        ▶ <app>
+          profile : <active>  ←  <parent>  ←  <grandparent>
+          target  : <service_summary>
+
+    The caller writes the returned string to stderr; pipes stay clean.
+    """
+    parents = inheritance_chain[1:]
+    chain = profile
+    if parents:
+        chain = profile + "  ←  " + "  ←  ".join(parents)
+    lines = [f"▶ {app}", f"  profile : {chain}"]
+    if service_summary:
+        lines.append(f"  target  : {service_summary}")
+    return "\n".join(lines) + "\n"
