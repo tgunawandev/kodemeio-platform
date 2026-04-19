@@ -333,6 +333,224 @@ def phases(
     )
 
 
+# --- cutover ------------------------------------------------------------
+
+
+@app.command("cutover")
+def cutover(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID")],
+    cutover_date: Annotated[str, typer.Option("--date", help="YYYY-MM-DD")],
+    mode: Annotated[str, typer.Option("--mode")] = "cutover",
+) -> None:
+    """Phase 3 Cutover Config — commits the cutover date + mode."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    out.info(f"Configuring cutover for {rec['slug']} — date={cutover_date} mode={mode}")
+    summary = c.execute_kw(
+        "accurate.company",
+        "action_run_cutover_config",
+        [[rec["id"]]],
+        {"cutover_date": cutover_date, "mode": mode},
+    )
+    out.success("Cutover config committed.")
+    out.kv(
+        [
+            ("Cutover Date", summary.get("cutover_date", "-")),
+            ("Current FY Start", summary.get("current_fy_start", "-")),
+            ("Mode", summary.get("mode", "-")),
+        ]
+    )
+
+
+# --- foundation --------------------------------------------------------
+
+
+@app.command("foundation")
+def foundation(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID")],
+) -> None:
+    """Phase 4 Foundation Sync."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    out.info(f"Running Foundation sync for {rec['slug']}...")
+    try:
+        summary = c.execute_kw("accurate.company", "action_run_foundation", [[rec["id"]]])
+    except Exception as exc:
+        out.error(f"Foundation failed: {exc}")
+        raise typer.Exit(1)
+    out.success("Foundation PASSED.")
+    mods = summary.get("modules", {})
+    rows = [[name, str(v)] for name, v in mods.items()]
+    out.table("Foundation Modules", [("Module", ""), ("Result", "")], rows)
+
+
+# --- transactions ------------------------------------------------------
+
+
+@app.command("transactions")
+def transactions(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID")],
+    phase: Annotated[str, typer.Option("--phase", help="prior|current|both")] = "both",
+) -> None:
+    """Phase 5+6 Transaction imports."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    if phase in ("prior", "both"):
+        out.info("Running Transactions — Prior-FY Opens...")
+        c.execute_kw("accurate.company", "action_run_transactions_prior", [[rec["id"]]])
+        out.success("Prior-FY opens imported.")
+    if phase in ("current", "both"):
+        out.info("Running Transactions — Current FY...")
+        c.execute_kw("accurate.company", "action_run_transactions_current", [[rec["id"]]])
+        out.success("Current-FY transactions imported.")
+
+
+# --- verify / sign-off / go-live ---------------------------------------
+
+
+@app.command("verify")
+def verify(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID")],
+) -> None:
+    """Phase 7 Verification — generates parity report."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    out.info(f"Generating verification report for {rec['slug']}...")
+    report_id = c.execute_kw("accurate.company", "action_run_verification", [[rec["id"]]])
+    # Read report back
+    if isinstance(report_id, dict):
+        report_id = report_id.get("id")
+    elif hasattr(report_id, "id"):
+        report_id = report_id.id
+    if not isinstance(report_id, int):
+        # The method returns the report record — some RPC flavours return {}
+        rep = c.search_read(
+            "accurate.verification.report",
+            domain=[("company_id", "=", rec["id"])],
+            fields=["id", "all_passed"],
+            limit=1,
+            order="create_date desc",
+        )
+        if not rep:
+            out.error("No verification report found.")
+            raise typer.Exit(1)
+        report_id = rep[0]["id"]
+    lines = c.search_read(
+        "accurate.verification.line",
+        domain=[("report_id", "=", report_id)],
+        fields=["check_name", "scope", "accurate_value", "odoo_value", "delta", "passed", "message"],
+        order="sequence,id",
+    )
+    rows = [
+        [
+            l["check_name"],
+            l.get("scope") or "-",
+            l.get("accurate_value") or "-",
+            l.get("odoo_value") or "-",
+            l.get("delta") or "-",
+            "✓" if l["passed"] else "✗",
+            (l.get("message") or "")[:60],
+        ]
+        for l in lines
+    ]
+    out.table(
+        f"Verification Report ({len(lines)} checks)",
+        [("Check", ""), ("Scope", ""), ("Accurate", ""), ("Odoo", ""), ("Delta", ""), ("Pass", ""), ("Message", "dim")],
+        rows,
+    )
+    failed = [l for l in lines if not l["passed"]]
+    if failed:
+        out.error(f"{len(failed)} checks FAILED — resolve before sign-off.")
+        raise typer.Exit(1)
+    out.success("All checks PASSED.")
+
+
+@app.command("sign-off")
+def sign_off(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID")],
+    confirm: Annotated[bool, typer.Option("--confirm")] = False,
+) -> None:
+    """Sign off verification — required before go-live."""
+    if not confirm:
+        raise typer.BadParameter("Add --confirm to proceed (destructive gate).")
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    c.execute_kw("accurate.company", "action_sign_off_verification", [[rec["id"]]])
+    out.success(f"Verification signed off for {rec['slug']} by {actx.username_override or 'current user'}.")
+
+
+@app.command("go-live")
+def go_live(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID")],
+) -> None:
+    """Phase 8 Go-Live — enable cron sync, state=live."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    c.execute_kw("accurate.company", "action_run_go_live", [[rec["id"]]])
+    out.success(f"{rec['slug']} is LIVE — incremental cron sync enabled.")
+
+
+# --- migrate convenience -----------------------------------------------
+
+
+@app.command("migrate")
+def migrate(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID")],
+    until: Annotated[str, typer.Option("--until", help="Stop at this phase")] = "verify",
+) -> None:
+    """Run phases in sequence up to --until (default: verify, stopping before sign-off)."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, identifier)
+    sequence = [
+        ("preflight", "action_run_preflight"),
+        ("setup", "action_run_setup"),
+        ("cutover", "action_run_cutover_config"),
+        ("foundation", "action_run_foundation"),
+        ("transactions_prior", "action_run_transactions_prior"),
+        ("transactions_current", "action_run_transactions_current"),
+        ("verify", "action_run_verification"),
+        ("go-live", "action_run_go_live"),
+    ]
+    for label, method in sequence:
+        if label == "cutover":
+            out.warn("`migrate` cannot run cutover non-interactively — call `cutover` manually first.")
+            if not rec.get("current_phase") or rec.get("current_phase") == "preflight":
+                out.error("Cutover not yet configured; aborting.")
+                raise typer.Exit(2)
+            continue
+        out.info(f"→ {label}")
+        try:
+            c.execute_kw("accurate.company", method, [[rec["id"]]])
+        except Exception as exc:
+            out.error(f"{label} FAILED: {exc}")
+            raise typer.Exit(1)
+        if label == until:
+            out.success(f"Stopped at {until} as requested.")
+            return
+    out.success("All phases complete.")
+
+
 # --- attach sub-apps ---------------------------------------------------
 
 
