@@ -221,3 +221,20 @@ class TestDedupeServiceKeys:
         before = {"profiles": {"abcfood": {"op": {"vault": "ABCFood"}}}}
         after = dedupe_service_keys(before)
         assert after == before
+
+
+class TestStripDefaultProfile:
+    def test_removes_default_profile_key(self) -> None:
+        from kctl_lib._migration import strip_default_profile
+
+        before = {"default_profile": "idtpp", "profiles": {"idtpp": {}}}
+        after = strip_default_profile(before)
+        assert "default_profile" not in after
+        assert after["profiles"] == {"idtpp": {}}
+
+    def test_no_op_when_absent(self) -> None:
+        from kctl_lib._migration import strip_default_profile
+
+        before = {"profiles": {}}
+        after = strip_default_profile(before)
+        assert after == {"profiles": {}}

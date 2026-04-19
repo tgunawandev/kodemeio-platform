@@ -128,3 +128,12 @@ def dedupe_service_keys(config: dict[str, Any]) -> dict[str, Any]:
         profiles_out[profile_name] = new_profile
 
     return {**config, "profiles": profiles_out}
+
+
+def strip_default_profile(config: dict[str, Any]) -> dict[str, Any]:
+    """Remove the top-level `default_profile` key.
+
+    Stage B removes the fallback in `kctl_lib.config.resolve_active_profile_name`;
+    here we just strip the key from the file.
+    """
+    return {k: v for k, v in config.items() if k != "default_profile"}
