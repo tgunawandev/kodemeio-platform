@@ -116,26 +116,24 @@ class TestBackupsRemove:
 
 
 class TestBackupsRestore:
-    def test_restore_with_force(self, mock_client: MagicMock) -> None:
-        mock_client.post.return_value = {}
+    def test_restore_missing_file_and_latest_exits_nonzero(self) -> None:
+        """Omitting both --file and --latest should fail with a usage error."""
         result = runner.invoke(
             app,
             [
+                "-p",
+                "local",
                 "backups",
                 "restore",
-                "backup-2026-04-05.sql.gz",
+                "--compose",
+                "cmp-123",
                 "--destination",
                 "dst-001",
-                "--database-id",
-                "db-123",
                 "--database-name",
                 "mydb",
-                "--type",
-                "postgres",
-                "--force",
             ],
         )
-        assert result.exit_code == 0
+        assert result.exit_code != 0
 
 
 class TestBackupsListFiles:

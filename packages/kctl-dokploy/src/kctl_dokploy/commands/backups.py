@@ -383,56 +383,9 @@ def list_files(
     )
 
 
-@app.command("restore")
-def restore(
-    ctx: typer.Context,
-    backup_file: Annotated[str, typer.Argument(help="Backup file name (from 'list-files')")],
-    destination_id: Annotated[str, typer.Option("--destination", "-d", help="S3 destination ID")],
-    database_id: Annotated[str, typer.Option("--database-id", help="Database resource ID")],
-    database_name: Annotated[str, typer.Option("--database-name", help="Database name to restore into")],
-    database_type: Annotated[
-        str, typer.Option("--type", "-t", help="Database type: postgres, mysql, mariadb, mongo")
-    ] = "postgres",
-    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
-) -> None:
-    """Restore from a backup file (destructive).
+from kctl_dokploy.commands.backups_restore import restore as _restore_impl  # noqa: E402
 
-    NOTE: Dokploy restore uses WebSocket streaming. This command initiates the
-    restore via the API. Monitor progress in the Dokploy UI or check logs after.
-    """
-    c: AppContext = ctx.obj
-    if not force:
-        typer.confirm(
-            f"Restore '{backup_file}' into database '{database_name}'? This will overwrite current data.",
-            abort=True,
-        )
-    c.output.info(f"Initiating restore of '{backup_file}'...")
-    # Dokploy restore is a tRPC subscription (WebSocket). We call via HTTP POST
-    # which triggers the restore but cannot stream logs. Check Dokploy UI for progress.
-    payload = {
-        "backupFile": backup_file,
-        "destinationId": destination_id,
-        "databaseId": database_id,
-        "databaseName": database_name,
-        "databaseType": database_type,
-        "backupType": "database",
-    }
-    try:
-        result = c.client.post("/backup.restoreBackupWithLogs", json=payload)
-        c.output.success(f"Restore initiated for '{backup_file}' — check Dokploy UI for progress")
-        if c.json_mode:
-            c.output.raw_json(result)
-    except Exception as exc:
-        # Subscription endpoints may not respond to HTTP POST — this is expected
-        error_msg = str(exc)
-        if "subscription" in error_msg.lower() or "upgrade" in error_msg.lower() or "405" in error_msg:
-            c.output.warn(
-                "Restore requires WebSocket (Dokploy subscription). "
-                "Use the Dokploy UI to restore, or use kctl-pg for direct PostgreSQL restore."
-            )
-        else:
-            c.output.error(f"Restore failed: {exc}")
-            raise typer.Exit(1)
+app.command("restore")(_restore_impl)
 
 
 @app.command()
