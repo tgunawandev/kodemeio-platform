@@ -80,6 +80,7 @@ from kctl_odoo.commands.repl import app as repl_app
 from kctl_odoo.commands.report import app as report_app
 from kctl_odoo.commands.report_cmd import app as report_template_app
 from kctl_odoo.commands.report_formats_cmd import app as report_formats_app
+from kctl_odoo.commands.roles import app as roles_app
 from kctl_odoo.commands.sales_cmd import app as sales_app
 from kctl_odoo.commands.security import app as security_app
 from kctl_odoo.commands.self_test import app as self_test_app
@@ -255,6 +256,7 @@ _P_INSTANCE = "Instance Management"
 app.add_typer(local_app, name="local", rich_help_panel=_P_INSTANCE)
 app.add_typer(modules_app, name="modules", rich_help_panel=_P_INSTANCE)
 app.add_typer(bundles_app, name="bundles", rich_help_panel=_P_INSTANCE)
+app.add_typer(roles_app, name="roles", rich_help_panel=_P_INSTANCE)
 app.add_typer(addons_app, name="addons", rich_help_panel=_P_INSTANCE)
 app.add_typer(tenants_app, name="tenants", rich_help_panel=_P_INSTANCE)
 app.add_typer(setup_app, name="setup", rich_help_panel=_P_INSTANCE)
