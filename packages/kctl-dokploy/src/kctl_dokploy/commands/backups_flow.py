@@ -486,34 +486,41 @@ def restore_local(
 
         if drop_recreate:
             c.output.info(f"Dropping + recreating database '{target_db}'")
+            # Clear stale datcollversion on template1 (Alpine base kodemeio-postgres
+            # leaves a bogus version that doesn't match runtime glibc, making
+            # CREATE DATABASE fail). No-op on normal postgres images.
+            _psql = [
+                *env_prefix,
+                "psql",
+                "-U",
+                user,
+                "-d",
+                "postgres",
+                "-v",
+                "ON_ERROR_STOP=1",
+                "-c",
+            ]
             _docker_exec(
                 container,
                 [
-                    *env_prefix,
-                    "psql",
-                    "-U",
-                    user,
-                    "-d",
-                    "postgres",
-                    "-v",
-                    "ON_ERROR_STOP=1",
-                    "-c",
-                    f'DROP DATABASE IF EXISTS "{target_db}" WITH (FORCE)',
+                    *_psql,
+                    "UPDATE pg_database SET datcollversion = NULL "
+                    "WHERE datname IN ('template1','postgres') "
+                    "AND datcollversion IS NOT NULL",
                 ],
             )
             _docker_exec(
                 container,
+                [*_psql, f'DROP DATABASE IF EXISTS "{target_db}" WITH (FORCE)'],
+            )
+            # template0 + C locale: portable across base images. pg_restore
+            # loads the real collation from the dump afterwards.
+            _docker_exec(
+                container,
                 [
-                    *env_prefix,
-                    "psql",
-                    "-U",
-                    user,
-                    "-d",
-                    "postgres",
-                    "-v",
-                    "ON_ERROR_STOP=1",
-                    "-c",
-                    f'CREATE DATABASE "{target_db}" OWNER "{user}"',
+                    *_psql,
+                    f'CREATE DATABASE "{target_db}" OWNER "{user}" '
+                    f"TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C'",
                 ],
             )
 
@@ -562,6 +569,7 @@ def restore_local(
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+@app.command("restore", help="Alias for `refresh` — restore a DB from S3 into a target compose.")
 @app.command("refresh")
 def refresh(
     ctx: typer.Context,
