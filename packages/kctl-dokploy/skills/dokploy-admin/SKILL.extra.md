@@ -99,6 +99,49 @@ and runs `docker exec -i <container> pg_restore`. The command that calls
 this needs docker socket access on the local host — for cross-host restores
 use `backups restore` (native Dokploy SSE) instead.
 
+### Log output
+
+Every `backups pull` / `run-wait` / `download` line carries a wall-clock
+`[HH:MM:SS]` prefix (since 0.4.3). Operators can see elapsed time between
+phases at a glance:
+
+```
+INFO [19:43:23] Triggering manual backup via /backup.manualBackupCompose ...
+OK   [19:43:38] New backup file detected: .../2026-04-19T12-43-24Z.sql.gz
+OK   [19:43:42] Downloaded 9.8 MB in 3.2s (3.1 MB/s)
+OK   [19:43:43] Target database 'mac_odoo_erp' recreated.
+INFO [19:43:43] Running pg_restore (custom format) ...
+OK   [19:45:36] Restore completed.
+OK   [19:45:36] Pull complete: 5Ku-fyw3O7Z1OIEztfcH5 -> mac_odoo_erp
+```
+
+### Real-world timing benchmarks
+
+Measured against production (Hetzner) → local workstation on the same
+LAN, small Odoo 18 databases:
+
+| Database | Compressed size | Users | Total time | pg_restore | S3+download |
+|---|---:|---:|---:|---:|---:|
+| `tpp_odoo_erp` | 8.0 MB | 14 | **89s** | 73s (82%) | 15s |
+| `mac_odoo_erp` | 9.8 MB | 31 | **136s** | 113s (83%) | 18s |
+
+**pg_restore dominates.** Network/S3 scales with DB size, restore
+scales with table count + index count. A 100 MB DB is typically
+3–5 min; a 1 GB DB is 20–40 min — the bottleneck is local
+`pg_restore`, not Dokploy or S3.
+
+### Multi-prefix discovery (0.4.2+)
+
+`backups pull` and `run-wait` transparently handle two Dokploy S3
+layout generations:
+
+- **NEW** (current Dokploy): `<compose.appName>_<serviceName>/<backup.prefix>/<timestamp>.<ext>`
+- **OLD** (legacy, pre-upgrade): `<backup.prefix>-<timestamp>.<ext>`
+
+The tool scans both candidate prefixes + filters by DB-name
+substring, and picks the globally-newest match. If your bucket still
+has legacy objects, they're found too; only the newest wins.
+
 ### Other pull-flow commands
 
 **`backups run-wait`** — trigger + poll without downloading/restoring.
