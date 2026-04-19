@@ -166,3 +166,24 @@ def resolve_active_profile_name(profile_name: str | None, env_prefix: str) -> st
     if env := os.environ.get(env_var):
         return env
     return get_default_profile()
+
+
+def resolve_inheritance_chain(profile_name: str) -> list[str]:
+    """Return the prefix-inheritance chain for a profile name.
+
+    Given `idtpp-tpp-odoo-erp`, walks back one `-<segment>` at a time to yield
+    `[idtpp-tpp-odoo-erp, idtpp-tpp-odoo, idtpp-tpp, idtpp]`. Callers consume
+    this by looking up each name in `cfg.profiles` in order and using the first
+    match for a given service key.
+
+    The chain does not require every intermediate name to exist in the config
+    — non-existent links are simply skipped by the caller.
+    """
+    if not profile_name:
+        raise ValueError("profile_name cannot be empty")
+    chain: list[str] = [profile_name]
+    current = profile_name
+    while "-" in current:
+        current = current.rsplit("-", 1)[0]
+        chain.append(current)
+    return chain
