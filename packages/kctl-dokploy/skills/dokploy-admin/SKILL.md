@@ -4,7 +4,7 @@ description: >
   Dokploy deployment platform administration via kctl-dokploy CLI (52 groups, ~301 commands).
   MUST use for ANY kctl-dokploy operation.
   Triggers on: "add-destination", "add-manager", "add-worker", "applications", "apply", "apply-all", "apply-local", "audit", "autodeploy", "backup", "backups", "bl", "branches", "build-servers", "bulk", "by-server", "by-type", "cancel", "certificates", "check", "cl", "clean", "cleanup", "clear-deployments", "cluster", "completions", "compliance", "compose", "config", "container-logs", "containers", "count", "cr", "create-mariadb", "create-mongo", "create-mysql", "create-postgres", "create-redis", "create-ssh-key", "cs", "dashboard", "databases", "delete-destination", "delete-rollback", "deploy", "deploy-all", "deployments", "destinations", "dg", "diagnose", "dl", "docker", "doctor", "domains", "download", "ds", "dump-compose", "duplicate", "env", "env-set", "environments", "export", "find", "generate", "get-env", "git", "health", "history", "images", "import", "import-file", "init", "integrity", "kctl-dokploy", "kill", "kill-build", "list-by-service", "list-files", "logs", "maintenance".
-  Auto-generated: 2026-04-18
+  Auto-generated: 2026-04-19
   registry_hash: fdb0250d574c
 ---
 
@@ -75,7 +75,7 @@ Manage Dokploy backups and S3 destinations.
 | Command | Description |
 |---------|-------------|
 | `backups add-destination <name> <bucket> <access_key> <secret_key> [--region] [--endpoint]` | Add an S3 backup destination. |
-| `backups create <destination_id> <database> [--db_type] [--postgres_id] [--mysql_id] [--mariadb_id] [--mongo_id] [--compose_id] [--service_name] [--schedule] [--prefix] [--enabled]` | Create a backup configuration for a database or compose service. |
+| `backups create <destination_id> <database> [--db_type] [--postgres_id] [--mysql_id] [--mariadb_id] [--mongo_id] [--compose_id] [--service_name] [--database_user] [--database_password] [--schedule] [--prefix] [--enabled]` | Create a backup configuration for a database or compose service. |
 | `backups delete-destination <destination_id> [--force]` | Delete an S3 backup destination. |
 | `backups delete-rollback <rollback_id> [--force]` | Delete a rollback record (destructive). |
 | `backups destinations` | List all S3 backup destinations. |
@@ -84,15 +84,15 @@ Manage Dokploy backups and S3 destinations.
 | `backups get <backup_id>` | Get details for a backup configuration. |
 | `backups list [--compose_id]` | List all backup configurations. |
 | `backups list-files <destination_id> [--search] [--server_id]` | List backup files stored in an S3 destination. |
-| `backups refresh <source_profile> <source_compose> <source_destination_id> <target_compose> <database> [--source_service] [--target_service] [--target_db] [--keep_download] [--latest] [--key_filter] [--force]` | End-to-end: (optionally dump) source compose's DB to S3, download, restore. |
+| `backups refresh <source_profile> <source_compose> <source_destination_id> <target_compose> <database> [--source_service] [--target_service] [--target_db] [--keep_download] [--latest] [--key_filter] [--db_owner] [--locale] [--force]` | End-to-end: (optionally dump) source compose's DB to S3, download, restore. |
 | `backups remove <backup_id> [--force]` | Remove a backup configuration (destructive). |
 | `backups restore <backup_file> <destination_id> <database_id> <database_name> [--database_type] [--force]` | Restore from a backup file (destructive). |
-| `backups restore-local <backup_file> <compose_id> [--service] [--db_name] [--drop_recreate] [--force]` | Restore a local dump file into a compose's postgres container. |
+| `backups restore-local <backup_file> <compose_id> [--service] [--db_name] [--drop_recreate] [--db_owner] [--locale] [--force]` | Restore a local dump file into a compose's postgres container. |
 | `backups rollback <rollback_id> [--force]` | Rollback to a previous state (destructive). |
 | `backups run <backup_id> [--backup_type]` | Trigger a manual backup run. |
 | `backups run-wait <backup_id> <destination_id> [--backup_type] [--timeout] [--poll_interval] [--search]` | Trigger a Dokploy manual backup and wait for a new file in the destination. |
 | `backups test-destination <destination_id>` | Test S3 connection for a destination. |
-| `backups update <backup_id> [--schedule] [--prefix] [--enabled] [--destination_id]` | Update a backup configuration. |
+| `backups update <backup_id> [--schedule] [--prefix] [--enabled] [--destination_id] [--database_user] [--database_password]` | Update a backup configuration. |
 | `backups update-destination <destination_id> [--name] [--bucket] [--region] [--endpoint] [--access_key] [--secret_key]` | Update an S3 backup destination. |
 
 ### `kctl-dokploy bl`

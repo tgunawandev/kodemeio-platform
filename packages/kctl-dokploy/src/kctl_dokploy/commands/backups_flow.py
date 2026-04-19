@@ -164,6 +164,137 @@ def _get_compose_db_creds(c: AppContext, compose_id: str) -> tuple[str, str, str
     return user, password, db
 
 
+def _probe_source_db_metadata(
+    c: AppContext,
+    source_client: Any,
+    source_compose: str,
+    database: str,
+    ssh_host: str | None,
+    server_id: str | None,
+) -> tuple[str | None, str | None]:
+    """Read owner + datcollate from source's pg_database for `database`.
+
+    Returns (owner, locale) or (None, None) if probing fails for any reason —
+    the caller falls back to sensible defaults. Probe failure must NOT block
+    restore; it just means we can't guarantee metadata parity.
+    """
+    try:
+        src_app = _get_compose_one(source_client, source_compose).get("appName", "")
+        user, password, _ = _get_compose_db_creds(source_client, source_compose)
+        container_cmd = (
+            f'docker ps -q --filter "status=running" '
+            f'--filter "label=com.docker.compose.project={src_app}" '
+            f'--filter "label=com.docker.compose.service=postgres" | head -n 1'
+        )
+        query_cmd = (
+            f"psql -U {user} -d postgres -tAc "
+            f"\"SELECT pg_get_userbyid(datdba) || '|' || datcollate "
+            f"FROM pg_database WHERE datname='{database}'\""
+        )
+        if ssh_host:
+            cid_proc = subprocess.run(  # noqa: S603
+                ["ssh", ssh_host, container_cmd], capture_output=True, text=True, timeout=30
+            )
+            if cid_proc.returncode != 0 or not cid_proc.stdout.strip():
+                return (None, None)
+            cid = cid_proc.stdout.strip()
+            meta_proc = subprocess.run(  # noqa: S603
+                [
+                    "ssh",
+                    ssh_host,
+                    f"PGPASSWORD={password} docker exec -i {cid} {query_cmd}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        else:
+            cid_proc = subprocess.run(  # noqa: S603
+                ["bash", "-c", container_cmd], capture_output=True, text=True, timeout=30
+            )
+            if cid_proc.returncode != 0 or not cid_proc.stdout.strip():
+                return (None, None)
+            cid = cid_proc.stdout.strip()
+            meta_proc = subprocess.run(  # noqa: S603
+                [
+                    "bash",
+                    "-c",
+                    f"PGPASSWORD={password} docker exec -i {cid} {query_cmd}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        if meta_proc.returncode != 0:
+            return (None, None)
+        line = meta_proc.stdout.strip().splitlines()[-1] if meta_proc.stdout.strip() else ""
+        if "|" not in line:
+            return (None, None)
+        owner, collate = line.split("|", 1)
+        return (owner.strip() or None, collate.strip() or None)
+    except Exception:
+        return (None, None)
+
+
+def _verify_restore_parity(
+    c: AppContext,
+    target_compose: str,
+    target_service: str,
+    target_db: str,
+    expected_owner: str | None,
+    expected_locale: str | None,
+) -> None:
+    """After a restore, confirm target DB metadata + non-empty size.
+
+    Writes warnings (not errors) on mismatch — a mismatch means the restore
+    technically succeeded but doesn't match production metadata, which may
+    surprise callers. Explicit so users can see it.
+    """
+    try:
+        app_name = _get_compose_app_name(c, target_compose)
+        user, _, _ = _get_compose_db_creds(c, target_compose)
+        container = _find_container(None, app_name, target_service)
+        proc = subprocess.run(  # noqa: S603
+            [
+                "docker",
+                "exec",
+                container,
+                "psql",
+                "-U",
+                user,
+                "-d",
+                "postgres",
+                "-tAc",
+                f"SELECT pg_get_userbyid(datdba) || '|' || datcollate || '|' "
+                f"|| pg_size_pretty(pg_database_size(datname)) "
+                f"FROM pg_database WHERE datname='{target_db}'",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        line = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else ""
+        if "|" not in line:
+            c.output.warn(f"Could not verify parity for {target_db}")
+            return
+        owner, collate, size = line.split("|", 2)
+        c.output.info(f"Restored: owner={owner} locale={collate} size={size}")
+        if expected_owner and owner != expected_owner:
+            c.output.warn(
+                f"Owner mismatch: expected '{expected_owner}', got '{owner}'. "
+                f"Odoo apps typically need owner=odoo. Fix: "
+                f"ALTER DATABASE {target_db} OWNER TO {expected_owner};"
+            )
+        if expected_locale and collate != expected_locale:
+            c.output.warn(
+                f"Locale mismatch: expected '{expected_locale}', got '{collate}'. "
+                f"Collation affects ORDER BY and text comparisons; recreate with "
+                f"--locale {expected_locale} if this matters."
+            )
+    except Exception as exc:
+        c.output.warn(f"Parity verification skipped: {exc}")
+
+
 def _resolve_server_ssh(c: AppContext, compose_id: str) -> str | None:
     """Return ssh host string (user@ip) for the compose's serverId, or None if local."""
     data = _get_compose_one(c, compose_id)
@@ -444,6 +575,23 @@ def restore_local(
     drop_recreate: Annotated[
         bool, typer.Option("--drop-recreate/--no-drop-recreate", help="DROP + CREATE database before restore")
     ] = True,
+    db_owner: Annotated[
+        str | None,
+        typer.Option(
+            "--owner",
+            help="Owner role for the recreated DB. Defaults to POSTGRES_USER. "
+            "For Odoo DBs pass --owner odoo so the Odoo runtime has DDL rights.",
+        ),
+    ] = None,
+    locale: Annotated[
+        str | None,
+        typer.Option(
+            "--locale",
+            help="Explicit LC_COLLATE / LC_CTYPE for CREATE DATABASE "
+            "(e.g. 'en_US.utf8'). Omit to inherit template1's locale, "
+            "which matches production for most kodemeio-postgres-based deployments.",
+        ),
+    ] = None,
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
 ) -> None:
     """Restore a local dump file into a compose's postgres container.
@@ -489,6 +637,8 @@ def restore_local(
             # Clear stale datcollversion on template1 (Alpine base kodemeio-postgres
             # leaves a bogus version that doesn't match runtime glibc, making
             # CREATE DATABASE fail). No-op on normal postgres images.
+            # Clearing lets CREATE DATABASE inherit template1's locale
+            # (typically en_US.utf8) without the version-mismatch check.
             _psql = [
                 *env_prefix,
                 "psql",
@@ -513,16 +663,19 @@ def restore_local(
                 container,
                 [*_psql, f'DROP DATABASE IF EXISTS "{target_db}" WITH (FORCE)'],
             )
-            # template0 + C locale: portable across base images. pg_restore
-            # loads the real collation from the dump afterwards.
-            _docker_exec(
-                container,
-                [
-                    *_psql,
-                    f'CREATE DATABASE "{target_db}" OWNER "{user}" '
-                    f"TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C'",
-                ],
-            )
+            # Default owner = POSTGRES_USER, overridable via --owner.
+            # Default locale inherits template1 (en_US.utf8 on kodemeio-postgres,
+            # matches production Odoo DBs). Override with --locale C if needed.
+            owner = db_owner or user
+            if locale:
+                create_sql = (
+                    f'CREATE DATABASE "{target_db}" OWNER "{owner}" '
+                    f"TEMPLATE template0 ENCODING 'UTF8' "
+                    f"LC_COLLATE '{locale}' LC_CTYPE '{locale}'"
+                )
+            else:
+                create_sql = f'CREATE DATABASE "{target_db}" OWNER "{owner}"'
+            _docker_exec(container, [*_psql, create_sql])
 
         c.output.info(f"Restoring {dump_file.name} into {target_db}...")
         if is_custom:
@@ -605,6 +758,22 @@ def refresh(
             help="With --latest: substring the S3 key must contain (default: --database value).",
         ),
     ] = "",
+    db_owner: Annotated[
+        str | None,
+        typer.Option(
+            "--owner",
+            help="Explicit owner role for the recreated target DB. Overrides auto-detect. "
+            "For Odoo DBs pass --owner odoo so the Odoo runtime can manage schema.",
+        ),
+    ] = None,
+    locale: Annotated[
+        str | None,
+        typer.Option(
+            "--locale",
+            help="Explicit LC_COLLATE/LC_CTYPE for the recreated target DB. "
+            "Overrides auto-detect. e.g. 'en_US.utf8' (Odoo/production default) or 'C'.",
+        ),
+    ] = None,
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
 ) -> None:
     """End-to-end: (optionally dump) source compose's DB to S3, download, restore.
@@ -631,6 +800,17 @@ def refresh(
     bucket = source_dest["bucket"]
     s3 = _build_s3_client(source_dest)
 
+    # Resolve source SSH host once (used for both --latest probing and dump).
+    src_data = source_client.get("/compose.one", params={"composeId": source_compose})
+    server_id: str | None = None
+    ssh_host: str | None = None
+    if isinstance(src_data, dict):
+        server_id = src_data.get("serverId")
+        if server_id:
+            srv = source_client.get("/server.one", params={"serverId": server_id})
+            if isinstance(srv, dict) and srv.get("ipAddress"):
+                ssh_host = f"{srv.get('username') or 'root'}@{srv['ipAddress']}"
+
     if latest:
         # --- 1a) Find the newest existing S3 file matching the database.
         # We can't use Dokploy's /backup.listBackupFiles here — it rejects
@@ -651,7 +831,6 @@ def refresh(
     else:
         # --- 1b) Fresh dump via SSH + pg_dump.
         c.output.info(f"[{source_profile}] Dumping {database} from compose {source_compose}...")
-        src_data = source_client.get("/compose.one", params={"composeId": source_compose})
         if not isinstance(src_data, dict):
             _die(c, f"Source compose '{source_compose}' not found")
         src_app_name = src_data.get("appName") or src_data.get("name") or ""
@@ -659,13 +838,6 @@ def refresh(
         src_password = _parse_env_str(src_env).get("POSTGRES_PASSWORD", "")
         if not src_password:
             _die(c, "Source compose has no POSTGRES_PASSWORD")
-
-        server_id = src_data.get("serverId")
-        ssh_host: str | None = None
-        if server_id:
-            srv = source_client.get("/server.one", params={"serverId": server_id})
-            if isinstance(srv, dict) and srv.get("ipAddress"):
-                ssh_host = f"{srv.get('username') or 'root'}@{srv['ipAddress']}"
 
         container = _find_container(ssh_host, str(src_app_name), source_service)
         c.output.info(f"  source container: {container} ({'local' if not ssh_host else ssh_host})")
@@ -711,7 +883,24 @@ def refresh(
     s3.download_file(bucket, s3_key, str(local_path))
     c.output.success(f"Downloaded {local_path.stat().st_size:,} bytes")
 
-    # --- 3) Restore to target
+    # --- 3) Determine owner + locale
+    # Priority: explicit CLI (--owner/--locale) > auto-detected from source > restore_local defaults.
+    final_owner = db_owner
+    final_locale = locale
+    if final_owner is None or final_locale is None:
+        probed_owner, probed_locale = _probe_source_db_metadata(
+            c, source_client, source_compose, database, ssh_host, server_id
+        )
+        if final_owner is None:
+            final_owner = probed_owner
+        if final_locale is None:
+            final_locale = probed_locale
+    if final_owner:
+        c.output.info(f"Target DB will be created with owner={final_owner}")
+    if final_locale:
+        c.output.info(f"Target DB will be created with locale={final_locale}")
+
+    # --- 4) Restore to target (passes metadata through for parity)
     try:
         restore_local(
             ctx=ctx,
@@ -720,8 +909,12 @@ def refresh(
             service=target_service,
             db_name=target_db or database,
             drop_recreate=True,
+            db_owner=final_owner,
+            locale=final_locale,
             force=force,
         )
+        # --- 5) Post-restore verification
+        _verify_restore_parity(c, target_compose, target_service, target_db or database, final_owner, final_locale)
     finally:
         if cleanup_dir is not None:
             shutil.rmtree(cleanup_dir, ignore_errors=True)
