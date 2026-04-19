@@ -40,6 +40,9 @@ jobs:
       - name: Check formatting
         run: uv run ruff format --check packages/kctl-lib/src/ packages/kctl-lib/tests/
 
+      - name: No test writes to real user config
+        run: bash scripts/check_test_isolation.sh
+
   # Test all 27 CLI packages (Python 3.12 only — 3.13 covered by kctl-lib job).
   cli-packages:
     needs: kctl-lib
