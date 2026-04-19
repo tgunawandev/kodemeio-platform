@@ -718,6 +718,52 @@ def restore_local(
             _die(c, f"Restore failed (exit {result.returncode}):\n{stderr[-2000:]}")
 
         c.output.success(f"Restored '{backup_file.name}' into {container}:{target_db}")
+
+        # Reassign object ownership to `db_owner` if specified. pg_restore
+        # loads tables/sequences/views/functions as the invoking role
+        # (postgres superuser), so an Odoo DB restored with --owner odoo
+        # would have database-level owner=odoo but every TABLE still owned
+        # by postgres. Odoo migrations (DDL) fail in that state.
+        if db_owner and db_owner != user:
+            c.output.info(f"Reassigning object ownership to '{db_owner}'...")
+            reassign_sql = f"""
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT schemaname, tablename FROM pg_tables
+             WHERE schemaname NOT IN ('pg_catalog','information_schema')
+    LOOP EXECUTE format('ALTER TABLE %I.%I OWNER TO {db_owner}', r.schemaname, r.tablename); END LOOP;
+    FOR r IN SELECT schemaname, sequencename FROM pg_sequences
+             WHERE schemaname NOT IN ('pg_catalog','information_schema')
+    LOOP EXECUTE format('ALTER SEQUENCE %I.%I OWNER TO {db_owner}', r.schemaname, r.sequencename); END LOOP;
+    FOR r IN SELECT schemaname, viewname FROM pg_views
+             WHERE schemaname NOT IN ('pg_catalog','information_schema')
+    LOOP EXECUTE format('ALTER VIEW %I.%I OWNER TO {db_owner}', r.schemaname, r.viewname); END LOOP;
+    FOR r IN SELECT schemaname, matviewname FROM pg_matviews
+             WHERE schemaname NOT IN ('pg_catalog','information_schema')
+    LOOP EXECUTE format('ALTER MATERIALIZED VIEW %I.%I OWNER TO {db_owner}', r.schemaname, r.matviewname); END LOOP;
+    FOR r IN SELECT n.nspname AS schemaname, p.proname AS funcname, pg_get_function_identity_arguments(p.oid) AS args
+             FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+             WHERE n.nspname NOT IN ('pg_catalog','information_schema')
+    LOOP EXECUTE format('ALTER FUNCTION %I.%I(%s) OWNER TO {db_owner}', r.schemaname, r.funcname, r.args); END LOOP;
+END $$;
+"""
+            _docker_exec(
+                container,
+                [
+                    *env_prefix,
+                    "psql",
+                    "-U",
+                    user,
+                    "-d",
+                    target_db,
+                    "-v",
+                    "ON_ERROR_STOP=1",
+                    "-c",
+                    reassign_sql,
+                ],
+            )
+            c.output.success(f"All user-schema objects now owned by '{db_owner}'")
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
