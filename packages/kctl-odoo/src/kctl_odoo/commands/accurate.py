@@ -395,19 +395,46 @@ def transactions(
     ctx: typer.Context,
     identifier: Annotated[str, typer.Argument(help="Slug or ID")],
     phase: Annotated[str, typer.Option("--phase", help="prior|current|both")] = "both",
+    sync: Annotated[
+        bool,
+        typer.Option(
+            "--sync/--async",
+            help=(
+                "--sync runs the import inline (blocking, results known on "
+                "return — good for CI and small tenants). --async enqueues "
+                "via queue_job (default; background with OCA queue worker)."
+            ),
+        ),
+    ] = False,
 ) -> None:
-    """Phase 5+6 Transaction imports."""
+    """Phase 5+6 Transaction imports.
+
+    By default runs async (queue_job). Use ``--sync`` for inline
+    blocking runs — useful when queue workers are unavailable, for
+    smoke testing, or when the caller wants to know the exact record
+    counts before returning.
+    """
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
     rec = _resolve_accurate_company(c, identifier)
     if phase in ("prior", "both"):
-        out.info("Running Transactions — Prior-FY Opens...")
-        c.execute_kw("accurate.company", "action_run_transactions_prior", [[rec["id"]]])
+        out.info(f"Running Transactions — Prior-FY Opens ({'sync' if sync else 'async'})...")
+        c.execute_kw(
+            "accurate.company",
+            "action_run_transactions_prior",
+            [[rec["id"]]],
+            {"context": {"accurate_sync_inline": sync}},
+        )
         out.success("Prior-FY opens imported.")
     if phase in ("current", "both"):
-        out.info("Running Transactions — Current FY...")
-        c.execute_kw("accurate.company", "action_run_transactions_current", [[rec["id"]]])
+        out.info(f"Running Transactions — Current FY ({'sync' if sync else 'async'})...")
+        c.execute_kw(
+            "accurate.company",
+            "action_run_transactions_current",
+            [[rec["id"]]],
+            {"context": {"accurate_sync_inline": sync}},
+        )
         out.success("Current-FY transactions imported.")
 
 
