@@ -1,0 +1,58 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-stirling
+  description: "TPP Stirling PDF — self-hosted PDF toolkit (60+ tools, OCR, REST API) gated by Authentik SSO"
+
+project: tpp
+environment: production
+# Colocated with tpp-infra-authentik (and tpp-infra-bentopdf) so the Traefik
+# forward-auth middleware can reach Authentik via the internal `authentik-server`
+# alias on dokploy-network — avoids cross-host X-Forwarded-Host loss through
+# Cloudflare/Traefik.
+server: tpp-prod-01
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-stirling
+  branch: master
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: stirling
+
+domain:
+  host: stirling.idtpp.com
+  port: 8080
+  service: stirling-pdf
+  https: true
+  cert: letsencrypt
+
+healthcheck:
+  path: /api/v1/info/status
+  port: 8080
+  expected_status: 200
+  timeout: 30
+  interval: 30
+
+env_file: ../../env/production/.env.tpp-infra-stirling
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-stirling
+  TENANT: tpp
+  AUTHENTIK_HOST: http://authentik-server:9000
+  TZ: Asia/Jakarta
+
+# SSO is enforced at the Traefik layer via a forward-auth middleware defined
+# directly in docker-compose.prod.yml (calls
+# ${AUTHENTIK_HOST}/outpost.goauthentik.io/auth/traefik). Authentik-side wiring:
+# Proxy Provider 'stirling-pdf' (forward_single) bound to the Embedded Outpost
+# on auth.idtpp.com.
+#
+# Stirling PDF is stateful (configs, OCR data, pipeline). Volume backups for
+# stirling-configs are recommended; the base infra `backup:` block targets
+# postgres so it doesn't apply here — handle via volume snapshot or
+# `./bin/stirling backup` from the host on a schedule.
