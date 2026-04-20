@@ -406,20 +406,33 @@ def transactions(
             ),
         ),
     ] = False,
+    timeout: Annotated[
+        int,
+        typer.Option(
+            "--timeout",
+            help=("HTTP client timeout in seconds. Default 900 (15 min). Raise for very large tenants in --sync mode."),
+        ),
+    ] = 900,
 ) -> None:
     """Phase 5+6 Transaction imports.
 
     By default runs async (queue_job). Use ``--sync`` for inline
     blocking runs — useful when queue workers are unavailable, for
     smoke testing, or when the caller wants to know the exact record
-    counts before returning.
+    counts before returning. Use ``--timeout N`` to override the HTTP
+    wait time for long-running sync imports.
     """
+    import httpx
+
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
+    # Bump timeout on the underlying httpx client so sync-mode imports
+    # don't hit the default 30s wall. Preserves existing headers/etc.
+    c._client.timeout = httpx.Timeout(timeout)
     rec = _resolve_accurate_company(c, identifier)
     if phase in ("prior", "both"):
-        out.info(f"Running Transactions — Prior-FY Opens ({'sync' if sync else 'async'})...")
+        out.info(f"Running Transactions — Prior-FY Opens ({'sync' if sync else 'async'}, timeout={timeout}s)...")
         c.execute_kw(
             "accurate.company",
             "action_run_transactions_prior",
@@ -428,7 +441,7 @@ def transactions(
         )
         out.success("Prior-FY opens imported.")
     if phase in ("current", "both"):
-        out.info(f"Running Transactions — Current FY ({'sync' if sync else 'async'})...")
+        out.info(f"Running Transactions — Current FY ({'sync' if sync else 'async'}, timeout={timeout}s)...")
         c.execute_kw(
             "accurate.company",
             "action_run_transactions_current",
