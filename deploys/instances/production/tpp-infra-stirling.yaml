@@ -3,14 +3,14 @@ extends: ../../bases/infra.yaml
 
 instance:
   name: tpp-infra-stirling
-  description: "TPP Stirling PDF — self-hosted PDF toolkit (60+ tools, OCR, REST API) gated by Authentik SSO"
+  description: "TPP Stirling PDF — self-hosted PDF toolkit (60+ tools, OCR, REST API) gated by Authentik forward-auth"
 
 project: tpp
 environment: production
-# Colocated with tpp-infra-authentik on tpp-prod-01 — Stirling uses native
-# OAuth2 against Authentik over the public URL (https://auth.idtpp.com), so
-# colocation isn't strictly required, but co-host with the rest of the TPP
-# infra stack for ops consistency.
+# Colocated with tpp-infra-authentik on tpp-prod-01 so the Traefik forward-auth
+# middleware can reach Authentik via the internal `authentik-server` alias on
+# dokploy-network — avoids cross-host X-Forwarded-Host loss through
+# Cloudflare/Traefik.
 server: tpp-prod-01
 
 source_overrides:
@@ -43,13 +43,18 @@ env_file: ../../env/production/.env.tpp-infra-stirling
 env_overrides:
   COMPOSE_PROJECT_NAME: tpp-infra-stirling
   TENANT: tpp
+  AUTHENTIK_HOST: http://authentik-server:9000
   TZ: Asia/Jakarta
 
-# SSO uses Stirling's NATIVE OAuth2 client against Authentik. Authentik-side
-# wiring: OAuth2 Provider 'stirling-pdf-oauth2' (confidential) bound to the
-# 'Stirling PDF' application on auth.idtpp.com (redirect_uri
-# https://stirling.idtpp.com/login/oauth2/code/oidc). No forward-auth, no
-# Embedded Outpost binding.
+# SSO is enforced at the Traefik layer via a forward-auth middleware defined
+# directly in docker-compose.prod.yml (calls
+# ${AUTHENTIK_HOST}/outpost.goauthentik.io/auth/traefik). Authentik-side wiring:
+# Proxy Provider 'stirling-pdf' (forward_single, pk=21) bound to the Embedded
+# Outpost on auth.idtpp.com.
+#
+# Stirling's internal login is disabled — Authentik is the single source of
+# identity. Native Stirling OAuth2 SSO is intentionally NOT used because
+# auto-create-user requires a paid Pro/Enterprise license.
 #
 # Stirling PDF is stateful (configs, OCR data, pipeline). Volume backups for
 # stirling-configs are recommended; the base infra `backup:` block targets
