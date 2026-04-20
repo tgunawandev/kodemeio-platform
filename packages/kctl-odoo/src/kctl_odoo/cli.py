@@ -80,7 +80,12 @@ from kctl_odoo.commands.record_rules import app as record_rules_app
 from kctl_odoo.commands.repl import app as repl_app
 from kctl_odoo.commands.report import app as report_app
 from kctl_odoo.commands.report_cmd import app as report_template_app
+from kctl_odoo.commands.report_custom_query_cmd import app as report_custom_query_app
+from kctl_odoo.commands.report_drill_route_cmd import app as report_drill_route_app
+from kctl_odoo.commands.report_format_cmd import app as report_format_app
 from kctl_odoo.commands.report_formats_cmd import app as report_formats_app
+from kctl_odoo.commands.report_subkpi_cmd import app as report_subkpi_app
+from kctl_odoo.commands.report_type_cmd import app as report_type_app
 from kctl_odoo.commands.roles import app as roles_app
 from kctl_odoo.commands.sales_cmd import app as sales_app
 from kctl_odoo.commands.security import app as security_app
@@ -213,6 +218,11 @@ _P_REPORT = "Reports & Analytics"
 app.add_typer(report_app, name="report", rich_help_panel=_P_REPORT)
 # Mount the report.template management sub-group under `report template ...`
 report_app.add_typer(report_template_app, name="template")
+report_app.add_typer(report_type_app, name="type")
+report_app.add_typer(report_format_app, name="format")
+report_app.add_typer(report_subkpi_app, name="subkpi")
+report_app.add_typer(report_custom_query_app, name="custom-query")
+report_app.add_typer(report_drill_route_app, name="drill-route")
 app.add_typer(report_formats_app, name="report-formats", rich_help_panel=_P_REPORT)
 app.add_typer(kpi_app, name="kpi", rich_help_panel=_P_REPORT)
 app.add_typer(mis_reports_app, name="mis-reports", rich_help_panel=_P_REPORT)
