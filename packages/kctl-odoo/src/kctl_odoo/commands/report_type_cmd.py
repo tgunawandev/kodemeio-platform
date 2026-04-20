@@ -204,6 +204,7 @@ def show_type(
         "variant_ids",
         "default_drill_route_id",
         "drill_route_ids",
+        "default_drill_view",
     )
     (rec,) = c.read("report.type.registry", [type_id], list(fields))
     if actx.json_mode:
