@@ -10,7 +10,9 @@ See docs/superpowers/specs/2026-04-19-accurate-1click-migration-spine-design.md
 from __future__ import annotations
 
 import json
-from typing import Annotated
+from datetime import date, datetime
+from pathlib import Path
+from typing import Annotated, Optional
 
 import typer
 
@@ -775,6 +777,299 @@ def errors_ignore(
         raise typer.Exit(2)
     c.write("accurate.migration.error", id_list, {"retry_status": "ignored", "ignore_reason": reason})
     out.success(f"Marked {len(id_list)} error(s) as ignored for {rec['slug']}.")
+
+
+# --- parity ------------------------------------------------------------
+
+
+_PARITY_REPORT_FIELDS = [
+    "id",
+    "as_of_date",
+    "run_date",
+    "all_passed",
+    "passed_count",
+    "total_count",
+    "company_id",
+]
+
+_PARITY_LINE_FIELDS = [
+    "id",
+    "check_name",
+    "category",
+    "passed",
+    "accurate_total",
+    "odoo_total",
+    "delta",
+    "deltas_json",
+    "details_json",
+    "error",
+    "remediation_hints",
+]
+
+
+def _fetch_parity_report(client, report_id: int) -> tuple[dict, list[dict]]:
+    """Load report header + lines by id."""
+    reports = client.read("accurate.parity.report", [report_id], _PARITY_REPORT_FIELDS)
+    if not reports:
+        raise typer.BadParameter(f"accurate.parity.report id={report_id} not found")
+    lines = client.search_read(
+        "accurate.parity.line",
+        domain=[("report_id", "=", report_id)],
+        fields=_PARITY_LINE_FIELDS,
+        order="category,check_name",
+    )
+    return reports[0], lines
+
+
+def _format_parity_markdown(rec: dict, report: dict, lines: list[dict]) -> str:
+    """Pretty markdown rendering of one parity report."""
+
+    def _sym(line: dict) -> str:
+        if line.get("error"):
+            return "!"
+        return "OK" if line.get("passed") else "FAIL"
+
+    def _fmt_money(v) -> str:
+        try:
+            return f"{float(v or 0):,.2f}"
+        except (TypeError, ValueError):
+            return str(v or "-")
+
+    header = [
+        f"# Parity Report — {rec['slug']} ({rec['name']})",
+        "",
+        f"- **As of**: {report.get('as_of_date')}",
+        f"- **Run at**: {report.get('run_date')}",
+        f"- **Passed**: {report.get('passed_count')} / {report.get('total_count')}",
+        f"- **Overall**: {'PASSED' if report.get('all_passed') else 'FAILED'}",
+        "",
+        "| Status | Check | Category | Accurate | Odoo | Delta | Notes |",
+        "|---|---|---|---:|---:|---:|---|",
+    ]
+    acc_sum = 0.0
+    odoo_sum = 0.0
+    for line in lines:
+        note = ""
+        if line.get("error"):
+            note = f"ERROR: {str(line['error'])[:80]}"
+        elif line.get("remediation_hints"):
+            note = str(line["remediation_hints"]).splitlines()[0][:80]
+        header.append(
+            "| {sym} | {check} | {cat} | {acc} | {odoo} | {delta} | {note} |".format(
+                sym=_sym(line),
+                check=line["check_name"],
+                cat=line.get("category") or "-",
+                acc=_fmt_money(line.get("accurate_total")),
+                odoo=_fmt_money(line.get("odoo_total")),
+                delta=_fmt_money(line.get("delta")),
+                note=note.replace("|", "\\|"),
+            )
+        )
+        try:
+            acc_sum += float(line.get("accurate_total") or 0)
+            odoo_sum += float(line.get("odoo_total") or 0)
+        except (TypeError, ValueError):
+            pass
+    header.append(
+        "| | **Totals** | | **{acc}** | **{odoo}** | **{delta}** | |".format(
+            acc=f"{acc_sum:,.2f}",
+            odoo=f"{odoo_sum:,.2f}",
+            delta=f"{odoo_sum - acc_sum:,.2f}",
+        )
+    )
+    return "\n".join(header) + "\n"
+
+
+def _run_parity_for_company(
+    client,
+    rec: dict,
+    as_of: str | None,
+    only: list[str] | None,
+    tolerance: float,
+) -> tuple[dict, list[dict]]:
+    """Invoke action_run_parity and load back the persisted report."""
+    kwargs: dict = {"tolerance": tolerance}
+    kwargs["as_of"] = as_of or date.today().isoformat()
+    if only:
+        kwargs["only"] = list(only)
+
+    action = client.execute_kw(
+        "accurate.company",
+        "action_run_parity",
+        [[rec["id"]]],
+        kwargs,
+    )
+    report_id = None
+    if isinstance(action, dict):
+        report_id = action.get("res_id")
+    elif isinstance(action, int):
+        report_id = action
+    if not isinstance(report_id, int):
+        # Fallback — grab most recent report for this company
+        recent = client.search_read(
+            "accurate.parity.report",
+            domain=[("company_id", "=", rec["id"])],
+            fields=["id"],
+            limit=1,
+            order="run_date desc",
+        )
+        if not recent:
+            raise typer.Exit(1)
+        report_id = recent[0]["id"]
+    return _fetch_parity_report(client, report_id)
+
+
+@app.command("parity")
+def parity(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="accurate.company slug (e.g. sumber-pangan)")],
+    check: Annotated[
+        Optional[list[str]],
+        typer.Option("--check", "-c", help="Only run named check(s). Repeat for multiple."),
+    ] = None,
+    as_of: Annotated[
+        Optional[str],
+        typer.Option("--date", "-d", help="As-of date YYYY-MM-DD (default today)"),
+    ] = None,
+    tolerance: Annotated[
+        float,
+        typer.Option("--tolerance", help="IDR tolerance for deltas"),
+    ] = 1.0,
+    output: Annotated[
+        str,
+        typer.Option("--output", "-o", help="markdown | json | xlsx"),
+    ] = "markdown",
+    output_file: Annotated[
+        Optional[Path],
+        typer.Option("--output-file", help="Write output here instead of stdout"),
+    ] = None,
+) -> None:
+    """Run parity suite against Accurate for one tenant + format results."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    rec = _resolve_accurate_company(c, slug)
+    out.info(f"Running parity suite for {rec['slug']}...")
+    try:
+        report, lines = _run_parity_for_company(c, rec, as_of, check, tolerance)
+    except Exception as exc:  # noqa: BLE001
+        out.error(f"Parity run failed: {exc}")
+        raise typer.Exit(1)
+
+    fmt = (output or "markdown").lower()
+    if fmt == "json":
+        payload = json.dumps(
+            {
+                "company": {"id": rec["id"], "slug": rec["slug"], "name": rec["name"]},
+                "report": report,
+                "lines": lines,
+            },
+            indent=2,
+            default=str,
+        )
+        if output_file:
+            output_file.write_text(payload)
+            out.success(f"JSON written to {output_file}")
+        else:
+            typer.echo(payload)
+    elif fmt == "xlsx":
+        out.warn("xlsx output not yet implemented (Task 13). Falling back to markdown.")
+        md = _format_parity_markdown(rec, report, lines)
+        if output_file:
+            output_file.write_text(md)
+            out.success(f"Markdown written to {output_file}")
+        else:
+            typer.echo(md)
+    else:
+        md = _format_parity_markdown(rec, report, lines)
+        if output_file:
+            output_file.write_text(md)
+            out.success(f"Markdown written to {output_file}")
+        else:
+            typer.echo(md)
+
+    if not report.get("all_passed"):
+        failed = report.get("total_count", 0) - report.get("passed_count", 0)
+        out.error(f"{failed} parity check(s) FAILED for {rec['slug']}.")
+        raise typer.Exit(1)
+    out.success(f"All {report.get('total_count', 0)} parity checks PASSED for {rec['slug']}.")
+
+
+@app.command("parity-all")
+def parity_all(
+    ctx: typer.Context,
+    as_of: Annotated[
+        Optional[str],
+        typer.Option("--date", "-d", help="As-of date YYYY-MM-DD (default today)"),
+    ] = None,
+    tolerance: Annotated[
+        float,
+        typer.Option("--tolerance", help="IDR tolerance for deltas"),
+    ] = 1.0,
+    output_file: Annotated[
+        Optional[Path],
+        typer.Option("--output-file", help="Write consolidated markdown here instead of stdout"),
+    ] = None,
+) -> None:
+    """Run parity suite across every accurate.company; emit consolidated markdown."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    companies = c.search_read(
+        "accurate.company",
+        domain=[],
+        fields=["id", "slug", "name", "state"],
+        order="name",
+    )
+    if not companies:
+        out.warn("No accurate.company records found.")
+        return
+
+    chunks: list[str] = []
+    effective_date = as_of or date.today().isoformat()
+    chunks.append(f"# Consolidated Parity Scorecard — {effective_date}\n")
+    scorecard_rows: list[tuple[str, str, int, int, bool]] = []
+    any_failed = False
+
+    for rec in companies:
+        out.info(f"→ {rec['slug']}")
+        try:
+            report, lines = _run_parity_for_company(c, rec, as_of, None, tolerance)
+        except Exception as exc:  # noqa: BLE001
+            out.error(f"{rec['slug']}: parity run FAILED — {exc}")
+            any_failed = True
+            chunks.append(f"## {rec['slug']} — ERROR\n\n`{exc}`\n")
+            scorecard_rows.append((rec["slug"], rec["name"], 0, 0, False))
+            continue
+        passed = report.get("passed_count", 0)
+        total = report.get("total_count", 0)
+        all_passed = bool(report.get("all_passed"))
+        if not all_passed:
+            any_failed = True
+        scorecard_rows.append((rec["slug"], rec["name"], passed, total, all_passed))
+        chunks.append(_format_parity_markdown(rec, report, lines))
+        chunks.append("")
+
+    summary = [
+        "## Summary",
+        "",
+        "| Slug | Name | Passed | Total | Overall |",
+        "|---|---|---:|---:|---|",
+    ]
+    for slug, name, passed, total, all_passed in scorecard_rows:
+        summary.append(f"| {slug} | {name} | {passed} | {total} | {'PASSED' if all_passed else 'FAILED'} |")
+    full = "\n".join([*summary, "", *chunks])
+
+    if output_file:
+        output_file.write_text(full)
+        out.success(f"Consolidated scorecard written to {output_file}")
+    else:
+        typer.echo(full)
+
+    if any_failed:
+        raise typer.Exit(1)
+    out.success(f"All {len(companies)} tenant(s) passed every parity check.")
 
 
 # --- attach sub-apps ---------------------------------------------------
