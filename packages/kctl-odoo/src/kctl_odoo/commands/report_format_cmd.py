@@ -132,7 +132,9 @@ def get_format(
         return
 
     if merged:
-        (data,) = c.execute_kw("report.instance.format", "as_dict", [[fmt_id]])
+        # as_dict() is ensure_one() on the server, returns a single dict
+        # (not a list). Don't unpack.
+        data = c.execute_kw("report.instance.format", "as_dict", [[fmt_id]])
         payload = {"instance_id": instance_id, "format_id": fmt_id, "config": data}
     else:
         (rec,) = c.read("report.instance.format", [fmt_id], list(_ALL_WRITABLE))

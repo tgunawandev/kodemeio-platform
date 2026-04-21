@@ -180,7 +180,18 @@ def create_query(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Unique query name")],
     model: Annotated[str, typer.Argument(help="Target model technical name, e.g. 'sale.order.line'")],
-    group_by: Annotated[str, typer.Argument(help="Dotted field path, e.g. 'order_id.user_id'")],
+    group_by: Annotated[
+        str,
+        typer.Argument(
+            help=(
+                "Field to group by. Supports a single field ('partner_id'), "
+                "a one-level dotted m2o ('partner_id' via the owning model), "
+                "or '<m2o>.name' which is auto-normalized to '<m2o>'. "
+                "Multi-level dotted paths (a.b.c) aren't supported by "
+                "Odoo 18's read_group — group on the immediate m2o instead."
+            ),
+        ),
+    ],
     measure: Annotated[str, typer.Argument(help="Numeric field to aggregate, e.g. 'price_subtotal'")],
     aggregator: Annotated[
         str,
@@ -347,7 +358,10 @@ def preview_query(
         kwargs["date_to"] = date_to
 
     try:
-        (rows,) = c.execute_kw("report.custom.query", "execute", [[qid]], kwargs)
+        # execute() returns list[dict] of group rows directly — do NOT
+        # tuple-unpack. Previous `(rows,) = ...` only worked by accident
+        # when the list happened to have length 1.
+        rows = c.execute_kw("report.custom.query", "execute", [[qid]], kwargs)
     except RPCError as exc:
         out.error(f"Preview failed: {exc}")
         raise typer.Exit(1) from exc
