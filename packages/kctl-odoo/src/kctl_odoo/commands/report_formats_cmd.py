@@ -661,3 +661,71 @@ def scaffold(
     output.write_text(json.dumps(starter, indent=2), encoding="utf-8")
     out.success(f"Wrote starter JSON to {output}")
     out.info(f"Import with: kctl-odoo report-formats import {output}")
+
+
+@app.command(name="seed-samples")
+def seed_samples(
+    ctx: typer.Context,
+    company_id: Annotated[
+        int | None,
+        typer.Option("--company-id", help="res.company id to seed into. Defaults to env.company."),
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit JSON instead of a table.")] = False,
+) -> None:
+    """Create one sample record per registered report type, so Preview PDF works.
+
+    Wraps ``report.format.seed_sample_records`` — idempotent (skips if a record
+    already exists on the target company). Each failed type is reported with
+    the exception type + short message; the rest still proceed. Run this after
+    a fresh install / upgrade to unblock the Preview PDF button for every
+    registered type.
+    """
+    actx = ctx.obj
+    assert isinstance(actx, AppContext)
+    out = actx.output
+    c = actx.client
+
+    out.info("Seeding sample records...")
+    results = c.execute_kw(
+        "report.format",
+        "seed_sample_records",
+        [],
+        {"company_id": company_id} if company_id else {},
+    )
+
+    if as_json:
+        out.raw_json(results)
+        return
+
+    status_glyph = {"created": "[NEW]", "exists": "[OK ]", "skip": "[SKP]", "error": "[ERR]"}
+    rows = []
+    for r in results:
+        glyph = status_glyph.get(r["status"], "[?? ]")
+        rid = str(r.get("record_id")) if r.get("record_id") else "—"
+        rows.append(
+            [
+                glyph,
+                r["report_type"],
+                r.get("model") or "—",
+                rid,
+                (r.get("note") or "")[:60],
+            ]
+        )
+    out.table(
+        "Sample record seed results",
+        [("Status", "green"), ("Report type", "cyan"), ("Model", ""), ("Record id", ""), ("Note", "dim")],
+        rows,
+    )
+
+    n_created = sum(1 for r in results if r["status"] == "created")
+    n_exists = sum(1 for r in results if r["status"] == "exists")
+    n_skip = sum(1 for r in results if r["status"] == "skip")
+    n_error = sum(1 for r in results if r["status"] == "error")
+    total = len(results)
+    out.text(
+        f"Summary: {n_created} created, {n_exists} already existed, "
+        f"{n_skip} skipped, {n_error} errors (of {total} registered types)."
+    )
+    if n_error:
+        out.warn("Errors above usually mean multi-company warehouse mismatch or missing journal.")
+    out.success("Seed complete. Try: kctl-odoo report-formats preview <fmt-id> --record-id <id>")
