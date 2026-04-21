@@ -1019,15 +1019,42 @@ def full_remediate(
             if not v["clean"]:
                 out.error(f"wipe-validate FAILED: {v['issues']}")
                 raise typer.Exit(1)
-        # gap-sync every module
-        r2 = c.execute_kw(
-            "accurate.company",
-            "action_sync_missing_records",
-            [[t["id"]]],
-            {"dry_run": False},
+        # gap-sync per-module — each module is a separate RPC call so
+        # Odoo's statement_timeout (10 min) can't guillotine the big
+        # tenants mid-flight. Larger tenants (SPS 1700+, GDA 1900+
+        # records) would exceed the cursor limit on a single-call sync.
+        _GAP_MODULES = (
+            "sales-invoice",
+            "sales-receipt",
+            "purchase-invoice",
+            "purchase-payment",
+            "bank-receipt",
+            "bank-transfer",
+            "other-payment",
+            "other-deposit",
+            "expense",
+            "journal-voucher",
         )
-        total_ok = sum(v.get("mapped_ok", 0) or 0 for v in r2.values())
-        total_err = sum(len(v.get("errors") or []) for v in r2.values())
+        total_ok = 0
+        total_err = 0
+        for mod in _GAP_MODULES:
+            try:
+                r2 = c.execute_kw(
+                    "accurate.company",
+                    "action_sync_missing_records",
+                    [[t["id"]]],
+                    {"dry_run": False, "modules": [mod]},
+                )
+                s = r2.get(mod, {})
+                total_ok += s.get("mapped_ok", 0) or 0
+                total_err += len(s.get("errors") or [])
+                if (s.get("missing") or 0) > 0 or (s.get("mapped_ok") or 0) > 0:
+                    out.info(
+                        f"  {mod}: missing={s.get('missing')} ok={s.get('mapped_ok')} "
+                        f"skipped={s.get('mapped_skipped')} errors={len(s.get('errors') or [])}"
+                    )
+            except Exception as exc:  # noqa: BLE001
+                out.warn(f"  {mod}: {str(exc)[:180]}")
         out.kv("gap-sync", f"mapped_ok={total_ok} errors={total_err}")
         # post
         r3 = c.execute_kw(
