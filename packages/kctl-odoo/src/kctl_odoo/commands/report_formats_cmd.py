@@ -729,3 +729,56 @@ def seed_samples(
     if n_error:
         out.warn("Errors above usually mean multi-company warehouse mismatch or missing journal.")
     out.success("Seed complete. Try: kctl-odoo report-formats preview <fmt-id> --record-id <id>")
+
+
+@app.command(name="apply-theme")
+def apply_theme(
+    ctx: typer.Context,
+    theme: Annotated[str, typer.Argument(help="Theme preset key: pro / matrix / minimal / executive / compact / id_classic / custom")],
+    report_types: Annotated[
+        str | None,
+        typer.Option("--types", help="Comma-separated list of report_type keys. Default: all registered types."),
+    ] = None,
+    company_id: Annotated[
+        int | None,
+        typer.Option("--company-id", help="res.company id to scope to. Defaults to env.company."),
+    ] = None,
+    include_presets: Annotated[
+        bool,
+        typer.Option("--include-presets", help="Also flip seeded Preset-* records (normally left untouched)."),
+    ] = False,
+) -> None:
+    """Bulk-flip ``theme_preset`` on multiple formats at once.
+
+    Wraps ``report.format.apply_theme`` so you can apply, e.g., the Accurate
+    Classic theme to every default format in one command instead of 19 clicks
+    in the UI:
+
+        kctl-odoo -d <db> report-formats apply-theme id_classic
+    """
+    actx = ctx.obj
+    assert isinstance(actx, AppContext)
+    out = actx.output
+    c = actx.client
+
+    kwargs = {
+        "theme_preset": theme,
+        "defaults_only": not include_presets,
+    }
+    if company_id:
+        kwargs["company_id"] = company_id
+    if report_types:
+        kwargs["report_types"] = [t.strip() for t in report_types.split(",") if t.strip()]
+
+    result = c.execute_kw("report.format", "apply_theme", [], kwargs)
+
+    affected = result["affected"]
+    considered = result["considered"]
+    ids = result["ids"]
+    out.success(
+        f"Applied theme {theme!r}: {affected} format(s) flipped, "
+        f"{considered - affected} already on that theme (of {considered} considered)."
+    )
+    if ids:
+        out.text(f"Format ids flipped: {ids}")
+    out.text("Preview with: kctl-odoo report-formats preview <id> --record-id <record> --pdf")
