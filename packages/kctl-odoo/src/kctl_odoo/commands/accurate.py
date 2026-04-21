@@ -626,6 +626,126 @@ def migrate(
     out.success("All phases complete.")
 
 
+# --- clean-slate wipe (18.0.15.2.0) ------------------------------------
+
+
+@app.command("wipe")
+def wipe(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID, or 'all'")],
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run/--execute", help="Preview only (default); use --execute to actually delete")
+    ] = True,
+    confirm: Annotated[bool, typer.Option("--confirm", help="Required with --execute to proceed")] = False,
+) -> None:
+    """Wipe migrated transactions while preserving all masters/config.
+
+    Idempotent SQL-based cleanup for clean-slate remigration. Preserves:
+    accurate.company config, mappings, parity history, foundation ext-ids
+    (customer/vendor/item/glaccount/currency/unit/tax/...), CoA accounts,
+    partners, products. Deletes: every account.move tagged with
+    x_accurate_migration_source, its lines, partial/full reconciles,
+    payment ext-ids, and transaction-module ir.model.data.
+
+    Pass ``all`` as identifier to wipe every accurate.company on this DB.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    if not dry_run and not confirm:
+        raise typer.BadParameter("Add --confirm to proceed with --execute (destructive).")
+
+    if identifier == "all":
+        targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
+    else:
+        rec = _resolve_accurate_company(c, identifier)
+        targets = [{"id": rec["id"], "slug": rec["slug"]}]
+
+    totals = {"moves": 0, "move_lines": 0, "partial_reconcile": 0, "account_payment": 0, "ir_model_data": 0}
+    rows = []
+    for t in targets:
+        res = c.execute_kw(
+            "accurate.company",
+            "action_wipe_migrated_transactions",
+            [[t["id"]]],
+            {"dry_run": dry_run},
+        )
+        rows.append(
+            [
+                t["slug"],
+                str(res["moves"]),
+                str(res["move_lines"]),
+                str(res["partial_reconcile"]),
+                str(res["account_payment"]),
+                str(res["ir_model_data"]),
+                f"{res.get('elapsed_seconds', 0)}s" if not dry_run else "-",
+            ]
+        )
+        for k in totals:
+            totals[k] += res[k]
+    header = "Wipe DRY-RUN preview" if dry_run else "Wipe EXECUTED"
+    out.table(
+        f"{header} ({len(targets)} tenant{'s' if len(targets) != 1 else ''})",
+        [("Tenant", ""), ("Moves", ""), ("Lines", ""), ("Recon", ""), ("Pays", ""), ("IMD", ""), ("Elapsed", "dim")],
+        rows,
+    )
+    out.kv("Total moves", str(totals["moves"]))
+    out.kv("Total ext-ids", str(totals["ir_model_data"]))
+    if dry_run:
+        out.warn("DRY-RUN — nothing deleted. Add --execute --confirm to run.")
+    else:
+        out.success(f"Wiped {totals['moves']} moves across {len(targets)} tenant(s).")
+
+
+@app.command("wipe-validate")
+def wipe_validate(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID, or 'all'")],
+) -> None:
+    """Validate a post-wipe tenant — confirm transactions are truly clean.
+
+    Checks: no migrated moves remain, no transaction-module ext-ids
+    remain, no orphan move-lines, no orphan partial_reconcile, no
+    orphan account.payment. Also reports foundation + config
+    preservation counts (positive proof masters survived).
+
+    Exits non-zero if ANY check flags an issue.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    if identifier == "all":
+        targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
+    else:
+        rec = _resolve_accurate_company(c, identifier)
+        targets = [{"id": rec["id"], "slug": rec["slug"]}]
+
+    any_dirty = False
+    for t in targets:
+        res = c.execute_kw("accurate.company", "action_validate_wipe_clean", [[t["id"]]])
+        status = "✓ CLEAN" if res["clean"] else "✗ DIRTY"
+        out.kv(t["slug"], status)
+        if not res["clean"]:
+            any_dirty = True
+            for issue in res["issues"]:
+                out.error(f"  - {issue}")
+        fp = res["foundation_preserved"]
+        out.kv(
+            f"  foundation",
+            f"customers={fp.get('customer', 0)} vendors={fp.get('vendor', 0)} items={fp.get('item', 0)} glaccounts={fp.get('glaccount', 0)} taxes={fp.get('tax', 0)}",
+        )
+        cp = res["config_preserved"]
+        out.kv(
+            f"  config",
+            f"company={cp.get('accurate.company', 0)} account_mapping={cp.get('accurate.account.mapping', 0)} parity_reports={cp.get('accurate.parity.report', 0)}",
+        )
+    if any_dirty:
+        out.error("One or more tenants FAILED validation.")
+        raise typer.Exit(1)
+    out.success("All tenants validated clean.")
+
+
 # --- errors ------------------------------------------------------------
 
 
