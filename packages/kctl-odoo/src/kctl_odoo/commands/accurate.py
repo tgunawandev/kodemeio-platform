@@ -1558,8 +1558,133 @@ def parity_all(
     out.success(f"All {len(companies)} tenant(s) passed every parity check.")
 
 
+# --------------------------------------------------------------------------
+# Phase 1 — snapshot + reconcile
+# (spec: 2026-04-21-accurate-migration-cutoff-validation-design.md)
+# --------------------------------------------------------------------------
+
+snapshot_app = typer.Typer(help="Snapshot management — pull, list, export snapshots.")
+reconcile_app = typer.Typer(help="Daily reconciliation commands.")
+
+
+@snapshot_app.command("pull")
+def snapshot_pull(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Accurate company slug")],
+    source: Annotated[
+        str,
+        typer.Option(
+            "--source",
+            help="Which side(s) to snapshot: accurate, odoo, or both.",
+        ),
+    ] = "both",
+    snapshot_date: Annotated[
+        Optional[str],
+        typer.Option("--date", "-d", help="Snapshot date YYYY-MM-DD (default today)."),
+    ] = None,
+) -> None:
+    """Pull a snapshot on demand for <slug>."""
+    actx: AppContext = ctx.obj
+    _bump_client_timeout(actx, seconds=1200.0)
+
+    date_str = snapshot_date or date.today().isoformat()
+    sources = ["accurate", "odoo"] if source == "both" else [source]
+    for src in sources:
+        result = actx.client.execute(
+            "accurate.company",
+            "cli_snapshot_pull",
+            [[("slug", "=", slug)], src, date_str],
+        )
+        typer.echo(
+            f"{src} snapshot created: id={result['snapshot_id']} lines={result['line_count']} state={result['state']}"
+        )
+
+
+@snapshot_app.command("list")
+def snapshot_list(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Accurate company slug")],
+    limit: Annotated[int, typer.Option("--limit", "-l")] = 30,
+) -> None:
+    """List recent snapshots for <slug>."""
+    actx: AppContext = ctx.obj
+    rows = actx.client.execute(
+        "accurate.snapshot",
+        "cli_list_for_slug",
+        [slug, limit],
+    )
+    typer.echo(json.dumps(rows, indent=2, default=str))
+
+
+@snapshot_app.command("export")
+def snapshot_export(
+    ctx: typer.Context,
+    snapshot_id: Annotated[int, typer.Argument(help="Snapshot record ID")],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output file path (gzipped JSON)."),
+    ],
+) -> None:
+    """Export snapshot <snapshot_id> to a gzipped JSON file."""
+    actx: AppContext = ctx.obj
+    import base64
+
+    blob_b64 = actx.client.execute(
+        "accurate.snapshot",
+        "cli_export_gzip",
+        [snapshot_id],
+    )
+    output.write_bytes(base64.b64decode(blob_b64))
+    typer.echo(f"Wrote {output}")
+
+
+@reconcile_app.command("run")
+def reconcile_run(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Accurate company slug")],
+    validator: Annotated[
+        Optional[list[str]],
+        typer.Option("--validator", help="Validator name(s) to run. Default: all."),
+    ] = None,
+    run_date: Annotated[
+        Optional[str],
+        typer.Option("--date", "-d", help="Run date YYYY-MM-DD (default today)."),
+    ] = None,
+    tolerance: Annotated[
+        float,
+        typer.Option("--tolerance", help="Per-delta tolerance in account currency units."),
+    ] = 1000.0,
+) -> None:
+    """Run reconciliation for <slug> with selected validators."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    _bump_client_timeout(actx, seconds=1800.0)
+
+    date_str = run_date or date.today().isoformat()
+    result = actx.client.execute(
+        "accurate.company",
+        "cli_reconcile_run",
+        [
+            [("slug", "=", slug)],
+            validator or None,
+            date_str,
+            tolerance,
+        ],
+    )
+    out.info(
+        f"Report id={result['report_id']} state={result['state']} "
+        f"green={result['green']} amber={result['amber']} red={result['red']}"
+    )
+    for line in result.get("lines", []):
+        typer.echo(f"  {line['validator_name']:20s} {line['status']:6s} Δ={line['delta']:+,.0f}")
+    if result.get("state") not in ("passed", "green"):
+        raise typer.Exit(1)
+
+
 # --- attach sub-apps ---------------------------------------------------
 
 
 app.add_typer(companies_app, name="companies")
 app.add_typer(errors_app, name="errors")
+app.add_typer(snapshot_app, name="snapshot")
+app.add_typer(reconcile_app, name="reconcile")
