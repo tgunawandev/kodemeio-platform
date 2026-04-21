@@ -694,3 +694,313 @@ def diff_live(
         sections.append((f"Only in B ({profile_b})", [(m, "") for m in only_b]))
 
     out.detail("Live Module Diff", sections)
+
+
+# ---------------------------------------------------------------------------
+# audit: per-module row-count usage analysis
+# ---------------------------------------------------------------------------
+
+
+_AUDIT_STATUS_ORDER = {"UNUSED": 0, "LOW": 1, "INHERIT": 2, "ACTIVE": 3, "HEAVY": 4}
+
+
+def _audit_classify(total: int, has_persistent_table: bool) -> str:
+    if not has_persistent_table:
+        return "INHERIT"
+    if total == 0:
+        return "UNUSED"
+    if total < 10:
+        return "LOW"
+    if total < 100:
+        return "ACTIVE"
+    return "HEAVY"
+
+
+def _audit_collect(
+    client,  # OdooClient
+    source_filter: str,
+    private_names: set[str] | None,
+    model_detail: bool,
+) -> list[dict]:
+    """Walk installed modules + models, return per-module usage record."""
+    modules = client.search_read(
+        "ir.module.module",
+        domain=[("state", "in", ["installed", "to upgrade"])],
+        fields=["name", "shortdesc", "state"],
+        limit=0,
+        order="name",
+    )
+
+    # Map module -> list of model.ids via ir.model.data
+    mapping_rows = client.search_read(
+        "ir.model.data",
+        domain=[("model", "=", "ir.model")],
+        fields=["module", "res_id"],
+        limit=0,
+    )
+    by_module: dict[str, list[int]] = {}
+    for row in mapping_rows:
+        by_module.setdefault(row["module"], []).append(row["res_id"])
+
+    # Collect all referenced ir.model records (transient flag + model name)
+    all_model_ids = sorted({mid for ids in by_module.values() for mid in ids})
+    model_info_map: dict[int, dict] = {}
+    if all_model_ids:
+        for chunk_start in range(0, len(all_model_ids), 1000):
+            chunk = all_model_ids[chunk_start : chunk_start + 1000]
+            info = client.search_read(
+                "ir.model",
+                domain=[("id", "in", chunk)],
+                fields=["id", "model", "transient"],
+                limit=0,
+            )
+            for mi in info:
+                model_info_map[mi["id"]] = mi
+
+    results = []
+    for mod in modules:
+        name = mod["name"]
+        is_private = private_names is not None and name in private_names
+        if source_filter == "private" and not is_private:
+            continue
+        if source_filter == "oca" and is_private:
+            continue
+
+        model_ids = by_module.get(name, [])
+        persistent_models = [
+            model_info_map[mid]
+            for mid in model_ids
+            if mid in model_info_map and not model_info_map[mid].get("transient")
+        ]
+
+        per_model_rows = []
+        total = 0
+        for mi in persistent_models:
+            model_name = mi["model"]
+            try:
+                cnt = client.search_count(model_name, [])
+            except Exception:
+                cnt = None
+            if cnt is not None:
+                total += cnt
+            per_model_rows.append({"model": model_name, "rows": cnt})
+
+        status = _audit_classify(total, bool(persistent_models))
+
+        record = {
+            "module": name,
+            "shortdesc": mod.get("shortdesc") or "",
+            "source": "private" if is_private else "oca/core",
+            "persistent_model_count": len(persistent_models),
+            "total_rows": total,
+            "status": status,
+        }
+        if model_detail:
+            record["models"] = per_model_rows
+        results.append(record)
+
+    return results
+
+
+def _audit_render_markdown(records: list[dict], profile_label: str) -> str:
+    lines = [
+        f"# Module Usage Audit — `{profile_label}`",
+        "",
+        "Row counts per persistent model (ignoring transient wizards).",
+        "Status buckets: HEAVY (≥100) · ACTIVE (10–99) · LOW (1–9) · "
+        "UNUSED (0 with persistent tables) · INHERIT (no persistent tables).",
+        "",
+        "## Summary",
+        "",
+        "| Module | Source | Models | Rows | Status |",
+        "|--------|--------|-------:|-----:|--------|",
+    ]
+    ordered = sorted(
+        records,
+        key=lambda r: (
+            _AUDIT_STATUS_ORDER.get(r["status"], 99),
+            -r["total_rows"],
+            r["module"],
+        ),
+    )
+    for r in ordered:
+        lines.append(
+            f"| `{r['module']}` | {r['source']} | {r['persistent_model_count']} "
+            f"| {r['total_rows']:,} | **{r['status']}** |"
+        )
+
+    if any("models" in r for r in ordered):
+        lines += ["", "## Per-Model Detail (UNUSED + LOW)", ""]
+        for r in ordered:
+            if r["status"] not in ("UNUSED", "LOW"):
+                continue
+            models = r.get("models") or []
+            lines += [f"### `{r['module']}` · {r['status']}", ""]
+            if not models:
+                lines += ["_No persistent models._", ""]
+                continue
+            lines += ["| Model | Rows |", "|-------|-----:|"]
+            for m in sorted(models, key=lambda m: (-(m["rows"] or 0), m["model"])):
+                rows_s = f"{m['rows']:,}" if m["rows"] is not None else "err"
+                lines.append(f"| `{m['model']}` | {rows_s} |")
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+@app.command("audit")
+def audit(
+    ctx: typer.Context,
+    source: Annotated[
+        str,
+        typer.Option(
+            "--source",
+            "-s",
+            help="Filter by source: all | private | oca",
+            case_sensitive=False,
+        ),
+    ] = "all",
+    status_filter: Annotated[
+        str | None,
+        typer.Option(
+            "--status",
+            help="Only show modules matching status (UNUSED/LOW/ACTIVE/HEAVY/INHERIT). Comma-separated for multiple.",
+        ),
+    ] = None,
+    model_detail: Annotated[
+        bool,
+        typer.Option(
+            "--model-detail/--no-model-detail",
+            help="Include per-model row counts (slower).",
+        ),
+    ] = False,
+    markdown_out: Annotated[
+        Path | None,
+        typer.Option(
+            "--markdown",
+            "-m",
+            help="Write full markdown report to this path.",
+        ),
+    ] = None,
+    private_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--private-root",
+            help="Path to src/private (auto-detected from project_root config).",
+        ),
+    ] = None,
+) -> None:
+    """Audit installed modules by row count — find simplification candidates.
+
+    Walks ``ir.module.module`` + ``ir.model.data`` + ``ir.model`` and runs
+    ``search_count`` on each non-transient model to measure real usage.
+
+    Modules classified as:
+      - HEAVY   (>=100 rows) — core usage, keep
+      - ACTIVE  (10–99)      — in use
+      - LOW     (1–9)        — review
+      - UNUSED  (0, has tables) — strong uninstall candidate
+      - INHERIT (no persistent tables) — bridge / extension only
+
+    Examples:
+        kctl-odoo modules audit
+        kctl-odoo modules audit --source private --status UNUSED,LOW
+        kctl-odoo modules audit -m report.md --model-detail
+        kctl-odoo -p local-tpp-odoo-erp modules audit -m tpp.md
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    source = source.lower()
+    if source not in {"all", "private", "oca"}:
+        out.error("--source must be all, private, or oca")
+        raise typer.Exit(2)
+
+    # Resolve private module names
+    private_names: set[str] | None = None
+    if source in {"private", "all"}:
+        root = private_root
+        if root is None:
+            try:
+                from kctl_odoo.core.utils import find_project_root
+
+                candidate = find_project_root() / "src" / "private"
+                if candidate.is_dir():
+                    root = candidate
+            except Exception:
+                pass
+        if root is None:
+            cwd_candidate = Path.cwd() / "src" / "private"
+            if cwd_candidate.is_dir():
+                root = cwd_candidate
+        if root is None:
+            if source == "private":
+                out.warn("Could not auto-detect src/private — pass --private-root PATH.")
+            private_names = set()
+        else:
+            private_names = {m.parent.name for m in root.rglob("__manifest__.py")}
+
+    out.info("Collecting module usage (this may take a minute)...")
+    records = _audit_collect(c, source, private_names, model_detail)
+
+    # Apply status filter
+    if status_filter:
+        wanted = {s.strip().upper() for s in status_filter.split(",")}
+        records = [r for r in records if r["status"] in wanted]
+
+    # Summary counts
+    by_status: dict[str, int] = {}
+    for r in records:
+        by_status[r["status"]] = by_status.get(r["status"], 0) + 1
+
+    # Sort for display
+    records.sort(
+        key=lambda r: (
+            _AUDIT_STATUS_ORDER.get(r["status"], 99),
+            -r["total_rows"],
+            r["module"],
+        ),
+    )
+
+    profile_label = getattr(c, "database", "") or "odoo"
+
+    # Markdown output
+    if markdown_out is not None:
+        md = _audit_render_markdown(records, profile_label)
+        markdown_out.write_text(md)
+        out.success(f"Wrote markdown report: {markdown_out}")
+
+    # Table output
+    rows = []
+    json_data = []
+    for r in records:
+        rows.append(
+            [
+                r["module"],
+                r["source"],
+                str(r["persistent_model_count"]),
+                f"{r['total_rows']:,}",
+                r["status"],
+            ]
+        )
+        json_data.append(r)
+
+    out.table(
+        f"Module Usage Audit — {profile_label} ({len(records)})",
+        [
+            ("Module", ""),
+            ("Source", "dim"),
+            ("Models", ""),
+            ("Rows", ""),
+            ("Status", ""),
+        ],
+        rows,
+        data_for_json=json_data,
+    )
+
+    if by_status:
+        summary_line = " · ".join(
+            f"{k}={by_status[k]}" for k in sorted(by_status, key=lambda s: _AUDIT_STATUS_ORDER.get(s, 99))
+        )
+        out.info(f"Status counts: {summary_line}")
