@@ -782,3 +782,215 @@ def apply_theme(
     if ids:
         out.text(f"Format ids flipped: {ids}")
     out.text("Preview with: kctl-odoo report-formats preview <id> --record-id <record> --pdf")
+
+
+@app.command(name="clone-arch")
+def clone_arch(
+    ctx: typer.Context,
+    source: Annotated[str, typer.Argument(help="Source format id, xmlid, or name substring")],
+    targets: Annotated[
+        str,
+        typer.Option("--to", "-t", help="Target format ids (comma-separated) — copy source's bands into each."),
+    ],
+    overwrite: Annotated[
+        bool,
+        typer.Option("--overwrite", help="Replace target bands that already exist (default: skip them)."),
+    ] = False,
+) -> None:
+    """Copy all 8 bands from a source format to one or more targets.
+
+    Typical use — propagate the Accurate Classic arch from the seeded
+    Indonesian Classic preset to every default format so reports actually
+    render the polished layout:
+
+        # Find source
+        kctl-odoo -d <db> report-formats list --type invoice
+        # Apply to other defaults (bill, credit_note, misc_journal ids)
+        kctl-odoo -d <db> report-formats clone-arch 34 --to 2,3,10
+
+    Idempotent: existing bands on the target are preserved unless
+    --overwrite is passed.
+    """
+    actx = ctx.obj
+    assert isinstance(actx, AppContext)
+    out = actx.output
+    c = actx.client
+
+    source_id = _resolve_format(c, source)
+    target_ids = [int(t.strip()) for t in targets.split(",") if t.strip()]
+
+    if len(target_ids) == 1:
+        result = c.execute_kw(
+            "report.format", "clone_arch_from",
+            [target_ids], {"source_id": source_id, "overwrite": overwrite},
+        )
+        created = result.get("created_kinds") or []
+        skipped = result.get("skipped_kinds") or []
+        out.success(
+            f"Cloned from #{result['source_id']} {result['source_name']!r} → "
+            f"target #{target_ids[0]}: {len(created)} band(s) created"
+            + (f", {len(skipped)} skipped (already existed)" if skipped else "")
+        )
+        if skipped:
+            out.text(f"Skipped kinds: {', '.join(skipped)} — pass --overwrite to replace")
+        return
+
+    # batch
+    results = c.execute_kw(
+        "report.format", "bulk_clone_arch",
+        [],
+        {"source_id": source_id, "target_ids": target_ids, "overwrite": overwrite},
+    )
+    rows = []
+    for r in results:
+        created = len(r.get("created_kinds") or [])
+        skipped = len(r.get("skipped_kinds") or [])
+        status = r.get("status")
+        note = r.get("error") or (f"{created} created, {skipped} skipped" if status == "ok" else "")
+        rows.append(
+            [
+                "[OK ]" if status == "ok" else "[ERR]",
+                str(r["target_id"]),
+                r.get("target_name") or "",
+                note[:60],
+            ]
+        )
+    out.table(
+        f"Cloned arch from #{source_id} to {len(target_ids)} targets",
+        [("Status", "green"), ("Target id", "cyan"), ("Target name", ""), ("Result", "dim")],
+        rows,
+    )
+    ok = sum(1 for r in results if r.get("status") == "ok")
+    errs = sum(1 for r in results if r.get("status") == "error")
+    out.text(f"Summary: {ok} succeeded, {errs} failed (of {len(target_ids)} targets).")
+
+
+@app.command()
+def unlink(
+    ctx: typer.Context,
+    fmt_ref: Annotated[str, typer.Argument(help="Format id / xmlid / name substring")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt.")] = False,
+) -> None:
+    """Delete a report format (and its bands + versions via cascade)."""
+    actx = ctx.obj
+    assert isinstance(actx, AppContext)
+    out = actx.output
+    c = actx.client
+
+    fmt_id = _resolve_format(c, fmt_ref)
+    rec = c.read("report.format", [fmt_id], ["name", "report_type", "is_default"])[0]
+    label = f"#{fmt_id} {rec['name']!r} ({rec['report_type']})"
+    if rec.get("is_default") and not force:
+        out.warn(f"{label} is a default format — pass --force to delete anyway.")
+        raise typer.Exit(1)
+    if not force:
+        typer.confirm(f"Delete {label}? This cannot be undone.", abort=True)
+    c.execute_kw("report.format", "unlink", [[fmt_id]])
+    out.success(f"Deleted {label}.")
+
+
+@app.command(name="set-active")
+def set_active(
+    ctx: typer.Context,
+    fmt_ref: Annotated[str, typer.Argument(help="Format id / xmlid / name substring")],
+    active: Annotated[bool, typer.Option("--active/--inactive", help="Target value.")] = True,
+) -> None:
+    """Toggle a format's ``active`` flag (archive / restore)."""
+    actx = ctx.obj
+    assert isinstance(actx, AppContext)
+    out = actx.output
+    c = actx.client
+
+    fmt_id = _resolve_format(c, fmt_ref)
+    c.execute_kw("report.format", "write", [[fmt_id], {"active": active}])
+    out.success(f"Format #{fmt_id} now active={active}.")
+
+
+@app.command()
+def audit(
+    ctx: typer.Context,
+    company: Annotated[str | None, typer.Option("--company", help="Scope to one company by name.")] = None,
+) -> None:
+    """Cross-format audit: empty bands, missing defaults, lint issues.
+
+    Produces an at-a-glance matrix so you can see which report types need
+    arch work vs which are good to go. Exits non-zero if any Critical
+    issues are found, so it fits into a CI pipeline.
+    """
+    actx = ctx.obj
+    assert isinstance(actx, AppContext)
+    out = actx.output
+    c = actx.client
+
+    domain: list = []
+    if company:
+        co = c.search_read("res.company", [("name", "ilike", company)], ["id"], limit=1)
+        if not co:
+            raise typer.BadParameter(f"Company not found: {company}")
+        domain.append(("company_id", "=", co[0]["id"]))
+    formats = c.search_read(
+        "report.format",
+        domain,
+        ["id", "name", "report_type", "theme_preset", "is_default", "active", "company_id"],
+        order="report_type, is_default desc, id",
+    )
+    # Fetch band counts per format via a single RPC
+    band_rows = c.search_read(
+        "report.format.band",
+        [("format_id", "in", [f["id"] for f in formats])],
+        ["format_id"],
+    )
+    bands_per_fmt: dict[int, int] = {}
+    for b in band_rows:
+        fid = b["format_id"][0] if isinstance(b["format_id"], list) else b["format_id"]
+        bands_per_fmt[fid] = bands_per_fmt.get(fid, 0) + 1
+
+    # Get all registered report types from the server
+    reg_types = {k for k, _ in c.execute_kw("report.format", "registry_selection", [])}
+    defaults_by_type: dict[str, dict] = {}
+    rows = []
+    critical = 0
+    for f in formats:
+        bands = bands_per_fmt.get(f["id"], 0)
+        rt = f.get("report_type") or "?"
+        issues = []
+        if f.get("is_default") and bands == 0:
+            issues.append("EMPTY")
+            critical += 1
+        if f.get("is_default"):
+            defaults_by_type[rt] = f
+        rows.append(
+            [
+                str(f["id"]),
+                rt,
+                (f.get("name") or "")[:32],
+                f.get("theme_preset") or "",
+                str(bands),
+                "Y" if f.get("is_default") else "",
+                "Y" if f.get("active") else "-",
+                ", ".join(issues) or "-",
+            ]
+        )
+    missing_defaults = sorted(reg_types - set(defaults_by_type.keys()))
+    critical += len(missing_defaults)
+
+    out.table(
+        f"Format audit ({len(formats)} formats, {len(reg_types)} registered types)",
+        [
+            ("ID", "cyan"), ("Type", ""), ("Name", ""), ("Theme", ""),
+            ("Bands", "yellow"), ("Default", "green"), ("Active", ""), ("Issues", "red"),
+        ],
+        rows,
+    )
+    out.text(f"Registered types: {len(reg_types)}, types with a default: {len(defaults_by_type)}")
+    if missing_defaults:
+        out.warn(f"Types with NO default format: {', '.join(missing_defaults)}")
+    empty_defaults = [rt for rt, f in defaults_by_type.items() if bands_per_fmt.get(f["id"], 0) == 0]
+    if empty_defaults:
+        out.warn(f"Default formats with EMPTY arch (will render blank): {', '.join(empty_defaults)}")
+        out.text("  Fix with: kctl-odoo report-formats clone-arch <preset_id> --to <default_id>")
+    if critical == 0:
+        out.success("No critical issues. Every registered type has a populated default.")
+    else:
+        out.error(f"{critical} critical issue(s) — formats won't render correctly as-is.")
+        raise typer.Exit(1)
