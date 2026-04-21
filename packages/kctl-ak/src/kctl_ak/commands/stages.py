@@ -2,13 +2,40 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+import json
+from typing import Annotated, Any
 
 import typer
 
 from kctl_ak.core.callbacks import AppContext
 
 app = typer.Typer(help="Stage management (prompt, password, identification, consent, email, etc.).")
+
+
+def _stage_endpoint_from_meta(meta_model_name: str | None) -> str | None:
+    # e.g. "authentik_stages_user_login.userloginstage" -> "user_login"
+    if not meta_model_name:
+        return None
+    app_label = meta_model_name.split(".", 1)[0]
+    if not app_label.startswith("authentik_stages_"):
+        return None
+    return app_label[len("authentik_stages_") :]
+
+
+def _parse_set_items(items: list[str] | None) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    for item in items or []:
+        if "=" not in item:
+            raise typer.BadParameter(f"--set expects KEY=VALUE, got: {item!r}")
+        key, _, value = item.partition("=")
+        key = key.strip()
+        if not key:
+            raise typer.BadParameter(f"--set has empty key in: {item!r}")
+        try:
+            payload[key] = json.loads(value)
+        except json.JSONDecodeError:
+            payload[key] = value
+    return payload
 
 
 @app.command("list")
@@ -43,29 +70,51 @@ def list_(
     )
 
 
+_META_FIELDS = {"pk", "name", "component", "verbose_name", "verbose_name_plural", "meta_model_name", "flow_set"}
+
+
 @app.command()
 def get(
     ctx: typer.Context,
     id_: Annotated[str, typer.Argument(metavar="ID", help="Stage UUID")],
 ) -> None:
-    """Get stage details."""
+    """Get stage details (including type-specific fields like session_duration)."""
     c: AppContext = ctx.obj
-    s = c.client.get(f"stages/all/{id_}/")
+    # First hit the polymorphic endpoint to discover the concrete type.
+    base = c.client.get(f"stages/all/{id_}/")
+    endpoint = _stage_endpoint_from_meta(base.get("meta_model_name"))
+    full = c.client.get(f"stages/{endpoint}/{id_}/") if endpoint else base
 
-    c.output.detail(
-        s.get("name", str(id_)),
-        [
-            (
-                "Stage",
-                [
-                    ("ID", str(s.get("pk", ""))),
-                    ("Name", s.get("name", "")),
-                    ("Type", s.get("verbose_name", s.get("object_type", ""))),
-                ],
-            ),
-        ],
-        data_for_json=s,
-    )
+    meta_kvs: list[tuple[str, str]] = [
+        ("ID", str(full.get("pk", ""))),
+        ("Name", full.get("name", "")),
+        ("Type", full.get("verbose_name", full.get("component", ""))),
+    ]
+    if endpoint:
+        meta_kvs.append(("Endpoint", f"stages/{endpoint}/"))
+
+    extra_kvs: list[tuple[str, str]] = []
+    for key in sorted(full.keys()):
+        if key in _META_FIELDS:
+            continue
+        val = full[key]
+        if isinstance(val, (dict, list)):
+            rendered = json.dumps(val, default=str)
+            if len(rendered) > 200:
+                rendered = rendered[:197] + "..."
+        else:
+            rendered = str(val)
+        extra_kvs.append((key, rendered))
+
+    sections: list[tuple[str, list[tuple[str, str]]]] = [("Stage", meta_kvs)]
+    if extra_kvs:
+        sections.append(("Configuration", extra_kvs))
+    flow_set = full.get("flow_set") or []
+    if flow_set:
+        flow_kvs = [(f.get("slug", f.get("name", "?")), f.get("title", "")) for f in flow_set]
+        sections.append(("Bound to Flows", flow_kvs))
+
+    c.output.detail(full.get("name", str(id_)), sections, data_for_json=full)
 
 
 @app.command("create-prompt")
@@ -186,19 +235,31 @@ def update(
     ctx: typer.Context,
     id_: Annotated[str, typer.Argument(metavar="ID", help="Stage UUID")],
     name: Annotated[str | None, typer.Option("--name", help="New name")] = None,
+    set_items: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--set",
+            help="Set an arbitrary field, KEY=VALUE (repeatable). Value is JSON-parsed if possible, else string. "
+            "Examples: --set session_duration=days=7  --set terminate_other_sessions=true",
+        ),
+    ] = None,
 ) -> None:
-    """Update a stage."""
+    """Update a stage. Dispatches PATCH to the typed endpoint so type-specific fields (session_duration, mode, ...) are accepted."""
     c: AppContext = ctx.obj
-    payload: dict = {}
+    payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
+    payload.update(_parse_set_items(set_items))
 
     if not payload:
-        c.output.error("No fields to update. Use --name.")
+        c.output.error("No fields to update. Use --name or --set KEY=VALUE.")
         raise typer.Exit(1)
 
-    result = c.client.put(f"stages/all/{id_}/", data=payload)
-    c.output.success(f"Updated stage '{result.get('name', id_)}'")
+    base = c.client.get(f"stages/all/{id_}/")
+    endpoint = _stage_endpoint_from_meta(base.get("meta_model_name"))
+    target = f"stages/{endpoint}/{id_}/" if endpoint else f"stages/all/{id_}/"
+    result = c.client.patch(target, data=payload)
+    c.output.success(f"Updated stage '{result.get('name', id_)}' ({', '.join(payload.keys())})")
 
 
 @app.command()

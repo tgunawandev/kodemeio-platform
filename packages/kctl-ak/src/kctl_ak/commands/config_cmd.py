@@ -44,7 +44,7 @@ def _mask_token(token: str) -> str:
 
 def _test_connection(url: str, token: str) -> tuple[bool, str]:
     try:
-        client = AuthentikClient(base_url=url, token=token)
+        client = AuthentikClient(base_url=url, credential=token)
         version_data = client.get("admin/version/")
         client.close()
         return True, version_data.get("version_current", "unknown")
