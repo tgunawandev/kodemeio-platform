@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -291,3 +293,220 @@ def switch_company(
 
     c.write("res.users", [user_id], {"company_id": company_id})
     out.success(f"Switched user {user_data[0]['login']} (ID: {user_id}) to company ID {company_id}")
+
+
+def _run_setup(
+    c: object,
+    out: object,
+    *,
+    name: str,
+    template_id: int,
+    street: str | None = None,
+    city: str | None = None,
+    phone: str | None = None,
+    email: str | None = None,
+    npwp: str | None = None,
+    warehouse_prefix: str | None = None,
+    skip_warehouses: bool = False,
+    skip_fiscal_positions: bool = False,
+    skip_extra_journals: bool = False,
+    skip_report_formats: bool = False,
+    dry_run: bool = False,
+) -> dict | None:
+    """Call CompanyOnboardingService.provision() via JSON-RPC."""
+    # Verify company_onboarding module is installed
+    installed = c.search(
+        "ir.module.module",
+        [("name", "=", "company_onboarding"), ("state", "=", "installed")],
+    )
+    if not installed:
+        out.error("Module 'company_onboarding' is not installed. Install it first.")
+        raise typer.Exit(1)
+
+    company_vals = {"name": name}
+    if street:
+        company_vals["street"] = street
+    if city:
+        company_vals["city"] = city
+    if phone:
+        company_vals["phone"] = phone
+    if email:
+        company_vals["email"] = email
+    if npwp:
+        company_vals["npwp"] = npwp
+    if warehouse_prefix:
+        company_vals["warehouse_code_prefix"] = warehouse_prefix
+
+    options = {
+        "clone_fiscal_positions": not skip_fiscal_positions,
+        "clone_warehouses": not skip_warehouses,
+        "clone_extra_journals": not skip_extra_journals,
+        "clone_report_formats": not skip_report_formats,
+    }
+
+    if dry_run:
+        out.info(f"[DRY RUN] Would create company '{name}' from template ID {template_id}")
+        out.info(f"  Options: {options}")
+        return None
+
+    result = c.execute(
+        "company.onboarding.wizard",
+        "action_provision_from_cli",
+        company_vals,
+        template_id,
+        options,
+    )
+
+    # Display results
+    out.success(f"Created company '{result['company_name']}' (ID: {result['company_id']})")
+    for step in result.get("steps", []):
+        icon = {"ok": "✓", "skipped": "⊘", "error": "✗"}.get(step["status"], "?")
+        style = "green" if step["status"] == "ok" else ("yellow" if step["status"] == "skipped" else "red")
+        out.console.print(f"  [{style}]{icon}[/{style}] {step['name']}: {step['detail']}")
+
+    out.console.print()
+    out.console.print("[dim]Next steps:[/dim]")
+    out.console.print("  1. Assign users:  kctl-odoo roles assign <login> --roles finance_user")
+    out.console.print("  2. Configure bank: Settings → Companies → Giro/Cek Accounts")
+    out.console.print("  3. Set tax office: Settings → Companies → Tax Settings")
+
+    return result
+
+
+@app.command()
+def setup(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Option("--name", "-n", help="Company name")],
+    template: Annotated[str, typer.Option("--template", "-t", help="Template company ID or name")],
+    street: Annotated[str | None, typer.Option(help="Street address")] = None,
+    city: Annotated[str | None, typer.Option(help="City")] = None,
+    phone: Annotated[str | None, typer.Option(help="Phone")] = None,
+    email: Annotated[str | None, typer.Option(help="Email")] = None,
+    npwp: Annotated[str | None, typer.Option(help="NPWP (Indonesian Tax ID)")] = None,
+    warehouse_prefix: Annotated[
+        str | None, typer.Option("--warehouse-prefix", help="3-char warehouse code prefix")
+    ] = None,
+    skip_warehouses: Annotated[bool, typer.Option("--skip-warehouses", help="Skip warehouse cloning")] = False,
+    skip_fiscal_positions: Annotated[
+        bool, typer.Option("--skip-fiscal-positions", help="Skip fiscal position cloning")
+    ] = False,
+    skip_extra_journals: Annotated[
+        bool, typer.Option("--skip-extra-journals", help="Skip extra journal cloning")
+    ] = False,
+    skip_report_formats: Annotated[
+        bool, typer.Option("--skip-report-formats", help="Skip report format provisioning")
+    ] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview without creating")] = False,
+) -> None:
+    """Create and provision a new company from a template.
+
+    Installs l10n_id CoA (journals + taxes), then clones warehouses, fiscal
+    positions, extra journals, and report formats from the template company.
+
+    Requires the company_onboarding module to be installed.
+
+    Examples:
+        kctl-odoo companies setup --name "CV Baru Import" --template 2
+        kctl-odoo companies setup -n "CV Baru" -t "CV Sumber Pangan" --npwp "01.234.567.8-901.000"
+        kctl-odoo companies setup -n "CV Test" -t 2 --skip-warehouses --dry-run
+    """
+    actx: AppContext = ctx.obj
+    template_id = _resolve_company_id(actx.client, template)
+
+    _run_setup(
+        actx.client,
+        actx.output,
+        name=name,
+        template_id=template_id,
+        street=street,
+        city=city,
+        phone=phone,
+        email=email,
+        npwp=npwp,
+        warehouse_prefix=warehouse_prefix,
+        skip_warehouses=skip_warehouses,
+        skip_fiscal_positions=skip_fiscal_positions,
+        skip_extra_journals=skip_extra_journals,
+        skip_report_formats=skip_report_formats,
+        dry_run=dry_run,
+    )
+
+
+@app.command("setup-batch")
+def setup_batch(
+    ctx: typer.Context,
+    csv_file: Annotated[Path, typer.Argument(help="CSV file with columns: name,street,city,npwp,warehouse_prefix")],
+    template: Annotated[str, typer.Option("--template", "-t", help="Template company ID or name")],
+    skip_warehouses: Annotated[bool, typer.Option("--skip-warehouses", help="Skip warehouse cloning")] = False,
+    skip_report_formats: Annotated[
+        bool, typer.Option("--skip-report-formats", help="Skip report format provisioning")
+    ] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview without creating")] = False,
+) -> None:
+    """Batch-create companies from a CSV file.
+
+    CSV format (header required):
+        name,street,city,npwp,warehouse_prefix
+        CV Baru Import,Jl. Raya 1,Surabaya,01.234.567.8-901.000,BRI
+        CV Lain Import,Jl. Lain 2,Jakarta,02.345.678.9-012.000,LNI
+
+    Requires the company_onboarding module to be installed.
+
+    Examples:
+        kctl-odoo companies setup-batch companies.csv --template 2
+        kctl-odoo companies setup-batch companies.csv -t "CV Sumber Pangan" --dry-run
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    if not csv_file.exists():
+        out.error(f"File not found: {csv_file}")
+        raise typer.Exit(1)
+
+    template_id = _resolve_company_id(actx.client, template)
+
+    with csv_file.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+    if not rows:
+        out.warn("CSV file is empty")
+        return
+
+    out.info(f"Processing {len(rows)} companies from {csv_file.name}")
+    out.console.print()
+
+    created, failed = 0, 0
+    for i, row in enumerate(rows, 1):
+        company_name = row.get("name", "").strip()
+        if not company_name:
+            out.warn(f"Row {i}: skipping — empty name")
+            continue
+
+        out.console.rule(f"[bold]{i}/{len(rows)}: {company_name}")
+        try:
+            result = _run_setup(
+                actx.client,
+                out,
+                name=company_name,
+                template_id=template_id,
+                street=row.get("street", "").strip() or None,
+                city=row.get("city", "").strip() or None,
+                phone=row.get("phone", "").strip() or None,
+                email=row.get("email", "").strip() or None,
+                npwp=row.get("npwp", "").strip() or None,
+                warehouse_prefix=row.get("warehouse_prefix", "").strip() or None,
+                skip_warehouses=skip_warehouses,
+                skip_report_formats=skip_report_formats,
+                dry_run=dry_run,
+            )
+            if result:
+                created += 1
+        except (typer.Exit, Exception) as exc:
+            out.error(f"Failed: {company_name} — {exc}")
+            failed += 1
+
+        out.console.print()
+
+    out.console.rule("[bold]Summary")
+    out.info(f"Created: {created}, Failed: {failed}, Total: {len(rows)}")
