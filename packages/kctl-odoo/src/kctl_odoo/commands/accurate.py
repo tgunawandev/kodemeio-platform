@@ -746,6 +746,323 @@ def wipe_validate(
     out.success("All tenants validated clean.")
 
 
+# --- synchronous pipeline helpers (18.0.15.2.0) ------------------------
+
+
+@app.command("gap-sync")
+def gap_sync(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID, or 'all'")],
+    modules: Annotated[
+        Optional[str],
+        typer.Option(
+            "--modules",
+            help="Comma-separated list (default = every transaction module)",
+        ),
+    ] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run/--execute")] = True,
+) -> None:
+    """Synchronous gap-sync — fetch every missing Accurate record.
+
+    Surgical complement to ``transactions_current`` which queues async
+    queue_job work. This helper runs inline + commits per-tenant, so
+    records actually land before the CLI returns.
+
+    Uses ``accurate.company.action_sync_missing_records``.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    if identifier == "all":
+        targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
+    else:
+        rec = _resolve_accurate_company(c, identifier)
+        targets = [{"id": rec["id"], "slug": rec["slug"]}]
+
+    mods = [m.strip() for m in modules.split(",")] if modules else None
+
+    for t in targets:
+        kwargs = {"dry_run": dry_run}
+        if mods:
+            kwargs["modules"] = mods
+        res = c.execute_kw("accurate.company", "action_sync_missing_records", [[t["id"]]], kwargs)
+        rows = []
+        for mod, v in res.items():
+            if (v.get("missing") or 0) > 0 or (v.get("mapped_ok") or 0) > 0:
+                rows.append(
+                    [
+                        mod,
+                        str(v.get("missing", 0)),
+                        str(v.get("mapped_ok", 0)),
+                        str(v.get("mapped_skipped", 0)),
+                        str(len(v.get("errors") or [])),
+                    ]
+                )
+        if rows:
+            out.table(
+                f"{t['slug']} — gap-sync {'DRY-RUN' if dry_run else 'EXECUTED'}",
+                [("Module", ""), ("Missing", ""), ("OK", ""), ("Skipped", ""), ("Errors", "")],
+                rows,
+            )
+        else:
+            out.info(f"{t['slug']}: nothing to sync.")
+
+
+@app.command("post-drafts")
+def post_drafts(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID, or 'all'")],
+    dry_run: Annotated[bool, typer.Option("--dry-run/--execute")] = True,
+) -> None:
+    """Post every draft account.move/payment tagged by the migration.
+
+    Wraps ``accurate.company.action_post_draft_imports``.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    if identifier == "all":
+        targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
+    else:
+        rec = _resolve_accurate_company(c, identifier)
+        targets = [{"id": rec["id"], "slug": rec["slug"]}]
+
+    for t in targets:
+        res = c.execute_kw(
+            "accurate.company",
+            "action_post_draft_imports",
+            [[t["id"]]],
+            {"dry_run": dry_run},
+        )
+        out.kv(
+            t["slug"],
+            f"candidates={res['move_candidates']} posted={res['moves_posted']} "
+            f"failed={len(res['moves_failed'])} payments_posted={res['payments_posted']}",
+        )
+        for f in res.get("moves_failed", [])[:5]:
+            out.warn(f"  FAIL {f.get('move_id')}: {(f.get('error', '') or '')[:150]}")
+
+
+@app.command("reconcile")
+def reconcile(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID, or 'all'")],
+    dry_run: Annotated[bool, typer.Option("--dry-run/--execute")] = True,
+) -> None:
+    """Reconcile AR/AP lines across migrated payment + invoice moves.
+
+    Wraps ``accurate.company.action_reconcile_migrated_move_lines``.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    if identifier == "all":
+        targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
+    else:
+        rec = _resolve_accurate_company(c, identifier)
+        targets = [{"id": rec["id"], "slug": rec["slug"]}]
+
+    for t in targets:
+        res = c.execute_kw(
+            "accurate.company",
+            "action_reconcile_migrated_move_lines",
+            [[t["id"]]],
+            {"dry_run": dry_run},
+        )
+        out.kv(
+            t["slug"],
+            f"groups={res.get('groups_found', 0)} reconciled={res.get('groups_reconciled', 0)} "
+            f"skipped={len(res.get('groups_skipped') or [])}",
+        )
+
+
+@app.command("parity")
+def parity(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID, or 'all'")],
+    as_of: Annotated[str, typer.Option("--as-of", help="YYYY-MM-DD")] = "2026-03-31",
+) -> None:
+    """Run the 12-check parity framework and print BS/PL/TB delta.
+
+    Wraps ``accurate.company.action_run_parity``. Writes a new
+    ``accurate.parity.report``. Exits non-zero if any key check fails.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    if identifier == "all":
+        targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
+    else:
+        rec = _resolve_accurate_company(c, identifier)
+        targets = [{"id": rec["id"], "slug": rec["slug"]}]
+
+    any_fail = False
+    for t in targets:
+        c.execute_kw(
+            "accurate.company",
+            "action_run_parity",
+            [[t["id"]]],
+            {"as_of": as_of},
+        )
+        reps = c.search_read(
+            "accurate.parity.report",
+            domain=[("company_id", "=", t["id"])],
+            fields=["id"],
+            order="id desc",
+            limit=1,
+        )
+        if not reps:
+            out.error(f"{t['slug']}: no parity report emitted")
+            any_fail = True
+            continue
+        rep_id = reps[0]["id"]
+        lines = c.search_read(
+            "accurate.parity.line",
+            domain=[
+                ("report_id", "=", rep_id),
+                ("check_name", "in", ("trial_balance", "bs", "pnl", "ar_aging", "ap_aging")),
+            ],
+            fields=["check_name", "accurate_total", "odoo_total", "passed"],
+        )
+        rows = []
+        for ln in lines:
+            A = ln.get("accurate_total") or 0
+            O = ln.get("odoo_total") or 0
+            ratio = f"{(O / A):.2f}x" if A else "n/a"
+            rows.append(
+                [
+                    ln["check_name"],
+                    f"{A:,.0f}",
+                    f"{O:,.0f}",
+                    f"{O - A:+,.0f}",
+                    ratio,
+                    "✓" if ln["passed"] else "✗",
+                ]
+            )
+            if not ln["passed"]:
+                any_fail = True
+        out.table(
+            f"{t['slug']} parity (as_of={as_of}, report={rep_id})",
+            [("Check", ""), ("Accurate", ""), ("Odoo", ""), ("Δ", ""), ("Ratio", ""), ("Pass", "")],
+            rows,
+        )
+
+    if any_fail:
+        raise typer.Exit(1)
+
+
+@app.command("full-remediate")
+def full_remediate(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID, or 'all'")],
+    as_of: Annotated[str, typer.Option("--as-of")] = "2026-03-31",
+    skip_wipe: Annotated[bool, typer.Option("--skip-wipe", help="Skip wipe — start from current state")] = False,
+    confirm: Annotated[bool, typer.Option("--confirm", help="Required (destructive)")] = False,
+) -> None:
+    """End-to-end clean-slate remediation: wipe → gap-sync → post → reconcile → parity.
+
+    This is the one-shot operator command. Per tenant, runs the whole
+    sequence with per-step commits so container restarts don't lose
+    progress. Uses the fixed SDK 0.5.2 mappers (DP-entry pivot + tax_ids
+    explicit empty list).
+    """
+    if not confirm:
+        raise typer.BadParameter("Add --confirm to proceed (destructive wipe).")
+
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    if identifier == "all":
+        targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
+    else:
+        rec = _resolve_accurate_company(c, identifier)
+        targets = [{"id": rec["id"], "slug": rec["slug"]}]
+
+    for t in targets:
+        out.info(f"=== {t['slug']} ===")
+        if not skip_wipe:
+            r = c.execute_kw(
+                "accurate.company",
+                "action_wipe_migrated_transactions",
+                [[t["id"]]],
+                {"dry_run": False},
+            )
+            out.kv("wipe", f"moves={r['moves']} imd={r['ir_model_data']} ({r['elapsed_seconds']}s)")
+            v = c.execute_kw("accurate.company", "action_validate_wipe_clean", [[t["id"]]])
+            if not v["clean"]:
+                out.error(f"wipe-validate FAILED: {v['issues']}")
+                raise typer.Exit(1)
+        # gap-sync every module
+        r2 = c.execute_kw(
+            "accurate.company",
+            "action_sync_missing_records",
+            [[t["id"]]],
+            {"dry_run": False},
+        )
+        total_ok = sum(v.get("mapped_ok", 0) or 0 for v in r2.values())
+        total_err = sum(len(v.get("errors") or []) for v in r2.values())
+        out.kv("gap-sync", f"mapped_ok={total_ok} errors={total_err}")
+        # post
+        r3 = c.execute_kw(
+            "accurate.company",
+            "action_post_draft_imports",
+            [[t["id"]]],
+            {"dry_run": False},
+        )
+        out.kv(
+            "post",
+            f"posted={r3['moves_posted']}/{r3['move_candidates']} failed={len(r3['moves_failed'])}",
+        )
+        # reconcile
+        r4 = c.execute_kw(
+            "accurate.company",
+            "action_reconcile_migrated_move_lines",
+            [[t["id"]]],
+            {"dry_run": False},
+        )
+        out.kv(
+            "reconcile",
+            f"{r4.get('groups_reconciled', 0)}/{r4.get('groups_found', 0)} groups",
+        )
+        # parity
+        c.execute_kw(
+            "accurate.company",
+            "action_run_parity",
+            [[t["id"]]],
+            {"as_of": as_of},
+        )
+        reps = c.search_read(
+            "accurate.parity.report",
+            domain=[("company_id", "=", t["id"])],
+            fields=["id"],
+            order="id desc",
+            limit=1,
+        )
+        if reps:
+            lines = c.search_read(
+                "accurate.parity.line",
+                domain=[
+                    ("report_id", "=", reps[0]["id"]),
+                    ("check_name", "in", ("trial_balance", "bs", "pnl")),
+                ],
+                fields=["check_name", "accurate_total", "odoo_total", "passed"],
+            )
+            for ln in lines:
+                A = ln.get("accurate_total") or 0
+                O = ln.get("odoo_total") or 0
+                ratio = f"{(O / A):.2f}x" if A else "n/a"
+                status = "✓" if ln["passed"] else "✗"
+                out.kv(
+                    f"  {ln['check_name']}",
+                    f"A={A:,.0f} O={O:,.0f} Δ={O - A:+,.0f} {ratio} {status}",
+                )
+
+
 # --- errors ------------------------------------------------------------
 
 
