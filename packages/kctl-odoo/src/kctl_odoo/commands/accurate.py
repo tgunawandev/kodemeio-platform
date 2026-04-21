@@ -14,9 +14,26 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Optional
 
+import httpx
 import typer
 
 from kctl_odoo.core.callbacks import AppContext
+
+
+def _bump_client_timeout(actx: AppContext, seconds: float = 1800.0) -> None:
+    """Extend httpx client read-timeout for long-running Accurate RPCs.
+
+    Default kctl-odoo client has a 30s timeout — fine for most RPCs
+    but the Accurate-side methods (gap_sync, post_draft_imports,
+    run_parity, full-remediate) can fetch hundreds of records from
+    Accurate's API in a single JSON-RPC call. Bump to 30 min so the
+    client doesn't disconnect mid-import.
+    """
+    try:
+        actx.client._client.timeout = httpx.Timeout(seconds)
+    except Exception:  # noqa: BLE001
+        pass
+
 
 app = typer.Typer(help="Accurate → Odoo 1-click migration.")
 
@@ -773,6 +790,7 @@ def gap_sync(
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
+    _bump_client_timeout(actx)
 
     if identifier == "all":
         targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
@@ -822,6 +840,7 @@ def post_drafts(
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
+    _bump_client_timeout(actx)
 
     if identifier == "all":
         targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
@@ -858,6 +877,7 @@ def reconcile(
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
+    _bump_client_timeout(actx)
 
     if identifier == "all":
         targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
@@ -893,6 +913,7 @@ def parity(
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
+    _bump_client_timeout(actx)
 
     if identifier == "all":
         targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
@@ -976,6 +997,7 @@ def full_remediate(
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
+    _bump_client_timeout(actx, seconds=3600.0)  # 1 hour — full pipeline
 
     if identifier == "all":
         targets = c.search_read("accurate.company", domain=[], fields=["id", "slug"], order="id")
