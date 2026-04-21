@@ -1681,6 +1681,105 @@ def reconcile_run(
         raise typer.Exit(1)
 
 
+# --- Phase 4 — variance + cutover + audit-package ----------------------
+
+
+variance_app = typer.Typer(help="Variance explanations (Phase 4).")
+
+
+@variance_app.command("list")
+def variance_list(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Tenant slug")],
+) -> None:
+    """List variance explanations for <slug>."""
+    actx: AppContext = ctx.obj
+    rows = actx.client.execute(
+        "accurate.company",
+        "cli_variance_list",
+        [slug],
+    )
+    typer.echo(json.dumps(rows, indent=2))
+
+
+@variance_app.command("add")
+def variance_add(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Tenant slug")],
+    validator: Annotated[str, typer.Option("--validator", "-v", help="Validator name")],
+    delta_key: Annotated[str, typer.Option("--delta-key", "-k", help="Delta key (glob or exact)")],
+    category: Annotated[str, typer.Option("--category", "-c", help="Variance category")] = "cutover_timing",
+    explanation: Annotated[str, typer.Option("--explanation", "-e", help="Explanation text")],
+    expires: Annotated[
+        Optional[str],
+        typer.Option("--expires", help="Expiry date YYYY-MM-DD; default today+30d"),
+    ] = None,
+) -> None:
+    """Create a variance explanation."""
+    actx: AppContext = ctx.obj
+    result = actx.client.execute(
+        "accurate.company",
+        "cli_variance_add",
+        [slug, validator, delta_key, category, explanation, expires],
+    )
+    typer.echo(f"Created explanation id={result['id']} delta_key={result['delta_key']}")
+
+
+@variance_app.command("expire")
+def variance_expire(
+    ctx: typer.Context,
+    explanation_id: Annotated[int, typer.Argument(help="Explanation record ID")],
+) -> None:
+    """Expire (deactivate) a variance explanation."""
+    actx: AppContext = ctx.obj
+    result = actx.client.execute(
+        "accurate.company",
+        "cli_variance_expire",
+        [explanation_id],
+    )
+    typer.echo(f"Expired id={result['id']} active={result['active']}")
+
+
+cutover_app = typer.Typer(help="Cutover readiness + execution (Phase 4).")
+
+
+@cutover_app.command("status")
+def cutover_status(ctx: typer.Context) -> None:
+    """Streak status across all tenants."""
+    actx: AppContext = ctx.obj
+    rows = actx.client.execute(
+        "accurate.company",
+        "cli_cutover_status",
+        [],
+    )
+    typer.echo(f"{'slug':12s} {'streak':>8s} {'required':>10s} {'ready?':>8s}")
+    typer.echo("-" * 40)
+    for r in rows:
+        ready = "yes" if r["ready"] else "no"
+        typer.echo(f"{r['slug']:12s} {r['streak']:>8d} {r['required']:>10d} {ready:>8s}")
+
+
+@app.command("audit-package")
+def audit_package(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Tenant slug")],
+    output: Annotated[str, typer.Option("-o", "--output", help="Output zip path")],
+) -> None:
+    """Generate the audit package zip for <slug>."""
+    actx: AppContext = ctx.obj
+    import base64
+
+    _bump_client_timeout(actx, seconds=300.0)
+    blob_b64 = actx.client.execute(
+        "accurate.company",
+        "cli_audit_package",
+        [[("slug", "=", slug)]],
+    )
+    with open(output, "wb") as f:
+        f.write(base64.b64decode(blob_b64))
+    typer.echo(f"Wrote {output}")
+
+
 # --- attach sub-apps ---------------------------------------------------
 
 
@@ -1688,3 +1787,5 @@ app.add_typer(companies_app, name="companies")
 app.add_typer(errors_app, name="errors")
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(reconcile_app, name="reconcile")
+app.add_typer(variance_app, name="variance")
+app.add_typer(cutover_app, name="cutover")
