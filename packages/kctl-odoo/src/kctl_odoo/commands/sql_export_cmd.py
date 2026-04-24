@@ -198,7 +198,7 @@ def create(
             c.execute_kw(_MODEL, "button_validate_sql_expression", [[export_id]])
             out.success("SQL validated successfully.")
         except RPCError as e:
-            out.warning(f"Validation failed: {e.detail}")
+            out.info(f"Validation failed: {e.detail}")
             out.info(f"Export created in draft state. Fix the query and run: kctl-odoo sql-export validate {export_id}")
 
     if actx.json_mode:
@@ -259,7 +259,7 @@ def update(
             c.execute_kw(_MODEL, "button_validate_sql_expression", [[export_id]])
             out.success("SQL re-validated successfully.")
         except RPCError as e:
-            out.warning(f"Validation failed: {e.detail}")
+            out.info(f"Validation failed: {e.detail}")
 
 
 @app.command("delete")
@@ -411,9 +411,9 @@ def execute(
                 out.success(f"Downloaded: {out_path} ({len(file_bytes):,} bytes)")
                 return
         except RPCError as e:
-            out.warning(f"Could not download file: {e.detail}")
+            out.info(f"Could not download file: {e.detail}")
 
-    out.warning("Export triggered but file could not be downloaded via CLI.")
+    out.info("Export triggered but file could not be downloaded via CLI.")
     out.info("Open Odoo UI to download the file.")
     if actx.json_mode:
         out.raw_json({"id": export_id, "result": result})
@@ -569,7 +569,7 @@ def grant(
         found_logins = {u["login"] for u in user_records}
         missing = set(user_logins) - found_logins
         if missing:
-            out.warning(f"Users not found: {', '.join(missing)}")
+            out.info(f"Users not found: {', '.join(missing)}")
 
         user_ids = [u["id"] for u in user_records]
         if replace:
@@ -587,9 +587,9 @@ def grant(
                 if result:
                     group_ids.append(result)
                 else:
-                    out.warning(f"Group not found: {ref}")
+                    out.info(f"Group not found: {ref}")
             except RPCError:
-                out.warning(f"Group not found: {ref}")
+                out.info(f"Group not found: {ref}")
 
         if replace:
             vals["group_ids"] = [(6, 0, group_ids)]
