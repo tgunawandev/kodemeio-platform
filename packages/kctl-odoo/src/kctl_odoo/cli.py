@@ -83,6 +83,7 @@ from kctl_odoo.commands.report_cmd import app as report_template_app
 from kctl_odoo.commands.report_custom_query_cmd import app as report_custom_query_app
 from kctl_odoo.commands.report_drill_route_cmd import app as report_drill_route_app
 from kctl_odoo.commands.report_format_cmd import app as report_format_app
+from kctl_odoo.commands.sql_export_cmd import app as sql_export_app
 from kctl_odoo.commands.report_formats_cmd import app as report_formats_app
 from kctl_odoo.commands.report_subkpi_cmd import app as report_subkpi_app
 from kctl_odoo.commands.report_schedule_cmd import app as report_schedule_app
@@ -229,6 +230,7 @@ app.add_typer(report_formats_app, name="report-formats", rich_help_panel=_P_REPO
 app.add_typer(kpi_app, name="kpi", rich_help_panel=_P_REPORT)
 app.add_typer(mis_reports_app, name="mis-reports", rich_help_panel=_P_REPORT)
 app.add_typer(data_quality_app, name="data-quality", rich_help_panel=_P_REPORT)
+app.add_typer(sql_export_app, name="sql-export", rich_help_panel=_P_REPORT)
 
 # --- Infrastructure ---
 _P_INFRA = "Infrastructure"

@@ -1708,8 +1708,8 @@ def variance_add(
     slug: Annotated[str, typer.Argument(help="Tenant slug")],
     validator: Annotated[str, typer.Option("--validator", "-v", help="Validator name")],
     delta_key: Annotated[str, typer.Option("--delta-key", "-k", help="Delta key (glob or exact)")],
-    category: Annotated[str, typer.Option("--category", "-c", help="Variance category")] = "cutover_timing",
     explanation: Annotated[str, typer.Option("--explanation", "-e", help="Explanation text")],
+    category: Annotated[str, typer.Option("--category", "-c", help="Variance category")] = "cutover_timing",
     expires: Annotated[
         Optional[str],
         typer.Option("--expires", help="Expiry date YYYY-MM-DD; default today+30d"),

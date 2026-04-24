@@ -360,6 +360,117 @@ def _m2o(val: object) -> str:
     return str(val or "")
 
 
+def _parse_accurate_xlsx(path: Path) -> dict:
+    """Parse an Accurate XLSX export into a structured dict."""
+    import re
+
+    import openpyxl
+
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb.active
+
+    rows_data = []
+    for row in ws.iter_rows(max_col=8, values_only=True):
+        rows_data.append(list(row))
+    wb.close()
+
+    if len(rows_data) < 5:
+        raise ValueError(f"Accurate XLSX too short ({len(rows_data)} rows)")
+
+    company = str(rows_data[0][1] or "").strip()
+    title = str(rows_data[1][1] or "").strip()
+    date_str = str(rows_data[2][1] or "").strip()
+
+    title_lower = title.lower()
+    report_type = None
+    if "laba" in title_lower or "rugi" in title_lower:
+        report_type = "profit_loss"
+    elif "neraca" in title_lower:
+        report_type = "balance_sheet"
+    elif "trial" in title_lower or "saldo" in title_lower:
+        report_type = "trial_balance"
+    elif "arus kas" in title_lower or "cash flow" in title_lower:
+        report_type = "cash_flow"
+
+    MONTHS_ID = {
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "mei": 5,
+        "jun": 6,
+        "jul": 7,
+        "agu": 8,
+        "ags": 8,
+        "sep": 9,
+        "okt": 10,
+        "nov": 11,
+        "des": 12,
+        "january": 1,
+        "february": 2,
+        "march": 3,
+        "april": 4,
+        "may": 5,
+        "june": 6,
+        "july": 7,
+        "august": 8,
+        "september": 9,
+        "october": 10,
+        "november": 11,
+        "december": 12,
+    }
+
+    date_from = None
+    date_to = None
+
+    m = re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})\s+s/d\s+(\d{1,2})\s+(\w+)\s+(\d{4})", date_str)
+    if m:
+        mon1 = MONTHS_ID.get(m.group(2).lower()[:3], 1)
+        mon2 = MONTHS_ID.get(m.group(5).lower()[:3], 1)
+        date_from = f"{m.group(3)}-{mon1:02d}-{int(m.group(1)):02d}"
+        date_to = f"{m.group(6)}-{mon2:02d}-{int(m.group(4)):02d}"
+    else:
+        m2 = re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", date_str)
+        if m2:
+            mon = MONTHS_ID.get(m2.group(2).lower()[:3], 1)
+            date_to = f"{m2.group(3)}-{mon:02d}-{int(m2.group(1)):02d}"
+
+    lines = []
+    for row in rows_data[5:]:
+        desc = row[2] if len(row) > 2 else None
+        amt = row[4] if len(row) > 4 else None
+
+        if desc is None and amt is None:
+            continue
+
+        desc_str = str(desc or "")
+        if "ACCURATE" in desc_str or "Tercetak" in desc_str or "Halaman" in desc_str:
+            continue
+        if not desc_str.strip():
+            continue
+
+        stripped = desc_str.lstrip()
+        indent = (len(desc_str) - len(stripped)) // 4
+
+        amount = 0.0
+        if amt is not None:
+            try:
+                amount = float(amt)
+            except (ValueError, TypeError):
+                amount = 0.0
+
+        lines.append({"label": stripped, "amount": amount, "indent": indent})
+
+    return {
+        "company": company,
+        "title": title,
+        "report_type": report_type,
+        "date_from": date_from,
+        "date_to": date_to,
+        "lines": lines,
+    }
+
+
 @app.command("types")
 def report_types(
     ctx: typer.Context,
@@ -674,6 +785,483 @@ def report_run(
     out.success("Report generated successfully.")
     if actx.json_mode:
         out.raw_json({"instance_id": instance_id, "result": result})
+
+
+@app.command("data")
+def report_data(
+    ctx: typer.Context,
+    type_code: Annotated[str, typer.Argument(help="Report type code (e.g. profit_loss, balance_sheet, trial_balance)")],
+    date_from: Annotated[str | None, typer.Option("--date-from", help="Start date (YYYY-MM-DD)")] = None,
+    date_to: Annotated[str | None, typer.Option("--date-to", help="End date (YYYY-MM-DD)")] = None,
+    as_of_date: Annotated[
+        str | None,
+        typer.Option("--date", help="As-of date (for balance_sheet, aging)"),
+    ] = None,
+    company: Annotated[str | None, typer.Option("--company", help="Company name or ID")] = None,
+    show_zero: Annotated[bool, typer.Option("--show-zero", help="Include zero-balance lines")] = False,
+) -> None:
+    """Print report data as a terminal table for quick inspection.
+
+    Runs the report engine and displays the result as a formatted table.
+    Use --json for machine-readable output.
+
+    Examples:
+        kctl-odoo report data profit_loss --company 42 --date-from 2026-04-01 --date-to 2026-04-23
+        kctl-odoo report data balance_sheet --company 42 --date 2026-04-23
+        kctl-odoo report data trial_balance --date-from 2026-04-01 --date-to 2026-04-23 --json
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    if not _check_report_management(c, out):
+        return
+
+    type_code = _resolve_type_code(type_code)
+
+    try:
+        tpls = c.search_read(
+            "report.template",
+            [("report_type", "=", type_code)],
+            ["id", "name", "code"],
+            limit=1,
+            order="sequence, id",
+        )
+    except RPCError as e:
+        out.error(f"Template lookup failed: {e.detail}")
+        raise typer.Exit(1) from e
+
+    if not tpls:
+        out.error(f"No template for report_type={type_code!r}")
+        raise typer.Exit(1)
+
+    tpl = tpls[0]
+
+    co_id = None
+    if company:
+        if company.isdigit():
+            co_id = int(company)
+        else:
+            cos = c.search_read("res.company", [("name", "ilike", company)], ["id"], limit=1)
+            if not cos:
+                out.error(f"Company not found: {company}")
+                raise typer.Exit(1)
+            co_id = cos[0]["id"]
+
+    if not co_id:
+        cos = c.search_read("res.company", [], ["id"], limit=1, order="id")
+        co_id = cos[0]["id"] if cos else 1
+
+    if as_of_date:
+        resolved_from = _fiscal_year_start(as_of_date)
+        resolved_to = as_of_date
+    elif date_from and date_to:
+        resolved_from, resolved_to = date_from, date_to
+    elif date_from:
+        resolved_from, resolved_to = date_from, date.today().isoformat()
+    elif date_to:
+        resolved_from = _fiscal_year_start(date_to)
+        resolved_to = date_to
+    else:
+        resolved_from, resolved_to = _default_date_range()
+
+    try:
+        rd = c.execute_kw(
+            "report.report_management.engine",
+            "compute_report_data",
+            [
+                [],
+                {
+                    "template_id": tpl["id"],
+                    "date_from": resolved_from,
+                    "date_to": resolved_to,
+                    "company_id": co_id,
+                    "company_ids": [],
+                    "target_move": "posted",
+                    "divider": 1,
+                    "show_variance": False,
+                    "show_percentage": False,
+                    "monthly_breakdown": False,
+                    "expanded_line_ids": [],
+                    "page_offset": 0,
+                    "page_limit": 0,
+                },
+            ],
+            {"context": {"allowed_company_ids": [co_id]}},
+        )
+    except RPCError as e:
+        out.error(f"compute_report_data failed: {e.detail}")
+        raise typer.Exit(1) from e
+
+    rows = []
+    for t in rd.get("tables") or []:
+        rows.extend(t.get("rows") or [])
+    if not rows:
+        rows = rd.get("lines") or []
+
+    # Detect columns from engine response
+    columns = rd.get("columns") or []
+    col_keys = [c["key"] for c in columns if c.get("key") != "name"]
+    is_tb = any(k.startswith("tb_") for k in col_keys)
+
+    output_rows = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        v = r.get("values") or {}
+        amt = float(v.get("actual") or v.get("amount") or 0.0)
+        if not show_zero and not amt and r.get("kind") not in ("header", "spacer"):
+            if not is_tb or not any(v.get(k) for k in ("tb_initial", "tb_ending")):
+                continue
+        label = r.get("label") or r.get("name") or ""
+        kind = r.get("kind") or r.get("line_type") or ""
+        level = r.get("level", 0)
+        indent = "  " * level
+        row_out: dict = {
+            "label": f"{indent}{label}",
+            "kind": kind,
+            "actual": amt,
+            "line_id": r.get("line_id"),
+        }
+        if is_tb:
+            row_out["tb_initial"] = float(v.get("tb_initial") or 0.0)
+            row_out["tb_debit"] = float(v.get("tb_debit") or 0.0)
+            row_out["tb_credit"] = float(v.get("tb_credit") or 0.0)
+            row_out["tb_ending"] = float(v.get("tb_ending") or 0.0)
+        output_rows.append(row_out)
+
+    if actx.json_mode:
+        out.raw_json(
+            {
+                "type": type_code,
+                "company_id": co_id,
+                "date_from": resolved_from,
+                "date_to": resolved_to,
+                "rows": output_rows,
+            }
+        )
+        return
+
+    out.info(f"{tpl['name']}  —  Company {co_id}  —  {resolved_from} to {resolved_to}\n")
+
+    if is_tb:
+        hdr = f"{'Line':<40s} {'Initial':>16s} {'Debit':>16s} {'Credit':>16s} {'Period':>16s} {'Ending':>16s}"
+        out.info(hdr)
+        out.info("─" * 122)
+        for r in output_rows:
+            kind = r["kind"]
+            label = r["label"]
+            if kind in ("header", "spacer"):
+                out.info(f"\033[1m{label}\033[0m")
+            elif kind in ("total", "subtotal"):
+                out.info(
+                    f"\033[1m{label:<40s} {r['tb_initial']:>16,.2f} {r['tb_debit']:>16,.2f} {r['tb_credit']:>16,.2f} {r['actual']:>16,.2f} {r['tb_ending']:>16,.2f}\033[0m"
+                )
+            else:
+                out.info(
+                    f"{label:<40s} {r['tb_initial']:>16,.2f} {r['tb_debit']:>16,.2f} {r['tb_credit']:>16,.2f} {r['actual']:>16,.2f} {r['tb_ending']:>16,.2f}"
+                )
+        out.info("─" * 122)
+    else:
+        out.info(f"{'Line':<55s} {'Amount':>20s}")
+        out.info("─" * 76)
+        for r in output_rows:
+            kind = r["kind"]
+            label = r["label"]
+            amt = r["actual"]
+            if kind in ("header", "spacer"):
+                out.info(f"\033[1m{label}\033[0m")
+            elif kind in ("total", "subtotal"):
+                out.info(f"\033[1m{label:<55s} {amt:>20,.2f}\033[0m")
+            else:
+                out.info(f"{label:<55s} {amt:>20,.2f}")
+        out.info("─" * 76)
+    out.info(f"  {len(output_rows)} lines")
+
+
+@app.command("compare")
+def report_compare(
+    ctx: typer.Context,
+    accurate_file: Annotated[Path, typer.Argument(help="Path to Accurate XLSX export file", exists=True)],
+    type_code: Annotated[
+        str | None,
+        typer.Option("--type", "-t", help="Report type (auto-detected from XLSX if omitted)"),
+    ] = None,
+    company: Annotated[str | None, typer.Option("--company", help="Company name or ID")] = None,
+    date_from: Annotated[str | None, typer.Option("--date-from", help="Override start date")] = None,
+    date_to: Annotated[str | None, typer.Option("--date-to", help="Override end date")] = None,
+    tolerance: Annotated[float, typer.Option("--tolerance", help="Amount delta tolerance (IDR)")] = 1.0,
+) -> None:
+    """Compare an Accurate XLSX export against Odoo report engine output.
+
+    Reads the Accurate file, auto-detects the report type and date range,
+    runs the Odoo engine with the same parameters, and prints a line-by-line
+    diff. Exits non-zero if any line exceeds the tolerance.
+
+    Examples:
+        kctl-odoo report compare /path/to/laba_rugi_standar.xlsx --company 42
+        kctl-odoo report compare /path/to/neraca_standar.xlsx --company 42
+        kctl-odoo report compare /path/to/laba_rugi.xlsx -t profit_loss --company 42
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    if not _check_report_management(c, out):
+        return
+
+    try:
+        acc = _parse_accurate_xlsx(accurate_file)
+    except Exception as e:
+        out.error(f"Failed to parse Accurate XLSX: {e}")
+        raise typer.Exit(2) from e
+
+    resolved_type = _resolve_type_code(type_code) if type_code else acc.get("report_type")
+    if not resolved_type:
+        out.error("Cannot auto-detect report type. Use --type to specify.")
+        raise typer.Exit(1)
+
+    resolved_from = date_from or acc.get("date_from") or _fiscal_year_start(acc["date_to"])
+    resolved_to = date_to or acc.get("date_to")
+    if not resolved_to:
+        out.error("Cannot determine date. Use --date-to to specify.")
+        raise typer.Exit(1)
+
+    co_id = None
+    if company:
+        if company.isdigit():
+            co_id = int(company)
+        else:
+            cos = c.search_read("res.company", [("name", "ilike", company)], ["id"], limit=1)
+            if not cos:
+                out.error(f"Company not found: {company}")
+                raise typer.Exit(1)
+            co_id = cos[0]["id"]
+    if not co_id:
+        cos = c.search_read("res.company", [], ["id"], limit=1, order="id")
+        co_id = cos[0]["id"] if cos else 1
+
+    try:
+        tpls = c.search_read(
+            "report.template",
+            [("report_type", "=", resolved_type)],
+            ["id", "name"],
+            limit=1,
+            order="sequence, id",
+        )
+    except RPCError as e:
+        out.error(f"Template lookup failed: {e.detail}")
+        raise typer.Exit(1) from e
+
+    if not tpls:
+        out.error(f"No template for type {resolved_type!r}")
+        raise typer.Exit(1)
+
+    tpl = tpls[0]
+
+    out.info(f"Accurate:  {acc['title']}  ({acc['company']})")
+    out.info(f"Odoo:      {tpl['name']}  (company_id={co_id})")
+    out.info(f"Period:    {resolved_from} → {resolved_to}")
+    out.info(f"Tolerance: {tolerance:,.2f} IDR\n")
+
+    try:
+        rd = c.execute_kw(
+            "report.report_management.engine",
+            "compute_report_data",
+            [
+                [],
+                {
+                    "template_id": tpl["id"],
+                    "date_from": resolved_from,
+                    "date_to": resolved_to,
+                    "company_id": co_id,
+                    "company_ids": [],
+                    "target_move": "posted",
+                    "divider": 1,
+                    "show_variance": False,
+                    "show_percentage": False,
+                    "monthly_breakdown": False,
+                    "expanded_line_ids": [],
+                    "page_offset": 0,
+                    "page_limit": 0,
+                },
+            ],
+            {"context": {"allowed_company_ids": [co_id]}},
+        )
+    except RPCError as e:
+        out.error(f"Odoo engine failed: {e.detail}")
+        raise typer.Exit(1) from e
+
+    odoo_rows = []
+    for t in rd.get("tables") or []:
+        odoo_rows.extend(t.get("rows") or [])
+    if not odoo_rows:
+        odoo_rows = rd.get("lines") or []
+
+    odoo_by_label: dict[str, float] = {}
+    for r in odoo_rows:
+        if not isinstance(r, dict):
+            continue
+        v = r.get("values") or {}
+        amt = float(v.get("actual") or v.get("amount") or 0.0)
+        label = (r.get("label") or r.get("name") or "").strip()
+        if label:
+            odoo_by_label[label] = amt
+
+    # Query account-level balances directly for account-name matching.
+    # Accurate XLSX has per-account lines (e.g., "Penjualan", "BCA 714.5130972")
+    # that match Odoo account names. We query all account balances for the
+    # company/period so these can be matched by name.
+    odoo_account_balances: dict[str, float] = {}
+    try:
+        accounts = c.search_read(
+            "account.account",
+            [("company_ids", "in", [co_id])],
+            ["id", "name"],
+            limit=0,
+        )
+        acct_name_by_id = {a["id"]: (a.get("name") or "") for a in accounts}
+
+        aml_data = c.execute_kw(
+            "account.move.line",
+            "read_group",
+            [
+                [
+                    ("company_id", "=", co_id),
+                    ("date", ">=", resolved_from),
+                    ("date", "<=", resolved_to),
+                    ("parent_state", "=", "posted"),
+                ]
+            ],
+            {"fields": ["account_id", "balance"], "groupby": ["account_id"]},
+        )
+        for grp in aml_data:
+            acc_id = grp["account_id"][0] if grp.get("account_id") else None
+            if acc_id and acc_id in acct_name_by_id:
+                name = acct_name_by_id[acc_id]
+                odoo_account_balances[name.strip().lower()] = float(grp.get("balance") or 0.0)
+    except RPCError:
+        pass
+
+    LABEL_MAP = {
+        "pendapatan": "sales",
+        "penjualan": "sales",
+        "jumlah pendapatan": "total revenue",
+        "beban pokok penjualan": "cost of goods sold",
+        "cogs": "total cost of goods sold",
+        "jumlah beban pokok penjualan": "total cost of goods sold",
+        "laba kotor": "gross profit",
+        "beban operasional": "operating expenses",
+        "biaya umum & administrasi": "total operating expenses",
+        "jumlah beban operasional": "total operating expenses",
+        "pendapatan operasional": "operating income",
+        "pendapatan dan beban non operasional": "non-operating income & expenses",
+        "pendapatan non operasional": "non-operating income",
+        "jumlah pendapatan non operasional": "non-operating income",
+        "beban non operasional": "non-operating expense",
+        "jumlah beban non operasional": "non-operating expense",
+        "jumlah pendapatan dan beban non operasional": "net non-operating income/(expense)",
+        "laba bersih (sebelum pajak)": "net income",
+        "laba bersih (setelah pajak)": "net income",
+        "pajak penghasilan": "net income",
+        "jumlah aset": "total assets",
+        "jumlah aset lancar": "total current assets",
+        "jumlah kewajiban": "total liabilities",
+        "jumlah ekuitas": "total equity",
+        "jumlah liabilitas dan ekuitas": "total liabilities and equity",
+        "kas dan setara kas": "cash and cash equivalents",
+        "kas & bank": "cash and cash equivalents",
+        "piutang usaha": "trade receivables",
+        "utang usaha": "trade payables",
+    }
+
+    def _normalize(s: str) -> str:
+        s = s.strip().lower()
+        if s in LABEL_MAP:
+            return LABEL_MAP[s]
+        s = s.replace("jumlah ", "total ")
+        return s
+
+    odoo_norm: dict[str, tuple[str, float]] = {}
+    for lbl, amt in odoo_by_label.items():
+        odoo_norm[_normalize(lbl)] = (lbl, amt)
+
+    matched = 0
+    mismatched = 0
+    missing = 0
+    results = []
+
+    out.info(f"{'Accurate Line':<40s} {'Accurate':>16s} {'Odoo':>16s} {'Delta':>14s} {'':>5s}")
+    out.info("─" * 95)
+
+    for acc_line in acc["lines"]:
+        acc_label = acc_line["label"]
+        acc_amt = acc_line["amount"]
+
+        if not acc_amt and acc_line["indent"] == 0:
+            continue
+
+        norm = _normalize(acc_label)
+        hit = odoo_norm.get(norm)
+
+        if hit:
+            odoo_label, odoo_amt = hit
+            delta = odoo_amt - acc_amt
+            ok = abs(delta) <= tolerance
+            status = "✓" if ok else "✗"
+            if ok:
+                matched += 1
+            else:
+                mismatched += 1
+            out.info(f"{acc_label:<40s} {acc_amt:>16,.2f} {odoo_amt:>16,.2f} {delta:>+14,.2f} {status:>5s}")
+            results.append(
+                {
+                    "label": acc_label,
+                    "accurate": acc_amt,
+                    "odoo": odoo_amt,
+                    "delta": delta,
+                    "match": ok,
+                }
+            )
+        else:
+            acct_hit = odoo_account_balances.get(acc_label.strip().lower())
+            if acct_hit is not None:
+                odoo_amt = abs(acct_hit)
+                delta = odoo_amt - acc_amt
+                ok = abs(delta) <= tolerance
+                status = "✓" if ok else "✗"
+                if ok:
+                    matched += 1
+                else:
+                    mismatched += 1
+                out.info(f"{acc_label:<40s} {acc_amt:>16,.2f} {odoo_amt:>16,.2f} {delta:>+14,.2f} {status:>5s}")
+                results.append({"label": acc_label, "accurate": acc_amt, "odoo": odoo_amt, "delta": delta, "match": ok})
+            else:
+                missing += 1
+                out.info(f"{acc_label:<40s} {acc_amt:>16,.2f} {'—':>16s} {'':>14s} {'?':>5s}")
+                results.append({"label": acc_label, "accurate": acc_amt, "odoo": None, "delta": None, "match": False})
+
+    out.info("─" * 95)
+    total = matched + mismatched + missing
+    out.info(f"  {matched}/{total} matched, {mismatched} mismatched, {missing} missing in Odoo")
+
+    if actx.json_mode:
+        out.raw_json(
+            {
+                "accurate_file": str(accurate_file),
+                "report_type": resolved_type,
+                "company_id": co_id,
+                "date_from": resolved_from,
+                "date_to": resolved_to,
+                "matched": matched,
+                "mismatched": mismatched,
+                "missing": missing,
+                "results": results,
+            }
+        )
+
+    if mismatched > 0 or missing > 0:
+        raise typer.Exit(1)
 
 
 @app.command("instances")
