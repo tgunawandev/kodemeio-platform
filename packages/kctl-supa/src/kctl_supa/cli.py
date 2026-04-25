@@ -13,8 +13,17 @@ from kctl_supa.commands.backup_cmd import app as backup_app
 from kctl_supa.commands.config_cmd import app as config_app
 from kctl_supa.commands.dashboard_cmd import app as dashboard_app
 from kctl_supa.commands.db_cmd import app as db_app
+from kctl_supa.commands.deploy_cmd import app as deploy_app
+from kctl_supa.commands.doctor_cmd import app as doctor_app
+from kctl_supa.commands.functions_cmd import app as functions_app
 from kctl_supa.commands.health_cmd import app as health_app
+from kctl_supa.commands.logs_cmd import app as logs_app
 from kctl_supa.commands.maintenance_cmd import app as maintenance_app
+from kctl_supa.commands.migrate_cmd import app as migrate_app
+from kctl_supa.commands.monitor_cmd import app as monitor_app
+from kctl_supa.commands.realtime_cmd import app as realtime_app
+from kctl_supa.commands.security_cmd import app as security_app
+from kctl_supa.commands.skill_cmd import app as skill_app
 from kctl_supa.commands.status_cmd import app as status_app
 from kctl_supa.commands.storage_cmd import app as storage_app
 from kctl_supa.core.callbacks import AppContext
@@ -75,6 +84,20 @@ app.add_typer(auth_app, name="auth", rich_help_panel=_P_AUTH)
 
 _P_STORAGE = "Storage & Files"
 app.add_typer(storage_app, name="storage", rich_help_panel=_P_STORAGE)
+
+_P_RT = "Realtime & Functions"
+app.add_typer(realtime_app, name="realtime", rich_help_panel=_P_RT)
+app.add_typer(functions_app, name="functions", rich_help_panel=_P_RT)
+
+_P_OPS = "Operations"
+app.add_typer(logs_app, name="logs", rich_help_panel=_P_OPS)
+app.add_typer(deploy_app, name="deploy", rich_help_panel=_P_OPS)
+
+app.add_typer(security_app, name="security", rich_help_panel=_P_ADMIN)
+app.add_typer(monitor_app, name="monitor", rich_help_panel=_P_SERVICES)
+app.add_typer(migrate_app, name="migrate", rich_help_panel=_P_DATABASE)
+app.add_typer(doctor_app, name="doctor", rich_help_panel=_P_ADMIN)
+app.add_typer(skill_app, name="skill", hidden=True)
 
 
 @app.command("self-update")
