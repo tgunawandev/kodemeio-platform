@@ -8,7 +8,15 @@ import typer
 from kctl_lib import handle_cli_error
 
 from kctl_supa import __version__
+from kctl_supa.commands.auth_cmd import app as auth_app
+from kctl_supa.commands.backup_cmd import app as backup_app
 from kctl_supa.commands.config_cmd import app as config_app
+from kctl_supa.commands.dashboard_cmd import app as dashboard_app
+from kctl_supa.commands.db_cmd import app as db_app
+from kctl_supa.commands.health_cmd import app as health_app
+from kctl_supa.commands.maintenance_cmd import app as maintenance_app
+from kctl_supa.commands.status_cmd import app as status_app
+from kctl_supa.commands.storage_cmd import app as storage_app
 from kctl_supa.core.callbacks import AppContext
 from kctl_supa.core.exceptions import SupabaseError
 
@@ -51,6 +59,22 @@ def main(
 
 _P_ADMIN = "Admin & Config"
 app.add_typer(config_app, name="config", rich_help_panel=_P_ADMIN)
+
+_P_SERVICES = "Services"
+app.add_typer(health_app, name="health", rich_help_panel=_P_SERVICES)
+app.add_typer(status_app, name="status", rich_help_panel=_P_SERVICES)
+app.add_typer(dashboard_app, name="dashboard", rich_help_panel=_P_SERVICES)
+
+_P_DATABASE = "Database"
+app.add_typer(db_app, name="db", rich_help_panel=_P_DATABASE)
+app.add_typer(backup_app, name="backup", rich_help_panel=_P_DATABASE)
+app.add_typer(maintenance_app, name="maintenance", rich_help_panel=_P_DATABASE)
+
+_P_AUTH = "Auth & Users"
+app.add_typer(auth_app, name="auth", rich_help_panel=_P_AUTH)
+
+_P_STORAGE = "Storage & Files"
+app.add_typer(storage_app, name="storage", rich_help_panel=_P_STORAGE)
 
 
 @app.command("self-update")
