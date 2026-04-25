@@ -413,7 +413,7 @@ def foundation(
 def transactions(
     ctx: typer.Context,
     identifier: Annotated[str, typer.Argument(help="Slug or ID")],
-    phase: Annotated[str, typer.Option("--phase", help="prior|current|both")] = "both",
+    phase: Annotated[str, typer.Option("--phase", help="prior|current|both|waves")] = "waves",
     sync: Annotated[
         bool,
         typer.Option(
@@ -425,31 +425,69 @@ def transactions(
             ),
         ),
     ] = False,
+    skip_bs_opening: Annotated[
+        bool,
+        typer.Option(
+            "--skip-bs-opening/--with-bs-opening",
+            help="Skip Wave 0 (opening BS JE) for companies that started in the current FY.",
+        ),
+    ] = True,
     timeout: Annotated[
         int,
         typer.Option(
             "--timeout",
-            help=("HTTP client timeout in seconds. Default 900 (15 min). Raise for very large tenants in --sync mode."),
+            help=("HTTP client timeout in seconds. Default 900 (15 min). Raise for very large tenants."),
         ),
     ] = 900,
 ) -> None:
-    """Phase 5+6 Transaction imports.
+    """Import transactions from Accurate.
 
-    By default runs async (queue_job). Use ``--sync`` for inline
-    blocking runs — useful when queue workers are unavailable, for
-    smoke testing, or when the caller wants to know the exact record
-    counts before returning. Use ``--timeout N`` to override the HTTP
-    wait time for long-running sync imports.
+    Default mode (--phase waves) uses the wave-based pipeline:
+    invoices → payments → bank → JVs, with pre-flight gates,
+    auto-reconciliation, and 12-check validation.
+
+    Legacy modes (prior/current/both) call the old phase methods.
+
+    Examples::
+
+        kctl-odoo accurate transactions mandira-copy-frozen
+        kctl-odoo accurate transactions mandira-copy-frozen --phase waves --sync
+        kctl-odoo accurate transactions my-company --with-bs-opening
     """
     import httpx
 
     actx: AppContext = ctx.obj
     out = actx.output
     c = actx.client
-    # Bump timeout on the underlying httpx client so sync-mode imports
-    # don't hit the default 30s wall. Preserves existing headers/etc.
     c._client.timeout = httpx.Timeout(timeout)
     rec = _resolve_accurate_company(c, identifier)
+
+    if phase == "waves":
+        out.info(f"Running wave-based import for {rec['slug']} (timeout={timeout}s)...")
+        result = c.execute_kw(
+            "accurate.company",
+            "action_import_transactions",
+            [[rec["id"]]],
+            {"skip_bs_opening": skip_bs_opening, "skip_optional": True},
+        )
+        if isinstance(result, dict):
+            validation = result.get("validation", {})
+            waves = result.get("waves", [])
+            total_moves = sum(w.get("posted", 0) for w in waves)
+            tb = next((c for c in validation.get("checks", []) if c["name"] == "tb_parity"), {})
+            status = "PASSED ✓" if validation.get("passed") else "FAILED ✗"
+            out.success(f"Import complete: {total_moves} moves posted")
+            out.info(f"TB: {tb.get('value', '?')}")
+            out.info(f"Validation: {status}")
+            if not validation.get("passed"):
+                for check in validation.get("checks", []):
+                    if not check["passed"]:
+                        out.warning(f"  ✗ {check['name']}: {check['detail'][:60]}")
+        else:
+            out.success("Import complete.")
+        return
+
+    # Legacy modes
     if phase in ("prior", "both"):
         out.info(f"Running Transactions — Prior-FY Opens ({'sync' if sync else 'async'}, timeout={timeout}s)...")
         c.execute_kw(
@@ -618,9 +656,7 @@ def migrate(
         ("setup", "action_run_setup"),
         ("cutover", "action_run_cutover_config"),
         ("foundation", "action_run_foundation"),
-        ("transactions_prior", "action_run_transactions_prior"),
-        ("transactions_current", "action_run_transactions_current"),
-        ("attachments", "action_run_attachments"),
+        ("import", "action_import_transactions"),
         ("verify", "action_run_verification"),
         ("go-live", "action_run_go_live"),
     ]
