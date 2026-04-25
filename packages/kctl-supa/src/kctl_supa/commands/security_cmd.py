@@ -91,6 +91,7 @@ def jwt_inspect(
     typer.echo(json.dumps(payload, indent=2))
 
     import time
+
     now = int(time.time())
 
     if "exp" in payload:
@@ -113,8 +114,6 @@ def jwt_inspect(
 def api_keys(ctx: typer.Context) -> None:
     """Show masked API keys from config."""
     actx: AppContext = ctx.obj
-    out = actx.output
-
     cfg = actx.config
 
     def mask(key: str) -> str:

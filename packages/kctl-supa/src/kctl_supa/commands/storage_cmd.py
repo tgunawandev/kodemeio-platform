@@ -74,7 +74,7 @@ def create_bucket(
 
     try:
         client = _get_client(actx)
-        result = client.storage_create_bucket(name=name, public=public)
+        client.storage_create_bucket(name=name, public=public)
         client.close()
     except SupabaseError as exc:
         out.error(str(exc))

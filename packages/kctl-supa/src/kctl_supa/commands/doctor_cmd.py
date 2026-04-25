@@ -64,6 +64,7 @@ def check(ctx: typer.Context) -> None:
     if base_url:
         try:
             from urllib.parse import urlparse
+
             hostname = urlparse(base_url).hostname or ""
         except Exception:
             hostname = ""
@@ -126,7 +127,7 @@ def check(ctx: typer.Context) -> None:
             disk_out = docker.exec("df -h /")
             docker.close()
             # Extract usage percentage from df output
-            lines = [l for l in disk_out.splitlines() if "/" in l and "%" in l]
+            lines = [line for line in disk_out.splitlines() if "/" in line and "%" in line]
             disk_detail = lines[0].strip() if lines else disk_out.strip()[:80]
             disk_ok = True
         except DockerError as exc:

@@ -35,25 +35,15 @@ def _run_psql(actx: AppContext, query: str) -> str:
 def overview(ctx: typer.Context) -> None:
     """Quick metrics overview: connections, cache hit ratio, commit/rollback rates."""
     actx: AppContext = ctx.obj
-    out = actx.output
-
     queries = {
-        "Active connections": (
-            "SELECT count(*) FROM pg_stat_activity WHERE state = 'active'"
-        ),
-        "Total connections": (
-            "SELECT count(*) FROM pg_stat_activity"
-        ),
+        "Active connections": ("SELECT count(*) FROM pg_stat_activity WHERE state = 'active'"),
+        "Total connections": ("SELECT count(*) FROM pg_stat_activity"),
         "Cache hit ratio": (
             "SELECT round(100.0 * sum(blks_hit) / nullif(sum(blks_hit) + sum(blks_read), 0), 2) AS cache_hit_pct "
             "FROM pg_stat_database"
         ),
-        "Commits": (
-            "SELECT sum(xact_commit) AS total_commits FROM pg_stat_database"
-        ),
-        "Rollbacks": (
-            "SELECT sum(xact_rollback) AS total_rollbacks FROM pg_stat_database"
-        ),
+        "Commits": ("SELECT sum(xact_commit) AS total_commits FROM pg_stat_database"),
+        "Rollbacks": ("SELECT sum(xact_rollback) AS total_rollbacks FROM pg_stat_database"),
     }
 
     table = Table(title="DB Overview", show_header=True, header_style="bold cyan")
@@ -66,7 +56,7 @@ def overview(ctx: typer.Context) -> None:
             result = docker.psql(query)
             docker.close()
             # Extract the value (last non-empty, non-header line)
-            lines = [l.strip() for l in result.splitlines() if l.strip()]
+            lines = [line.strip() for line in result.splitlines() if line.strip()]
             value = lines[-1] if lines else "N/A"
         except DockerError:
             value = "error"
