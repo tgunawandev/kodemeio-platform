@@ -37,7 +37,6 @@ from kctl_lib.config import (
     set_default_profile,
 )
 from kctl_lib.config import get_service_config as _get_service_config_raw
-from kctl_lib.config import resolve_active_profile_name as _resolve_active_profile_name
 from kctl_lib.config import set_service_config as _set_service_config_raw
 from pydantic import BaseModel
 
@@ -85,8 +84,15 @@ def set_service_config(profile_name: str, svc_config: ServiceConfig) -> None:
 
 
 def resolve_active_profile_name(profile_name: str | None = None) -> str:
-    """Resolve the active profile name from all sources."""
-    return _resolve_active_profile_name(profile_name, _ENV_PREFIX)
+    """Resolve the active profile name from all sources.
+
+    Priority: explicit flag > KCTL_SUPA_PROFILE env > default_profile in config.
+    """
+    if profile_name:
+        return profile_name
+    if env := os.environ.get(f"{_ENV_PREFIX}_PROFILE"):
+        return env
+    return get_default_profile()
 
 
 def resolve_connection(

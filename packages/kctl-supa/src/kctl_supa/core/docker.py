@@ -82,14 +82,17 @@ class DockerOps:
     def docker_exec(self, container: str, command: str) -> str:
         """Run a command inside a named container.
 
-        The container name is resolved using the configured container_prefix:
-          {container_prefix}-{container}
-
-        If container_prefix is empty, the container name is used as-is.
+        Tries {prefix}-{container}-1 first (Docker Compose default),
+        falls back to {prefix}-{container} for explicit container_name setups.
         """
         prefix = self._config.container_prefix
-        full_name = f"{prefix}-{container}" if prefix else container
-        return self.exec(f"docker exec {full_name} {command}")
+        if prefix:
+            name_with_suffix = f"{prefix}-{container}-1"
+            try:
+                return self.exec(f"docker exec {name_with_suffix} {command}")
+            except DockerError:
+                return self.exec(f"docker exec {prefix}-{container} {command}")
+        return self.exec(f"docker exec {container} {command}")
 
     def psql(self, query: str, database: str = "postgres") -> str:
         """Run a psql query inside the Supabase db container."""

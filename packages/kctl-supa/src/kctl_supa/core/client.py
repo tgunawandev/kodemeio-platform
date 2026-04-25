@@ -180,7 +180,10 @@ class SupabaseClient:
                 self._request(method, path)
                 results[service] = "ok"
             except APIError as exc:
-                results[service] = f"error: {exc}"
+                if exc.status_code == 401:
+                    results[service] = "ok (auth required)"
+                else:
+                    results[service] = f"error: {exc}"
             except Exception as exc:  # noqa: BLE001
                 results[service] = f"error: {exc}"
         return results
