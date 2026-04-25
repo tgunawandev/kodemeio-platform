@@ -1,0 +1,26 @@
+tenant:
+  code: tkz
+  name: "TeraKidz"
+  short_name: "TKZ"
+  domain: terakidz.com
+
+environments:
+  production:
+    server: kod-prod-02
+    dns_prefix: ""
+    db_prefix: ""
+    auto_deploy: false
+
+services:
+  supabase:
+    description: "Self-hosted Supabase BaaS (auth, DB, storage, realtime, functions)"
+    compose_repo: terakidz-supabase
+    compose_file: docker-compose.prod.yml
+    domain: supa.terakidz.com
+    port: 8000
+  nextjs-web:
+    description: "TeraKidz marketing site (Next.js 15)"
+    compose_repo: terakidz-next
+  fastapi-api-tms:
+    description: "TeraKidz TMS clinical API (FastAPI)"
+    compose_repo: terakidz-hono
