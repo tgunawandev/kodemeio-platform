@@ -5,6 +5,7 @@ Database backup operations.
 
 from __future__ import annotations
 
+import shlex
 from typing import Annotated
 
 import typer
@@ -92,7 +93,8 @@ def restore(
     out.info(f"Restoring from: {file}")
     try:
         docker = _get_docker(actx)
-        result = docker.docker_exec("db", f"/scripts/backup.sh restore postgres {file}")
+        safe_file = shlex.quote(file)
+        result = docker.docker_exec("db", f"/scripts/backup.sh restore postgres {safe_file}")
         docker.close()
     except DockerError as exc:
         out.error(str(exc))
@@ -114,7 +116,8 @@ def verify(
     out.info(f"Verifying: {file}")
     try:
         docker = _get_docker(actx)
-        result = docker.docker_exec("db", f"/scripts/backup.sh verify {file}")
+        safe_file = shlex.quote(file)
+        result = docker.docker_exec("db", f"/scripts/backup.sh verify {safe_file}")
         docker.close()
     except DockerError as exc:
         out.error(str(exc))

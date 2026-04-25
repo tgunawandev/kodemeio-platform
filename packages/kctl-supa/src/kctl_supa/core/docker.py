@@ -7,6 +7,7 @@ on the remote host via exec_command.
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -92,9 +93,8 @@ class DockerOps:
 
     def psql(self, query: str, database: str = "postgres") -> str:
         """Run a psql query inside the Supabase db container."""
-        # Escape single quotes in the query
-        safe_query = query.replace("'", "'\"'\"'")
-        return self.docker_exec("db", f"psql -U postgres -d {database} -c '{safe_query}'")
+        quoted = shlex.quote(query)
+        return self.docker_exec("db", f"psql -U postgres -d {database} -c {quoted}")
 
     # ------------------------------------------------------------------
     # Container inspection

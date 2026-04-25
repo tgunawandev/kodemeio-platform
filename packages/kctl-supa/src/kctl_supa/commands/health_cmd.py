@@ -6,7 +6,6 @@ Check Supabase service health via HTTP and SSH.
 from __future__ import annotations
 
 import time
-from typing import Annotated
 
 import httpx
 import typer

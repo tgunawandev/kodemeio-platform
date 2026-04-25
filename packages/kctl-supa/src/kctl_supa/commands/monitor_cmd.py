@@ -50,17 +50,16 @@ def overview(ctx: typer.Context) -> None:
     table.add_column("Metric", style="cyan")
     table.add_column("Value")
 
+    docker = _get_docker(actx)
     for label, query in queries.items():
         try:
-            docker = _get_docker(actx)
             result = docker.psql(query)
-            docker.close()
-            # Extract the value (last non-empty, non-header line)
             lines = [line.strip() for line in result.splitlines() if line.strip()]
             value = lines[-1] if lines else "N/A"
         except DockerError:
             value = "error"
         table.add_row(label, value)
+    docker.close()
 
     rprint(table)
 

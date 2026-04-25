@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 from typing import Annotated, Optional
 
 import typer
@@ -65,10 +66,12 @@ def search(
 
         if service:
             container = f"{prefix}-{service}" if prefix else service
-            result = docker.exec(f"docker logs {container} 2>&1 | grep -i '{pattern}' || true")
+            safe_pattern = shlex.quote(pattern)
+            result = docker.exec(f"docker logs {container} 2>&1 | grep -i {safe_pattern} || true")
         else:
+            safe_pattern = shlex.quote(pattern)
             result = docker.exec(
-                f"docker compose -f /app/terakidz-supabase/docker-compose.prod.yml logs 2>&1 | grep -i '{pattern}' || true"
+                f"docker compose -f /app/terakidz-supabase/docker-compose.prod.yml logs 2>&1 | grep -i {safe_pattern} || true"
             )
         docker.close()
     except DockerError as exc:

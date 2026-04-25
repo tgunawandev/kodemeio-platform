@@ -27,22 +27,6 @@ def _get_docker(actx: AppContext) -> DockerOps:
     return DockerOps(actx.config)
 
 
-def _extract_first_value(raw: str) -> str:
-    """Extract the first non-header, non-separator line from psql output."""
-    for line in raw.splitlines():
-        line = line.strip()
-        if line and not line.startswith("-") and not line.startswith("(") and not any(
-            c.isalpha() and c == line[0] for c in line[:1]
-        ):
-            return line
-    # fallback: grab any numeric-looking line
-    for line in raw.splitlines():
-        line = line.strip()
-        if line and (line.isdigit() or line.replace(" ", "").replace(",", "").replace(".", "").isdigit()):
-            return line
-    return raw.strip()
-
-
 @app.command()
 def show(ctx: typer.Context) -> None:
     """Show Supabase overview dashboard."""
@@ -70,7 +54,12 @@ def show(ctx: typer.Context) -> None:
         # grab the first line that looks like a size (e.g. "8192 bytes" or "16 MB")
         for line in raw.splitlines():
             stripped = line.strip()
-            if stripped and not stripped.startswith("-") and not stripped.startswith("pg_size") and not stripped.startswith("("):
+            if (
+                stripped
+                and not stripped.startswith("-")
+                and not stripped.startswith("pg_size")
+                and not stripped.startswith("(")
+            ):
                 db_size = stripped
                 break
     except DockerError:

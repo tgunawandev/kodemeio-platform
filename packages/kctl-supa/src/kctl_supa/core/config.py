@@ -111,8 +111,14 @@ def resolve_connection(
         svc.service_role_key = env_srk
     if env_anon := os.environ.get("KCTL_SUPA_ANON_KEY"):
         svc.anon_key = env_anon
+    if env_dbpw := os.environ.get("KCTL_SUPA_DB_PASSWORD"):
+        svc.db_password = env_dbpw
     if env_ssh := os.environ.get("KCTL_SUPA_SSH_HOST"):
         svc.ssh_host = env_ssh
+    if env_ssh_port := os.environ.get("KCTL_SUPA_SSH_PORT"):
+        svc.ssh_port = int(env_ssh_port)
+    if env_ssh_user := os.environ.get("KCTL_SUPA_SSH_USER"):
+        svc.ssh_user = env_ssh_user
     if env_prefix := os.environ.get("KCTL_SUPA_CONTAINER_PREFIX"):
         svc.container_prefix = env_prefix
 

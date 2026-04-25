@@ -104,34 +104,30 @@ def check(ctx: typer.Context) -> None:
     else:
         rows.append(("Storage service", False, "URL not configured"))
 
-    # 6. DB connectivity via Docker
+    # 6. DB connectivity + 7. Disk space (reuse single SSH connection)
     db_ok = False
     db_detail = "SSH not configured"
+    disk_ok = False
+    disk_detail = "SSH not configured"
     if cfg.ssh_host:
+        docker = _get_docker(actx)
         try:
-            docker = _get_docker(actx)
             docker.psql("SELECT 1")
-            docker.close()
             db_ok = True
             db_detail = "SELECT 1 OK"
         except DockerError as exc:
             db_detail = str(exc)[:80]
-    rows.append(("DB connectivity", db_ok, db_detail))
 
-    # 7. Disk space
-    disk_ok = False
-    disk_detail = "SSH not configured"
-    if cfg.ssh_host:
         try:
-            docker = _get_docker(actx)
             disk_out = docker.exec("df -h /")
-            docker.close()
-            # Extract usage percentage from df output
             lines = [line for line in disk_out.splitlines() if "/" in line and "%" in line]
             disk_detail = lines[0].strip() if lines else disk_out.strip()[:80]
             disk_ok = True
         except DockerError as exc:
             disk_detail = str(exc)[:80]
+        finally:
+            docker.close()
+    rows.append(("DB connectivity", db_ok, db_detail))
     rows.append(("Disk space", disk_ok, disk_detail))
 
     # Build table

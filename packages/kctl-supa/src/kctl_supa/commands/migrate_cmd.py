@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -87,7 +87,7 @@ def create(
     actx: AppContext = ctx.obj
     out = actx.output
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     filename = f"{timestamp}_{name}.sql"
 
     migrations_dir = Path(_MIGRATIONS_DIR)
@@ -96,7 +96,7 @@ def create(
     migration_file = migrations_dir / filename
     header = (
         f"-- Migration: {name}\n"
-        f"-- Created: {datetime.utcnow().isoformat()}Z\n"
+        f"-- Created: {datetime.now(UTC).isoformat()}Z\n"
         f"-- Description: <describe what this migration does>\n\n"
         f"-- Write your SQL below:\n\n"
     )

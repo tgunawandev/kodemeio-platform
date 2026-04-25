@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from rich import print as rprint
 
 from kctl_supa.core.callbacks import AppContext
 from kctl_supa.core.docker import DockerOps
