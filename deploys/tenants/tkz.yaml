@@ -18,9 +18,31 @@ services:
     compose_file: docker-compose.prod.yml
     domain: supa.terakidz.com
     port: 8000
+
+  react-learn:
+    description: "TeraKidz Learn — ABA edugames SPA (React 19 + Vite + Capacitor)"
+    compose_repo: terakidz-react
+    compose_file: compose/docker-compose.dev.learn.yml
+    domain: learn.terakidz.com
+    port: 80
+
   nextjs-web:
     description: "TeraKidz marketing site (Next.js 15)"
-    compose_repo: terakidz-next
-  fastapi-api-tms:
-    description: "TeraKidz TMS clinical API (FastAPI)"
-    compose_repo: terakidz-hono
+    compose_repo: terakidz-react
+    compose_file: compose/docker-compose.web.yml
+    domain: terakidz.com
+    port: 80
+
+  react-talk:
+    description: "TeraKidz Talk — daily schedule & behavior logger (React 19 + Vite)"
+    compose_repo: terakidz-react
+    compose_file: compose/docker-compose.talk.yml
+    domain: talk.terakidz.com
+    port: 80
+
+  hono-svc:
+    description: "TeraKidz Hono API service (payments, sync, notifications)"
+    compose_repo: terakidz-react
+    compose_file: compose/docker-compose.svc.yml
+    domain: api-svc.terakidz.com
+    port: 3100
