@@ -54,8 +54,12 @@ def overview(ctx: typer.Context) -> None:
     for label, query in queries.items():
         try:
             result = docker.psql(query)
-            lines = [line.strip() for line in result.splitlines() if line.strip()]
-            value = lines[-1] if lines else "N/A"
+            lines = [
+                line.strip()
+                for line in result.splitlines()
+                if line.strip() and not line.strip().startswith(("---", "(")) and "----" not in line
+            ]
+            value = lines[-1] if len(lines) > 1 else (lines[0] if lines else "N/A")
         except DockerError:
             value = "error"
         table.add_row(label, value)
@@ -92,12 +96,12 @@ def disk(ctx: typer.Context) -> None:
     out.info("Top tables by size:")
     table_sizes = _run_psql(
         actx,
-        "SELECT schemaname, tablename, "
-        "pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) AS total_size, "
-        "pg_size_pretty(pg_relation_size(schemaname || '.' || tablename)) AS table_size "
+        "SELECT table_schema, table_name, "
+        "pg_size_pretty(pg_total_relation_size(quote_ident(table_schema) || '.' || quote_ident(table_name))) AS total_size, "
+        "pg_size_pretty(pg_relation_size(quote_ident(table_schema) || '.' || quote_ident(table_name))) AS table_size "
         "FROM information_schema.tables "
-        "WHERE table_schema NOT IN ('pg_catalog', 'information_schema') "
-        "ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC LIMIT 20",
+        "WHERE table_schema NOT IN ('pg_catalog', 'information_schema') AND table_type = 'BASE TABLE' "
+        "ORDER BY pg_total_relation_size(quote_ident(table_schema) || '.' || quote_ident(table_name)) DESC LIMIT 20",
     )
     typer.echo(table_sizes)
 

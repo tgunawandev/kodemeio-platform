@@ -212,3 +212,65 @@ def stats(ctx: typer.Context) -> None:
     out.kv("Total users", _extract_count(total))
     out.kv("Confirmed", _extract_count(confirmed))
     out.kv("Banned", _extract_count(banned))
+
+
+@app.command()
+def providers(ctx: typer.Context) -> None:
+    """List configured auth providers."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    try:
+        docker = _get_docker(actx)
+        result = docker.docker_exec(
+            "auth",
+            "env | grep -i 'GOTRUE_EXTERNAL_' | sort",
+        )
+        docker.close()
+    except DockerError as exc:
+        out.error(str(exc))
+        raise typer.Exit(1) from exc
+
+    if not result.strip():
+        out.warn("No external providers configured.")
+        return
+
+    table = Table(title="Auth Providers", show_header=True, header_style="bold cyan")
+    table.add_column("Provider", style="cyan")
+    table.add_column("Status")
+
+    seen: set[str] = set()
+    for line in result.splitlines():
+        line = line.strip()
+        if "ENABLED" in line:
+            parts = line.split("=", 1)
+            var_name = parts[0]
+            enabled = parts[1].strip().lower() == "true" if len(parts) > 1 else False
+            provider = var_name.replace("GOTRUE_EXTERNAL_", "").replace("_ENABLED", "").lower()
+            if provider not in seen:
+                seen.add(provider)
+                status = "[green]enabled[/green]" if enabled else "[dim]disabled[/dim]"
+                table.add_row(provider, status)
+
+    rprint(table)
+
+
+@app.command()
+def policies(ctx: typer.Context) -> None:
+    """List RLS policies on auth schema tables."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    try:
+        docker = _get_docker(actx)
+        result = docker.psql(
+            "SELECT tablename, policyname, permissive, roles, cmd, qual "
+            "FROM pg_policies WHERE schemaname = 'auth' "
+            "ORDER BY tablename, policyname",
+        )
+        docker.close()
+    except DockerError as exc:
+        out.error(str(exc))
+        raise typer.Exit(1) from exc
+
+    typer.echo(result)

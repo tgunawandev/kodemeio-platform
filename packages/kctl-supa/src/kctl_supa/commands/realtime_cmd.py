@@ -25,7 +25,7 @@ def status(ctx: typer.Context) -> None:
         docker = _get_docker(actx)
         result = docker.docker_exec(
             "realtime",
-            "curl -sf http://localhost:4000/api/health || echo 'health check failed'",
+            "bash -c '(echo > /dev/tcp/localhost/4000) 2>/dev/null && echo healthy || echo unhealthy'",
         )
         docker.close()
     except DockerError as exc:
@@ -43,7 +43,7 @@ def channels(ctx: typer.Context) -> None:
 
     try:
         docker = _get_docker(actx)
-        result = docker.psql("SELECT * FROM _realtime.channels LIMIT 50")
+        result = docker.psql("SELECT * FROM _realtime.extensions LIMIT 50")
         docker.close()
     except DockerError as exc:
         out.error(str(exc))
@@ -60,9 +60,9 @@ def connections(ctx: typer.Context) -> None:
 
     try:
         docker = _get_docker(actx)
-        result = docker.docker_exec(
-            "realtime",
-            "curl -sf http://localhost:4000/api/metrics 2>/dev/null || echo 'metrics not available'",
+        result = docker.psql(
+            "SELECT count(*) AS active_connections FROM pg_stat_activity "
+            "WHERE application_name LIKE '%realtime%' OR application_name LIKE '%Realtime%'",
         )
         docker.close()
     except DockerError as exc:

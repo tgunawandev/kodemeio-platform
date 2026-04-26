@@ -5,6 +5,7 @@ File storage operations.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -158,3 +159,97 @@ def usage(ctx: typer.Context) -> None:
         raise typer.Exit(1) from exc
 
     typer.echo(result)
+
+
+@app.command()
+def policies(ctx: typer.Context) -> None:
+    """List RLS policies on storage schema tables."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    try:
+        docker = _get_docker(actx)
+        result = docker.psql(
+            "SELECT tablename, policyname, permissive, roles, cmd "
+            "FROM pg_policies WHERE schemaname = 'storage' "
+            "ORDER BY tablename, policyname",
+        )
+        docker.close()
+    except DockerError as exc:
+        out.error(str(exc))
+        raise typer.Exit(1) from exc
+
+    typer.echo(result)
+
+
+@app.command()
+def upload(
+    ctx: typer.Context,
+    bucket_id: Annotated[str, typer.Argument(help="Bucket ID")],
+    file_path: Annotated[str, typer.Argument(help="Local file path to upload")],
+    object_path: Annotated[str, typer.Option("--path", "-p", help="Object path in bucket")] = "",
+) -> None:
+    """Upload a file to a storage bucket."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    cfg = actx.config
+
+    local = Path(file_path)
+    if not local.is_file():
+        out.error(f"File not found: {file_path}")
+        raise typer.Exit(1)
+
+    dest = object_path if object_path else local.name
+
+    import httpx as _httpx
+
+    try:
+        with open(local, "rb") as f:
+            headers = {
+                "apikey": cfg.service_role_key,
+                "Authorization": f"Bearer {cfg.service_role_key}",
+            }
+            url = f"{cfg.url.rstrip('/')}/storage/v1/object/{bucket_id}/{dest}"
+            resp = _httpx.post(url, content=f.read(), headers=headers, timeout=120)
+            if resp.status_code >= 400:
+                out.error(f"Upload failed: {resp.status_code} {resp.text[:200]}")
+                raise typer.Exit(1)
+    except _httpx.HTTPError as exc:
+        out.error(str(exc))
+        raise typer.Exit(1) from exc
+
+    out.success(f"Uploaded '{local.name}' to {bucket_id}/{dest}")
+
+
+@app.command()
+def download(
+    ctx: typer.Context,
+    bucket_id: Annotated[str, typer.Argument(help="Bucket ID")],
+    object_path: Annotated[str, typer.Argument(help="Object path in bucket")],
+    output_path: Annotated[str, typer.Option("--output", "-o", help="Local output path")] = "",
+) -> None:
+    """Download a file from a storage bucket."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    cfg = actx.config
+
+    dest = Path(output_path) if output_path else Path(object_path.rsplit("/", 1)[-1])
+
+    import httpx as _httpx
+
+    try:
+        headers = {
+            "apikey": cfg.service_role_key,
+            "Authorization": f"Bearer {cfg.service_role_key}",
+        }
+        url = f"{cfg.url.rstrip('/')}/storage/v1/object/{bucket_id}/{object_path}"
+        resp = _httpx.get(url, headers=headers, timeout=120)
+        if resp.status_code >= 400:
+            out.error(f"Download failed: {resp.status_code} {resp.text[:200]}")
+            raise typer.Exit(1)
+        dest.write_bytes(resp.content)
+    except _httpx.HTTPError as exc:
+        out.error(str(exc))
+        raise typer.Exit(1) from exc
+
+    out.success(f"Downloaded to {dest}")

@@ -43,7 +43,9 @@ def run(
     out.info(f"Running migration: {migration_path.name}")
     try:
         docker = _get_docker(actx)
-        result = docker.psql(sql)
+        # Use stdin piping for all migrations to avoid shell argument
+        # length limits with large SQL files (e.g. 358KB+ migrations).
+        result = docker.psql_stdin(sql)
         docker.close()
     except DockerError as exc:
         out.error(str(exc))

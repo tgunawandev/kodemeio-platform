@@ -34,7 +34,7 @@ def list_functions(ctx: typer.Context) -> None:
     try:
         docker = _get_docker(actx)
         result = docker.docker_exec(
-            "edge-functions",
+            "functions",
             "ls /home/deno/functions/ 2>/dev/null || echo 'no functions directory found'",
         )
         docker.close()
@@ -60,9 +60,9 @@ def deploy(
         raise typer.Exit(1)
 
     func_name = func_path.name
-    cfg = actx.config
-    prefix = cfg.container_prefix
-    container = f"{prefix}-edge-functions" if prefix else "edge-functions"
+    docker = _get_docker(actx)
+    container = docker.resolve_container("edge-functions")
+    docker.close()
 
     out.info(f"To deploy function '{func_name}', run:")
     typer.echo(f"  docker cp {func_path} {container}:/home/deno/functions/{func_name}")
@@ -78,7 +78,7 @@ def logs(ctx: typer.Context) -> None:
 
     try:
         docker = _get_docker(actx)
-        result = docker.logs("edge-functions", tail=100)
+        result = docker.logs("functions", tail=100)
         docker.close()
     except DockerError as exc:
         out.error(str(exc))
@@ -120,3 +120,28 @@ def invoke(
         typer.echo(_json.dumps(result, indent=2))
     else:
         typer.echo(str(result))
+
+
+@app.command()
+def secrets(ctx: typer.Context) -> None:
+    """Show environment variables available to edge functions."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+
+    try:
+        docker = _get_docker(actx)
+        result = docker.docker_exec(
+            "functions",
+            "env | sort",
+        )
+        docker.close()
+    except DockerError as exc:
+        out.error(str(exc))
+        raise typer.Exit(1) from exc
+
+    for line in result.splitlines():
+        if "=" in line:
+            key, _, value = line.partition("=")
+            if any(s in key.upper() for s in ("KEY", "SECRET", "PASSWORD", "TOKEN")):
+                value = value[:4] + "****" if len(value) > 4 else "****"
+            typer.echo(f"{key}={value}")

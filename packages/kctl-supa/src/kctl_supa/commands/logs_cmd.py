@@ -33,14 +33,15 @@ def tail(
         if service:
             result = docker.logs(service, tail=lines)
         else:
-            cfg = actx.config
-            prefix = cfg.container_prefix
-            if prefix:
-                result = docker.exec(
-                    f"docker compose -f /app/terakidz-supabase/docker-compose.prod.yml logs --tail {lines}"
-                )
-            else:
-                result = docker.exec(f"docker compose logs --tail {lines}")
+            services = ["kong", "auth", "rest", "realtime", "storage", "functions", "db", "analytics", "meta"]
+            parts = []
+            for svc in services:
+                try:
+                    svc_log = docker.logs(svc, tail=lines // len(services) or 5)
+                    parts.append(f"=== {svc} ===\n{svc_log}")
+                except DockerError:
+                    parts.append(f"=== {svc} === (no logs)")
+            result = "\n".join(parts)
         docker.close()
     except DockerError as exc:
         out.error(str(exc))
@@ -61,18 +62,23 @@ def search(
 
     try:
         docker = _get_docker(actx)
-        cfg = actx.config
-        prefix = cfg.container_prefix
 
         if service:
-            container = f"{prefix}-{service}" if prefix else service
+            container = docker.resolve_container(service)
             safe_pattern = shlex.quote(pattern)
             result = docker.exec(f"docker logs {container} 2>&1 | grep -i {safe_pattern} || true")
         else:
             safe_pattern = shlex.quote(pattern)
-            result = docker.exec(
-                f"docker compose -f /app/terakidz-supabase/docker-compose.prod.yml logs 2>&1 | grep -i {safe_pattern} || true"
-            )
+            parts = []
+            for svc in ["kong", "auth", "rest", "realtime", "storage", "functions", "db"]:
+                try:
+                    svc_container = docker.resolve_container(svc)
+                    svc_log = docker.exec(f"docker logs {svc_container} 2>&1 | grep -i {safe_pattern} || true")
+                    if svc_log.strip():
+                        parts.append(f"=== {svc} ===\n{svc_log}")
+                except DockerError:
+                    pass
+            result = "\n".join(parts)
         docker.close()
     except DockerError as exc:
         out.error(str(exc))
@@ -93,14 +99,11 @@ def follow(
     actx: AppContext = ctx.obj
     out = actx.output
 
-    cfg = actx.config
-    prefix = cfg.container_prefix
+    docker = _get_docker(actx)
+    svc_name = service or "auth"
+    container = docker.resolve_container(svc_name)
+    docker.close()
 
-    if service:
-        container = f"{prefix}-{service}" if prefix else service
-        cmd = f"docker logs -f {container}"
-    else:
-        cmd = "docker compose -f /app/terakidz-supabase/docker-compose.prod.yml logs -f"
-
+    cmd = f"docker logs -f {container}"
     out.info("Run the following command on the remote host to stream logs:")
     typer.echo(f"  {cmd}")

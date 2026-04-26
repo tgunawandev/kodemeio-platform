@@ -67,12 +67,9 @@ def service(
     actx: AppContext = ctx.obj
     out = actx.output
 
-    cfg = actx.config
-    prefix = cfg.container_prefix
-    full_name = f"{prefix}-{name}" if prefix else name
-
     try:
         docker = _get_docker(actx)
+        full_name = docker.resolve_container(name)
         result = docker.exec(f"docker inspect {full_name}")
         docker.close()
     except DockerError as exc:
