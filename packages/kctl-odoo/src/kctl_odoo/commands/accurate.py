@@ -648,6 +648,7 @@ def migrate(
 ) -> None:
     """Run phases in sequence up to --until (default: verify, stopping before sign-off)."""
     actx: AppContext = ctx.obj
+    _bump_client_timeout(actx, seconds=1800.0)
     out = actx.output
     c = actx.client
     rec = _resolve_accurate_company(c, identifier)
@@ -1468,6 +1469,7 @@ def parity(
 ) -> None:
     """Run parity suite against Accurate for one tenant + format results."""
     actx: AppContext = ctx.obj
+    _bump_client_timeout(actx, seconds=600.0)
     out = actx.output
     c = actx.client
     rec = _resolve_accurate_company(c, slug)
@@ -1535,6 +1537,7 @@ def parity_all(
 ) -> None:
     """Run parity suite across every accurate.company; emit consolidated markdown."""
     actx: AppContext = ctx.obj
+    _bump_client_timeout(actx, seconds=600.0)
     out = actx.output
     c = actx.client
 
