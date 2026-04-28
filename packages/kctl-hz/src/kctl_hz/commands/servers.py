@@ -46,6 +46,236 @@ def list_(ctx: typer.Context) -> None:
     )
 
 
+def _parse_price(price_str: str | None) -> float:
+    if not price_str:
+        return 0.0
+    try:
+        return float(price_str)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+_INVENTORY_SORT_KEYS = {
+    "name": "name",
+    "server": "name",
+    "type": "type",
+    "ram": "ram",
+    "memory": "ram",
+    "disk": "disk",
+    "cpu": "vcpu",
+    "vcpu": "vcpu",
+    "cost": "cost",
+    "status": "status",
+    "location": "dc",
+    "dc": "dc",
+}
+
+
+def _ssh_metrics(ip: str, timeout: int = 5) -> dict[str, str]:
+    """Fetch live RAM and disk usage via SSH. Returns empty dict on failure."""
+    import subprocess
+
+    cmd = "free -m | awk '/^Mem:/{printf \"%d %d\", $3, $2}';echo;df -BG / | awk 'NR==2{printf \"%d %d\", $3, $2}'"
+    try:
+        result = subprocess.run(
+            ["ssh", "-o", f"ConnectTimeout={timeout}", "-o", "StrictHostKeyChecking=no", f"root@{ip}", cmd],
+            capture_output=True,
+            text=True,
+            timeout=timeout + 3,
+        )
+        if result.returncode != 0:
+            return {}
+        lines = result.stdout.strip().split("\n")
+        if len(lines) < 2:
+            return {}
+        ram_parts = lines[0].split()
+        disk_parts = lines[1].split()
+        return {
+            "ram_used_mb": int(ram_parts[0]),
+            "ram_total_mb": int(ram_parts[1]),
+            "disk_used_gb": int(disk_parts[0]),
+            "disk_total_gb": int(disk_parts[1]),
+        }
+    except Exception:
+        return {}
+
+
+@app.command()
+def inventory(
+    ctx: typer.Context,
+    sort: Annotated[
+        str,
+        typer.Option("--sort", "-s", help="Sort by: name, type, ram, disk, vcpu, cost, status, dc"),
+    ] = "name",
+    live: Annotated[
+        bool,
+        typer.Option("--live", "-l", help="Fetch live RAM/disk usage via SSH (slower)"),
+    ] = False,
+) -> None:
+    """Server inventory: specs, cost, volumes, and status."""
+    c: AppContext = ctx.obj
+
+    servers = c.client.get_all("/servers", "servers")
+    volumes = c.client.get_all("/volumes", "volumes")
+
+    # Build volume lookup: server_id -> total GB
+    vol_by_server: dict[int, int] = {}
+    for v in volumes:
+        sid = v.get("server")
+        if sid:
+            vol_by_server[sid] = vol_by_server.get(sid, 0) + v.get("size", 0)
+
+    items: list[dict] = []
+    for s in servers:
+        stype = s.get("server_type", {})
+        public_net = s.get("public_net", {})
+        ipv4 = public_net.get("ipv4", {}).get("ip", "-")
+        status = s.get("status", "unknown")
+        server_id = s.get("id", 0)
+
+        vcpu = stype.get("cores", 0)
+        ram = stype.get("memory", 0)
+        disk = stype.get("disk", 0)
+        extra_vol = vol_by_server.get(server_id, 0)
+
+        prices = stype.get("prices", [])
+        monthly = _parse_price(prices[0].get("price_monthly", {}).get("gross", "0")) if prices else 0.0
+
+        items.append(
+            {
+                "name": s.get("name", ""),
+                "type": stype.get("name", ""),
+                "type_desc": stype.get("description", ""),
+                "vcpu": vcpu,
+                "ram": ram,
+                "disk": disk,
+                "extra_vol": extra_vol,
+                "total_disk": disk + extra_vol,
+                "dc": s.get("datacenter", {}).get("name", ""),
+                "location": s.get("datacenter", {}).get("location", {}).get("city", ""),
+                "ipv4": ipv4,
+                "status": status,
+                "cost": monthly,
+                "labels": s.get("labels", {}),
+            }
+        )
+
+    # Fetch live metrics via SSH if requested
+    if live:
+        if not c.quiet:
+            c.output.info("Fetching live metrics via SSH...")
+        for item in items:
+            if item["ipv4"] != "-" and item["status"] == "running":
+                metrics = _ssh_metrics(item["ipv4"])
+                item["live"] = metrics
+
+    sort_key = _INVENTORY_SORT_KEYS.get(sort.lower(), "name")
+    items.sort(key=lambda x: (x.get(sort_key, ""), x.get("name", "")))
+
+    rows: list[list[str]] = []
+    total_vcpu = 0
+    total_ram = 0.0
+    total_disk = 0
+    total_cost = 0.0
+    total_ram_used = 0
+    total_disk_used = 0
+
+    for item in items:
+        status_label = "[green]running[/green]" if item["status"] == "running" else f"[red]{item['status']}[/red]"
+        vol_note = f" +{item['extra_vol']}v" if item["extra_vol"] else ""
+
+        metrics = item.get("live", {})
+
+        if metrics:
+            ram_used = metrics["ram_used_mb"] // 1024
+            ram_total = metrics["ram_total_mb"] // 1024
+            ram_pct = metrics["ram_used_mb"] / metrics["ram_total_mb"] * 100
+            ram_color = "[red]" if ram_pct >= 85 else ("[yellow]" if ram_pct >= 70 else "[green]")
+            ram_str = f"{ram_color}{ram_used}/{ram_total}GB {ram_pct:.0f}%[/{ram_color[1:]}"
+
+            disk_used = metrics["disk_used_gb"]
+            disk_total = metrics["disk_total_gb"]
+            disk_pct = disk_used / disk_total * 100 if disk_total else 0
+            disk_color = "[red]" if disk_pct >= 85 else ("[yellow]" if disk_pct >= 70 else "[green]")
+            disk_str = f"{disk_color}{disk_used}/{disk_total}GB {disk_pct:.0f}%[/{disk_color[1:]}"
+
+            total_ram_used += metrics["ram_used_mb"]
+            total_disk_used += metrics["disk_used_gb"]
+        else:
+            ram_str = f"{item['ram']:.0f}GB"
+            disk_str = f"{item['disk']}GB{vol_note}"
+
+        rows.append(
+            [
+                item["name"],
+                item["type"],
+                str(item["vcpu"]),
+                ram_str,
+                disk_str,
+                item["ipv4"],
+                item["dc"],
+                f"€{item['cost']:.0f}",
+                status_label,
+            ]
+        )
+
+        total_vcpu += item["vcpu"]
+        total_ram += item["ram"]
+        total_disk += item["total_disk"]
+        total_cost += item["cost"]
+
+    # Totals row
+    if live and total_ram_used:
+        ram_total_str = f"[bold]{total_ram_used // 1024}/{total_ram:.0f}GB[/bold]"
+        disk_total_str = f"[bold]{total_disk_used}/{total_disk}GB[/bold]"
+    else:
+        ram_total_str = f"[bold]{total_ram:.0f}GB[/bold]"
+        disk_total_str = f"[bold]{total_disk}GB[/bold]"
+
+    rows.append(
+        [
+            f"[bold]TOTAL ({len(items)} servers)[/bold]",
+            "",
+            f"[bold]{total_vcpu}[/bold]",
+            ram_total_str,
+            disk_total_str,
+            "",
+            "",
+            f"[bold]€{total_cost:.0f}[/bold]",
+            "",
+        ]
+    )
+
+    json_data = {
+        "servers": items,
+        "totals": {
+            "count": len(items),
+            "vcpu": total_vcpu,
+            "ram_gb": total_ram,
+            "disk_gb": total_disk,
+            "monthly_eur": round(total_cost, 2),
+        },
+    }
+
+    label = "live" if live else "specs"
+    c.output.table(
+        f"Server Inventory ({len(items)} servers, {label}, sorted by {sort_key})",
+        [
+            ("Server", "cyan"),
+            ("Type", ""),
+            ("vCPU", ""),
+            ("RAM", "green"),
+            ("Disk", "green"),
+            ("IPv4", "dim"),
+            ("DC", "dim"),
+            ("Cost/mo", "yellow"),
+            ("Status", ""),
+        ],
+        rows,
+        data_for_json=json_data,
+    )
+
+
 @app.command()
 def get(
     ctx: typer.Context,
