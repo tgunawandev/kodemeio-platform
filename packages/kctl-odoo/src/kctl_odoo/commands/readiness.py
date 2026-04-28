@@ -304,7 +304,6 @@ CONFIG_COVERAGE_ITEMS: list[tuple[str, str, str, str, list]] = [
     ("Inventory", "Storage Categories", "stock.storage.category", "company", []),
     ("Inventory", "Putaway Rules", "stock.putaway.rule", "company", []),
     ("Inventory", "Docks", "stock.dock", "company", []),
-    ("Inventory", "Shortage Reasons", "stock.shortage.reason", "global", []),
     ("Inventory", "Barcode Nomenclatures", "barcode.nomenclature", "global", []),
     ("Inventory", "Cycle Count Rules", "stock.cycle.count.rule", "company", []),
     ("Inventory", "Scrap Reason Codes", "stock.scrap.reason", "global", []),
@@ -743,6 +742,126 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
     # Configuration coverage — every menu item from MAC screenshots
     data["config_coverage"] = _pull_config_coverage(client, company_id)
 
+    # Master data quality — sample products, partners, categories, journals
+    # for per-record field validation
+    data["products_sample"] = _try(
+        lambda: client.search_read(
+            "product.template",
+            [("active", "=", True)],
+            fields=[
+                "id",
+                "name",
+                "default_code",
+                "barcode",
+                "type",
+                "categ_id",
+                "uom_id",
+                "uom_po_id",
+                "list_price",
+                "standard_price",
+                "taxes_id",
+                "supplier_taxes_id",
+                "property_account_income_id",
+                "property_account_expense_id",
+                "company_id",
+            ],
+            limit=2000,
+        ),
+        default=[],
+    )
+
+    data["partners_sample"] = _try(
+        lambda: client.search_read(
+            "res.partner",
+            ["|", ("customer_rank", ">", 0), ("supplier_rank", ">", 0)],
+            fields=[
+                "id",
+                "name",
+                "is_company",
+                "customer_rank",
+                "supplier_rank",
+                "vat",
+                "email",
+                "phone",
+                "mobile",
+                "country_id",
+                "state_id",
+                "property_account_receivable_id",
+                "property_account_payable_id",
+                "property_payment_term_id",
+                "property_supplier_payment_term_id",
+                "property_account_position_id",
+                "bank_ids",
+                "company_id",
+            ],
+            limit=3000,
+        ),
+        default=[],
+    )
+
+    # All product categories with full property fields
+    data["categories_full"] = _try(
+        lambda: client.search_read(
+            "product.category",
+            [],
+            fields=[
+                "id",
+                "name",
+                "property_cost_method",
+                "property_valuation",
+                "property_account_income_categ_id",
+                "property_account_expense_categ_id",
+                "property_stock_account_input_categ_id",
+                "property_stock_account_output_categ_id",
+                "property_stock_valuation_account_id",
+                "property_stock_journal",
+            ],
+            order="name",
+        ),
+        default=[],
+    )
+
+    # Bank journals — must have bank_account_id linked
+    data["bank_journals_detail"] = _try(
+        lambda: client.search_read(
+            "account.journal",
+            [("company_id", "=", company_id), ("type", "in", ["bank", "cash"])],
+            fields=[
+                "id",
+                "code",
+                "name",
+                "type",
+                "bank_account_id",
+                "default_account_id",
+                "suspense_account_id",
+                "currency_id",
+            ],
+        ),
+        default=[],
+    )
+
+    # Report types from registry (financial reports must exist)
+    data["report_types_full"] = _try(
+        lambda: client.search_read(
+            "report.type",
+            [],
+            fields=["id", "name", "category", "handler", "model"],
+            order="category, name",
+        ),
+        default=[],
+    )
+
+    # Report templates with handler check
+    data["report_templates_full"] = _try(
+        lambda: client.search_read(
+            "report.template",
+            [],
+            fields=["id", "name", "report_type", "active"],
+            order="name",
+        ),
+        default=[],
+    )
+
     return data
 
 
@@ -832,6 +951,11 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
         "Sequences": [],
         "ir.property": [],
         "Config Coverage": [],
+        "Product Quality": [],
+        "Partner Quality": [],
+        "Category Quality": [],
+        "Bank Journal Quality": [],
+        "Financial Reports Setup": [],
     }
 
     # ── Company Settings ────────────────────────────────────────────────
@@ -1463,6 +1587,211 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
             )
         )
 
+    # ── Product Quality — per-product missing fields ────────────────────
+    products = target.get("products_sample") or []
+    for p in products:
+        # Filter to this company (or company-shared)
+        p_co = _safe_id(p.get("company_id"))
+        if p_co and p_co != target["company_id"]:
+            continue
+        issues = []
+        if not p.get("default_code"):
+            issues.append("no default_code")
+        if not p.get("uom_id"):
+            issues.append("no UoM")
+        if not p.get("uom_po_id"):
+            issues.append("no Purchase UoM")
+        if not p.get("categ_id"):
+            issues.append("no category")
+        ptype = p.get("type") or p.get("detailed_type") or ""
+        if ptype in ("product", "consu") and not p.get("standard_price"):
+            issues.append("no standard_price")
+        if not (p.get("taxes_id") or []):
+            issues.append("no sale tax")
+        if not (p.get("supplier_taxes_id") or []):
+            issues.append("no purchase tax")
+        if not p.get("property_account_income_id"):
+            issues.append("no income account override")
+        if not p.get("property_account_expense_id"):
+            issues.append("no expense account override")
+        if not issues:
+            continue  # only list problems
+        sheets["Product Quality"].append(
+            _row(
+                company_name,
+                **{"Product ID": p.get("id")},
+                Name=_truncate(p.get("name"), 60),
+                Code=p.get("default_code") or "(none)",
+                Type=ptype or "?",
+                Category=_safe(p.get("categ_id")),
+                **{"Missing Fields": ", ".join(issues)},
+                Status="WARN" if len(issues) <= 2 else "FAIL",
+                **{"Issue Count": len(issues)},
+            )
+        )
+
+    # ── Partner Quality — per-partner missing fields ────────────────────
+    partners = target.get("partners_sample") or []
+    for prt in partners:
+        # Filter to this company (or company-shared)
+        prt_co = _safe_id(prt.get("company_id"))
+        if prt_co and prt_co != target["company_id"]:
+            continue
+        is_customer = (prt.get("customer_rank") or 0) > 0
+        is_vendor = (prt.get("supplier_rank") or 0) > 0
+        issues = []
+        if not prt.get("name"):
+            issues.append("no name")
+        if not prt.get("email") and not prt.get("phone") and not prt.get("mobile"):
+            issues.append("no contact (email/phone)")
+        if not prt.get("country_id"):
+            issues.append("no country")
+        if not prt.get("vat"):
+            issues.append("no VAT/NPWP")
+        if is_customer and not prt.get("property_account_receivable_id"):
+            issues.append("no AR account")
+        if is_vendor and not prt.get("property_account_payable_id"):
+            issues.append("no AP account")
+        if is_vendor and not (prt.get("bank_ids") or []):
+            issues.append("no bank account (vendor)")
+        if not prt.get("property_payment_term_id") and is_customer:
+            issues.append("no customer payment term")
+        if not prt.get("property_supplier_payment_term_id") and is_vendor:
+            issues.append("no vendor payment term")
+        if not issues:
+            continue
+        ptype = "Customer" if is_customer and not is_vendor else ("Vendor" if is_vendor and not is_customer else "Both")
+        # Critical issues = any missing AR/AP/contact
+        critical = any(x in str(issues) for x in ("no AR", "no AP", "no contact"))
+        sheets["Partner Quality"].append(
+            _row(
+                company_name,
+                **{"Partner ID": prt.get("id")},
+                Name=_truncate(prt.get("name"), 60),
+                Type=ptype,
+                VAT=prt.get("vat") or "(none)",
+                Email=prt.get("email") or "",
+                **{"Missing Fields": ", ".join(issues)},
+                Status="FAIL" if critical else "WARN",
+                **{"Issue Count": len(issues)},
+            )
+        )
+
+    # ── Category Quality — every property field on every category ──────
+    cats = target.get("categories_full") or []
+    for cat in cats:
+        issues = []
+        if not cat.get("property_cost_method"):
+            issues.append("no cost method")
+        if not cat.get("property_valuation"):
+            issues.append("no valuation method")
+        if not cat.get("property_account_income_categ_id"):
+            issues.append("no income account")
+        if not cat.get("property_account_expense_categ_id"):
+            issues.append("no expense account")
+        if not cat.get("property_stock_account_input_categ_id"):
+            issues.append("no stock input account")
+        if not cat.get("property_stock_account_output_categ_id"):
+            issues.append("no stock output account")
+        if not cat.get("property_stock_valuation_account_id"):
+            issues.append("no valuation account")
+        if not cat.get("property_stock_journal"):
+            issues.append("no stock journal")
+        status = "PASS" if not issues else ("FAIL" if len(issues) >= 3 else "WARN")
+        sheets["Category Quality"].append(
+            _row(
+                company_name,
+                **{"Category ID": cat.get("id")},
+                Name=cat.get("name"),
+                **{"Cost Method": cat.get("property_cost_method") or "-"},
+                Valuation=cat.get("property_valuation") or "-",
+                **{"Income Account": _safe(cat.get("property_account_income_categ_id"))},
+                **{"Expense Account": _safe(cat.get("property_account_expense_categ_id"))},
+                **{"Stock Input": _safe(cat.get("property_stock_account_input_categ_id"))},
+                **{"Stock Output": _safe(cat.get("property_stock_account_output_categ_id"))},
+                **{"Stock Valuation": _safe(cat.get("property_stock_valuation_account_id"))},
+                **{"Stock Journal": _safe(cat.get("property_stock_journal"))},
+                **{"Missing Fields": ", ".join(issues) if issues else "-"},
+                Status=status,
+            )
+        )
+
+    # ── Bank Journal Quality — bank journals must have bank_account_id ─
+    bank_journals = target.get("bank_journals_detail") or []
+    for bj in bank_journals:
+        issues = []
+        if bj.get("type") == "bank" and not bj.get("bank_account_id"):
+            issues.append("no bank_account_id linked")
+        if not bj.get("default_account_id"):
+            issues.append("no default account")
+        if bj.get("type") == "bank" and not bj.get("suspense_account_id"):
+            issues.append("no suspense account")
+        sheets["Bank Journal Quality"].append(
+            _row(
+                company_name,
+                **{"Journal ID": bj.get("id")},
+                Code=bj.get("code"),
+                Name=bj.get("name"),
+                Type=bj.get("type"),
+                **{"Bank Account": _safe(bj.get("bank_account_id"))},
+                **{"Default Account": _safe(bj.get("default_account_id"))},
+                **{"Suspense Account": _safe(bj.get("suspense_account_id"))},
+                Currency=_safe(bj.get("currency_id")) or "(company default)",
+                **{"Missing Fields": ", ".join(issues) if issues else "-"},
+                Status="FAIL" if issues else "PASS",
+            )
+        )
+
+    # ── Financial Reports Setup — verify each report is configured ─────
+    EXPECTED_REPORTS = [
+        ("profit_loss", "Profit & Loss (P&L)", "Financial Statements"),
+        ("balance_sheet", "Balance Sheet", "Financial Statements"),
+        ("cash_flow", "Cash Flow Statement", "Financial Statements"),
+        ("trial_balance", "Trial Balance", "Financial Statements"),
+        ("partner_ledger", "Partner Ledger", "Financial Statements"),
+        ("open_items", "Open Items", "Financial Statements"),
+        ("vat_report", "VAT Report", "Financial Statements"),
+        ("receivable_aging", "AR Aging Report", "Financial Statements"),
+        ("payable_aging", "AP Aging Report", "Financial Statements"),
+    ]
+    rtypes = target.get("report_types_full") or []
+    rtemplates = target.get("report_templates_full") or []
+    rtypes_by_handler = {(r.get("handler") or ""): r for r in rtypes}
+    rtemplates_by_type = {(r.get("report_type") or ""): r for r in rtemplates}
+
+    for handler, label, category in EXPECTED_REPORTS:
+        rtype_rec = rtypes_by_handler.get(handler)
+        rtmpl_rec = rtemplates_by_type.get(handler)
+        has_type = bool(rtype_rec)
+        has_template = bool(rtmpl_rec)
+        issues = []
+        if not has_type:
+            issues.append("no report.type registered")
+        if not has_template:
+            issues.append("no report.template")
+        # Reference comparison
+        ref_rtypes = (ref or {}).get("report_types_full") or []
+        ref_has_type = any(r.get("handler") == handler for r in ref_rtypes)
+        if not has_type and ref_has_type:
+            ref_note = "MAC has it, target missing"
+        else:
+            ref_note = ""
+        status = "PASS" if (has_type and has_template) else ("FAIL" if issues else "WARN")
+        sheets["Financial Reports Setup"].append(
+            _row(
+                company_name,
+                Category=category,
+                Report=label,
+                Handler=handler,
+                **{"Has report.type": "Yes" if has_type else "No"},
+                **{"Has report.template": "Yes" if has_template else "No"},
+                **{"Type Name": _safe(rtype_rec.get("name") if rtype_rec else "")},
+                **{"Template Name": _safe(rtmpl_rec.get("name") if rtmpl_rec else "")},
+                Status=status,
+                Note=", ".join(issues) + (f" | {ref_note}" if ref_note else ""),
+            )
+        )
+
     return sheets
 
 
@@ -1474,6 +1803,11 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
 SHEET_ORDER = [
     "Summary",
     "Config Coverage",
+    "Financial Reports Setup",
+    "Product Quality",
+    "Partner Quality",
+    "Category Quality",
+    "Bank Journal Quality",
     "Company Settings",
     "CoA - Account Listing",
     "Account Types Coverage",
@@ -1801,6 +2135,83 @@ def _write_excel(
                 "Reference Count",
                 "Status",
                 "Note",
+            ],
+        ),
+        (
+            "Financial Reports Setup",
+            [
+                "Company",
+                "Category",
+                "Report",
+                "Handler",
+                "Has report.type",
+                "Has report.template",
+                "Type Name",
+                "Template Name",
+                "Status",
+                "Note",
+            ],
+        ),
+        (
+            "Product Quality",
+            [
+                "Company",
+                "Product ID",
+                "Name",
+                "Code",
+                "Type",
+                "Category",
+                "Missing Fields",
+                "Status",
+                "Issue Count",
+            ],
+        ),
+        (
+            "Partner Quality",
+            [
+                "Company",
+                "Partner ID",
+                "Name",
+                "Type",
+                "VAT",
+                "Email",
+                "Missing Fields",
+                "Status",
+                "Issue Count",
+            ],
+        ),
+        (
+            "Category Quality",
+            [
+                "Company",
+                "Category ID",
+                "Name",
+                "Cost Method",
+                "Valuation",
+                "Income Account",
+                "Expense Account",
+                "Stock Input",
+                "Stock Output",
+                "Stock Valuation",
+                "Stock Journal",
+                "Missing Fields",
+                "Status",
+            ],
+        ),
+        (
+            "Bank Journal Quality",
+            [
+                "Company",
+                "Journal ID",
+                "Code",
+                "Name",
+                "Type",
+                "Bank Account",
+                "Default Account",
+                "Suspense Account",
+                "Currency",
+                "Missing Fields",
+                "Status",
             ],
         ),
     ]
