@@ -477,3 +477,87 @@ def set_password(
     except Exception as e:
         out.error(f"Failed to set password: {e}")
         raise typer.Exit(1)
+
+
+def _resolve_groups(c, group_specs: list[str]) -> list[tuple[int, str]]:
+    """Resolve a list of group specs (xmlid OR numeric id OR full_name) to (id, full_name) pairs."""
+    resolved: list[tuple[int, str]] = []
+    for spec in group_specs:
+        spec = spec.strip()
+        if not spec:
+            continue
+        gid: int | None = None
+        if spec.isdigit():
+            gid = int(spec)
+        elif "." in spec and "/" not in spec:
+            module, _, xname = spec.partition(".")
+            rows = c.search_read(
+                "ir.model.data",
+                domain=[("module", "=", module), ("name", "=", xname), ("model", "=", "res.groups")],
+                fields=["res_id"],
+                limit=1,
+            )
+            if rows:
+                gid = rows[0]["res_id"]
+        if gid is None:
+            rows = c.search_read(
+                "res.groups",
+                domain=[("full_name", "=", spec)],
+                fields=["id"],
+                limit=1,
+            )
+            if rows:
+                gid = rows[0]["id"]
+        if gid is None:
+            raise typer.BadParameter(f"Group not found: {spec}")
+        info = c.read("res.groups", [gid], fields=["full_name"])
+        full = info[0]["full_name"] if info else str(gid)
+        resolved.append((gid, full))
+    return resolved
+
+
+@app.command("add-group")
+def add_group(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="User ID or login")],
+    groups: Annotated[
+        list[str],
+        typer.Argument(help="Group specs: xmlid (module.name), numeric id, or full_name. Multiple allowed."),
+    ],
+) -> None:
+    """Add one or more groups to a user.
+
+    Examples:
+        kctl-odoo users add-group admin operating_unit.group_manager_operating_unit
+        kctl-odoo users add-group admin stock_request.group_stock_request_manager 42
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    user_id = resolve_id(c, "res.users", search_field="login", identifier=identifier)
+    pairs = _resolve_groups(c, groups)
+    c.write("res.users", [user_id], {"groups_id": [(4, gid) for gid, _ in pairs]})
+    for gid, full in pairs:
+        out.success(f"Added group [{gid}] {full} to user {identifier}")
+
+
+@app.command("remove-group")
+def remove_group(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="User ID or login")],
+    groups: Annotated[
+        list[str],
+        typer.Argument(help="Group specs: xmlid (module.name), numeric id, or full_name."),
+    ],
+) -> None:
+    """Remove one or more groups from a user."""
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    user_id = resolve_id(c, "res.users", search_field="login", identifier=identifier)
+    pairs = _resolve_groups(c, groups)
+    c.write("res.users", [user_id], {"groups_id": [(3, gid) for gid, _ in pairs]})
+    for gid, full in pairs:
+        out.success(f"Removed group [{gid}] {full} from user {identifier}")

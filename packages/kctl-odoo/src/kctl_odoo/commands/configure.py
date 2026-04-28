@@ -50,9 +50,14 @@ def _list_records(c, out, actx, model: str, title: str, fields: list[str], domai
     out.table(f"{title} ({len(records)})", cols, rows, json_data)
 
 
-def _create_record(c, out, model: str, vals: dict, label: str):
+def _create_record(c, out, model: str, vals: dict, label: str, company_id: int | None = None):
     try:
-        rec_id = c.create(model, vals)
+        if company_id:
+            vals = {**vals, "company_id": company_id}
+            ctx = {"allowed_company_ids": [company_id], "default_company_id": company_id}
+            rec_id = c.execute_kw(model, "create", [vals], {"context": ctx})
+        else:
+            rec_id = c.create(model, vals)
         out.success(f"Created {label} (ID {rec_id})")
         return rec_id
     except Exception as e:
@@ -279,11 +284,19 @@ def warehouse_create(
     ctx: typer.Context,
     name: Annotated[str, typer.Option("--name", "-n", help="Warehouse name")],
     code: Annotated[str, typer.Option("--code", "-c", help="Short code (e.g., WH, JKT)")],
+    company_id: Annotated[
+        int | None, typer.Option("--company-id", help="Target company id (defaults to user's current company)")
+    ] = None,
 ) -> None:
     """Create a warehouse."""
     actx: AppContext = ctx.obj
     _create_record(
-        actx.client, actx.output, "stock.warehouse", {"name": name, "code": code}, f"warehouse '{code} {name}'"
+        actx.client,
+        actx.output,
+        "stock.warehouse",
+        {"name": name, "code": code},
+        f"warehouse '{code} {name}'",
+        company_id=company_id,
     )
 
 
@@ -309,11 +322,30 @@ def operating_unit_create(
     ctx: typer.Context,
     name: Annotated[str, typer.Option("--name", "-n", help="Operating unit name")],
     code: Annotated[str, typer.Option("--code", "-c", help="Short code")],
+    company_id: Annotated[
+        int | None, typer.Option("--company-id", help="Target company id (defaults to user's current company)")
+    ] = None,
+    partner_id: Annotated[
+        int | None, typer.Option("--partner-id", help="Address partner id (default: company partner)")
+    ] = None,
 ) -> None:
     """Create an operating unit."""
     actx: AppContext = ctx.obj
+    c = actx.client
+    vals: dict = {"name": name, "code": code}
+    if company_id and not partner_id:
+        comp = c.read("res.company", [company_id], fields=["partner_id"])
+        if comp and comp[0].get("partner_id"):
+            vals["partner_id"] = comp[0]["partner_id"][0]
+    elif partner_id:
+        vals["partner_id"] = partner_id
     _create_record(
-        actx.client, actx.output, "operating.unit", {"name": name, "code": code}, f"operating unit '{code} {name}'"
+        actx.client,
+        actx.output,
+        "operating.unit",
+        vals,
+        f"operating unit '{code} {name}'",
+        company_id=company_id,
     )
 
 

@@ -510,3 +510,68 @@ def setup_batch(
 
     out.console.rule("[bold]Summary")
     out.info(f"Created: {created}, Failed: {failed}, Total: {len(rows)}")
+
+
+@app.command("bootstrap-baseline")
+def bootstrap_baseline(
+    ctx: typer.Context,
+    company: Annotated[str, typer.Argument(help="Company ID or name (template or existing)")],
+    all_companies: Annotated[bool, typer.Option("--all", help="Run on every company")] = False,
+) -> None:
+    """Retro-fit baseline setup on existing companies.
+
+    Idempotent. For each target company, ensures:
+      - At least one stock.warehouse exists (creates HDQ if missing)
+      - At least one operating.unit exists (creates HDQ if missing — OCA optional)
+      - Bank journals have default_account_id set
+
+    Used to backfill the template company and pre-existing companies that
+    were created before company_onboarding was installed. Calls
+    company.onboarding.service.bootstrap_baseline() server-side, which uses
+    sudo() to bypass the stock_request and operating_unit access groups.
+
+    Examples:
+        kctl-odoo companies bootstrap-baseline 338
+        kctl-odoo companies bootstrap-baseline _TEMPLATE_TPP_IMPORT
+        kctl-odoo companies bootstrap-baseline --all _
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    installed = c.search(
+        "ir.module.module",
+        [("name", "=", "company_onboarding"), ("state", "=", "installed")],
+    )
+    if not installed:
+        out.error("Module 'company_onboarding' is not installed.")
+        raise typer.Exit(1)
+
+    if all_companies:
+        ids = c.search("res.company", [], order="id")
+    else:
+        ids = [_resolve_company_id(c, company)]
+
+    rows = []
+    json_data = []
+    for cid in ids:
+        comp = c.read("res.company", [cid], fields=["id", "name"])
+        cname = comp[0]["name"] if comp else f"id={cid}"
+        try:
+            result = c.execute(
+                "company.onboarding.wizard",
+                "action_bootstrap_baseline_from_cli",
+                cid,
+            )
+            status = result.get("status", "?")
+            detail = result.get("detail", "")
+        except Exception as e:
+            status = "error"
+            detail = str(e)
+        rows.append([str(cid), cname, status, detail])
+        json_data.append({"id": cid, "name": cname, "status": status, "detail": detail})
+        icon = {"ok": "[green]OK[/green]", "error": "[red]ERR[/red]"}.get(status, status)
+        out.console.print(f"  {icon} [{cid}] {cname}: {detail}")
+
+    if actx.json_mode:
+        out.raw_json(json_data)
