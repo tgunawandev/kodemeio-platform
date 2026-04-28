@@ -1,7 +1,7 @@
 """Production readiness audit command for Odoo 18.
 
 Compares a target Odoo instance (typically a staging/local profile) against a
-reference instance (typically MAC production) and emits a comprehensive
+reference instance (e.g. an Import-trade template company) and emits a comprehensive
 multi-sheet Excel workbook (18 sheets) showing what exists, what is missing
 and what differs at the company-configuration level.
 
@@ -98,8 +98,11 @@ COMPANY_FIELDS = [
     "fiscalyear_lock_date",
     "tax_lock_date",
     "account_journal_suspense_account_id",
-    "account_journal_payment_debit_account_id",
-    "account_journal_payment_credit_account_id",
+    # Note: account_journal_payment_debit/credit_account_id are NOT
+    # on res.company in Odoo 18 — they're chart-template refs, set
+    # per-journal via account.payment.method.line. Reading the entire
+    # field list as one search_read fails the WHOLE call if any field
+    # is invalid, hence the careful inclusion list.
     "default_cash_difference_income_account_id",
     "default_cash_difference_expense_account_id",
     "po_lock",
@@ -274,7 +277,7 @@ def _try(fn, default=None):
 
 
 # ---------------------------------------------------------------------------
-# Configuration coverage: all menu items from MAC screenshots
+# Configuration coverage: all menu items audited per company
 # Tuple: (menu_path, item_label, model, scope, domain_template)
 #   scope: "global" or "company"
 #   domain_template: list of tuples (filled per company), e.g.
@@ -715,7 +718,8 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
             ou_user_counts[ou["id"]] = cnt
     data["ou_user_counts"] = ou_user_counts
 
-    # Report formats (report_layout module)
+    # Report formats (report_layout module). `logo` is not a field on
+    # report.format in Odoo 18 — the show-logo flag is `show_logo`.
     rfmt = _try(
         lambda: client.search_read(
             "report.format",
@@ -726,7 +730,8 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
                 "name",
                 "is_default",
                 "active",
-                "logo",
+                "show_logo",
+                "theme_preset",
                 "band_ids",
                 "signature_line_ids",
             ],
@@ -760,30 +765,35 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
     )
     data["report_types"] = rtypes if rtypes is not None else "MODULE_NOT_INSTALLED"
 
-    # Sequences (per-company)
+    # Sequences (per-company) — include prefix/suffix so the audit shows the
+    # actual numbering pattern (e.g. "INV/%(year)s/%(month)s/") not just padding
     data["sequences"] = _try(
         lambda: client.search_read(
             "ir.sequence",
             ["|", ("company_id", "=", company_id), ("company_id", "=", False)],
-            fields=["id", "code", "name", "number_next", "padding", "implementation", "active"],
+            fields=[
+                "id",
+                "code",
+                "name",
+                "prefix",
+                "suffix",
+                "number_next",
+                "padding",
+                "implementation",
+                "use_date_range",
+                "active",
+            ],
             order="code",
         ),
         default=[],
     )
 
-    # ir.property (company-dependent)
-    data["properties"] = _try(
-        lambda: client.search_read(
-            "ir.property",
-            [("company_id", "=", company_id)],
-            fields=["id", "name", "fields_id", "res_id", "value_text", "value_reference", "type"],
-            order="name",
-            limit=300,
-        ),
-        default=[],
-    )
+    # NOTE: ir.property was removed from Odoo 18 — company-dependent values
+    # are now stored directly on company_dependent fields (JSONB columns).
+    # Keeping the key so downstream code can detect the absence cleanly.
+    data["properties"] = []
 
-    # Configuration coverage — every menu item from MAC screenshots
+    # Configuration coverage — every menu item enumerated below
     data["config_coverage"] = _pull_config_coverage(client, company_id)
 
     # Master data quality — sample products, partners, categories, journals
@@ -1066,14 +1076,14 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
         r = _safe(co_r.get(fld), "")
         sheets["Company Settings"].append(cmp_setting(label, t, r, "PASS" if co_t.get(fld) else "FAIL"))
 
-    # FX accounts + transfer + suspense + cash diff + payment debit/credit
+    # FX accounts + transfer + suspense + cash diff. Outstanding receipts /
+    # payments live on account.payment.method.line per journal in Odoo 18,
+    # not as company defaults — verified per-journal in Bank Journal Quality.
     for fld, label, level in [
         ("income_currency_exchange_account_id", "FX Income Account", "WARN"),
         ("expense_currency_exchange_account_id", "FX Expense Account", "WARN"),
         ("transfer_account_id", "Transfer Account", "WARN"),
         ("account_journal_suspense_account_id", "Journal Suspense Account", "WARN"),
-        ("account_journal_payment_debit_account_id", "Outstanding Receipts Account", "WARN"),
-        ("account_journal_payment_credit_account_id", "Outstanding Payments Account", "WARN"),
         ("default_cash_difference_income_account_id", "Cash Diff Income Account", "INFO"),
         ("default_cash_difference_expense_account_id", "Cash Diff Expense Account", "INFO"),
     ]:
@@ -1195,11 +1205,11 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                 Active="Yes" if active else "No",
                 Status=status,
                 Note=note,
-                **{"Vs Reference": "in MAC" if j.get("code") in ref_codes else "(target only)"},
+                **{"Vs Reference": "in reference" if j.get("code") in ref_codes else "(target only)"},
             )
         )
 
-    # Missing journal codes (in MAC but not in target)
+    # Missing journal codes (in reference but not in target)
     if ref:
         missing = ref_codes - target_codes
         for code in sorted(c or "" for c in missing if c):
@@ -1209,14 +1219,14 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                     company_name,
                     Code=code,
                     Type=ref_j.get("type") or "",
-                    Name=f"(missing — present in MAC)",
+                    Name=f"(missing — present in reference)",
                     **{"Default Account": ""},
                     **{"Suspense Account": ""},
                     Currency="",
                     Active="No",
                     Status="WARN",
                     Note="Journal in reference but missing in target",
-                    **{"Vs Reference": "MAC only"},
+                    **{"Vs Reference": "reference only"},
                 )
             )
 
@@ -1249,7 +1259,7 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                 Active="Yes" if active else "No",
                 Status=status,
                 Note=note,
-                **{"Vs Reference": "in MAC" if in_ref else "(target only)"} if ref else {"Vs Reference": ""},
+                **{"Vs Reference": "in reference" if in_ref else "(target only)"} if ref else {"Vs Reference": ""},
             )
         )
 
@@ -1474,6 +1484,7 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                 **{"# Bands": 0},
                 **{"# Signature Lines": 0},
                 **{"Has Logo": ""},
+                **{"Theme Preset": ""},
                 Status="N/A",
                 Note="Module not installed",
             )
@@ -1489,7 +1500,8 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                     **{"Is Default": "Yes" if f.get("is_default") else "No"},
                     **{"# Bands": len(f.get("band_ids") or [])},
                     **{"# Signature Lines": len(f.get("signature_line_ids") or [])},
-                    **{"Has Logo": "Yes" if f.get("logo") else "No"},
+                    **{"Has Logo": "Yes" if f.get("show_logo") else "No"},
+                    **{"Theme Preset": f.get("theme_preset") or ""},
                     Status="PASS" if f.get("active") else "WARN",
                     Note="",
                 )
@@ -1508,8 +1520,9 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                         **{"# Bands": 0},
                         **{"# Signature Lines": 0},
                         **{"Has Logo": ""},
+                        **{"Theme Preset": ""},
                         Status="FAIL",
-                        Note="MAC has a default for this type — target has none",
+                        Note="Reference has a default for this type — target has none",
                     )
                 )
 
@@ -1566,30 +1579,66 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
     # ── Sequences ───────────────────────────────────────────────────────
     seqs = target.get("sequences") or []
     for s in seqs:
+        prefix = s.get("prefix") or ""
+        suffix = s.get("suffix") or ""
+        padding = s.get("padding") or 0
+        # Build an example of the pattern, e.g. "INV/2026/04/00001"
+        sample_seq = "0" * padding if padding else "0"
+        sample = f"{prefix}{sample_seq}{suffix}"
         sheets["Sequences"].append(
             _row(
                 company_name,
                 Code=s.get("code") or "",
                 Name=s.get("name") or "",
+                Prefix=prefix,
+                Suffix=suffix,
+                **{"Sample Number": sample},
                 **{"Number Next": s.get("number_next") or 0},
-                Padding=s.get("padding") or 0,
+                Padding=padding,
+                **{"Date Range": "Yes" if s.get("use_date_range") else "No"},
                 Implementation=s.get("implementation") or "",
                 Active="Yes" if s.get("active") else "No",
                 Status="PASS" if s.get("active") else "WARN",
             )
         )
 
-    # ── ir.property ─────────────────────────────────────────────────────
-    props = target.get("properties") or []
-    for p in props[:200]:
+    # ── Company Defaults (advanced) ─────────────────────────────────────
+    # ir.property was removed in Odoo 18 — company-dependent values are now
+    # stored on company_dependent fields (JSONB columns). This sheet shows
+    # the resolved per-company defaults that previously lived in ir.property.
+    co_props = target.get("company") or {}
+    co_ref = (ref or {}).get("company") or {}
+    company_default_fields = [
+        ("currency_id", "Currency"),
+        ("account_fiscal_country_id", "Fiscal Country"),
+        ("account_sale_tax_id", "Default Sale Tax"),
+        ("account_purchase_tax_id", "Default Purchase Tax"),
+        ("income_currency_exchange_account_id", "FX Income Account"),
+        ("expense_currency_exchange_account_id", "FX Expense Account"),
+        ("transfer_account_id", "Transfer Account"),
+        ("account_journal_suspense_account_id", "Journal Suspense Account"),
+        ("default_cash_difference_income_account_id", "Cash Difference Income"),
+        ("default_cash_difference_expense_account_id", "Cash Difference Expense"),
+    ]
+    for fld, label in company_default_fields:
+        tval = _safe(co_props.get(fld), "")
+        rval = _safe(co_ref.get(fld), "")
+        is_set = bool(co_props.get(fld))
+        ref_set = bool(co_ref.get(fld))
+        if is_set and ref_set and tval == rval:
+            status = "PASS"
+        elif is_set:
+            status = "PASS" if tval else "WARN"
+        else:
+            status = "WARN" if not ref else ("FAIL" if ref_set else "INFO")
         sheets["ir.property"].append(
             _row(
                 company_name,
-                Field=_safe(p.get("fields_id")) or p.get("name") or "",
-                Resource=_truncate(p.get("res_id"), 60),
-                Type=p.get("type") or "",
-                Value=_truncate(p.get("value_text") or p.get("value_reference"), 80),
-                Status="INFO",
+                Field=fld,
+                Label=label,
+                Value=tval or "(not set)",
+                **{"Reference Value": rval if ref else "-"},
+                Status=status,
             )
         )
 
@@ -1632,13 +1681,13 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
             # Both available — compare counts
             if target_count == 0 and ref_count > 0:
                 status = "FAIL"
-                note = f"Target has 0; MAC reference has {ref_count}"
+                note = f"Target has 0; reference has {ref_count}"
             elif target_count < ref_count:
                 status = "WARN"
-                note = f"Target has {target_count}; MAC reference has {ref_count} (missing {ref_count - target_count})"
+                note = f"Target has {target_count}; reference has {ref_count} (missing {ref_count - target_count})"
             elif target_count >= ref_count:
                 status = "PASS"
-                note = f"Target has {target_count}; MAC has {ref_count}"
+                note = f"Target has {target_count}; reference has {ref_count}"
 
         sheets["Config Coverage"].append(
             _row(
@@ -2284,6 +2333,7 @@ def _write_excel(
                 "# Bands",
                 "# Signature Lines",
                 "Has Logo",
+                "Theme Preset",
                 "Status",
                 "Note",
             ],
@@ -2292,8 +2342,24 @@ def _write_excel(
             "Report Management",
             ["Company", "Section", "Name", "Template", "Report Type / Handler", "Status"],
         ),
-        ("Sequences", ["Company", "Code", "Name", "Number Next", "Padding", "Implementation", "Active", "Status"]),
-        ("ir.property", ["Company", "Field", "Resource", "Type", "Value", "Status"]),
+        (
+            "Sequences",
+            [
+                "Company",
+                "Code",
+                "Name",
+                "Prefix",
+                "Suffix",
+                "Sample Number",
+                "Number Next",
+                "Padding",
+                "Date Range",
+                "Implementation",
+                "Active",
+                "Status",
+            ],
+        ),
+        ("ir.property", ["Company", "Field", "Label", "Value", "Reference Value", "Status"]),
         (
             "Config Coverage",
             [
@@ -2510,7 +2576,7 @@ def _write_excel(
                 "Section": "Mail Server",
                 "Item": "(none configured)",
                 "Target State / Active": "",
-                "Reference": f"{len(rmsrvs)} server(s) in MAC" if ref_global else "-",
+                "Reference": f"{len(rmsrvs)} server(s) in reference" if ref_global else "-",
                 "Status": "WARN",
                 "Note": "No outgoing mail server configured",
             }
@@ -2559,12 +2625,26 @@ def readiness_check(
             help="Reference company id to use as the gold standard (default: first company on reference)",
         ),
     ] = 0,
+    include_reference: Annotated[
+        bool,
+        typer.Option(
+            "--include-reference/--no-include-reference",
+            help="Include the reference company itself in the target list — audits the gold-standard template's own completeness.",
+        ),
+    ] = True,
+    per_company: Annotated[
+        bool,
+        typer.Option(
+            "--per-company",
+            help="Write one Excel file per company instead of a single consolidated workbook.",
+        ),
+    ] = False,
 ) -> None:
     """Generate a multi-sheet production readiness audit Excel.
 
     Without ``--reference``, runs existence-only checks against the target
     instance. With ``--reference``, also pulls config from a second profile
-    (e.g. MAC production) and compares each target company against it.
+    (e.g. an Import-trade template) and compares each target company against it.
     """
     actx: AppContext = ctx.obj
     _bump_timeout(actx, seconds=600.0)
@@ -2584,7 +2664,7 @@ def readiness_check(
     ref_client: _ClientShim | None = None
     reference_label: str | None = None
     if reference:
-        # External reference profile (e.g., MAC)
+        # External reference profile (e.g., a different deployment used as gold standard)
         try:
             ref_profile = _load_profile(reference)
             xrpc = XmlRpcClient(ref_profile)
@@ -2602,8 +2682,10 @@ def readiness_check(
 
     # Target companies
     domain = [("id", "=", company_id)] if company_id else []
-    # Exclude the reference company from target list when using same-DB reference
-    if not reference and reference_company_id and not company_id:
+    # By default the gold-standard template IS included as a target so its
+    # own completeness is audited. Pass --no-include-reference to revert
+    # to the previous behaviour where the reference is excluded.
+    if not reference and reference_company_id and not company_id and not include_reference:
         domain = [("id", "!=", reference_company_id)]
     companies = target_client.search_read("res.company", domain, fields=["id", "name"], order="id")
     if not companies:
@@ -2650,17 +2732,45 @@ def readiness_check(
         db = target_client.database or "odoo"
         output = Path(f"readiness_{db}_{date.today().isoformat()}.xlsx")
 
-    _write_excel(
-        company_results,
-        target_global,
-        ref_global,
-        output,
-        target_label=target_label,
-        reference_label=reference_label,
-    )
+    if per_company:
+        # One Excel per company. The supplied --output path becomes a
+        # directory if it exists; otherwise it is treated as a stem
+        # (path/to/readiness → path/to/readiness_<slug>.xlsx).
+        if output.is_dir():
+            out_dir = output
+            stem = "readiness"
+        else:
+            out_dir = output.parent if str(output.parent) else Path(".")
+            stem = output.stem
+        out_dir.mkdir(parents=True, exist_ok=True)
+        written: list[Path] = []
+        for company_name, sheets in company_results:
+            slug = "".join(ch if ch.isalnum() else "_" for ch in company_name).strip("_")[:60] or "company"
+            out_file = out_dir / f"{stem}_{slug}.xlsx"
+            _write_excel(
+                [(company_name, sheets)],
+                target_global,
+                ref_global,
+                out_file,
+                target_label=target_label,
+                reference_label=reference_label,
+            )
+            written.append(out_file)
+        out.info(f"\nWrote {len(written)} per-company report(s) to {out_dir}")
+        for p in written:
+            out.info(f"  {p}")
+    else:
+        _write_excel(
+            company_results,
+            target_global,
+            ref_global,
+            output,
+            target_label=target_label,
+            reference_label=reference_label,
+        )
+        out.info(f"\nReport written to {output}")
 
     # Console summary
-    out.info(f"\nReport written to {output}")
     for company_name, sheets in company_results:
         all_rows = [r for rows in sheets.values() for r in rows if r.get("Status") in ("PASS", "WARN", "FAIL")]
         fails = sum(1 for r in all_rows if r["Status"] == "FAIL")
