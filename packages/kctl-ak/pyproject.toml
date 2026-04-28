@@ -25,6 +25,9 @@ dev = [
     "mypy>=1.14.0",
     "types-PyYAML>=6.0.0",
 ]
+reports = [
+    "openpyxl>=3.1.0",
+]
 
 [project.scripts]
 kctl-ak = "kctl_ak.cli:_run"
