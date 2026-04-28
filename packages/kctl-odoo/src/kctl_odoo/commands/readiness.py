@@ -2513,6 +2513,7 @@ def readiness_check(
     ref_client: _ClientShim | None = None
     reference_label: str | None = None
     if reference:
+        # External reference profile (e.g., MAC)
         try:
             ref_profile = _load_profile(reference)
             xrpc = XmlRpcClient(ref_profile)
@@ -2522,9 +2523,17 @@ def readiness_check(
         except Exception as exc:
             out.error(f"Failed to load reference profile '{reference}': {exc}")
             raise typer.Exit(1)
+    elif reference_company_id:
+        # Same-DB reference: use a company in the target instance as the template
+        ref_client = target_client
+        reference_label = f"same-DB (company id={reference_company_id})"
+        out.info(f"Reference: {reference_label}")
 
     # Target companies
     domain = [("id", "=", company_id)] if company_id else []
+    # Exclude the reference company from target list when using same-DB reference
+    if not reference and reference_company_id and not company_id:
+        domain = [("id", "!=", reference_company_id)]
     companies = target_client.search_read("res.company", domain, fields=["id", "name"], order="id")
     if not companies:
         out.error("No companies found on target")
