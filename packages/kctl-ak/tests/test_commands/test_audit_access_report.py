@@ -12,6 +12,7 @@ from kctl_ak.reports.access_control import (
     ReportFilters,
     ReportMeta,
     build_rows,
+    to_json,
     write_markdown,
     write_xlsx,
 )
@@ -320,3 +321,34 @@ class TestWriteXlsx:
         wb = openpyxl.load_workbook(out_path)
         ws = wb["Access Control"]
         assert ws.auto_filter.ref is not None
+
+
+class TestToJson:
+    def test_json_has_meta_and_rows(self) -> None:
+        meta = ReportMeta(
+            profile="kodemeio",
+            generated_at="2026-04-28T14:30:00+07:00",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        result = to_json(rows, meta)
+        assert "meta" in result
+        assert "rows" in result
+        assert result["meta"]["profile"] == "kodemeio"
+        assert len(result["rows"]) == 4
+
+    def test_json_rows_are_dicts(self) -> None:
+        meta = ReportMeta(
+            profile="test",
+            generated_at="2026-04-28T00:00:00Z",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        result = to_json(rows, meta)
+        first = result["rows"][0]
+        assert "username" in first
+        assert "has_access" in first

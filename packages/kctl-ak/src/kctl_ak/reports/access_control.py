@@ -251,3 +251,22 @@ def write_xlsx(rows: list[AccessRow], meta: ReportMeta, dest: Path) -> None:
     summary.cell(1, 1).font = bold
 
     wb.save(dest)
+
+
+def to_json(rows: list[AccessRow], meta: ReportMeta) -> dict[str, Any]:
+    """Build JSON-serializable dict with meta envelope."""
+    return {
+        "meta": meta.model_dump(),
+        "rows": [r.model_dump() for r in rows],
+    }
+
+
+def fetch_report_data(client: Any, filters: ReportFilters) -> ReportData:
+    """Fetch users, apps, and policy bindings from Authentik API."""
+    users = client.get_all("core/users/")
+    params: dict[str, Any] = {"superuser_full_list": "true"}
+    if filters.app_slug:
+        params["slug"] = filters.app_slug
+    apps = client.get_all("core/applications/", params=params)
+    bindings = client.get_all("policies/bindings/")
+    return ReportData(users=users, apps=apps, bindings=bindings)
