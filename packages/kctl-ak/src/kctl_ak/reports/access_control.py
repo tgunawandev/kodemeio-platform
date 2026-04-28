@@ -157,3 +157,30 @@ def build_rows(data: ReportData, filters: ReportFilters) -> list[AccessRow]:
 
     rows.sort(key=lambda r: (r.username, r.app_slug))
     return rows
+
+
+def write_markdown(rows: list[AccessRow], meta: ReportMeta, dest: Any) -> None:
+    """Write Markdown pipe-table report to a file-like object."""
+    dest.write("# Access Control Report\n\n")
+    dest.write(f"- **Profile:** {meta.profile}\n")
+    dest.write(f"- **Generated:** {meta.generated_at}\n")
+    dest.write(f"- **Users:** {meta.user_count} | **Applications:** {meta.app_count} | **Rows:** {meta.row_count}\n\n")
+
+    headers = ["Username", "Email", "Name", "Type", "Active", "Application", "Slug", "Access", "Via", "Negate"]
+    dest.write("| " + " | ".join(headers) + " |\n")
+    dest.write("| " + " | ".join("---" for _ in headers) + " |\n")
+
+    for r in rows:
+        vals = [
+            r.username,
+            r.email,
+            r.name,
+            r.user_type,
+            r.is_active,
+            r.application,
+            r.app_slug,
+            r.has_access,
+            r.access_via,
+            r.binding_negate,
+        ]
+        dest.write("| " + " | ".join(vals) + " |\n")

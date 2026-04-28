@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import io
+
 from kctl_ak.reports.access_control import (
     AccessRow,
     ReportData,
     ReportFilters,
+    ReportMeta,
     build_rows,
+    write_markdown,
 )
 
 
@@ -184,3 +188,52 @@ class TestBuildRows:
         assert alice_mm.has_access == "no"
         assert alice_mm.access_via == "group:IT-Team"
         assert alice_mm.binding_negate == "yes"
+
+
+class TestWriteMarkdown:
+    def test_markdown_header_contains_meta(self) -> None:
+        meta = ReportMeta(
+            profile="kodemeio",
+            generated_at="2026-04-28T14:30:00+07:00",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        buf = io.StringIO()
+        write_markdown(rows, meta, buf)
+        output = buf.getvalue()
+        assert "# Access Control Report" in output
+        assert "kodemeio" in output
+        assert "2026-04-28" in output
+
+    def test_markdown_has_pipe_table(self) -> None:
+        meta = ReportMeta(
+            profile="test",
+            generated_at="2026-04-28T00:00:00Z",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        buf = io.StringIO()
+        write_markdown(rows, meta, buf)
+        output = buf.getvalue()
+        assert "| Username |" in output
+        assert "| alice " in output
+
+    def test_markdown_to_file(self, tmp_path) -> None:
+        meta = ReportMeta(
+            profile="test",
+            generated_at="2026-04-28T00:00:00Z",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        out_path = tmp_path / "report.md"
+        with open(out_path, "w") as f:
+            write_markdown(rows, meta, f)
+        content = out_path.read_text()
+        assert "# Access Control Report" in content
+        assert len(content.strip().split("\n")) > 5
