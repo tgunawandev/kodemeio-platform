@@ -69,6 +69,7 @@ class MailcowProvisionClient:
             "force_pw_update": "1",
             "tls_enforce_in": "1",
             "tls_enforce_out": "1",
+            "authsource": "generic-oidc",
         }
         resp = self._client.post("/add/mailbox", json=payload)
         result = resp.json()

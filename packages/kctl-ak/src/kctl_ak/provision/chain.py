@@ -26,10 +26,10 @@ def _send_telegram_notification(result: ChainResult) -> None:
     if not bot_token or not chat_id:
         return
 
-    icon = "\u2705" if result.success else "\u274c"
+    icon = "OK" if result.success else "FAIL"
     action = result.action.upper()
     steps_text = "\n".join(
-        f"  {'✅' if s.status == StepStatus.SUCCESS else '⏭️' if s.status == StepStatus.SKIPPED else '❌'} {s.name}: {s.detail}"
+        f"  {'[OK]' if s.status == StepStatus.SUCCESS else '[SKIP]' if s.status == StepStatus.SKIPPED else '[FAIL]'} {s.name}: {s.detail}"
         for s in result.steps
     )
     text = f"{icon} *{action}* `{result.email}`\n\n{steps_text}"
@@ -96,8 +96,11 @@ class ProvisionChain:
 
     def onboard(self, email: str, name: str, company: str | None = None) -> ChainResult:
         """Provision user across all systems."""
-        result = ChainResult(email=email, action="onboard")
+        result = ChainResult(email=email, action="onboard", name=name)
         company_code, company_cfg = self._company_config(email, company)
+        result.company_code = company_code.upper()
+        result.apps = dict(company_cfg.apps)
+        result.guide_url = company_cfg.guide_url
 
         self.output.header(f"Provisioning {email} ({company_code.upper()} - {company_cfg.domain})")
 
@@ -105,16 +108,26 @@ class ProvisionChain:
         user_id = self._step_ak_create(email, name, result)
         if user_id is None and not self.dry_run:
             return result
+        result.user_id = user_id
 
-        # Step 2: Mailcow
+        # Step 2: Group assignment
+        if self.dry_run:
+            groups = ", ".join(company_cfg.default_groups) if company_cfg.default_groups else "none"
+            result.add("Authentik groups", StepStatus.SKIPPED, f"dry-run ({groups})")
+        elif user_id:
+            self._step_ak_groups(user_id, company_cfg, result)
+
+        # Step 3: Mailcow
         self._step_mailcow_create(email, name, company_cfg, result)
 
-        # Step 3: Odoo targets
+        # Step 4: Odoo targets
         self._step_odoo_sync(email, name, company_code, company_cfg, result)
 
-        # Step 4: Welcome email (recovery link)
-        if user_id and not self.dry_run:
-            self._step_welcome_email(user_id, result)
+        # Step 5: Recovery link
+        if self.dry_run:
+            result.add("Recovery link", StepStatus.SKIPPED, "dry-run")
+        elif user_id:
+            self._step_recovery_link(user_id, result)
 
         # Notify admin via Telegram
         if not self.dry_run:
@@ -156,6 +169,50 @@ class ProvisionChain:
         pk = created["pk"]
         result.add(step, StepStatus.SUCCESS, f"created (uid: {pk})")
         return pk
+
+    def _step_ak_groups(self, user_id: int, company_cfg: CompanyConfig, result: ChainResult) -> None:
+        """Add user to default Authentik groups for this company."""
+        step = "Authentik groups"
+        if not company_cfg.default_groups:
+            result.add(step, StepStatus.SKIPPED, "no default_groups configured")
+            return
+
+        added: list[str] = []
+        already: list[str] = []
+        failed: list[str] = []
+
+        for group_name in company_cfg.default_groups:
+            try:
+                groups_resp = self.ak.get("core/groups/", params={"name": group_name})
+                groups = groups_resp.get("results", [])
+                if not groups:
+                    failed.append(f"{group_name} (not found)")
+                    continue
+
+                group = groups[0]
+                group_pk = group["pk"]
+                current_users = group.get("users", [])
+
+                if user_id in current_users:
+                    already.append(group_name)
+                    result.groups.append(group_name)
+                else:
+                    self.ak.post(f"core/groups/{group_pk}/add_user/", data={"pk": user_id})
+                    added.append(group_name)
+                    result.groups.append(group_name)
+            except Exception as e:
+                failed.append(f"{group_name} ({e})")
+
+        parts = []
+        if added:
+            parts.append(f"added: {', '.join(added)}")
+        if already:
+            parts.append(f"already in: {', '.join(already)}")
+        if failed:
+            parts.append(f"failed: {', '.join(failed)}")
+
+        status = StepStatus.FAILED if failed and not added else StepStatus.SUCCESS
+        result.add(step, status, "; ".join(parts))
 
     def _step_mailcow_create(self, email: str, name: str, company_cfg: CompanyConfig, result: ChainResult) -> None:
         step = "Mailcow mailbox"
@@ -205,7 +262,10 @@ class ProvisionChain:
             raise RuntimeError("Mailcow create and enable both failed")
 
         if self._retry(_create_or_enable, step, result):
-            result.add(step, StepStatus.SUCCESS, f"created ({quota // (1024 * 1024)}MB quota)")
+            result.mailbox_quota_gb = quota // (1024 * 1024 * 1024)
+            result.add(
+                step, StepStatus.SUCCESS, f"created ({result.mailbox_quota_gb}GB quota, authsource: generic-oidc)"
+            )
 
     def _step_odoo_sync(
         self,
@@ -259,11 +319,16 @@ class ProvisionChain:
                 if self._retry(_create, step, result):
                     result.add(step, StepStatus.SUCCESS, "portal user created")
 
-    def _step_welcome_email(self, user_id: int, result: ChainResult) -> None:
-        step = "Welcome email"
+    def _step_recovery_link(self, user_id: int, result: ChainResult) -> None:
+        step = "Recovery link"
         try:
-            self.ak.post(f"core/users/{user_id}/recovery/", data={})
-            result.add(step, StepStatus.SUCCESS, "recovery link sent")
+            resp = self.ak.post(f"core/users/{user_id}/recovery/", data={})
+            link = resp.get("link", "")
+            if link:
+                result.recovery_link = link
+                result.add(step, StepStatus.SUCCESS, "generated (7 days expiry)")
+            else:
+                result.add(step, StepStatus.FAILED, "no link returned")
         except Exception as e:
             result.add(step, StepStatus.FAILED, str(e))
 

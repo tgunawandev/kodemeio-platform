@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -17,7 +18,7 @@ app = typer.Typer(help="Cross-system user provisioning (Authentik + Mailcow + Od
 
 
 def _resolve_config_path() -> Path:
-    """Find provision-config.yaml — check env, cwd, then shared config dir."""
+    """Find provision-config.yaml -- check env, cwd, then shared config dir."""
     env_path = os.getenv("PROVISION_CONFIG")
     if env_path:
         return Path(env_path)
@@ -42,6 +43,13 @@ def _print_result(c: AppContext, result: ChainResult) -> None:
             "email": result.email,
             "action": result.action,
             "success": result.success,
+            "name": result.name,
+            "company_code": result.company_code,
+            "user_id": result.user_id,
+            "recovery_link": result.recovery_link,
+            "groups": result.groups,
+            "mailbox_quota_gb": result.mailbox_quota_gb,
+            "apps": result.apps,
             "steps": [{"name": s.name, "status": s.status.value, "detail": s.detail} for s in result.steps],
         }
         print(_json.dumps(data, indent=2))
@@ -49,9 +57,9 @@ def _print_result(c: AppContext, result: ChainResult) -> None:
 
     output = c.output
     status_icons = {
-        StepStatus.SUCCESS: "[green]\u2705[/green]",
-        StepStatus.SKIPPED: "[dim]\u23ed\ufe0f [/dim]",
-        StepStatus.FAILED: "[red]\u274c[/red]",
+        StepStatus.SUCCESS: "[green]OK[/green]",
+        StepStatus.SKIPPED: "[dim]SKIP[/dim]",
+        StepStatus.FAILED: "[red]FAIL[/red]",
     }
     for i, step in enumerate(result.steps, 1):
         icon = status_icons.get(step.status, "?")
@@ -64,13 +72,226 @@ def _print_result(c: AppContext, result: ChainResult) -> None:
         output.error(f"{result.action.title()} incomplete for {result.email}")
 
 
+def _print_onboard_report(c: AppContext, result: ChainResult) -> None:
+    """Print full onboarding report with email and WhatsApp templates."""
+    output = c.output
+    domain = result.email.split("@", 1)[1]
+    sso_url = f"https://auth.{domain}"
+    link = result.recovery_link or "[recovery link not available]"
+
+    output.text("")
+    output.header(f"Onboarding Report: {result.name}")
+
+    sections: list[tuple[str, list[tuple[str, str]]]] = []
+    sections.append(
+        (
+            "Authentik (SSO)",
+            [
+                ("User ID", str(result.user_id or "N/A")),
+                ("Username", result.email.split("@")[0]),
+                ("Email", result.email),
+                ("Groups", ", ".join(result.groups) if result.groups else "(none)"),
+            ],
+        )
+    )
+    sections.append(
+        (
+            "Mailcow (Email)",
+            [
+                ("Mailbox", result.email),
+                ("Quota", f"{result.mailbox_quota_gb} GB" if result.mailbox_quota_gb else "N/A"),
+                ("Auth Source", "generic-oidc"),
+            ],
+        )
+    )
+    if result.recovery_link:
+        sections.append(
+            (
+                "Recovery Link",
+                [("URL", result.recovery_link), ("Expiry", "7 days, one-time use")],
+            )
+        )
+    output.detail(f"Systems provisioned for {result.email}", sections)
+
+    apps_padded = "\n".join(f"  {label:<16}: {url}" for label, url in result.apps.items())
+    apps_plain = "\n".join(f"- {label}: {url}" for label, url in result.apps.items())
+
+    email_tpl = (
+        f"Subject: Selamat Datang di {result.company_code}"
+        f" - Akun Digital Anda Sudah Aktif\n\n"
+        f"Yth. {result.name},\n\n"
+        f"Selamat datang di {result.company_code}!"
+        f" Akun digital Anda telah diaktifkan.\n\n"
+        f"Email     : {result.email}\n"
+        f"Login SSO : {sso_url}\n\n"
+        f"Langkah pertama:\n"
+        f"1. Buka link aktivasi berikut (berlaku 7 hari, sekali pakai):\n"
+        f"   {link}\n"
+        f"2. Buat password baru Anda\n"
+        f"3. Setelah itu, login ke semua aplikasi {result.company_code}"
+        f" menggunakan email & password di atas\n\n"
+        f"Aplikasi yang bisa diakses:\n{apps_padded}\n\n"
+        + (f"Panduan lengkap setup Desktop & Mobile:\n  {result.guide_url}\n\n" if result.guide_url else "")
+        + f"Jika ada kendala, hubungi IT Support.\n\n"
+        f"Salam,\nIT Department - {result.company_code}"
+    )
+
+    wa_tpl = (
+        f"Halo {result.name},\n\n"
+        f"Selamat datang di {result.company_code}!"
+        f" Akun digital kamu sudah aktif:\n\n"
+        f"Email: {result.email}\n"
+        f"Login: {sso_url}\n\n"
+        f"Langkah aktivasi:\n"
+        f"1. Buka link ini (berlaku 7 hari): {link}\n"
+        f"2. Buat password baru\n"
+        f"3. Setelah itu bisa login ke semua aplikasi {result.company_code}"
+        f" pakai email & password tsb\n\n"
+        f"Aplikasi:\n{apps_plain}\n\n"
+        + (f"Panduan setup Desktop & Mobile:\n{result.guide_url}\n\n" if result.guide_url else "")
+        + f"Kalau ada masalah, hubungi IT ya."
+    )
+
+    output.text("\n[bold]--- Email Template ---[/bold]")
+    output.text(email_tpl)
+    output.text("\n[bold]--- WhatsApp Template ---[/bold]")
+    output.text(wa_tpl)
+
+
+def _save_onboard_log(result: ChainResult) -> Path | None:
+    """Save onboarding report as markdown log file."""
+    log_dir = (
+        Path.home()
+        / "project"
+        / "00-new-projects"
+        / "kodemeio-workspace"
+        / "kodemeio-platform"
+        / "onboarding-logs"
+        / result.company_code.lower()
+    )
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    slug = result.email.split("@")[0].replace(".", "-")
+    log_path = log_dir / f"{today}_{slug}.md"
+
+    domain = result.email.split("@", 1)[1]
+    sso_url = f"https://auth.{domain}"
+    link = result.recovery_link or "[not available]"
+    apps_email = "\n".join(f"  {label:<16}: {url}" for label, url in result.apps.items())
+    apps_wa = "\n".join(f"- {label}: {url}" for label, url in result.apps.items())
+
+    steps_table = "\n".join(
+        f"| {s.name} | "
+        f"{'OK' if s.status == StepStatus.SUCCESS else 'Skipped' if s.status == StepStatus.SKIPPED else 'FAILED'}"
+        f" | {s.detail} |"
+        for s in result.steps
+    )
+
+    content = f"""# Onboarding Report: {result.name}
+
+- **Date**: {today}
+- **Email**: {result.email}
+- **Company**: {result.company_code}
+
+## Provisioning Steps
+
+| Step | Status | Detail |
+|------|--------|--------|
+{steps_table}
+
+## Authentik (SSO)
+
+| Item | Value |
+|------|-------|
+| User ID | {result.user_id or "N/A"} |
+| Username | {result.email.split("@")[0]} |
+| Email | {result.email} |
+| Groups | {", ".join(result.groups) if result.groups else "(none)"} |
+
+## Mailcow (Email)
+
+| Item | Value |
+|------|-------|
+| Mailbox | {result.email} |
+| Quota | {result.mailbox_quota_gb} GB |
+| Auth Source | generic-oidc |
+
+## Recovery Link
+
+- URL: {link}
+- Expiry: 7 days, one-time use
+
+## Email Template
+
+```
+Subject: Selamat Datang di {result.company_code} - Akun Digital Anda Sudah Aktif
+
+Yth. {result.name},
+
+Selamat datang di {result.company_code}! Akun digital Anda telah diaktifkan.
+
+Email     : {result.email}
+Login SSO : {sso_url}
+
+Langkah pertama:
+1. Buka link aktivasi berikut (berlaku 7 hari, sekali pakai):
+   {link}
+2. Buat password baru Anda
+3. Setelah itu, login ke semua aplikasi {result.company_code} menggunakan email & password di atas
+
+Aplikasi yang bisa diakses:
+{apps_email}
+{
+        ""
+        if not result.guide_url
+        else f'''
+Panduan lengkap setup Desktop & Mobile:
+  {result.guide_url}
+'''
+    }Jika ada kendala, hubungi IT Support.
+
+Salam,
+IT Department - {result.company_code}
+```
+
+## WhatsApp Template
+
+```
+Halo {result.name},
+
+Selamat datang di {result.company_code}! Akun digital kamu sudah aktif:
+
+Email: {result.email}
+Login: {sso_url}
+
+Langkah aktivasi:
+1. Buka link ini (berlaku 7 hari): {link}
+2. Buat password baru
+3. Setelah itu bisa login ke semua aplikasi {result.company_code} pakai email & password tsb
+
+Aplikasi:
+{apps_wa}
+{
+        ""
+        if not result.guide_url
+        else f'''
+Panduan setup Desktop & Mobile:
+{result.guide_url}
+'''
+    }Kalau ada masalah, hubungi IT ya.
+```
+"""
+    log_path.write_text(content)
+    return log_path
+
+
 def _build_chain(ctx: typer.Context, dry_run: bool) -> ProvisionChain:
     """Build a ProvisionChain from context and config."""
     c: AppContext = ctx.obj
     config_path = _resolve_config_path()
     config = load_provision_config(config_path)
 
-    # Odoo credentials from env: ODOO_<TARGET_SLUG>_DB, ODOO_<TARGET_SLUG>_KEY
     odoo_creds: dict[str, dict[str, str]] = {}
     for company_cfg in config.companies.values():
         for target in company_cfg.odoo_targets:
@@ -111,6 +332,12 @@ def onboard(
     result = chain.onboard(email=email, name=name, company=company)
     _print_result(c, result)
 
+    if result.success and not dry_run:
+        _print_onboard_report(c, result)
+        log_path = _save_onboard_log(result)
+        if log_path:
+            c.output.info(f"Log saved: {log_path}")
+
     if not result.success:
         raise typer.Exit(1)
 
@@ -144,7 +371,6 @@ def status(
 
     sections: list[tuple[str, list[tuple[str, str]]]] = []
 
-    # Authentik
     ak_data = c.client.get("core/users/", params={"email": email})
     users = ak_data.get("results", [])
     if users:
@@ -165,7 +391,6 @@ def status(
     else:
         sections.append(("Authentik", [("Status", "not found")]))
 
-    # Mailcow
     mailcow_key = os.getenv("MAILCOW_API_KEY", "")
     if mailcow_key:
         from kctl_ak.provision.mailcow_client import MailcowProvisionClient
@@ -188,7 +413,6 @@ def status(
     else:
         sections.append(("Mailcow", [("Status", "MAILCOW_API_KEY not set")]))
 
-    # Odoo targets
     domain = email.split("@", 1)[1]
     for code, cfg in config.companies.items():
         if cfg.domain != domain:
@@ -260,7 +484,6 @@ def sync(
 
         hrms = OdooProvisionClient(base_url=f"https://{cfg.hrms}", database=db, api_key=key)
 
-        # Fetch all employees with email
         employees = hrms._execute_kw(
             "hr.employee",
             "search_read",
@@ -268,7 +491,6 @@ def sync(
             {"fields": ["name", "work_email", "active"], "limit": 0},
         )
 
-        # Fetch all Authentik users with this company's domain
         ak_users_data = c.client.get("core/users/", params={"search": f"@{cfg.domain}", "page_size": 500})
         ak_users = {
             u["email"]: u for u in ak_users_data.get("results", []) if u.get("email", "").endswith(f"@{cfg.domain}")
@@ -343,14 +565,14 @@ def setup_webhook(
         raise typer.Exit(1)
 
     from kctl_ak.provision.webhook_setup import (
-        generate_webhook_code,
         build_automation_vals,
-        find_existing_automation,
         create_automation,
-        update_automation,
         delete_automation,
-        resolve_model_id,
+        find_existing_automation,
+        generate_webhook_code,
         resolve_field_id,
+        resolve_model_id,
+        update_automation,
     )
 
     rows: list[list[str]] = []
@@ -385,7 +607,6 @@ def setup_webhook(
                 c.output.error(f"{code}: failed to remove: {e}")
             continue
 
-        # Setup or update
         try:
             c.output.info(f"{code}: resolving model IDs on {cfg.hrms}...")
             model_id = resolve_model_id(profile, "hr.employee")
