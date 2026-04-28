@@ -49,16 +49,73 @@ What this does:
 
 ### Finding the backup_id
 
-```bash
-# 1. List composes on the source profile, grab the composeId for the DB service.
-kctl-dokploy -p idtpp compose list
+**IMPORTANT:** Backup configs live on the **infra-postgres** compose, NOT on the
+Odoo compose. Each tenant group has its own infra-postgres:
 
-# 2. List backup configs scoped to that compose.
-kctl-dokploy -p idtpp backups list --compose <compose_id>
+| Tenant | Infra Postgres Compose | Profile |
+|---|---|---|
+| MAC | `UL9UNK_WvbjNKR-KB6aCr` (mac-infra-postgres) | `idtpp-mac` |
+| TPP | `2iEl8DzSWOMFOClweOhiZ` (tpp-infra-postgres) | `idtpp` |
+
+```bash
+# 1. List backups on the INFRA-POSTGRES compose (not the Odoo compose!)
+kctl-dokploy -p idtpp-mac backups list --compose UL9UNK_WvbjNKR-KB6aCr   # MAC
+kctl-dokploy -p idtpp backups list --compose 2iEl8DzSWOMFOClweOhiZ        # TPP
+
+# 2. Identify which backup_id is for your target database.
+kctl-dokploy -p idtpp-mac backups get <backup_id>
 
 # 3. Pick the row whose "Database" matches the DB you want — that's <backup_id>.
-kctl-dokploy -p idtpp backups get <backup_id>
 ```
+
+### Known backup IDs (quick reference)
+
+| Database | Backup ID | Infra Compose | Profile |
+|---|---|---|---|
+| `mac_odoo_erp` | `5Ku-fyw3O7Z1OIEztfcH5` | mac-infra-postgres | `idtpp-mac` |
+| `mac_odoo_hrms` | `gnM3xWzr-dvG3UmZrS8Br` | mac-infra-postgres | `idtpp-mac` |
+| `tpp_odoo_erp` | `h8WoZGaZfJ1TAFLZdNZvP` | tpp-infra-postgres | `idtpp` |
+| `tpp_odoo_hrms` | `85cwZU8trJN8OEJUYgELD` | tpp-infra-postgres | `idtpp` |
+
+### Copy-paste recipes per tenant
+
+**MAC Odoo ERP → local:**
+```bash
+kctl-dokploy -p idtpp-mac backups pull 5Ku-fyw3O7Z1OIEztfcH5 \
+    --target-db mac_odoo_erp \
+    --target-host localhost --target-port 5434 \
+    --target-user odoo --target-password local-dev-app-pw \
+    --trigger --force
+```
+
+**MAC Odoo HRMS → local:**
+```bash
+kctl-dokploy -p idtpp-mac backups pull gnM3xWzr-dvG3UmZrS8Br \
+    --target-db mac_odoo_hrms \
+    --target-host localhost --target-port 5434 \
+    --target-user odoo --target-password local-dev-app-pw \
+    --trigger --force
+```
+
+**TPP Odoo ERP → local:**
+```bash
+kctl-dokploy -p idtpp backups pull h8WoZGaZfJ1TAFLZdNZvP \
+    --target-db tpp_odoo_erp \
+    --target-host localhost --target-port 5434 \
+    --target-user odoo --target-password local-dev-app-pw \
+    --trigger --force
+```
+
+**TPP Odoo HRMS → local:**
+```bash
+kctl-dokploy -p idtpp backups pull 85cwZU8trJN8OEJUYgELD \
+    --target-db tpp_odoo_hrms \
+    --target-host localhost --target-port 5434 \
+    --target-user odoo --target-password local-dev-app-pw \
+    --trigger --force
+```
+
+After restore, restart local Odoo: `kctl-odoo -p local-mac-odoo-erp local restart`
 
 ### `--trigger` vs. latest existing
 
@@ -211,6 +268,8 @@ Dokploy runs `docker exec -i sh` (wrong container) and `pg_restore -U ''`
 | Symptom | Cause + fix |
 |---|---|
 | `Compose '<id>' not found` | Wrong compose ID for that profile. Re-run `kctl-dokploy --profile <name> compose list` and copy the ID column exactly (case-sensitive). |
+| Empty backup list for Odoo compose | Backups are on the **infra-postgres** compose, not the Odoo compose. Use `compose list \| grep infra-postgres` to find the right compose ID, then `backups list --compose <infra-postgres-id>`. |
+| `backups create` fails with SQL error on Odoo compose | You're creating the backup on the wrong compose. Create it on the infra-postgres compose instead: `--compose <infra-postgres-compose-id>`. |
 | `Backup '<id>' not found` (during `backups pull`) | `backup_id` belongs to a different profile. `pull` uses the profile passed to `-p`; run `kctl-dokploy -p <src> backups list --compose <id>` on the correct profile. |
 | `Timed out after Ns waiting for a new backup` (with `--trigger`) | Source dump is slow or cron is disabled. Bump `--wait-timeout 900`; check `backups get <id>` to confirm `enabled=True`. |
 | `No S3 objects found under prefix '...'` (without `--trigger`) | No scheduled dump exists yet. Run once with `--trigger` or verify the nightly schedule via `backups list --compose <id>`. |

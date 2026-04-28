@@ -293,6 +293,198 @@ def domains(ctx: typer.Context) -> None:
         c.output.warn(f"{warnings} domain(s) without HTTPS detected")
 
 
+_INVENTORY_SORT_KEYS = {
+    "name": "service",
+    "service": "service",
+    "server": "server",
+    "project": "project",
+    "status": "status",
+    "domain": "domain",
+    "ip": "ip",
+}
+
+
+@app.command()
+def inventory(
+    ctx: typer.Context,
+    sort: Annotated[
+        str,
+        typer.Option("--sort", "-s", help="Sort by: name, server, project, status, domain, ip"),
+    ] = "server",
+    filter_server: Annotated[
+        str | None,
+        typer.Option("--server", help="Filter by server name or IP (substring match)"),
+    ] = None,
+    filter_project: Annotated[
+        str | None,
+        typer.Option("--project", help="Filter by project name"),
+    ] = None,
+    filter_status: Annotated[
+        str | None,
+        typer.Option("--status", help="Filter by status: online, offline"),
+    ] = None,
+) -> None:
+    """Service inventory: service, domain, server, IP, project, status."""
+    c: AppContext = ctx.obj
+
+    data = collect_all_services(c.client)
+
+    # Build server lookup: serverId -> {name, ip}
+    server_map: dict[str, dict[str, str]] = {}
+    try:
+        servers = c.client.get("/server.all")
+        if isinstance(servers, list):
+            for s in servers:
+                sid = s.get("serverId", "")
+                if sid:
+                    server_map[sid] = {
+                        "name": s.get("name", ""),
+                        "ip": s.get("ipAddress", ""),
+                    }
+    except Exception:
+        pass
+
+    items: list[dict] = []
+
+    for comp in data["composes"]:
+        name = comp.get("name", "")
+        project = comp.get("_project", "")
+        status = comp.get("composeStatus", "unknown").lower()
+
+        sid = comp.get("serverId")
+        srv = server_map.get(sid, {}) if sid else {}
+        server_name = srv.get("name", "dokploy-host")
+        server_ip = srv.get("ip", "-")
+
+        domains = comp.get("domains", [])
+        domain_str = ", ".join(d.get("host", "") for d in domains) if domains else "-"
+        raw_status = "online" if status == "done" else "offline"
+        has_https = all(d.get("https", False) for d in domains) if domains else False
+        source = comp.get("sourceType", "-")
+        auto_deploy = comp.get("autoDeploy", False)
+
+        items.append(
+            {
+                "service": name,
+                "domain": domain_str,
+                "domains": [d.get("host", "") for d in domains],
+                "server": server_name,
+                "ip": server_ip,
+                "project": project,
+                "status": raw_status,
+                "https": has_https,
+                "source": source,
+                "auto_deploy": auto_deploy,
+                "type": "compose",
+            }
+        )
+
+    for app_item in data["applications"]:
+        name = app_item.get("name", "")
+        project = app_item.get("_project", "")
+        status = app_item.get("applicationStatus", "unknown").lower()
+
+        sid = app_item.get("serverId")
+        srv = server_map.get(sid, {}) if sid else {}
+        server_name = srv.get("name", "dokploy-host")
+        server_ip = srv.get("ip", "-")
+
+        domains = app_item.get("domains", [])
+        domain_str = ", ".join(d.get("host", "") for d in domains) if domains else "-"
+        raw_status = "online" if status in ("done", "running") else "offline"
+        has_https = all(d.get("https", False) for d in domains) if domains else False
+        auto_deploy = app_item.get("autoDeploy", False)
+
+        items.append(
+            {
+                "service": name,
+                "domain": domain_str,
+                "domains": [d.get("host", "") for d in domains],
+                "server": server_name,
+                "ip": server_ip,
+                "project": project,
+                "status": raw_status,
+                "https": has_https,
+                "source": "-",
+                "auto_deploy": auto_deploy,
+                "type": "app",
+            }
+        )
+
+    # Filter
+    if filter_server:
+        q = filter_server.lower()
+        items = [i for i in items if q in i["server"].lower() or q in i["ip"].lower()]
+    if filter_project:
+        q = filter_project.lower()
+        items = [i for i in items if q in i["project"].lower()]
+    if filter_status:
+        q = filter_status.lower()
+        items = [i for i in items if i["status"] == q]
+
+    # Sort
+    sort_key = _INVENTORY_SORT_KEYS.get(sort.lower(), "server")
+    items.sort(key=lambda x: (x.get(sort_key, ""), x.get("service", "")))
+
+    # Count summary
+    online_count = sum(1 for i in items if i["status"] == "online")
+    offline_count = len(items) - online_count
+
+    rows: list[list[str]] = []
+    json_data: list[dict] = []
+    for item in items:
+        status_label = "[green]online[/green]" if item["status"] == "online" else "[red]offline[/red]"
+        https_label = "[green]yes[/green]" if item["https"] else ("[red]no[/red]" if item["domains"] else "-")
+        deploy_label = "[green]auto[/green]" if item["auto_deploy"] else "manual"
+        rows.append(
+            [
+                item["service"],
+                item["domain"],
+                item["server"],
+                item["ip"],
+                item["project"],
+                https_label,
+                deploy_label,
+                status_label,
+            ]
+        )
+        json_data.append(
+            {
+                "service": item["service"],
+                "domains": item["domains"],
+                "server": item["server"],
+                "ip": item["ip"],
+                "project": item["project"],
+                "https": item["https"],
+                "source": item["source"],
+                "auto_deploy": item["auto_deploy"],
+                "type": item["type"],
+                "status": item["status"],
+            }
+        )
+
+    title_parts = [f"{len(items)} services"]
+    if offline_count:
+        title_parts.append(f"{offline_count} offline")
+    title_parts.append(f"sorted by {sort_key}")
+
+    c.output.table(
+        f"Service Inventory ({', '.join(title_parts)})",
+        [
+            ("Service", "cyan"),
+            ("Domain", ""),
+            ("Server", "green"),
+            ("IP", "dim"),
+            ("Project", ""),
+            ("HTTPS", ""),
+            ("Deploy", ""),
+            ("Status", ""),
+        ],
+        rows,
+        data_for_json=json_data,
+    )
+
+
 @app.command()
 def resources(ctx: typer.Context) -> None:
     """Resource utilization summary across servers."""
