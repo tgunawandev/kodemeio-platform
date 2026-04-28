@@ -1004,3 +1004,492 @@ def audit(
             f"{k}={by_status[k]}" for k in sorted(by_status, key=lambda s: _AUDIT_STATUS_ORDER.get(s, 99))
         )
         out.info(f"Status counts: {summary_line}")
+
+
+# ---------------------------------------------------------------------------
+# audit-report: comprehensive Excel audit workbook
+# ---------------------------------------------------------------------------
+
+
+def _audit_report_collect(client, source_filter: str, private_names: set[str] | None, out) -> dict:
+    """Collect comprehensive audit data for all installed modules."""
+    out.info("Collecting installed modules...")
+    modules = client.search_read(
+        "ir.module.module",
+        domain=[("state", "in", ["installed", "to upgrade"])],
+        fields=["name", "shortdesc", "state", "installed_version", "author", "dependencies_id"],
+        limit=0,
+        order="name",
+    )
+
+    filtered = []
+    for mod in modules:
+        name = mod["name"]
+        is_private = private_names is not None and name in private_names
+        if source_filter == "private" and not is_private:
+            continue
+        if source_filter == "oca" and is_private:
+            continue
+        mod["_source"] = "private" if is_private else "oca/core"
+        filtered.append(mod)
+
+    mod_names = {m["name"] for m in filtered}
+
+    out.info("Collecting dependencies...")
+    all_dep_ids = []
+    for mod in filtered:
+        all_dep_ids.extend(mod.get("dependencies_id") or [])
+    dep_map: dict[str, list[str]] = {m["name"]: [] for m in filtered}
+    if all_dep_ids:
+        for chunk_start in range(0, len(all_dep_ids), 1000):
+            chunk = all_dep_ids[chunk_start : chunk_start + 1000]
+            deps = client.search_read(
+                "ir.module.module.dependency",
+                domain=[("id", "in", chunk)],
+                fields=["module_id", "name", "depend_id"],
+                limit=0,
+            )
+            for d in deps:
+                parent = d["module_id"][1] if d["module_id"] else None
+                if parent and parent in dep_map:
+                    dep_map[parent].append(d["name"])
+
+    out.info("Collecting reverse dependencies...")
+    rdep_map: dict[str, list[str]] = {m["name"]: [] for m in filtered}
+    rdeps_raw = client.search_read(
+        "ir.module.module.dependency",
+        domain=[("name", "in", list(mod_names))],
+        fields=["module_id", "name"],
+        limit=0,
+    )
+    for d in rdeps_raw:
+        dep_name = d["name"]
+        parent_name = d["module_id"][1] if d["module_id"] else None
+        if dep_name in rdep_map and parent_name:
+            rdep_map[dep_name].append(parent_name)
+
+    out.info("Collecting model ownership...")
+    mapping_rows = client.search_read(
+        "ir.model.data",
+        domain=[("model", "=", "ir.model")],
+        fields=["module", "res_id"],
+        limit=0,
+    )
+    models_by_module: dict[str, list[int]] = {}
+    for row in mapping_rows:
+        models_by_module.setdefault(row["module"], []).append(row["res_id"])
+
+    all_model_ids = sorted({mid for ids in models_by_module.values() for mid in ids})
+    model_info: dict[int, dict] = {}
+    if all_model_ids:
+        for cs in range(0, len(all_model_ids), 1000):
+            chunk = all_model_ids[cs : cs + 1000]
+            info = client.search_read(
+                "ir.model",
+                domain=[("id", "in", chunk)],
+                fields=["id", "model", "name", "transient", "field_id"],
+                limit=0,
+            )
+            for mi in info:
+                model_info[mi["id"]] = mi
+
+    out.info("Collecting views, menus, reports, groups, ACL, record rules...")
+    imd_counts_models = [
+        ("ir.ui.view", "views"),
+        ("ir.ui.menu", "menus"),
+        ("ir.actions.report", "reports"),
+        ("res.groups", "groups"),
+        ("ir.model.access", "acl_rules"),
+        ("ir.rule", "record_rules"),
+    ]
+    counts_by_module: dict[str, dict[str, int]] = {m["name"]: {} for m in filtered}
+    for odoo_model, key in imd_counts_models:
+        imd_rows = client.search_read(
+            "ir.model.data",
+            domain=[("model", "=", odoo_model), ("module", "in", list(mod_names))],
+            fields=["module"],
+            limit=0,
+        )
+        per_mod: dict[str, int] = {}
+        for row in imd_rows:
+            per_mod[row["module"]] = per_mod.get(row["module"], 0) + 1
+        for mname in mod_names:
+            counts_by_module.setdefault(mname, {})[key] = per_mod.get(mname, 0)
+
+    out.info("Counting rows and last activity per model (this may take a minute)...")
+    model_details: list[dict] = []
+    module_totals: dict[str, int] = {}
+    module_last_activity: dict[str, str] = {}
+
+    for mod in filtered:
+        name = mod["name"]
+        m_ids = models_by_module.get(name, [])
+        total = 0
+        for mid in m_ids:
+            mi = model_info.get(mid)
+            if not mi:
+                continue
+            model_name = mi["model"]
+            is_transient = mi.get("transient", False)
+            cnt = 0
+            last_write = None
+            if not is_transient:
+                try:
+                    cnt = client.search_count(model_name, [])
+                except Exception:
+                    cnt = 0
+                if cnt > 0:
+                    try:
+                        latest = client.search_read(
+                            model_name,
+                            domain=[],
+                            fields=["write_date"],
+                            limit=1,
+                            order="write_date desc",
+                        )
+                        if latest:
+                            last_write = latest[0].get("write_date")
+                    except Exception:
+                        pass
+                total += cnt
+
+            field_count = len(mi.get("field_id") or [])
+            model_details.append(
+                {
+                    "module": name,
+                    "model": model_name,
+                    "description": mi.get("name") or "",
+                    "transient": is_transient,
+                    "row_count": cnt,
+                    "last_write": last_write or "",
+                    "field_count": field_count,
+                }
+            )
+
+            if last_write:
+                prev = module_last_activity.get(name, "")
+                if last_write > prev:
+                    module_last_activity[name] = last_write
+
+        module_totals[name] = total
+
+    out.info("Collecting group access matrix...")
+    group_access: list[dict] = []
+    group_imd = client.search_read(
+        "ir.model.data",
+        domain=[("model", "=", "res.groups"), ("module", "in", list(mod_names))],
+        fields=["module", "res_id"],
+        limit=0,
+    )
+    group_ids = [r["res_id"] for r in group_imd]
+    group_to_module = {r["res_id"]: r["module"] for r in group_imd}
+    if group_ids:
+        groups_data = client.search_read(
+            "res.groups",
+            domain=[("id", "in", group_ids)],
+            fields=["id", "full_name", "users"],
+            limit=0,
+        )
+        acl_rows = client.search_read(
+            "ir.model.access",
+            domain=[("group_id", "in", group_ids)],
+            fields=["group_id", "model_id", "perm_read", "perm_write", "perm_create", "perm_unlink"],
+            limit=0,
+        )
+        acl_by_group: dict[int, list[str]] = {}
+        for a in acl_rows:
+            gid = a["group_id"][0] if a["group_id"] else 0
+            model_label = a["model_id"][1] if a["model_id"] else "?"
+            perms = []
+            if a.get("perm_read"):
+                perms.append("R")
+            if a.get("perm_write"):
+                perms.append("W")
+            if a.get("perm_create"):
+                perms.append("C")
+            if a.get("perm_unlink"):
+                perms.append("D")
+            acl_by_group.setdefault(gid, []).append(f"{model_label} ({''.join(perms)})")
+        for g in groups_data:
+            group_access.append(
+                {
+                    "module": group_to_module.get(g["id"], "?"),
+                    "group": g.get("full_name") or "",
+                    "users_count": len(g.get("users") or []),
+                    "models_access": "; ".join(acl_by_group.get(g["id"], [])),
+                }
+            )
+
+    summary = []
+    for mod in filtered:
+        name = mod["name"]
+        total = module_totals.get(name, 0)
+        persistent = [
+            model_info[mid]
+            for mid in models_by_module.get(name, [])
+            if mid in model_info and not model_info[mid].get("transient")
+        ]
+        status = _audit_classify(total, bool(persistent))
+        if status == "UNUSED":
+            rec = "UNINSTALL candidate"
+        elif status == "LOW":
+            rec = "REVIEW"
+        elif status == "INHERIT":
+            rec = "KEEP (bridge)"
+        else:
+            rec = "KEEP"
+
+        c_data = counts_by_module.get(name, {})
+        summary.append(
+            {
+                "module": name,
+                "display_name": mod.get("shortdesc") or "",
+                "source": mod["_source"],
+                "version": mod.get("installed_version") or "",
+                "status": status,
+                "total_models": len(models_by_module.get(name, [])),
+                "total_rows": total,
+                "views": c_data.get("views", 0),
+                "menus": c_data.get("menus", 0),
+                "reports": c_data.get("reports", 0),
+                "groups": c_data.get("groups", 0),
+                "acl_rules": c_data.get("acl_rules", 0),
+                "record_rules": c_data.get("record_rules", 0),
+                "dependencies": ", ".join(dep_map.get(name, [])),
+                "reverse_deps": ", ".join(rdep_map.get(name, [])),
+                "last_activity": module_last_activity.get(name, ""),
+                "recommendation": rec,
+            }
+        )
+
+    summary.sort(
+        key=lambda r: (
+            _AUDIT_STATUS_ORDER.get(r["status"], 99),
+            -r["total_rows"],
+            r["module"],
+        ),
+    )
+
+    return {
+        "summary": summary,
+        "model_details": model_details,
+        "group_access": group_access,
+    }
+
+
+def _write_audit_xlsx(data: dict, output_path: Path, profile_label: str) -> None:
+    """Write the audit workbook."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    hdr_fill = PatternFill("solid", fgColor="2F5496")
+    unused_fill = PatternFill("solid", fgColor="FFC7CE")
+    low_fill = PatternFill("solid", fgColor="FFEB9C")
+    heavy_fill = PatternFill("solid", fgColor="C6EFCE")
+    border = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+    status_fills = {
+        "UNUSED": unused_fill,
+        "LOW": low_fill,
+        "HEAVY": heavy_fill,
+    }
+
+    def write_headers(ws, headers, widths=None):
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = hdr_font
+            cell.fill = hdr_fill
+            cell.alignment = Alignment(horizontal="center", wrap_text=True)
+        if widths:
+            for i, w in enumerate(widths, 1):
+                ws.column_dimensions[get_column_letter(i)].width = w
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}1"
+
+    # ── Sheet 1: Module Summary ──
+    ws1 = wb.active
+    ws1.title = "Module Summary"
+    headers1 = [
+        "Module",
+        "Display Name",
+        "Source",
+        "Version",
+        "Status",
+        "Models",
+        "Total Rows",
+        "Views",
+        "Menus",
+        "Reports",
+        "Groups",
+        "ACL Rules",
+        "Record Rules",
+        "Dependencies",
+        "Reverse Deps",
+        "Last Activity",
+        "Recommendation",
+    ]
+    widths1 = [30, 30, 12, 14, 12, 8, 12, 8, 8, 8, 8, 10, 12, 40, 30, 20, 18]
+    write_headers(ws1, headers1, widths1)
+
+    for row_idx, r in enumerate(data["summary"], 2):
+        values = [
+            r["module"],
+            r["display_name"],
+            r["source"],
+            r["version"],
+            r["status"],
+            r["total_models"],
+            r["total_rows"],
+            r["views"],
+            r["menus"],
+            r["reports"],
+            r["groups"],
+            r["acl_rules"],
+            r["record_rules"],
+            r["dependencies"],
+            r["reverse_deps"],
+            r["last_activity"],
+            r["recommendation"],
+        ]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws1.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = border
+        fill = status_fills.get(r["status"])
+        if fill:
+            for col_idx in range(1, len(values) + 1):
+                ws1.cell(row=row_idx, column=col_idx).fill = fill
+
+    # ── Sheet 2: Model Detail ──
+    ws2 = wb.create_sheet("Model Detail")
+    headers2 = ["Module", "Model", "Description", "Transient", "Row Count", "Last Write", "Fields"]
+    widths2 = [30, 35, 30, 10, 12, 20, 8]
+    write_headers(ws2, headers2, widths2)
+
+    sorted_models = sorted(
+        data["model_details"],
+        key=lambda m: (m["module"], -m["row_count"], m["model"]),
+    )
+    for row_idx, m in enumerate(sorted_models, 2):
+        values = [
+            m["module"],
+            m["model"],
+            m["description"],
+            "Yes" if m["transient"] else "No",
+            m["row_count"],
+            m["last_write"],
+            m["field_count"],
+        ]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws2.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = border
+
+    # ── Sheet 3: Group & Access Matrix ──
+    ws3 = wb.create_sheet("Group Access Matrix")
+    headers3 = ["Module", "Group", "Users", "Models with Access (RWCD)"]
+    widths3 = [30, 40, 8, 80]
+    write_headers(ws3, headers3, widths3)
+
+    sorted_groups = sorted(
+        data["group_access"],
+        key=lambda g: (g["module"], g["group"]),
+    )
+    for row_idx, g in enumerate(sorted_groups, 2):
+        values = [g["module"], g["group"], g["users_count"], g["models_access"]]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws3.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = border
+
+    wb.save(output_path)
+
+
+@app.command("audit-report")
+def audit_report(
+    ctx: typer.Context,
+    source: Annotated[
+        str,
+        typer.Option(
+            "--source",
+            "-s",
+            help="Filter by source: all | private | oca",
+            case_sensitive=False,
+        ),
+    ] = "all",
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output Excel file path.",
+        ),
+    ] = Path("modules-audit-report.xlsx"),
+) -> None:
+    """Comprehensive module audit report as Excel workbook.
+
+    Produces a multi-sheet .xlsx with:
+      - Sheet 1: Module Summary (rows, views, menus, reports, groups, ACL, deps, recommendation)
+      - Sheet 2: Model Detail (per-model row counts, last write date, field counts)
+      - Sheet 3: Group & Access Matrix (groups per module, user counts, CRUD access)
+
+    Examples:
+        kctl-odoo modules audit-report
+        kctl-odoo modules audit-report --source private -o tpp-audit.xlsx
+        kctl-odoo -p idtpp-tpp-odoo-erp modules audit-report -o tpp-erp-audit.xlsx
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    source = source.lower()
+    if source not in {"all", "private", "oca"}:
+        out.error("--source must be all, private, or oca")
+        raise typer.Exit(2)
+
+    private_names: set[str] | None = None
+    if source in {"private", "all"}:
+        root = None
+        try:
+            from kctl_odoo.core.utils import find_project_root
+
+            candidate = find_project_root() / "src" / "private"
+            if candidate.is_dir():
+                root = candidate
+        except Exception:
+            pass
+        if root is None:
+            cwd_candidate = Path.cwd() / "src" / "private"
+            if cwd_candidate.is_dir():
+                root = cwd_candidate
+        if root is None:
+            if source == "private":
+                out.warn("Could not auto-detect src/private — pass --private-root PATH.")
+            private_names = set()
+        else:
+            private_names = {m.parent.name for m in root.rglob("__manifest__.py")}
+
+    data = _audit_report_collect(c, source, private_names, out)
+
+    profile_label = getattr(c, "database", "") or "odoo"
+    _write_audit_xlsx(data, output, profile_label)
+
+    summary = data["summary"]
+    by_status: dict[str, int] = {}
+    for r in summary:
+        by_status[r["status"]] = by_status.get(r["status"], 0) + 1
+
+    out.success(
+        f"Wrote {output} — {len(summary)} modules, "
+        f"{len(data['model_details'])} models, "
+        f"{len(data['group_access'])} group-access rows"
+    )
+    if by_status:
+        summary_line = " · ".join(
+            f"{k}={by_status[k]}" for k in sorted(by_status, key=lambda s: _AUDIT_STATUS_ORDER.get(s, 99))
+        )
+        out.info(f"Status: {summary_line}")
