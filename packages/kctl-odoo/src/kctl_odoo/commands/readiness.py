@@ -956,6 +956,7 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
         "Category Quality": [],
         "Bank Journal Quality": [],
         "Financial Reports Setup": [],
+        "Top Issues": [],
     }
 
     # ── Company Settings ────────────────────────────────────────────────
@@ -1587,35 +1588,61 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
             )
         )
 
-    # ── Product Quality — per-product missing fields ────────────────────
+    # ── Product Quality — per-product missing fields with severity ──────
     products = target.get("products_sample") or []
     for p in products:
         # Filter to this company (or company-shared)
         p_co = _safe_id(p.get("company_id"))
         if p_co and p_co != target["company_id"]:
             continue
-        issues = []
-        if not p.get("default_code"):
-            issues.append("no default_code")
-        if not p.get("uom_id"):
-            issues.append("no UoM")
-        if not p.get("uom_po_id"):
-            issues.append("no Purchase UoM")
-        if not p.get("categ_id"):
-            issues.append("no category")
         ptype = p.get("type") or p.get("detailed_type") or ""
-        if ptype in ("product", "consu") and not p.get("standard_price"):
-            issues.append("no standard_price")
-        if not (p.get("taxes_id") or []):
-            issues.append("no sale tax")
-        if not (p.get("supplier_taxes_id") or []):
-            issues.append("no purchase tax")
-        if not p.get("property_account_income_id"):
-            issues.append("no income account override")
-        if not p.get("property_account_expense_id"):
-            issues.append("no expense account override")
-        if not issues:
-            continue  # only list problems
+        is_storable = ptype == "product"  # only "product" is stockable in Odoo 18
+        is_service = ptype == "service"
+        is_consu = ptype == "consu"
+
+        # CRITICAL issues — block business operations
+        critical = []
+        if not p.get("uom_id"):
+            critical.append("no UoM")
+        if not p.get("categ_id"):
+            critical.append("no category")
+        if is_storable and not p.get("standard_price"):
+            critical.append("no standard_price (storable)")
+
+        # IMPORTANT — needed for normal workflows
+        important = []
+        if not p.get("default_code"):
+            important.append("no default_code")
+        if not p.get("uom_po_id") and (p.get("uom_id") != p.get("uom_po_id")):
+            # Only flag if uom_po differs and is missing
+            if not p.get("uom_po_id"):
+                important.append("no Purchase UoM")
+        if not (p.get("taxes_id") or []) and not is_service:
+            important.append("no sale tax (uses category default if any)")
+        if not (p.get("supplier_taxes_id") or []) and not is_service:
+            important.append("no purchase tax (uses category default if any)")
+
+        # INFO — overrides, normal to be empty (use category defaults)
+        info_issues = []
+        # Only flag missing income/expense overrides if the category itself doesn't have them
+        # We'll skip these as they're usually fine to leave empty
+        # if not p.get("property_account_income_id"):
+        #     info_issues.append("no income account override")
+
+        all_issues = critical + important + info_issues
+        if not all_issues:
+            continue
+
+        if critical:
+            severity = "CRITICAL"
+            status = "FAIL"
+        elif important:
+            severity = "IMPORTANT"
+            status = "WARN"
+        else:
+            severity = "INFO"
+            status = "INFO"
+
         sheets["Product Quality"].append(
             _row(
                 company_name,
@@ -1623,14 +1650,16 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                 Name=_truncate(p.get("name"), 60),
                 Code=p.get("default_code") or "(none)",
                 Type=ptype or "?",
+                Severity=severity,
                 Category=_safe(p.get("categ_id")),
-                **{"Missing Fields": ", ".join(issues)},
-                Status="WARN" if len(issues) <= 2 else "FAIL",
-                **{"Issue Count": len(issues)},
+                **{"Missing Fields": ", ".join(all_issues)},
+                **{"Fix": "Inventory > Products > <product> — set the missing field"},
+                Status=status,
+                **{"Issue Count": len(all_issues)},
             )
         )
 
-    # ── Partner Quality — per-partner missing fields ────────────────────
+    # ── Partner Quality — smart checks per partner type ─────────────────
     partners = target.get("partners_sample") or []
     for prt in partners:
         # Filter to this company (or company-shared)
@@ -1639,41 +1668,74 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
             continue
         is_customer = (prt.get("customer_rank") or 0) > 0
         is_vendor = (prt.get("supplier_rank") or 0) > 0
-        issues = []
+        is_company = prt.get("is_company")
+        # B2C heuristic: individual customers (not is_company), low rank
+        is_b2c = is_customer and not is_company and not is_vendor
+
+        # CRITICAL — blocks invoicing / payment
+        critical = []
         if not prt.get("name"):
-            issues.append("no name")
-        if not prt.get("email") and not prt.get("phone") and not prt.get("mobile"):
-            issues.append("no contact (email/phone)")
-        if not prt.get("country_id"):
-            issues.append("no country")
-        if not prt.get("vat"):
-            issues.append("no VAT/NPWP")
+            critical.append("no name")
         if is_customer and not prt.get("property_account_receivable_id"):
-            issues.append("no AR account")
+            critical.append("no AR account")
         if is_vendor and not prt.get("property_account_payable_id"):
-            issues.append("no AP account")
-        if is_vendor and not (prt.get("bank_ids") or []):
-            issues.append("no bank account (vendor)")
-        if not prt.get("property_payment_term_id") and is_customer:
-            issues.append("no customer payment term")
-        if not prt.get("property_supplier_payment_term_id") and is_vendor:
-            issues.append("no vendor payment term")
-        if not issues:
+            critical.append("no AP account")
+
+        # IMPORTANT — needed for compliance / communication
+        important = []
+        if not prt.get("country_id"):
+            important.append("no country")
+        # NPWP only mandatory for companies (B2B), not B2C individuals
+        if is_company and not prt.get("vat"):
+            important.append("no NPWP (company)")
+        # Contact info only mandatory for vendors (we need to send POs/payments)
+        if is_vendor and not prt.get("email") and not prt.get("phone") and not prt.get("mobile"):
+            important.append("no contact (vendor)")
+        if is_vendor and is_company and not (prt.get("bank_ids") or []):
+            important.append("no bank account (company vendor)")
+
+        # INFO — recommended but not required
+        info_issues = []
+        if is_company and is_customer and not prt.get("property_payment_term_id"):
+            info_issues.append("no customer payment term")
+        if is_company and is_vendor and not prt.get("property_supplier_payment_term_id"):
+            info_issues.append("no vendor payment term")
+
+        all_issues = critical + important + info_issues
+        if not all_issues:
             continue
+
+        # B2C with only minor issues: skip entirely (reduces noise)
+        if is_b2c and not critical and not important:
+            continue
+
+        if critical:
+            severity = "CRITICAL"
+            status = "FAIL"
+        elif important:
+            severity = "IMPORTANT"
+            status = "WARN"
+        else:
+            severity = "INFO"
+            status = "INFO"
+
         ptype = "Customer" if is_customer and not is_vendor else ("Vendor" if is_vendor and not is_customer else "Both")
-        # Critical issues = any missing AR/AP/contact
-        critical = any(x in str(issues) for x in ("no AR", "no AP", "no contact"))
+        if is_b2c:
+            ptype += " (B2C)"
+
         sheets["Partner Quality"].append(
             _row(
                 company_name,
                 **{"Partner ID": prt.get("id")},
                 Name=_truncate(prt.get("name"), 60),
                 Type=ptype,
+                Severity=severity,
                 VAT=prt.get("vat") or "(none)",
                 Email=prt.get("email") or "",
-                **{"Missing Fields": ", ".join(issues)},
-                Status="FAIL" if critical else "WARN",
-                **{"Issue Count": len(issues)},
+                **{"Missing Fields": ", ".join(all_issues)},
+                **{"Fix": "Contacts > <partner> > Sales & Purchase tab — set property accounts"},
+                Status=status,
+                **{"Issue Count": len(all_issues)},
             )
         )
 
@@ -1792,6 +1854,43 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
             )
         )
 
+    # ── Top Issues — aggregate all CRITICAL across sheets ───────────────
+    # Sources to scan for FAIL or CRITICAL severity rows
+    issue_sources = [
+        ("Company Settings", "Setting"),
+        ("Account Types Coverage", "Account Type"),
+        ("Journals", "Code"),
+        ("Taxes", "Name"),
+        ("Tax Groups", "Name"),
+        ("Product Categories", "Name"),
+        ("Warehouses + Op Types", "Name"),
+        ("Bank Journal Quality", "Code"),
+        ("Financial Reports Setup", "Report"),
+        ("Config Coverage", "Item"),
+        ("Product Quality", "Name"),
+        ("Partner Quality", "Name"),
+        ("Category Quality", "Name"),
+    ]
+    for sheet_name, identifier_col in issue_sources:
+        for r in sheets.get(sheet_name, []):
+            severity = r.get("Severity", "")
+            status = r.get("Status", "")
+            if status == "FAIL" or severity == "CRITICAL":
+                ident = r.get(identifier_col) or r.get("Item") or r.get("Name") or ""
+                missing = r.get("Missing Fields") or r.get("Note") or ""
+                fix = r.get("Fix") or ""
+                sheets["Top Issues"].append(
+                    _row(
+                        company_name,
+                        Severity="CRITICAL" if severity == "CRITICAL" else "FAIL",
+                        Sheet=sheet_name,
+                        Item=str(ident)[:60],
+                        Issue=str(missing)[:200],
+                        Fix=str(fix)[:200],
+                        Status=status,
+                    )
+                )
+
     return sheets
 
 
@@ -1802,6 +1901,7 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
 
 SHEET_ORDER = [
     "Summary",
+    "Top Issues",
     "Config Coverage",
     "Financial Reports Setup",
     "Product Quality",
@@ -2160,8 +2260,10 @@ def _write_excel(
                 "Name",
                 "Code",
                 "Type",
+                "Severity",
                 "Category",
                 "Missing Fields",
+                "Fix",
                 "Status",
                 "Issue Count",
             ],
@@ -2173,9 +2275,11 @@ def _write_excel(
                 "Partner ID",
                 "Name",
                 "Type",
+                "Severity",
                 "VAT",
                 "Email",
                 "Missing Fields",
+                "Fix",
                 "Status",
                 "Issue Count",
             ],
@@ -2213,6 +2317,10 @@ def _write_excel(
                 "Missing Fields",
                 "Status",
             ],
+        ),
+        (
+            "Top Issues",
+            ["Company", "Severity", "Sheet", "Item", "Issue", "Fix", "Status"],
         ),
     ]
 
