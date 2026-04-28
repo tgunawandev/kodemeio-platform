@@ -421,7 +421,16 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
 
     # Company settings
     co = _try(
-        lambda: client.search_read("res.company", [("id", "=", company_id)], fields=COMPANY_FIELDS + ["logo"]),
+        lambda: client.search_read(
+            "res.company",
+            [("id", "=", company_id)],
+            fields=COMPANY_FIELDS + ["logo"],
+            context={
+                "allowed_company_ids": [company_id],
+                "company_id": company_id,
+                "default_company_id": company_id,
+            },
+        ),
         default=[],
     )
     data["company"] = co[0] if co else {}
@@ -1838,9 +1847,30 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
     # ── Bank Journal Quality — bank journals must have bank_account_id ─
     bank_journals = target.get("bank_journals_detail") or []
     payment_provider_journal_ids = target.get("payment_provider_journal_ids") or set()
+    PAYMENT_GATEWAY_NAMES = {
+        "ipaymu",
+        "midtrans",
+        "xendit",
+        "ovo",
+        "gopay",
+        "shopeepay",
+        "dana",
+        "linkaja",
+        "akulaku",
+        "kredivo",
+        "bca virtual account",
+        "bni va",
+        "mandiri va",
+        "bri va",
+    }
+    PAYMENT_GATEWAY_CODES = {"IPAYM", "MDTRS", "XEND", "OVO", "GOPAY", "SHOP", "DANA"}
     for bj in bank_journals:
         issues = []
-        is_payment_gateway = bj.get("id") in payment_provider_journal_ids
+        is_payment_gateway = (
+            bj.get("id") in payment_provider_journal_ids
+            or (bj.get("name") or "").strip().lower() in PAYMENT_GATEWAY_NAMES
+            or (bj.get("code") or "").strip().upper() in PAYMENT_GATEWAY_CODES
+        )
         if bj.get("type") == "bank" and not bj.get("bank_account_id") and not is_payment_gateway:
             issues.append("no bank_account_id linked")
         if not bj.get("default_account_id"):
