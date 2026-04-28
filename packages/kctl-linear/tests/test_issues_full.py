@@ -404,21 +404,21 @@ class TestIssuesComment:
 
 class TestIssuesSearch:
     def test_search_results(self, mock_client: MagicMock):
-        mock_client.query.return_value = {"issueSearch": {"nodes": [SAMPLE_ISSUE]}}
+        mock_client.query.return_value = {"searchIssues": {"nodes": [SAMPLE_ISSUE]}}
         with mock_linear_client(mock_client):
             result = runner.invoke(app, ["issues", "search", "login"])
         assert result.exit_code == 0
         call_args = mock_client.query.call_args
-        assert call_args[0][1]["query"] == "login"
+        assert call_args[0][1]["term"] == "login"
 
     def test_search_empty_results(self, mock_client: MagicMock):
-        mock_client.query.return_value = {"issueSearch": {"nodes": []}}
+        mock_client.query.return_value = {"searchIssues": {"nodes": []}}
         with mock_linear_client(mock_client):
             result = runner.invoke(app, ["issues", "search", "nonexistent"])
         assert result.exit_code == 0
 
     def test_search_with_limit(self, mock_client: MagicMock):
-        mock_client.query.return_value = {"issueSearch": {"nodes": [SAMPLE_ISSUE]}}
+        mock_client.query.return_value = {"searchIssues": {"nodes": [SAMPLE_ISSUE]}}
         with mock_linear_client(mock_client):
             result = runner.invoke(app, ["issues", "search", "bug", "--limit", "5"])
         assert result.exit_code == 0
@@ -426,20 +426,20 @@ class TestIssuesSearch:
         assert call_args[0][1]["first"] == 5
 
     def test_search_json_output(self, mock_client: MagicMock):
-        mock_client.query.return_value = {"issueSearch": {"nodes": [SAMPLE_ISSUE]}}
+        mock_client.query.return_value = {"searchIssues": {"nodes": [SAMPLE_ISSUE]}}
         with mock_linear_client(mock_client):
             result = runner.invoke(app, ["--json", "issues", "search", "login"])
         assert result.exit_code == 0
 
     def test_search_no_assignee(self, mock_client: MagicMock):
         issue_no_assignee = {**SAMPLE_ISSUE, "assignee": None}
-        mock_client.query.return_value = {"issueSearch": {"nodes": [issue_no_assignee]}}
+        mock_client.query.return_value = {"searchIssues": {"nodes": [issue_no_assignee]}}
         with mock_linear_client(mock_client):
             result = runner.invoke(app, ["issues", "search", "test"])
         assert result.exit_code == 0
 
     def test_search_multiple_results(self, mock_client: MagicMock):
-        mock_client.query.return_value = {"issueSearch": {"nodes": [SAMPLE_ISSUE, SAMPLE_ISSUE_2]}}
+        mock_client.query.return_value = {"searchIssues": {"nodes": [SAMPLE_ISSUE, SAMPLE_ISSUE_2]}}
         with mock_linear_client(mock_client):
             result = runner.invoke(app, ["issues", "search", "bug"])
         assert result.exit_code == 0

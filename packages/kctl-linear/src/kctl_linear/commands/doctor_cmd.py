@@ -16,12 +16,13 @@ class ConfigCheck:
     """Check that configuration is present."""
 
     name: str = "Configuration"
+    profile: str | None = None
 
     def run(self) -> CheckResult:
         try:
             from kctl_linear.core.config import get_service_config, resolve_active_profile_name
 
-            profile = resolve_active_profile_name()
+            profile = resolve_active_profile_name(self.profile)
             cfg = get_service_config(profile)
             if not cfg.api_key:
                 return CheckResult(
@@ -51,7 +52,7 @@ def doctor(ctx: typer.Context) -> None:
     actx: AppContext = ctx.obj
     out = actx.output
 
-    checks: list[DoctorCheck] = [ConfigCheck()]
+    checks: list[DoctorCheck] = [ConfigCheck(profile=actx.profile)]
     all_passed = run_doctor(checks, out)  # type: ignore[arg-type]
     if not all_passed:
         raise typer.Exit(code=1)

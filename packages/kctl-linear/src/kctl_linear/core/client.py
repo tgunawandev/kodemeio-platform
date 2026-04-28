@@ -119,12 +119,12 @@ query {
 """
 
 ISSUES_LIST_QUERY = """\
-query IssuesList($teamKey: String, $state: String, $assigneeId: String, $first: Int = 50) {
+query IssuesList($teamKey: String, $state: String, $assigneeId: ID, $first: Int = 50) {
   issues(
     first: $first
     filter: {
       team: { key: { eq: $teamKey } }
-      state: { name: { eqi: $state } }
+      state: { name: { eq: $state } }
       assignee: { id: { eq: $assigneeId } }
     }
   ) {
@@ -233,8 +233,8 @@ mutation CommentCreate($issueId: String!, $body: String!) {
 """
 
 ISSUE_SEARCH_QUERY = """\
-query IssueSearch($query: String!, $first: Int = 50) {
-  issueSearch(query: $query, first: $first) {
+query SearchIssues($term: String!, $first: Int = 50) {
+  searchIssues(term: $term, first: $first) {
     nodes {
       id
       identifier
@@ -262,9 +262,6 @@ query CyclesList($teamKey: String, $first: Int = 20) {
       startsAt
       endsAt
       progress
-      scopeCompleted: completedScopeHistory
-      scopeTotal: scopeHistory
-      uncompletedIssuesUponClose { nodes { id } }
     }
   }
 }
@@ -449,7 +446,7 @@ query UsersList {
 """
 
 DASHBOARD_QUERY = """\
-query Dashboard($assigneeId: String, $teamKey: String) {
+query Dashboard($teamKey: String) {
   viewer {
     id
     name
@@ -494,7 +491,6 @@ query Dashboard($assigneeId: String, $teamKey: String) {
 }
 """
 
-# Helper query: resolve team key -> team ID
 TEAM_BY_KEY_QUERY = """\
 query TeamByKey($key: String!) {
   teams(filter: { key: { eq: $key } }) {
@@ -507,10 +503,9 @@ query TeamByKey($key: String!) {
 }
 """
 
-# Helper query: resolve user display name -> user ID
 USER_BY_NAME_QUERY = """\
 query UserByName($name: String!) {
-  users(filter: { displayName: { containsi: $name } }) {
+  users(filter: { displayName: { containsIgnoreCase: $name } }) {
     nodes {
       id
       name
@@ -520,13 +515,12 @@ query UserByName($name: String!) {
 }
 """
 
-# Helper query: resolve workflow state name -> state ID for a team
 WORKFLOW_STATE_QUERY = """\
 query WorkflowState($teamKey: String!, $stateName: String!) {
   workflowStates(
     filter: {
       team: { key: { eq: $teamKey } }
-      name: { eqi: $stateName }
+      name: { eqIgnoreCase: $stateName }
     }
   ) {
     nodes {

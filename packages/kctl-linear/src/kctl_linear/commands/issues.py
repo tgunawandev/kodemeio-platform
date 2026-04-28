@@ -278,8 +278,8 @@ def search(
     actx: AppContext = ctx.obj
     out = actx.output
 
-    data = actx.client.query(ISSUE_SEARCH_QUERY, {"query": query, "first": limit})
-    issues = data.get("issueSearch", {}).get("nodes", [])
+    data = actx.client.query(ISSUE_SEARCH_QUERY, {"term": query, "first": limit})
+    issues = data.get("searchIssues", {}).get("nodes", [])
 
     if out.json_mode:
         out.raw_json(issues)
