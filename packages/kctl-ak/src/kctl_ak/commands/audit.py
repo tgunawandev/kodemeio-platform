@@ -536,6 +536,8 @@ def access_report(
             fmt = "xlsx"
         elif ext == ".md":
             fmt = "md"
+        elif ext == ".json":
+            fmt = "json"
         else:
             fmt = format
     else:
@@ -548,7 +550,12 @@ def access_report(
         write_xlsx(rows, meta, output)
         c.output.success(f"Excel report written to {output} ({meta.row_count} rows)")
     elif fmt == "json":
-        c.output.raw_json(to_json(rows, meta))
+        if output:
+            with open(output, "w") as f:
+                json.dump(to_json(rows, meta), f, indent=2)
+            c.output.success(f"JSON report written to {output} ({meta.row_count} rows)")
+        else:
+            c.output.raw_json(to_json(rows, meta))
     else:
         if output:
             with open(output, "w") as f:

@@ -16,18 +16,7 @@ from pydantic import BaseModel
 
 _SERVICE_ACCOUNT_TYPES = frozenset({"internal_service_account", "service_account"})
 
-_COLUMNS = [
-    "username",
-    "email",
-    "name",
-    "user_type",
-    "is_active",
-    "application",
-    "app_slug",
-    "has_access",
-    "access_via",
-    "binding_negate",
-]
+_HEADERS = ["Username", "Email", "Name", "Type", "Active", "Application", "Slug", "Access", "Via", "Negate"]
 
 
 class ReportFilters(BaseModel):
@@ -166,7 +155,7 @@ def write_markdown(rows: list[AccessRow], meta: ReportMeta, dest: Any) -> None:
     dest.write(f"- **Generated:** {meta.generated_at}\n")
     dest.write(f"- **Users:** {meta.user_count} | **Applications:** {meta.app_count} | **Rows:** {meta.row_count}\n\n")
 
-    headers = ["Username", "Email", "Name", "Type", "Active", "Application", "Slug", "Access", "Via", "Negate"]
+    headers = _HEADERS
     dest.write("| " + " | ".join(headers) + " |\n")
     dest.write("| " + " | ".join("---" for _ in headers) + " |\n")
 
@@ -202,7 +191,7 @@ def write_xlsx(rows: list[AccessRow], meta: ReportMeta, dest: Path) -> None:
     ws = wb.active
     ws.title = "Access Control"
 
-    headers = ["Username", "Email", "Name", "Type", "Active", "Application", "Slug", "Access", "Via", "Negate"]
+    headers = _HEADERS
     ws.append(headers)
 
     bold = Font(bold=True)
