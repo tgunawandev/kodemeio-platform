@@ -607,6 +607,18 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
         default=[],
     )
 
+    # Payment terms — global (shared across companies). Useful Indonesian set:
+    # Tunai (COD), TOP 7/14/30/45/60 Hari, DP 50%/100%, Pembayaran Tunai, etc.
+    data["payment_terms"] = _try(
+        lambda: client.search_read(
+            "account.payment.term",
+            [],
+            fields=["id", "name", "active", "note", "early_discount"],
+            order="name",
+        ),
+        default=[],
+    )
+
     # Product categories (NOT company-scoped — shared)
     data["categories"] = _try(
         lambda: client.search_read(
@@ -1027,6 +1039,7 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
         "Taxes": [],
         "Tax Groups": [],
         "Fiscal Positions": [],
+        "Payment Terms": [],
         "Product Categories": [],
         "Warehouses + Op Types": [],
         "Stock Locations": [],
@@ -1332,6 +1345,24 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                 **{"# Tax Mappings": 0},
                 Status="WARN",
                 **{"Vs Reference": ""},
+            )
+        )
+
+    # ── Payment Terms ───────────────────────────────────────────────────
+    pterms = target.get("payment_terms") or []
+    ref_pterms = (ref or {}).get("payment_terms") or []
+    ref_names = {p.get("name") for p in ref_pterms}
+    for pt in pterms:
+        in_ref = pt.get("name") in ref_names
+        sheets["Payment Terms"].append(
+            _row(
+                company_name,
+                **{"Term ID": pt.get("id")},
+                Name=pt.get("name") or "",
+                Active="Yes" if pt.get("active") else "No",
+                **{"Early Discount": "Yes" if pt.get("early_discount") else "No"},
+                Status="PASS" if pt.get("active") else "INFO",
+                **{"Vs Reference": "in reference" if in_ref else ("(target only)" if ref else "")},
             )
         )
 
@@ -2014,6 +2045,7 @@ SHEET_ORDER = [
     "Taxes",
     "Tax Groups",
     "Fiscal Positions",
+    "Payment Terms",
     "Product Categories",
     "Warehouses + Op Types",
     "Stock Locations",
@@ -2117,6 +2149,7 @@ def _write_excel(
         "Taxes",
         "Tax Groups",
         "Fiscal Positions",
+        "Payment Terms",
         "Product Categories",
         "Warehouses + Op Types",
         "Stock Locations",
@@ -2262,6 +2295,18 @@ def _write_excel(
                 "Auto Apply",
                 "# Account Mappings",
                 "# Tax Mappings",
+                "Status",
+                "Vs Reference",
+            ],
+        ),
+        (
+            "Payment Terms",
+            [
+                "Company",
+                "Term ID",
+                "Name",
+                "Active",
+                "Early Discount",
                 "Status",
                 "Vs Reference",
             ],
