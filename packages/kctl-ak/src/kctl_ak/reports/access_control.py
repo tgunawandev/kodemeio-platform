@@ -184,3 +184,70 @@ def write_markdown(rows: list[AccessRow], meta: ReportMeta, dest: Any) -> None:
             r.binding_negate,
         ]
         dest.write("| " + " | ".join(vals) + " |\n")
+
+
+def write_xlsx(rows: list[AccessRow], meta: ReportMeta, dest: Path) -> None:
+    """Write Excel report with Access Control data sheet and Summary sheet."""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError(
+            "openpyxl is required for Excel output. Install it with: uv pip install kctl-ak[reports]"
+        ) from None
+
+    wb = Workbook()
+
+    ws = wb.active
+    ws.title = "Access Control"
+
+    headers = ["Username", "Email", "Name", "Type", "Active", "Application", "Slug", "Access", "Via", "Negate"]
+    ws.append(headers)
+
+    bold = Font(bold=True)
+    for col_idx in range(1, len(headers) + 1):
+        ws.cell(1, col_idx).font = bold
+
+    for r in rows:
+        ws.append(
+            [
+                r.username,
+                r.email,
+                r.name,
+                r.user_type,
+                r.is_active,
+                r.application,
+                r.app_slug,
+                r.has_access,
+                r.access_via,
+                r.binding_negate,
+            ]
+        )
+
+    last_col = get_column_letter(len(headers))
+    ws.auto_filter.ref = f"A1:{last_col}{len(rows) + 1}"
+
+    ws.freeze_panes = "A2"
+
+    for col_idx, header in enumerate(headers, 1):
+        max_len = len(header)
+        for row_idx in range(2, len(rows) + 2):
+            val = str(ws.cell(row_idx, col_idx).value or "")
+            if len(val) > max_len:
+                max_len = len(val)
+        ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, 50)
+
+    summary = wb.create_sheet("Summary")
+    summary_data = [
+        ("Profile", meta.profile),
+        ("Generated", meta.generated_at),
+        ("Users", meta.user_count),
+        ("Applications", meta.app_count),
+        ("Rows", meta.row_count),
+    ]
+    for label, value in summary_data:
+        summary.append([label, value])
+    summary.cell(1, 1).font = bold
+
+    wb.save(dest)

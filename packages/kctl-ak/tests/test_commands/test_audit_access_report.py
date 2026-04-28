@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import io
 
+import pytest
+
 from kctl_ak.reports.access_control import (
     AccessRow,
     ReportData,
@@ -11,6 +13,7 @@ from kctl_ak.reports.access_control import (
     ReportMeta,
     build_rows,
     write_markdown,
+    write_xlsx,
 )
 
 
@@ -237,3 +240,83 @@ class TestWriteMarkdown:
         content = out_path.read_text()
         assert "# Access Control Report" in content
         assert len(content.strip().split("\n")) > 5
+
+
+class TestWriteXlsx:
+    def test_xlsx_creates_file(self, tmp_path) -> None:
+        meta = ReportMeta(
+            profile="kodemeio",
+            generated_at="2026-04-28T14:30:00+07:00",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        out_path = tmp_path / "report.xlsx"
+        write_xlsx(rows, meta, out_path)
+        assert out_path.exists()
+        assert out_path.stat().st_size > 0
+
+    def test_xlsx_has_two_sheets(self, tmp_path) -> None:
+        openpyxl = pytest.importorskip("openpyxl")
+        meta = ReportMeta(
+            profile="kodemeio",
+            generated_at="2026-04-28T14:30:00+07:00",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        out_path = tmp_path / "report.xlsx"
+        write_xlsx(rows, meta, out_path)
+        wb = openpyxl.load_workbook(out_path)
+        assert "Access Control" in wb.sheetnames
+        assert "Summary" in wb.sheetnames
+
+    def test_xlsx_data_sheet_row_count(self, tmp_path) -> None:
+        openpyxl = pytest.importorskip("openpyxl")
+        meta = ReportMeta(
+            profile="kodemeio",
+            generated_at="2026-04-28T14:30:00+07:00",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        out_path = tmp_path / "report.xlsx"
+        write_xlsx(rows, meta, out_path)
+        wb = openpyxl.load_workbook(out_path)
+        ws = wb["Access Control"]
+        assert ws.max_row == 5  # 1 header + 4 data rows
+
+    def test_xlsx_header_row_is_bold(self, tmp_path) -> None:
+        openpyxl = pytest.importorskip("openpyxl")
+        meta = ReportMeta(
+            profile="kodemeio",
+            generated_at="2026-04-28T14:30:00+07:00",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        out_path = tmp_path / "report.xlsx"
+        write_xlsx(rows, meta, out_path)
+        wb = openpyxl.load_workbook(out_path)
+        ws = wb["Access Control"]
+        assert ws.cell(1, 1).font.bold is True
+
+    def test_xlsx_auto_filter_enabled(self, tmp_path) -> None:
+        openpyxl = pytest.importorskip("openpyxl")
+        meta = ReportMeta(
+            profile="kodemeio",
+            generated_at="2026-04-28T14:30:00+07:00",
+            user_count=2,
+            app_count=2,
+            row_count=4,
+        )
+        rows = build_rows(_make_data(), ReportFilters())
+        out_path = tmp_path / "report.xlsx"
+        write_xlsx(rows, meta, out_path)
+        wb = openpyxl.load_workbook(out_path)
+        ws = wb["Access Control"]
+        assert ws.auto_filter.ref is not None
