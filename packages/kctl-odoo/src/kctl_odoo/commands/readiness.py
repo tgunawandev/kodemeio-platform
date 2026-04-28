@@ -248,7 +248,7 @@ class _ClientShim:
             return db() if callable(db) else db
         return ""
 
-    def search_read(self, model, domain=None, fields=None, limit=0, order=None):
+    def search_read(self, model, domain=None, fields=None, limit=0, order=None, **extra):
         kwargs: dict[str, Any] = {}
         if fields is not None:
             kwargs["fields"] = fields
@@ -256,6 +256,10 @@ class _ClientShim:
             kwargs["limit"] = limit
         if order:
             kwargs["order"] = order
+        ctx = extra.pop("context", None)
+        if ctx and hasattr(self._inner, "execute_kw"):
+            return self._inner.execute_kw(model, "search_read", [domain or []], {**kwargs, "context": ctx})
+        kwargs.update(extra)
         return self._inner.search_read(model, domain or [], **kwargs)
 
     def search_count(self, model, domain=None):
@@ -422,16 +426,47 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
     )
     data["company"] = co[0] if co else {}
 
-    # Accounts: full listing for this company (Odoo 18 = company_ids many2many)
+    # Accounts: full listing for this company. Odoo 18 stores `code` as a
+    # company-scoped computed field over the `code_store` JSONB; without
+    # `allowed_company_ids` in context, `code` reads as False. The shim's
+    # search_read forwards context kwargs through to execute_kw.
+    accounts_ctx = {
+        "context": {
+            "allowed_company_ids": [company_id],
+            "company_id": company_id,
+            "default_company_id": company_id,
+        }
+    }
     accounts = _try(
         lambda: client.search_read(
             "account.account",
             [("company_ids", "in", company_id)],
             fields=["id", "code", "name", "account_type", "deprecated"],
             order="code",
+            **accounts_ctx,
         ),
         default=[],
     )
+    if not accounts or all(not a.get("code") for a in accounts):
+        # Fallback path for shim variants that don't forward context: read raw
+        # JSONB and pluck the per-company code.
+        raw = _try(
+            lambda: client.search_read(
+                "account.account",
+                [("company_ids", "in", company_id)],
+                fields=["id", "code_store", "name", "account_type", "deprecated"],
+                order="id",
+            ),
+            default=[],
+        )
+        for a in raw:
+            store = a.get("code_store") or {}
+            if isinstance(store, dict):
+                a["code"] = store.get(str(company_id)) or store.get(company_id) or ""
+            else:
+                a["code"] = ""
+            a.pop("code_store", None)
+        accounts = raw
     data["accounts"] = accounts
 
     # Account ext-ids (ir.model.data) for accounts in this company
