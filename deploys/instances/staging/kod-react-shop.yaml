@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.shop.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-shop
+  name: kod-shop-stg
 domain:
-  host: stg-kod-shop.kodeme.io
+  host: kod-shop-stg.kodeme.io
   port: 80
   service: shop
   https: true
 env_file: ../../env/staging/.env.kod-react-shop
 env_overrides:
   VITE_SHOP_APP_NAME: KOD SHOP
-  VITE_SHOP_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/shop/api
+  VITE_SHOP_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/shop/api

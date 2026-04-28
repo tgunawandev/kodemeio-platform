@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.mrp.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-mrp
+  name: kod-mrp-stg
 domain:
-  host: stg-kod-mrp.kodeme.io
+  host: kod-mrp-stg.kodeme.io
   port: 80
   service: mrp
   https: true
 env_file: ../../env/staging/.env.kod-react-mrp
 env_overrides:
   VITE_MRP_APP_NAME: KOD MRP
-  VITE_MRP_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/mrp/api
+  VITE_MRP_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/mrp/api

@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.bia.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-bia
+  name: kod-bia-stg
 domain:
-  host: stg-kod-bia.kodeme.io
+  host: kod-bia-stg.kodeme.io
   port: 80
   service: bia
   https: true
 env_file: ../../env/staging/.env.kod-react-bia
 env_overrides:
   VITE_BIA_APP_NAME: KOD BIA
-  VITE_BIA_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/bia/api
+  VITE_BIA_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/bia/api

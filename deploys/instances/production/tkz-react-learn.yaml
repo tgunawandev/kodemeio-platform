@@ -2,13 +2,13 @@ kind: instance
 extends: ../../bases/react-pwa.yaml
 
 instance:
-  name: tkz-react-core
-  description: "Terakidz Core — Daily routine tracker for ASD children"
+  name: tkz-react-learn
+  description: "TeraKidz Learn — ABA edugames for children with autism"
 
 source_overrides:
   repo: terakidz-react
-  branch: main
-  compose_path: compose/docker-compose.core.yml
+  branch: master
+  compose_path: compose/docker-compose.dev.learn.yml
 
 project: tkz
 environment: production
@@ -16,12 +16,12 @@ server: kod-prod-02
 
 dns:
   zone: terakidz.com
-  name: core
+  name: learn
 
 domain:
-  host: core.terakidz.com
+  host: learn.terakidz.com
   port: 80
-  service: core
+  service: learn
   https: true
   cert: letsencrypt
 
@@ -32,9 +32,9 @@ healthcheck:
   timeout: 60
   interval: 5
 
-env_file: ../../env/production/.env.tkz-react-core
+env_file: ../../env/production/.env.tkz-react-learn
 
 env_overrides:
-  VITE_APP_NAME: "Terakidz Core"
+  VITE_APP_NAME: "Terakidz Learn"
   VITE_SUPABASE_URL: "https://supa.terakidz.com"
   VITE_AUTH_MODE: "supabase"

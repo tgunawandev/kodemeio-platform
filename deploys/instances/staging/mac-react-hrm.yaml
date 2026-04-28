@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.hrm.yml
 dns:
   zone: idtpp.com
-  name: stg-mac-hrm
+  name: mac-hrm-stg
 domain:
-  host: stg-mac-hrm.idtpp.com
+  host: mac-hrm-stg.idtpp.com
   port: 80
   service: hrm
   https: true
 env_file: ../../env/staging/.env.mac-react-hrm
 env_overrides:
   VITE_HRM_APP_NAME: MAC HRM
-  VITE_HRM_API_BASE_URL: https://stg-mac-odoo-hrms.idtpp.com/hrm/api
+  VITE_HRM_API_BASE_URL: https://mac-odoo-hrms-stg.idtpp.com/hrm/api

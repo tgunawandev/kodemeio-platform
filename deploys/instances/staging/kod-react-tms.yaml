@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.tms.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-tms
+  name: kod-tms-stg
 domain:
-  host: stg-kod-tms.kodeme.io
+  host: kod-tms-stg.kodeme.io
   port: 80
   service: tms
   https: true
 env_file: ../../env/staging/.env.kod-react-tms
 env_overrides:
   VITE_TMS_APP_NAME: KOD TMS
-  VITE_TMS_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/tms/api
+  VITE_TMS_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/tms/api

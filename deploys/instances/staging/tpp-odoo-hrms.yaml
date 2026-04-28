@@ -9,24 +9,24 @@ environment: staging
 server: tpp-stg-01
 dns:
   zone: idtpp.com
-  name: stg-tpp-odoo-hrms
+  name: tpp-odoo-hrms-stg
 domain:
-  host: stg-tpp-odoo-hrms.idtpp.com
+  host: tpp-odoo-hrms-stg.idtpp.com
   port: 8069
   service: odoo-web
   https: true
   cert: letsencrypt
 database:
-  name: stg_tpp_odoo_hrms
+  name: tpp_odoo_hrms_stg
   user: odoo
 env_file: ../../env/staging/.env.tpp-odoo-hrms
 env_overrides:
   COMPOSE_PROJECT_NAME: tpp-odoo-hrms
   TENANT: tpp
-  PGDATABASE: stg_tpp_odoo_hrms
+  PGDATABASE: tpp_odoo_hrms_stg
   PGUSER: odoo
-  ODOO_DB_FILTER: ^stg_tpp_odoo_hrms$
-  DOMAIN: stg-tpp-odoo-hrms.idtpp.com
+  ODOO_DB_FILTER: ^tpp_odoo_hrms_stg$
+  DOMAIN: tpp-odoo-hrms-stg.idtpp.com
   ODOO_WORKERS: '2'
 post_deploy:
   odoo_profile: profile-hrms

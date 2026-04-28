@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.erp.yml
 dns:
   zone: idtpp.com
-  name: stg-mac-erp
+  name: mac-erp-stg
 domain:
-  host: stg-mac-erp.idtpp.com
+  host: mac-erp-stg.idtpp.com
   port: 80
   service: erp
   https: true
 env_file: ../../env/staging/.env.mac-react-erp
 env_overrides:
   VITE_ERP_APP_NAME: MAC ERP
-  VITE_ERP_API_BASE_URL: https://stg-mac-odoo-erp.idtpp.com
+  VITE_ERP_API_BASE_URL: https://mac-odoo-erp-stg.idtpp.com

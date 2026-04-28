@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.sfa.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-sfa
+  name: kod-sfa-stg
 domain:
-  host: stg-kod-sfa.kodeme.io
+  host: kod-sfa-stg.kodeme.io
   port: 80
   service: sfa
   https: true
 env_file: ../../env/staging/.env.kod-react-sfa
 env_overrides:
   VITE_SFA_APP_NAME: KOD SFA
-  VITE_SFA_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/sfa/api
+  VITE_SFA_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/sfa/api

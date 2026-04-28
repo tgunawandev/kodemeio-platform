@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.saas.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-saas
+  name: kod-saas-stg
 domain:
-  host: stg-kod-saas.kodeme.io
+  host: kod-saas-stg.kodeme.io
   port: 80
   service: saas
   https: true
 env_file: ../../env/staging/.env.kod-react-saas
 env_overrides:
   VITE_SAAS_APP_NAME: KOD SAAS
-  VITE_SAAS_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/saas/api
+  VITE_SAAS_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/saas/api

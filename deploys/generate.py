@@ -75,7 +75,9 @@ def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
     profiles they replace) so old tenant YAMLs keep working during rollout.
     """
     if recipe_or_profile not in ODOO_RECIPES:
-        raise ValueError(f"Unknown odoo recipe {recipe_or_profile!r}. Valid: {sorted(ODOO_RECIPES.keys())}")
+        raise ValueError(
+            f"Unknown odoo recipe {recipe_or_profile!r}. Valid: {sorted(ODOO_RECIPES.keys())}"
+        )
     return ODOO_RECIPES[recipe_or_profile]
 
 
@@ -84,7 +86,8 @@ def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
 #
 #   Filename:      {tenant}-{stack}-{app}.yaml
 #   instance.name: {tenant}-{stack}-{app}
-#   DNS name:      {tenant}-{app}.{domain}
+#   DNS name:      {tenant}-{app}{dns_suffix}.{domain}
+#   Database:      {tenant}_{stack}_{app}{db_suffix}
 #   Env file:      .env.{tenant}-{stack}-{app}
 # ---------------------------------------------------------------------------
 
@@ -94,7 +97,9 @@ def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
 
 
 def yaml_dump(data: dict) -> str:
-    return yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    return yaml.dump(
+        data, default_flow_style=False, sort_keys=False, allow_unicode=True
+    )
 
 
 def load_tenant(path: Path) -> dict:
@@ -113,8 +118,8 @@ def gen_react_pwa(
     app: str,
     env_name: str = "production",
     server: str = "",
-    dns_prefix: str = "",
-    db_prefix: str = "",
+    dns_suffix: str = "",
+    db_suffix: str = "",
 ) -> tuple[str, str, str, str | None]:
     """Generate react-pwa instance YAML + env content.
 
@@ -129,7 +134,7 @@ def gen_react_pwa(
     # The unified `erp` PWA (@kodemeio/erp) calls /api/v1/base/modules and
     # /api/v1/{module}/... directly at the Odoo root, so its base URL is the
     # host without a path prefix. Per-app legacy PWAs embed /{app}/api.
-    odoo_host = f"{dns_prefix}{code}-odoo-{short}.{domain}"
+    odoo_host = f"{code}-odoo-{short}{dns_suffix}.{domain}"
     if app == "erp":
         api_base_url = f"https://{odoo_host}"
     else:
@@ -157,10 +162,10 @@ def gen_react_pwa(
             },
             "dns": {
                 "zone": domain,
-                "name": f"{dns_prefix}{code}-{app}",
+                "name": f"{code}-{app}{dns_suffix}",
             },
             "domain": {
-                "host": f"{dns_prefix}{code}-{app}.{domain}",
+                "host": f"{code}-{app}{dns_suffix}.{domain}",
                 "port": 80,
                 "service": app,
                 "https": True,
@@ -173,7 +178,7 @@ def gen_react_pwa(
         }
     )
 
-    host = f"{dns_prefix}{code}-{app}.{domain}"
+    host = f"{code}-{app}{dns_suffix}.{domain}"
     slug = f"{code}-react-{app}"
     env_content = (
         f"VITE_{app_upper}_APP_NAME={display} {app_upper}\n"
@@ -193,8 +198,8 @@ def gen_odoo(
     odoo_entry: dict,
     env_name: str = "production",
     server: str = "",
-    dns_prefix: str = "",
-    db_prefix: str = "",
+    dns_suffix: str = "",
+    db_suffix: str = "",
 ) -> tuple[str, str, str, str]:
     """Generate odoo instance YAML + env.example content.
 
@@ -210,9 +215,9 @@ def gen_odoo(
     short = odoo_entry["short"]
     description = odoo_entry.get("description", recipe_name)
     workers = odoo_entry.get("workers", 4)
-    db_name = f"{db_prefix}{code}_odoo_{short}"
-    dns_name = f"{dns_prefix}{code}-odoo-{short}"
-    host = f"{dns_prefix}{code}-odoo-{short}.{domain}"
+    db_name = f"{code}_odoo_{short}{db_suffix}"
+    dns_name = f"{code}-odoo-{short}{dns_suffix}"
+    host = f"{code}-odoo-{short}{dns_suffix}.{domain}"
 
     yaml_filename = f"{code}-odoo-{short}.yaml"
     env_example_filename = f".env.{code}-odoo-{short}.example"
@@ -343,7 +348,7 @@ def gen_nextjs_corporate(
     tenant: dict,
     env_name: str = "production",
     server: str = "",
-    dns_prefix: str = "",
+    dns_suffix: str = "",
 ) -> tuple[str, str, str, str]:
     """Generate Next.js corporate website instance YAML + env."""
     code = tenant["code"]
@@ -354,10 +359,10 @@ def gen_nextjs_corporate(
     yaml_filename = f"{code}-nextjs-web.yaml"
     env_filename = f".env.{code}-nextjs-web"
 
-    # Production uses "@" (apex), staging uses prefixed subdomain
-    if dns_prefix:
-        dns_name = f"{dns_prefix}{code}-web"
-        host = f"{dns_prefix}{code}-web.{domain}"
+    # Production uses "@" (apex), staging uses suffixed subdomain
+    if dns_suffix:
+        dns_name = f"{code}-web{dns_suffix}"
+        host = f"{code}-web{dns_suffix}.{domain}"
     else:
         dns_name = "@"
         host = domain
@@ -394,7 +399,9 @@ def gen_nextjs_corporate(
         }
     )
 
-    env_content = f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{host}\nTZ=Asia/Jakarta\n"
+    env_content = (
+        f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{host}\nTZ=Asia/Jakarta\n"
+    )
 
     return yaml_filename, yaml_dump(instance), env_filename, env_content
 
@@ -403,14 +410,14 @@ def gen_nextjs_careers(
     tenant: dict,
     env_name: str = "production",
     server: str = "",
-    dns_prefix: str = "",
+    dns_suffix: str = "",
 ) -> tuple[str, str, str, str]:
     """Generate Next.js careers portal instance YAML + env."""
     code = tenant["code"]
     name = tenant["name"]
     domain = tenant["domain"]
-    dns_name = f"{dns_prefix}{code}-careers"
-    host = f"{dns_prefix}{code}-careers.{domain}"
+    dns_name = f"{code}-careers{dns_suffix}"
+    host = f"{code}-careers{dns_suffix}.{domain}"
 
     yaml_filename = f"{code}-nextjs-careers.yaml"
     env_filename = f".env.{code}-nextjs-careers"
@@ -449,9 +456,9 @@ def gen_nextjs_careers(
                 "NEXT_PUBLIC_SITE_URL": f"https://{host}",
                 "NEXT_PUBLIC_SITE_NAME": name,
                 "NEXT_PUBLIC_COMPANY_WEBSITE": f"https://{domain}",
-                "NEXT_PUBLIC_API_URL": f"https://{dns_prefix}{code}-odoo-hrms.{domain}",
-                "NEXT_PUBLIC_RECRUITMENT_API_URL": f"https://{dns_prefix}{code}-odoo-hrms.{domain}/recruitment/api",
-                "API_URL": f"https://{dns_prefix}{code}-odoo-hrms.{domain}",
+                "NEXT_PUBLIC_API_URL": f"https://{code}-odoo-hrms{dns_suffix}.{domain}",
+                "NEXT_PUBLIC_RECRUITMENT_API_URL": f"https://{code}-odoo-hrms{dns_suffix}.{domain}/recruitment/api",
+                "API_URL": f"https://{code}-odoo-hrms{dns_suffix}.{domain}",
             },
         }
     )
@@ -461,9 +468,9 @@ def gen_nextjs_careers(
         f"NEXT_PUBLIC_SITE_URL=https://{host}\n"
         f"NEXT_PUBLIC_SITE_NAME={name}\n"
         f"NEXT_PUBLIC_COMPANY_WEBSITE=https://{domain}\n"
-        f"NEXT_PUBLIC_API_URL=https://{dns_prefix}{code}-odoo-hrms.{domain}\n"
-        f"NEXT_PUBLIC_RECRUITMENT_API_URL=https://{dns_prefix}{code}-odoo-hrms.{domain}/recruitment/api\n"
-        f"API_URL=https://{dns_prefix}{code}-odoo-hrms.{domain}\n"
+        f"NEXT_PUBLIC_API_URL=https://{code}-odoo-hrms{dns_suffix}.{domain}\n"
+        f"NEXT_PUBLIC_RECRUITMENT_API_URL=https://{code}-odoo-hrms{dns_suffix}.{domain}/recruitment/api\n"
+        f"API_URL=https://{code}-odoo-hrms{dns_suffix}.{domain}\n"
         f"TZ=Asia/Jakarta\n"
     )
 
@@ -492,8 +499,8 @@ def gen_accurate_sync(
     odoo_entry: dict,
     env_name: str = "production",
     server: str = "",
-    dns_prefix: str = "",
-    db_prefix: str = "",
+    dns_suffix: str = "",
+    db_suffix: str = "",
 ) -> tuple[str, str, str, str]:
     """Generate accurate-sync instance YAML + env content.
 
@@ -510,8 +517,8 @@ def gen_accurate_sync(
     display = tenant.get("short_name", tenant["name"])
     domain = tenant["domain"]
     short = odoo_entry["short"]
-    db_name = f"{db_prefix}{code}_odoo_{short}"
-    odoo_host = f"{dns_prefix}{code}-odoo-{short}.{domain}"
+    db_name = f"{code}_odoo_{short}{db_suffix}"
+    odoo_host = f"{code}-odoo-{short}{dns_suffix}.{domain}"
     accurate_tenants = ",".join(accurate_cfg.get("tenants", [code]))
     image_tag = accurate_cfg.get("image_tag", "latest")
 
@@ -520,7 +527,11 @@ def gen_accurate_sync(
     import secrets as _secrets
 
     _target_env_path = ENV_DIR / env_name / f".env.{code}-accurate-sync"
-    _existing_secret = _read_env_var(_target_env_path, "TRIGGER_SECRET") if _target_env_path.exists() else None
+    _existing_secret = (
+        _read_env_var(_target_env_path, "TRIGGER_SECRET")
+        if _target_env_path.exists()
+        else None
+    )
     trigger_secret = _existing_secret or _secrets.token_hex(32)
 
     # Bridge the secret into the sibling Odoo container's env so the
@@ -642,14 +653,14 @@ def gen_notify(
     tenant: dict,
     env_name: str = "production",
     server: str = "",
-    dns_prefix: str = "",
+    dns_suffix: str = "",
 ) -> tuple[str, str, str, str]:
     """Generate notify service instance YAML + env.example."""
     code = tenant["code"]
     name = tenant["name"]
     domain = tenant["domain"]
-    dns_name = f"{dns_prefix}{code}-notify"
-    host = f"{dns_prefix}{code}-notify.{domain}"
+    dns_name = f"{code}-notify{dns_suffix}"
+    host = f"{code}-notify{dns_suffix}.{domain}"
 
     yaml_filename = f"{code}-hono-notify.yaml"
     env_example_filename = f".env.{code}-hono-notify.example"
@@ -658,7 +669,7 @@ def gen_notify(
     all_apps = []
     for odoo_entry in tenant.get("_odoo_entries", []):
         for app in odoo_entry.get("apps", []):
-            all_apps.append(f"https://{dns_prefix}{code}-{app}.{domain}")
+            all_apps.append(f"https://{code}-{app}{dns_suffix}.{domain}")
     allowed_origins = ",".join(all_apps)
 
     instance: dict = {
@@ -752,28 +763,30 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
     environments = raw.get(
         "environments",
         {
-            "production": {"server": "", "dns_prefix": "", "db_prefix": ""},
+            "production": {"server": "", "dns_suffix": "", "db_suffix": ""},
         },
     )
 
     for env_name, env_config in environments.items():
         server = env_config.get("server", "")
-        dns_prefix = env_config.get("dns_prefix", "")
-        db_prefix = env_config.get("db_prefix", "")
+        dns_suffix = env_config.get("dns_suffix", "")
+        db_suffix = env_config.get("db_suffix", "")
         inst_dir = INSTANCES_DIR / env_name
         env_dir = ENV_DIR / env_name
 
         # --- React PWAs + Odoo instances ---
         for odoo_entry in raw.get("odoo", []):
             # Odoo instance
-            y_name, y_content, e_name, e_content = gen_odoo(t, odoo_entry, env_name, server, dns_prefix, db_prefix)
+            y_name, y_content, e_name, e_content = gen_odoo(
+                t, odoo_entry, env_name, server, dns_suffix, db_suffix
+            )
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
             # React PWAs for this Odoo
             for app in odoo_entry.get("apps", []):
                 y_name, y_content, e_name, e_content = gen_react_pwa(
-                    t, odoo_entry, app, env_name, server, dns_prefix, db_prefix
+                    t, odoo_entry, app, env_name, server, dns_suffix, db_suffix
                 )
                 files.append((inst_dir / y_name, header + y_content))
                 files.append((env_dir / e_name, e_content))
@@ -782,13 +795,17 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         web = raw.get("web", {})
         if "corporate" in web:
             t["_web_corporate_brand"] = web["corporate"]["compose_brand"]
-            y_name, y_content, e_name, e_content = gen_nextjs_corporate(t, env_name, server, dns_prefix)
+            y_name, y_content, e_name, e_content = gen_nextjs_corporate(
+                t, env_name, server, dns_suffix
+            )
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
         # --- Next.js careers ---
         if web.get("careers"):
-            y_name, y_content, e_name, e_content = gen_nextjs_careers(t, env_name, server, dns_prefix)
+            y_name, y_content, e_name, e_content = gen_nextjs_careers(
+                t, env_name, server, dns_suffix
+            )
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -797,14 +814,16 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         if accurate_cfg and accurate_cfg.get("enabled"):
             ref_short = accurate_cfg["odoo_ref"]
             try:
-                odoo_entry = next(e for e in raw.get("odoo", []) if e["short"] == ref_short)
+                odoo_entry = next(
+                    e for e in raw.get("odoo", []) if e["short"] == ref_short
+                )
             except StopIteration:
                 raise ValueError(
                     f"accurate_sync.odoo_ref={ref_short!r} does not match any odoo[] entry in tenants/{code}.yaml"
                 )
             acc_server = accurate_cfg.get("server", server)
             y_name, y_content, e_name, e_content = gen_accurate_sync(
-                t, accurate_cfg, odoo_entry, env_name, acc_server, dns_prefix, db_prefix
+                t, accurate_cfg, odoo_entry, env_name, acc_server, dns_suffix, db_suffix
             )
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
@@ -819,7 +838,9 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
             notify_server = server
             if isinstance(notify_cfg, dict):
                 notify_server = notify_cfg.get("server", server)
-            y_name, y_content, e_name, e_content = gen_notify(t, env_name, notify_server, dns_prefix)
+            y_name, y_content, e_name, e_content = gen_notify(
+                t, env_name, notify_server, dns_suffix
+            )
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -836,14 +857,24 @@ def is_secret_env(path: Path) -> bool:
     instance it targets (no drift, no manual resync).
     """
     name = path.name
-    return name.startswith(".env.") and ("-odoo-" in name or "-hono-notify" in name or "-react-" in name)
+    return name.startswith(".env.") and (
+        "-odoo-" in name or "-hono-notify" in name or "-react-" in name
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate deploy instances from tenant manifests")
-    parser.add_argument("--tenant", "-t", help="Generate for a single tenant (e.g., mac)")
-    parser.add_argument("--dry-run", "-n", action="store_true", help="Preview without writing")
-    parser.add_argument("--diff", "-d", action="store_true", help="Show diff vs existing files")
+    parser = argparse.ArgumentParser(
+        description="Generate deploy instances from tenant manifests"
+    )
+    parser.add_argument(
+        "--tenant", "-t", help="Generate for a single tenant (e.g., mac)"
+    )
+    parser.add_argument(
+        "--dry-run", "-n", action="store_true", help="Preview without writing"
+    )
+    parser.add_argument(
+        "--diff", "-d", action="store_true", help="Show diff vs existing files"
+    )
     args = parser.parse_args()
 
     if args.tenant:
@@ -877,7 +908,9 @@ def main() -> None:
             if args.diff and example_path.exists():
                 old = example_path.read_text().splitlines(keepends=True)
                 new = content.splitlines(keepends=True)
-                diff = difflib.unified_diff(old, new, fromfile=str(example_path), tofile=str(example_path))
+                diff = difflib.unified_diff(
+                    old, new, fromfile=str(example_path), tofile=str(example_path)
+                )
                 sys.stdout.writelines(diff)
             if not args.dry_run:
                 example_path.write_text(content)
@@ -893,7 +926,9 @@ def main() -> None:
             if args.diff:
                 old = existing.splitlines(keepends=True)
                 new = content.splitlines(keepends=True)
-                diff = difflib.unified_diff(old, new, fromfile=str(path), tofile=str(path))
+                diff = difflib.unified_diff(
+                    old, new, fromfile=str(path), tofile=str(path)
+                )
                 sys.stdout.writelines(diff)
 
         if args.dry_run:
@@ -904,7 +939,9 @@ def main() -> None:
         wrote += 1
 
     action = "Would write" if args.dry_run else "Wrote"
-    print(f"\nDone. {action}: {wrote}, Skipped (secrets): {skipped}, Unchanged: {unchanged}")
+    print(
+        f"\nDone. {action}: {wrote}, Skipped (secrets): {skipped}, Unchanged: {unchanged}"
+    )
 
 
 if __name__ == "__main__":

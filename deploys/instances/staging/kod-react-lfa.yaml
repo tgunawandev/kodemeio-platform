@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.lfa.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-lfa
+  name: kod-lfa-stg
 domain:
-  host: stg-kod-lfa.kodeme.io
+  host: kod-lfa-stg.kodeme.io
   port: 80
   service: lfa
   https: true
 env_file: ../../env/staging/.env.kod-react-lfa
 env_overrides:
   VITE_LFA_APP_NAME: KOD LFA
-  VITE_LFA_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/lfa/api
+  VITE_LFA_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/lfa/api

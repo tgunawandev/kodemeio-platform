@@ -6,7 +6,9 @@ instance:
   description: "Terakidz marketing site (Next.js 15)"
 
 source_overrides:
-  compose_path: compose/docker-compose.terakidz.yml
+  repo: terakidz-react
+  branch: master
+  compose_path: compose/docker-compose.web.yml
 
 project: tkz
 

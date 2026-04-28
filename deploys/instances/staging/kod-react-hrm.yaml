@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.hrm.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-hrm
+  name: kod-hrm-stg
 domain:
-  host: stg-kod-hrm.kodeme.io
+  host: kod-hrm-stg.kodeme.io
   port: 80
   service: hrm
   https: true
 env_file: ../../env/staging/.env.kod-react-hrm
 env_overrides:
   VITE_HRM_APP_NAME: KOD HRM
-  VITE_HRM_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/hrm/api
+  VITE_HRM_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/hrm/api

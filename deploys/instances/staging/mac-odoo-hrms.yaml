@@ -9,24 +9,24 @@ environment: staging
 server: tpp-stg-01
 dns:
   zone: idtpp.com
-  name: stg-mac-odoo-hrms
+  name: mac-odoo-hrms-stg
 domain:
-  host: stg-mac-odoo-hrms.idtpp.com
+  host: mac-odoo-hrms-stg.idtpp.com
   port: 8069
   service: odoo-web
   https: true
   cert: letsencrypt
 database:
-  name: stg_mac_odoo_hrms
+  name: mac_odoo_hrms_stg
   user: odoo
 env_file: ../../env/staging/.env.mac-odoo-hrms
 env_overrides:
   COMPOSE_PROJECT_NAME: mac-odoo-hrms
   TENANT: mac
-  PGDATABASE: stg_mac_odoo_hrms
+  PGDATABASE: mac_odoo_hrms_stg
   PGUSER: odoo
-  ODOO_DB_FILTER: ^stg_mac_odoo_hrms$
-  DOMAIN: stg-mac-odoo-hrms.idtpp.com
+  ODOO_DB_FILTER: ^mac_odoo_hrms_stg$
+  DOMAIN: mac-odoo-hrms-stg.idtpp.com
   ODOO_WORKERS: '2'
 post_deploy:
   odoo_profile: profile-hrms

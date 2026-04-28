@@ -10,9 +10,9 @@ server: tpp-stg-01
 env_file: ../../env/staging/.env.tpp-accurate-sync
 env_overrides:
   TENANT: tpp
-  PGDATABASE: stg_tpp_odoo_erp
+  PGDATABASE: tpp_odoo_erp_stg
   PGUSER: odoo
-  ODOO_URL: https://stg-tpp-odoo-erp.idtpp.com
-  ODOO_DB_FILTER: ^stg_tpp_odoo_erp$
+  ODOO_URL: https://tpp-odoo-erp-stg.idtpp.com
+  ODOO_DB_FILTER: ^tpp_odoo_erp_stg$
   ACCURATE_TENANTS: tpp
   IMAGE_TAG: latest

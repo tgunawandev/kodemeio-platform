@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.tpm.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-tpm
+  name: kod-tpm-stg
 domain:
-  host: stg-kod-tpm.kodeme.io
+  host: kod-tpm-stg.kodeme.io
   port: 80
   service: tpm
   https: true
 env_file: ../../env/staging/.env.kod-react-tpm
 env_overrides:
   VITE_TPM_APP_NAME: KOD TPM
-  VITE_TPM_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/tpm/api
+  VITE_TPM_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/tpm/api

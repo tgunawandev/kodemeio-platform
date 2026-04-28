@@ -11,9 +11,9 @@ environment: staging
 server: tpp-stg-01
 dns:
   zone: idtpp.com
-  name: stg-tpp-web
+  name: tpp-web-stg
 domain:
-  host: stg-tpp-web.idtpp.com
+  host: tpp-web-stg.idtpp.com
   port: 3000
   service: idtpp-web
   https: true

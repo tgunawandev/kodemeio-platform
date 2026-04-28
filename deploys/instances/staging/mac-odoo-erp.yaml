@@ -9,24 +9,24 @@ environment: staging
 server: tpp-stg-01
 dns:
   zone: idtpp.com
-  name: stg-mac-odoo-erp
+  name: mac-odoo-erp-stg
 domain:
-  host: stg-mac-odoo-erp.idtpp.com
+  host: mac-odoo-erp-stg.idtpp.com
   port: 8069
   service: odoo-web
   https: true
   cert: letsencrypt
 database:
-  name: stg_mac_odoo_erp
+  name: mac_odoo_erp_stg
   user: odoo
 env_file: ../../env/staging/.env.mac-odoo-erp
 env_overrides:
   COMPOSE_PROJECT_NAME: mac-odoo-erp
   TENANT: mac
-  PGDATABASE: stg_mac_odoo_erp
+  PGDATABASE: mac_odoo_erp_stg
   PGUSER: odoo
-  ODOO_DB_FILTER: ^stg_mac_odoo_erp$
-  DOMAIN: stg-mac-odoo-erp.idtpp.com
+  ODOO_DB_FILTER: ^mac_odoo_erp_stg$
+  DOMAIN: mac-odoo-erp-stg.idtpp.com
   ODOO_WORKERS: '2'
 post_deploy:
   odoo_profile: profile-erp

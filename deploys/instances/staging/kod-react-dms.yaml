@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.dms.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-dms
+  name: kod-dms-stg
 domain:
-  host: stg-kod-dms.kodeme.io
+  host: kod-dms-stg.kodeme.io
   port: 80
   service: dms
   https: true
 env_file: ../../env/staging/.env.kod-react-dms
 env_overrides:
   VITE_DMS_APP_NAME: KOD DMS
-  VITE_DMS_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/dms/api
+  VITE_DMS_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/dms/api

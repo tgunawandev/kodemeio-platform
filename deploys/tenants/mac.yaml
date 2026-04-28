@@ -12,8 +12,8 @@ environments:
     auto_deploy: false
   staging:
     server: tpp-stg-01
-    dns_prefix: "stg-"
-    db_prefix: "stg_"
+    dns_suffix: "-stg"
+    db_suffix: "_stg"
     auto_deploy: true
 
 odoo:

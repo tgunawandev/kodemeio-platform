@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.wms.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-wms
+  name: kod-wms-stg
 domain:
-  host: stg-kod-wms.kodeme.io
+  host: kod-wms-stg.kodeme.io
   port: 80
   service: wms
   https: true
 env_file: ../../env/staging/.env.kod-react-wms
 env_overrides:
   VITE_WMS_APP_NAME: KOD WMS
-  VITE_WMS_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/wms/api
+  VITE_WMS_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/wms/api

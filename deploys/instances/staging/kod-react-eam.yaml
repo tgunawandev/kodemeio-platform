@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.eam.yml
 dns:
   zone: kodeme.io
-  name: stg-kod-eam
+  name: kod-eam-stg
 domain:
-  host: stg-kod-eam.kodeme.io
+  host: kod-eam-stg.kodeme.io
   port: 80
   service: eam
   https: true
 env_file: ../../env/staging/.env.kod-react-eam
 env_overrides:
   VITE_EAM_APP_NAME: KOD EAM
-  VITE_EAM_API_BASE_URL: https://stg-kod-odoo-full.kodeme.io/eam/api
+  VITE_EAM_API_BASE_URL: https://kod-odoo-full-stg.kodeme.io/eam/api

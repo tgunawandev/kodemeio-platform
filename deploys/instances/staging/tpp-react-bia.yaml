@@ -11,13 +11,13 @@ source_overrides:
   compose_path: compose/docker-compose.bia.yml
 dns:
   zone: idtpp.com
-  name: stg-tpp-bia
+  name: tpp-bia-stg
 domain:
-  host: stg-tpp-bia.idtpp.com
+  host: tpp-bia-stg.idtpp.com
   port: 80
   service: bia
   https: true
 env_file: ../../env/staging/.env.tpp-react-bia
 env_overrides:
   VITE_BIA_APP_NAME: Pakerti BIA
-  VITE_BIA_API_BASE_URL: https://stg-tpp-odoo-erp.idtpp.com/bia/api
+  VITE_BIA_API_BASE_URL: https://tpp-odoo-erp-stg.idtpp.com/bia/api
