@@ -269,6 +269,142 @@ def _try(fn, default=None):
         return default
 
 
+# ---------------------------------------------------------------------------
+# Configuration coverage: all menu items from MAC screenshots
+# Tuple: (menu_path, item_label, model, scope, domain_template)
+#   scope: "global" or "company"
+#   domain_template: list of tuples (filled per company), e.g.
+#                    [("company_id", "=", "<co_id>")] or [] for global
+# ---------------------------------------------------------------------------
+CONFIG_COVERAGE_ITEMS: list[tuple[str, str, str, str, list]] = [
+    # --- Accounting Configuration ---
+    ("Accounting", "Payment Terms", "account.payment.term", "company", []),
+    ("Accounting", "Incoterms", "account.incoterms", "global", []),
+    ("Accounting", "Bank Accounts (res.partner.bank)", "res.partner.bank", "company", []),
+    ("Accounting", "Reconciliation Models", "account.reconcile.model", "company", []),
+    ("Accounting", "Currencies", "res.currency", "global", []),
+    ("Accounting", "Currency Rate Providers", "res.currency.rate.provider", "company", []),
+    ("Accounting", "Account Tags", "account.account.tag", "global", []),
+    ("Accounting", "Account Groups", "account.group", "company", []),
+    ("Accounting", "Payment Providers", "payment.provider", "global", []),
+    ("Accounting", "Payment Methods", "account.payment.method", "global", []),
+    ("Accounting", "Payment Tokens", "payment.token", "company", []),
+    # --- Purchase Configuration ---
+    ("Purchase", "Vendor Pricelists (supplierinfo)", "product.supplierinfo", "company", []),
+    ("Purchase", "Product Tags", "product.tag", "global", []),
+    # --- Sales Configuration ---
+    ("Sales", "Product Groups", "product.group", "global", []),
+    ("Sales", "Product Attributes", "product.attribute", "global", []),
+    ("Sales", "Sales Teams", "crm.team", "company", []),
+    ("Sales", "Delivery Methods", "delivery.carrier", "company", []),
+    ("Sales", "Sales Order Tags", "crm.tag", "global", []),
+    ("Sales", "Sales Order Types", "sale.order.type", "global", []),
+    ("Sales", "Combo Choices", "product.combo", "global", []),
+    # --- Inventory Configuration ---
+    ("Inventory", "Storage Categories", "stock.storage.category", "company", []),
+    ("Inventory", "Putaway Rules", "stock.putaway.rule", "company", []),
+    ("Inventory", "Docks", "stock.dock", "company", []),
+    ("Inventory", "Shortage Reasons", "stock.shortage.reason", "global", []),
+    ("Inventory", "Barcode Nomenclatures", "barcode.nomenclature", "global", []),
+    ("Inventory", "Cycle Count Rules", "stock.cycle.count.rule", "company", []),
+    ("Inventory", "Scrap Reason Codes", "stock.scrap.reason", "global", []),
+    ("Inventory", "Printer Profiles", "printer.profile", "global", []),
+    ("Inventory", "Printer Rules", "printer.rule", "global", []),
+    # --- Products Configuration ---
+    ("Products", "Product Tags", "product.tag", "global", []),
+    ("Products", "Units of Measure", "uom.uom", "global", []),
+    ("Products", "UoM Categories", "uom.category", "global", []),
+    # --- Report Layout ---
+    ("Reports", "Report Formats", "report.format", "company", []),
+    ("Reports", "Paper Formats", "report.paperformat", "global", []),
+    # --- Report Management ---
+    ("Reports", "Report Types", "report.type", "global", []),
+    ("Reports", "Report Templates", "report.template", "global", []),
+    ("Reports", "Scheduled Reports", "report.schedule", "company", []),
+    ("Reports", "Custom Queries", "report.custom.query", "company", []),
+    ("Reports", "Report Instances", "report.instance", "company", []),
+    # --- Tax (Indonesian) ---
+    ("Tax (Indonesia)", "Tax Periods", "l10n_id_tax.period", "company", []),
+    ("Tax (Indonesia)", "Tax Object Codes", "l10n_id_tax.object.code", "global", []),
+    ("Tax (Indonesia)", "Transaction Codes", "l10n_id_tax.transaction.code", "global", []),
+    ("Tax (Indonesia)", "PTKP Brackets", "l10n_id_hr.ptkp.bracket", "global", []),
+    ("Tax (Indonesia)", "TER Rate Table", "l10n_id_hr.ter.rate", "global", []),
+    ("Tax (Indonesia)", "Progressive Rates", "l10n_id_hr.progressive.rate", "global", []),
+    ("Tax (Indonesia)", "Kurs Pajak", "l10n_id_kurs_pajak.kurs_pajak", "global", []),
+    ("Tax (Indonesia)", "PPnBM Rates", "l10n_id_tax.ppnbm.rate", "global", []),
+    ("Tax (Indonesia)", "Faktur Output", "l10n_id_efaktur.document", "company", []),
+    # --- Contacts ---
+    ("Contacts", "Contact Tags", "res.partner.category", "global", []),
+    ("Contacts", "Contact Titles", "res.partner.title", "global", []),
+    ("Contacts", "Industries", "res.partner.industry", "global", []),
+    ("Contacts", "Banks (res.bank)", "res.bank", "global", []),
+    ("Contacts", "Partner ID Categories", "l10n_latam.identification.type", "global", []),
+    # --- System / Technical ---
+    ("System", "Date Ranges", "date.range", "company", []),
+    ("System", "Date Range Types", "date.range.type", "global", []),
+    ("System", "Activity Types", "mail.activity.type", "global", []),
+    ("System", "Email Blacklist", "mail.blacklist", "global", []),
+    ("System", "Languages", "res.lang", "global", []),
+    ("System", "Companies", "res.company", "global", []),
+    ("System", "Cron Jobs", "ir.cron", "global", []),
+    ("System", "Server Actions", "ir.actions.server", "global", []),
+    ("System", "Automated Actions", "base.automation", "global", []),
+    ("System", "Modules Installed", "ir.module.module", "global", [("state", "=", "installed")]),
+]
+
+
+def _pull_config_coverage(client: _ClientShim, company_id: int) -> list[dict]:
+    """Pull counts for every CONFIG_COVERAGE_ITEMS entry, scoped per company.
+
+    Returns list of dicts: {menu, item, model, scope, count, available, error}.
+    Uses _try() to gracefully handle missing models.
+    """
+    rows: list[dict] = []
+    seen_global: set[str] = set()
+    for menu, item, model, scope, base_domain in CONFIG_COVERAGE_ITEMS:
+        # Build domain
+        if scope == "company":
+            domain = list(base_domain) + [("company_id", "in", [company_id, False])]
+        else:
+            if model in seen_global:
+                # Avoid duplicate global counts when called per company
+                pass
+            domain = list(base_domain)
+
+        result: dict = {
+            "Menu": menu,
+            "Item": item,
+            "Model": model,
+            "Scope": scope,
+            "Count": 0,
+            "Available": False,
+            "Error": "",
+        }
+        try:
+            count = client.search_count(model, domain)
+            result["Count"] = count if count is not None else 0
+            result["Available"] = True
+        except Exception as exc:
+            msg = str(exc)
+            # Detect "model does not exist" vs other errors
+            if "does not exist" in msg.lower() or "Object" in msg and "doesn't exist" in msg:
+                result["Error"] = "MODULE_NOT_INSTALLED"
+            else:
+                # Try without company_id constraint as fallback (model may not be company-scoped)
+                if scope == "company":
+                    try:
+                        count = client.search_count(model, list(base_domain))
+                        result["Count"] = count if count is not None else 0
+                        result["Available"] = True
+                        result["Scope"] = "global (fallback)"
+                    except Exception as exc2:
+                        result["Error"] = str(exc2)[:120]
+                else:
+                    result["Error"] = msg[:120]
+        rows.append(result)
+    return rows
+
+
 def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) -> dict:
     """Pull every piece of configuration we audit, scoped to one company.
 
@@ -604,6 +740,9 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
         default=[],
     )
 
+    # Configuration coverage — every menu item from MAC screenshots
+    data["config_coverage"] = _pull_config_coverage(client, company_id)
+
     return data
 
 
@@ -692,6 +831,7 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
         "Report Management": [],
         "Sequences": [],
         "ir.property": [],
+        "Config Coverage": [],
     }
 
     # ── Company Settings ────────────────────────────────────────────────
@@ -1262,6 +1402,67 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
             )
         )
 
+    # ── Config Coverage — compare every Configuration menu item ─────────
+    target_cov = target.get("config_coverage") or []
+    ref_cov_list = (ref or {}).get("config_coverage") or []
+    # Index ref by (Menu, Item) for fast lookup
+    ref_cov_idx = {(r["Menu"], r["Item"]): r for r in ref_cov_list}
+
+    for tcov in target_cov:
+        key = (tcov["Menu"], tcov["Item"])
+        rcov = ref_cov_idx.get(key, {})
+        ref_count = rcov.get("Count", 0) if rcov.get("Available") else None
+        ref_avail = rcov.get("Available", False)
+
+        # Determine status
+        target_count = tcov["Count"]
+        target_avail = tcov["Available"]
+        status = "INFO"
+        note = ""
+
+        if not target_avail and tcov.get("Error") == "MODULE_NOT_INSTALLED":
+            if ref_avail and ref_count and ref_count > 0:
+                status = "FAIL"
+                note = f"Module not installed in target; reference has {ref_count}"
+            else:
+                status = "N/A"
+                note = "Module not installed in either"
+        elif not target_avail:
+            status = "WARN"
+            note = f"Error: {tcov.get('Error', 'unknown')[:80]}"
+        elif ref is None or not ref_avail:
+            # No reference — pure existence
+            if target_count == 0:
+                status = "WARN"
+                note = "0 records (no reference to compare)"
+            else:
+                status = "PASS"
+        else:
+            # Both available — compare counts
+            if target_count == 0 and ref_count > 0:
+                status = "FAIL"
+                note = f"Target has 0; MAC reference has {ref_count}"
+            elif target_count < ref_count:
+                status = "WARN"
+                note = f"Target has {target_count}; MAC reference has {ref_count} (missing {ref_count - target_count})"
+            elif target_count >= ref_count:
+                status = "PASS"
+                note = f"Target has {target_count}; MAC has {ref_count}"
+
+        sheets["Config Coverage"].append(
+            _row(
+                company_name,
+                Menu=tcov["Menu"],
+                Item=tcov["Item"],
+                Model=tcov["Model"],
+                Scope=tcov["Scope"],
+                **{"Target Count": target_count if target_avail else "-"},
+                **{"Reference Count": ref_count if ref_avail else ("-" if ref else "(no ref)")},
+                Status=status,
+                Note=note,
+            )
+        )
+
     return sheets
 
 
@@ -1272,6 +1473,7 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
 
 SHEET_ORDER = [
     "Summary",
+    "Config Coverage",
     "Company Settings",
     "CoA - Account Listing",
     "Account Types Coverage",
@@ -1587,6 +1789,20 @@ def _write_excel(
         ),
         ("Sequences", ["Company", "Code", "Name", "Number Next", "Padding", "Implementation", "Active", "Status"]),
         ("ir.property", ["Company", "Field", "Resource", "Type", "Value", "Status"]),
+        (
+            "Config Coverage",
+            [
+                "Company",
+                "Menu",
+                "Item",
+                "Model",
+                "Scope",
+                "Target Count",
+                "Reference Count",
+                "Status",
+                "Note",
+            ],
+        ),
     ]
 
     for title, hdrs in detail_sections:
