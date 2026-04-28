@@ -14,6 +14,7 @@ from pydantic import BaseModel
 _SERVICE_ACCOUNT_TYPES = frozenset({"internal_service_account", "service_account"})
 
 _HEADERS = ["Username", "Email", "Name", "Type", "Active", "Application", "Slug", "Access", "Via", "Negate"]
+_SUMMARY_HEADERS = ["Username", "Email", "Name", "Type", "Active", "Groups", "Apps with Access", "App Count"]
 
 
 class ReportFilters(BaseModel):
@@ -34,6 +35,17 @@ class AccessRow(BaseModel):
     has_access: str
     access_via: str
     binding_negate: str
+
+
+class SummaryRow(BaseModel):
+    username: str
+    email: str
+    name: str
+    user_type: str
+    is_active: str
+    groups: str
+    apps_with_access: str
+    app_count: int
 
 
 class ReportMeta(BaseModel):
@@ -143,6 +155,113 @@ def build_rows(data: ReportData, filters: ReportFilters) -> list[AccessRow]:
 
     rows.sort(key=lambda r: (r.username, r.app_slug))
     return rows
+
+
+def build_summary_rows(data: ReportData, filters: ReportFilters) -> list[SummaryRow]:
+    """Build one row per user with groups and accessible apps aggregated."""
+    detail_rows = build_rows(data, filters)
+
+    user_map: dict[str, dict[str, Any]] = {}
+    for r in detail_rows:
+        if r.username not in user_map:
+            user_map[r.username] = {
+                "email": r.email,
+                "name": r.name,
+                "user_type": r.user_type,
+                "is_active": r.is_active,
+                "apps": [],
+            }
+        if r.has_access == "yes":
+            user_map[r.username]["apps"].append(r.application)
+
+    groups_by_user: dict[str, list[str]] = {}
+    for u in data.users:
+        username = u.get("username", "")
+        groups_by_user[username] = sorted(g.get("name", "") for g in u.get("groups_obj", []))
+
+    rows: list[SummaryRow] = []
+    for username in sorted(user_map):
+        info = user_map[username]
+        groups = groups_by_user.get(username, [])
+        rows.append(
+            SummaryRow(
+                username=username,
+                email=info["email"],
+                name=info["name"],
+                user_type=info["user_type"],
+                is_active=info["is_active"],
+                groups=", ".join(groups) if groups else "(none)",
+                apps_with_access=", ".join(sorted(info["apps"])) if info["apps"] else "(none)",
+                app_count=len(info["apps"]),
+            )
+        )
+    return rows
+
+
+def write_summary_markdown(rows: list[SummaryRow], meta: ReportMeta, dest: Any) -> None:
+    """Write summary Markdown pipe-table (one row per user)."""
+    dest.write("# Access Control Summary\n\n")
+    dest.write(f"- **Profile:** {meta.profile}\n")
+    dest.write(f"- **Generated:** {meta.generated_at}\n")
+    dest.write(f"- **Users:** {meta.user_count} | **Applications:** {meta.app_count}\n\n")
+
+    headers = _SUMMARY_HEADERS
+    dest.write("| " + " | ".join(headers) + " |\n")
+    dest.write("| " + " | ".join("---" for _ in headers) + " |\n")
+
+    for r in rows:
+        vals = [r.username, r.email, r.name, r.user_type, r.is_active, r.groups, r.apps_with_access, str(r.app_count)]
+        dest.write("| " + " | ".join(vals) + " |\n")
+
+
+def write_summary_xlsx(rows: list[SummaryRow], meta: ReportMeta, dest: Path) -> None:
+    """Write summary Excel report (one row per user)."""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError(
+            "openpyxl is required for Excel output. Install it with: uv pip install kctl-ak[reports]"
+        ) from None
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Access Summary"
+
+    headers = _SUMMARY_HEADERS
+    ws.append(headers)
+
+    bold = Font(bold=True)
+    for col_idx in range(1, len(headers) + 1):
+        ws.cell(1, col_idx).font = bold
+
+    for r in rows:
+        ws.append([r.username, r.email, r.name, r.user_type, r.is_active, r.groups, r.apps_with_access, r.app_count])
+
+    last_col = get_column_letter(len(headers))
+    ws.auto_filter.ref = f"A1:{last_col}{len(rows) + 1}"
+    ws.freeze_panes = "A2"
+
+    for col_idx, header in enumerate(headers, 1):
+        max_len = len(header)
+        for row_idx in range(2, len(rows) + 2):
+            val = str(ws.cell(row_idx, col_idx).value or "")
+            if len(val) > max_len:
+                max_len = len(val)
+        ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, 60)
+
+    summary = wb.create_sheet("Meta")
+    for label, value in [
+        ("Profile", meta.profile),
+        ("Generated", meta.generated_at),
+        ("Users", meta.user_count),
+        ("Applications", meta.app_count),
+    ]:
+        summary.append([label, value])
+    summary.cell(1, 1).font = bold
+
+    wb.save(dest)
 
 
 def write_markdown(rows: list[AccessRow], meta: ReportMeta, dest: Any) -> None:

@@ -497,15 +497,21 @@ def access_report(
         bool, typer.Option("--include-deactivated", help="Include deactivated users.")
     ] = False,
     app_slug: Annotated[str | None, typer.Option("--app", help="Filter to a specific app slug.")] = None,
+    summary: Annotated[
+        bool, typer.Option("--summary", help="One row per user with groups and apps aggregated.")
+    ] = False,
 ) -> None:
     """Generate a user x application access control report."""
     from kctl_ak.reports.access_control import (
         ReportFilters,
         ReportMeta,
         build_rows,
+        build_summary_rows,
         fetch_report_data,
         to_json,
         write_markdown,
+        write_summary_markdown,
+        write_summary_xlsx,
         write_xlsx,
     )
 
@@ -520,15 +526,6 @@ def access_report(
 
     c.output.info("Fetching users, applications, and policy bindings...")
     data = fetch_report_data(c.client, filters)
-    rows = build_rows(data, filters)
-
-    meta = ReportMeta(
-        profile=c.profile or "default",
-        generated_at=datetime.now(UTC).isoformat(),
-        user_count=len({r.username for r in rows}),
-        app_count=len({r.app_slug for r in rows}),
-        row_count=len(rows),
-    )
 
     if output:
         ext = output.suffix.lower()
@@ -542,6 +539,47 @@ def access_report(
             fmt = format
     else:
         fmt = format
+
+    if summary:
+        srows = build_summary_rows(data, filters)
+        meta = ReportMeta(
+            profile=c.profile or "default",
+            generated_at=datetime.now(UTC).isoformat(),
+            user_count=len(srows),
+            app_count=len({a.get("slug", "") for a in data.apps}),
+            row_count=len(srows),
+        )
+        if fmt == "xlsx":
+            if output is None:
+                c.output.error("Excel format requires --output file path.")
+                raise typer.Exit(1)
+            write_summary_xlsx(srows, meta, output)
+            c.output.success(f"Summary Excel written to {output} ({meta.row_count} users)")
+        elif fmt == "json":
+            payload = {"meta": meta.model_dump(), "rows": [r.model_dump() for r in srows]}
+            if output:
+                with open(output, "w") as f:
+                    json.dump(payload, f, indent=2)
+                c.output.success(f"Summary JSON written to {output} ({meta.row_count} users)")
+            else:
+                c.output.raw_json(payload)
+        else:
+            if output:
+                with open(output, "w") as f:
+                    write_summary_markdown(srows, meta, f)
+                c.output.success(f"Summary Markdown written to {output} ({meta.row_count} users)")
+            else:
+                write_summary_markdown(srows, meta, sys.stdout)
+        return
+
+    rows = build_rows(data, filters)
+    meta = ReportMeta(
+        profile=c.profile or "default",
+        generated_at=datetime.now(UTC).isoformat(),
+        user_count=len({r.username for r in rows}),
+        app_count=len({r.app_slug for r in rows}),
+        row_count=len(rows),
+    )
 
     if fmt == "xlsx":
         if output is None:
