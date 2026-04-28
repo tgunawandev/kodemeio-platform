@@ -1870,44 +1870,7 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
             )
         )
 
-    # ── Category Quality — every property field on every category ──────
-    cats = target.get("categories_full") or []
-    for cat in cats:
-        issues = []
-        if not cat.get("property_cost_method"):
-            issues.append("no cost method")
-        if not cat.get("property_valuation"):
-            issues.append("no valuation method")
-        if not cat.get("property_account_income_categ_id"):
-            issues.append("no income account")
-        if not cat.get("property_account_expense_categ_id"):
-            issues.append("no expense account")
-        if not cat.get("property_stock_account_input_categ_id"):
-            issues.append("no stock input account")
-        if not cat.get("property_stock_account_output_categ_id"):
-            issues.append("no stock output account")
-        if not cat.get("property_stock_valuation_account_id"):
-            issues.append("no valuation account")
-        if not cat.get("property_stock_journal"):
-            issues.append("no stock journal")
-        status = "PASS" if not issues else ("FAIL" if len(issues) >= 3 else "WARN")
-        sheets["Category Quality"].append(
-            _row(
-                company_name,
-                **{"Category ID": cat.get("id")},
-                Name=cat.get("name"),
-                **{"Cost Method": cat.get("property_cost_method") or "-"},
-                Valuation=cat.get("property_valuation") or "-",
-                **{"Income Account": _safe(cat.get("property_account_income_categ_id"))},
-                **{"Expense Account": _safe(cat.get("property_account_expense_categ_id"))},
-                **{"Stock Input": _safe(cat.get("property_stock_account_input_categ_id"))},
-                **{"Stock Output": _safe(cat.get("property_stock_account_output_categ_id"))},
-                **{"Stock Valuation": _safe(cat.get("property_stock_valuation_account_id"))},
-                **{"Stock Journal": _safe(cat.get("property_stock_journal"))},
-                **{"Missing Fields": ", ".join(issues) if issues else "-"},
-                Status=status,
-            )
-        )
+    # NOTE: Category Quality was consolidated into Product Categories above.
 
     # ── Bank Journal Quality — bank journals must have bank_account_id ─
     bank_journals = target.get("bank_journals_detail") or []
