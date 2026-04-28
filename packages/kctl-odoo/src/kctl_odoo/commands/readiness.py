@@ -317,7 +317,7 @@ CONFIG_COVERAGE_ITEMS: list[tuple[str, str, str, str, list]] = [
     ("Reports", "Report Formats", "report.format", "company", []),
     ("Reports", "Paper Formats", "report.paperformat", "global", []),
     # --- Report Management ---
-    ("Reports", "Report Types", "report.type", "global", []),
+    ("Reports", "Report Types", "report.type.registry", "global", []),
     ("Reports", "Report Templates", "report.template", "global", []),
     ("Reports", "Scheduled Reports", "report.schedule", "company", []),
     ("Reports", "Custom Queries", "report.custom.query", "company", []),
@@ -707,9 +707,9 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
     # Report types registry (global)
     rtypes = _try(
         lambda: client.search_read(
-            "report.type",
+            "report.type.registry",
             [],
-            fields=["id", "name", "code", "category", "handler"],
+            fields=["id", "name", "code", "category", "handler_model"],
             order="category, name",
         ),
         default=None,
@@ -821,7 +821,8 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
         default=[],
     )
 
-    # Bank journals — must have bank_account_id linked
+    # Bank journals — must have bank_account_id linked (real bank journals only;
+    # payment-provider journals like iPaymu/Midtrans are virtual)
     data["bank_journals_detail"] = _try(
         lambda: client.search_read(
             "account.journal",
@@ -835,28 +836,49 @@ def _pull_company_data(client: _ClientShim, company_id: int, company_name: str) 
                 "default_account_id",
                 "suspense_account_id",
                 "currency_id",
+                "inbound_payment_method_line_ids",
+                "outbound_payment_method_line_ids",
             ],
         ),
         default=[],
     )
 
+    # Payment-provider journal IDs (iPaymu, Midtrans, Xendit etc.) — these are
+    # virtual bank journals tied to a payment gateway and do not need a real
+    # bank_account_id, so the Bank Journal Quality check excludes them.
+    data["payment_provider_journal_ids"] = set(
+        _try(
+            lambda: [
+                p["journal_id"][0]
+                for p in client.search_read(
+                    "payment.provider",
+                    [("journal_id", "!=", False)],
+                    fields=["journal_id"],
+                )
+                if p.get("journal_id")
+            ],
+            default=[],
+        )
+    )
+
     # Report types from registry (financial reports must exist)
     data["report_types_full"] = _try(
         lambda: client.search_read(
-            "report.type",
+            "report.type.registry",
             [],
-            fields=["id", "name", "category", "handler", "model"],
+            fields=["id", "name", "category", "code", "handler_model"],
             order="category, name",
         ),
         default=[],
     )
 
-    # Report templates with handler check
+    # Report templates linked to types — `report_type` is a selection char that
+    # mirrors the registry's `code`, so we can still join on that key downstream.
     data["report_templates_full"] = _try(
         lambda: client.search_read(
             "report.template",
             [],
-            fields=["id", "name", "report_type", "active"],
+            fields=["id", "name", "report_type", "report_type_id", "active"],
             order="name",
         ),
         default=[],
@@ -1780,21 +1802,24 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
 
     # ── Bank Journal Quality — bank journals must have bank_account_id ─
     bank_journals = target.get("bank_journals_detail") or []
+    payment_provider_journal_ids = target.get("payment_provider_journal_ids") or set()
     for bj in bank_journals:
         issues = []
-        if bj.get("type") == "bank" and not bj.get("bank_account_id"):
+        is_payment_gateway = bj.get("id") in payment_provider_journal_ids
+        if bj.get("type") == "bank" and not bj.get("bank_account_id") and not is_payment_gateway:
             issues.append("no bank_account_id linked")
         if not bj.get("default_account_id"):
             issues.append("no default account")
-        if bj.get("type") == "bank" and not bj.get("suspense_account_id"):
+        if bj.get("type") == "bank" and not bj.get("suspense_account_id") and not is_payment_gateway:
             issues.append("no suspense account")
+        kind = "payment-gateway" if is_payment_gateway else bj.get("type")
         sheets["Bank Journal Quality"].append(
             _row(
                 company_name,
                 **{"Journal ID": bj.get("id")},
                 Code=bj.get("code"),
                 Name=bj.get("name"),
-                Type=bj.get("type"),
+                Type=kind,
                 **{"Bank Account": _safe(bj.get("bank_account_id"))},
                 **{"Default Account": _safe(bj.get("default_account_id"))},
                 **{"Suspense Account": _safe(bj.get("suspense_account_id"))},
@@ -1818,24 +1843,26 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
     ]
     rtypes = target.get("report_types_full") or []
     rtemplates = target.get("report_templates_full") or []
-    rtypes_by_handler = {(r.get("handler") or ""): r for r in rtypes}
+    # The registry exposes a `code` field (e.g. "profit_loss"); templates link
+    # via the `report_type` selection that mirrors that same code.
+    rtypes_by_code = {(r.get("code") or ""): r for r in rtypes}
     rtemplates_by_type = {(r.get("report_type") or ""): r for r in rtemplates}
 
-    for handler, label, category in EXPECTED_REPORTS:
-        rtype_rec = rtypes_by_handler.get(handler)
-        rtmpl_rec = rtemplates_by_type.get(handler)
+    for code, label, category in EXPECTED_REPORTS:
+        rtype_rec = rtypes_by_code.get(code)
+        rtmpl_rec = rtemplates_by_type.get(code)
         has_type = bool(rtype_rec)
         has_template = bool(rtmpl_rec)
         issues = []
         if not has_type:
-            issues.append("no report.type registered")
+            issues.append("no report.type.registry record")
         if not has_template:
             issues.append("no report.template")
         # Reference comparison
         ref_rtypes = (ref or {}).get("report_types_full") or []
-        ref_has_type = any(r.get("handler") == handler for r in ref_rtypes)
+        ref_has_type = any(r.get("code") == code for r in ref_rtypes)
         if not has_type and ref_has_type:
-            ref_note = "MAC has it, target missing"
+            ref_note = "Reference has it, target missing"
         else:
             ref_note = ""
         status = "PASS" if (has_type and has_template) else ("FAIL" if issues else "WARN")
@@ -1844,7 +1871,7 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                 company_name,
                 Category=category,
                 Report=label,
-                Handler=handler,
+                Code=code,
                 **{"Has report.type": "Yes" if has_type else "No"},
                 **{"Has report.template": "Yes" if has_template else "No"},
                 **{"Type Name": _safe(rtype_rec.get("name") if rtype_rec else "")},

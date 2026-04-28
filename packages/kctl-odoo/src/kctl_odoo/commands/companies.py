@@ -349,12 +349,10 @@ def _run_setup(
         out.info(f"  Options: {options}")
         return None
 
-    result = c.execute(
+    result = c.execute_kw(
         "company.onboarding.wizard",
         "action_provision_from_cli",
-        company_vals,
-        template_id,
-        options,
+        [company_vals, template_id, options],
     )
 
     # Display results
@@ -548,7 +546,7 @@ def bootstrap_baseline(
         raise typer.Exit(1)
 
     if all_companies:
-        ids = c.search("res.company", [], order="id")
+        ids = [r["id"] for r in c.search_read("res.company", [], fields=["id"], order="id")]
     else:
         ids = [_resolve_company_id(c, company)]
 
@@ -558,13 +556,13 @@ def bootstrap_baseline(
         comp = c.read("res.company", [cid], fields=["id", "name"])
         cname = comp[0]["name"] if comp else f"id={cid}"
         try:
-            result = c.execute(
+            result = c.execute_kw(
                 "company.onboarding.wizard",
                 "action_bootstrap_baseline_from_cli",
-                cid,
+                [cid],
             )
-            status = result.get("status", "?")
-            detail = result.get("detail", "")
+            status = result.get("status", "?") if isinstance(result, dict) else "?"
+            detail = result.get("detail", "") if isinstance(result, dict) else str(result)
         except Exception as e:
             status = "error"
             detail = str(e)
