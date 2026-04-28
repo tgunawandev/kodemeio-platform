@@ -17,8 +17,12 @@ app = typer.Typer(help="Troubleshooting, diagnostics & health checks.")
 
 # Register full diagnostic report as a sub-group: kctl-odoo doctor report
 from kctl_odoo.commands.diagnose import app as _diagnose_app  # noqa: E402
+from kctl_odoo.commands.readiness import app as _readiness_app  # noqa: E402
 
 app.add_typer(_diagnose_app, name="report")
+# Merge readiness commands at top level (kctl-odoo doctor readiness-check)
+for cmd in _readiness_app.registered_commands:
+    app.registered_commands.append(cmd)
 
 
 # ---------------------------------------------------------------------------
