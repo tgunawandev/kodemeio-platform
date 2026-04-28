@@ -123,7 +123,7 @@ test.describe("Smoke Test: All Menus", () => {
 
     for (const app of apps) {
       test(`load app: ${app.name}`, async ({ page, odoo }) => {
-        await page.goto(app.path, { waitUntil: "networkidle" });
+        await page.goto(app.path, { waitUntil: "domcontentloaded" });
 
         // Should either load successfully or redirect to home
         // (if module not installed, Odoo redirects to /odoo)

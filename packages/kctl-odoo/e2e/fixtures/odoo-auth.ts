@@ -40,7 +40,7 @@ export async function loginViaForm(
   const loginUrl = database
     ? `${url}/web/login?db=${database}`
     : `${url}/web/login`;
-  await page.goto(loginUrl, { waitUntil: "networkidle" });
+  await page.goto(loginUrl, { waitUntil: "domcontentloaded" });
 
   // Handle database selector if present
   const dbSelect = page.locator('select[name="db"]');
@@ -55,11 +55,11 @@ export async function loginViaForm(
   await page.locator('input[name="password"]').fill(password);
   await page.locator('button[type="submit"]').click();
 
-  // Wait for redirect to /web (Odoo main app)
-  await page.waitForURL(/\/web/, { timeout: 30_000 });
+  // Wait for redirect to /web or /odoo (Odoo 18 uses /odoo/)
+  await page.waitForURL(/\/(web|odoo)(\/|$)/, { timeout: 30_000 });
 
   // Wait for the Odoo app shell to be ready
-  await expect(page.locator(".o_action_manager, .o_main_navbar")).toBeVisible({
+  await expect(page.locator(".o_main_navbar").first()).toBeVisible({
     timeout: 30_000,
   });
 }
@@ -93,9 +93,9 @@ export async function loginViaRPC(
     );
   }
 
-  // Navigate to /web to establish the session in the browser context
-  await page.goto(`${url}/web`, { waitUntil: "networkidle" });
-  await expect(page.locator(".o_action_manager, .o_main_navbar")).toBeVisible({
+  // Navigate to /odoo to establish the session in the browser context
+  await page.goto(`${url}/odoo`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".o_main_navbar").first()).toBeVisible({
     timeout: 30_000,
   });
 }

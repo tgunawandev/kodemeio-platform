@@ -55,7 +55,7 @@ export async function navigateToAction(
 ): Promise<void> {
   const baseUrl = process.env.ODOO_URL || "http://localhost:8069";
   await page.goto(`${baseUrl}/odoo/action-${actionXmlId}`, {
-    waitUntil: "networkidle",
+    waitUntil: "domcontentloaded",
   });
   await waitForOdooReady(page);
 }
@@ -72,19 +72,20 @@ export async function waitForOdooReady(page: Page): Promise<void> {
     await loading.waitFor({ state: "hidden", timeout: 30_000 });
   }
 
-  // Wait for the action manager content
+  // Wait for any Odoo content to be ready (action manager, discuss, or navbar)
   await expect(
-    page.locator(
-      ".o_action_manager .o_action, .o_action_manager .o_view_controller",
-    ),
+    page
+      .locator(
+        ".o_action_manager .o_action, .o_action_manager .o_view_controller, .o_action_manager .o-mail-DiscussCore, .o_main_navbar",
+      )
+      .first(),
   ).toBeVisible({ timeout: 30_000 });
 }
 
 /** Wait for any pending RPC calls to complete. */
 export async function waitForRPC(page: Page): Promise<void> {
-  await page.waitForLoadState("networkidle");
-  // Additional wait for Odoo's internal bus
-  await page.waitForTimeout(500);
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForTimeout(1500);
 }
 
 // ---------------------------------------------------------------------------
@@ -247,11 +248,102 @@ export async function closeNotifications(page: Page): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// UI interaction helpers (hover menus, dropdowns, panels)
+// ---------------------------------------------------------------------------
+
+/** Hover a top-level navbar menu to reveal its dropdown, then screenshot. */
+export async function hoverMenu(page: Page, menuText: string): Promise<void> {
+  const menuBtn = page
+    .locator(".o_main_navbar .o_menu_sections")
+    .getByRole("button", { name: menuText })
+    .first();
+  if (await menuBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await menuBtn.hover();
+    await page.waitForTimeout(500);
+  }
+}
+
+/** Open the App Switcher (home menu grid). */
+export async function openAppSwitcher(page: Page): Promise<void> {
+  const toggle = page
+    .locator('.o_main_navbar button:first-child, [aria-label="Home Menu"]')
+    .first();
+  if (await toggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await toggle.click();
+    await page.waitForTimeout(1000);
+  }
+}
+
+/** Open the user menu dropdown (top-right avatar). */
+export async function openUserMenu(page: Page): Promise<void> {
+  const userBtn = page.locator('.o_user_menu button, img[alt="User"]').first();
+  if (await userBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await userBtn.click();
+    await page.waitForTimeout(600);
+  }
+}
+
+/** Open the search/filter panel (toggle the dropdown arrow). */
+export async function openSearchPanel(page: Page): Promise<void> {
+  const toggle = page
+    .locator(
+      '.o_searchview_dropdown_toggler, button[aria-label="Toggle Search Panel"]',
+    )
+    .first();
+  if (await toggle.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await toggle.click();
+    await page.waitForTimeout(600);
+  }
+}
+
+/** Click search bar to show autocomplete suggestions. */
+export async function clickSearchBar(page: Page): Promise<void> {
+  const input = page
+    .locator('.o_searchview_input, input[placeholder="Search..."]')
+    .first();
+  if (await input.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await input.click();
+    await page.waitForTimeout(600);
+  }
+}
+
+/** Dismiss Odoo onboarding banners and sample data overlays. */
+export async function dismissBanners(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document
+      .querySelectorAll(
+        '.o_onboarding_container, [class*="sample_data_message"], .o_view_sample_data .o_sample_data_message',
+      )
+      .forEach((el: any) => (el.style.display = "none"));
+  });
+}
+
+/** Switch view type (list, kanban, pivot, calendar, graph, map, activity). */
+export async function switchView(page: Page, viewType: string): Promise<void> {
+  const btn = page.locator(`.o_switch_view.o_${viewType}`).first();
+  if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await btn.click();
+    await page.waitForTimeout(1500);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Screenshot helper
 // ---------------------------------------------------------------------------
 
 /** Take a named screenshot, saving to the configured screenshot directory. */
 export async function takeScreenshot(page: Page, name: string): Promise<void> {
   const dir = process.env.ODOO_E2E_SCREENSHOT_DIR || "screenshots";
-  await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true });
+  await dismissBanners(page);
+  await page.screenshot({ path: `${dir}/${name}.png`, fullPage: false });
+}
+
+/** Take screenshot with a specific viewport crop (not full page). */
+export async function takeViewportScreenshot(
+  page: Page,
+  name: string,
+): Promise<void> {
+  const dir = process.env.ODOO_E2E_SCREENSHOT_DIR || "screenshots";
+  await dismissBanners(page);
+  await page.screenshot({ path: `${dir}/${name}.png`, fullPage: false });
 }
