@@ -330,14 +330,22 @@ CONFIG_COVERAGE_ITEMS: list[tuple[str, str, str, str, list]] = [
     ("Reports", "Custom Queries", "report.custom.query", "company", []),
     ("Reports", "Report Instances", "report.instance", "company", []),
     # --- Tax (Indonesian) ---
-    ("Tax (Indonesia)", "Tax Periods", "l10n_id_tax.period", "company", []),
-    ("Tax (Indonesia)", "Tax Object Codes", "l10n_id_tax.object.code", "global", []),
-    ("Tax (Indonesia)", "Transaction Codes", "l10n_id_tax.transaction.code", "global", []),
-    ("Tax (Indonesia)", "PTKP Brackets", "l10n_id_hr.ptkp.bracket", "global", []),
-    ("Tax (Indonesia)", "TER Rate Table", "l10n_id_hr.ter.rate", "global", []),
-    ("Tax (Indonesia)", "Progressive Rates", "l10n_id_hr.progressive.rate", "global", []),
-    ("Tax (Indonesia)", "Kurs Pajak", "l10n_id_kurs_pajak.kurs_pajak", "global", []),
-    ("Tax (Indonesia)", "PPnBM Rates", "l10n_id_tax.ppnbm.rate", "global", []),
+    # Indonesian tax data — backed by `tax_management` private module models
+    # (kodemeio uses tax.* prefix, not l10n_id.*). HR-only tables (PTKP /
+    # TER / Progressive PPh21) are intentionally excluded from the ERP
+    # readiness audit — they only fire when payroll_management is installed,
+    # which lives on the separate HRMS instance.
+    ("Tax (Indonesia)", "Kurs Pajak", "tax.kurs.pajak", "global", []),
+    ("Tax (Indonesia)", "PPnBM Config", "tax.ppnbm.config", "global", []),
+    ("Tax (Indonesia)", "PPh 23 Withholding", "pph23.withholding", "company", []),
+    ("Tax (Indonesia)", "PPh 4(2) Withholding", "pph4.2.withholding", "company", []),
+    ("Tax (Indonesia)", "PPh 26 Withholding", "pph26.withholding", "company", []),
+    ("Tax (Indonesia)", "Bupot Non-Resident", "bupot.non.resident", "company", []),
+    ("Tax (Indonesia)", "Bupot Unifikasi", "bupot.unifikasi", "company", []),
+    ("Tax (Indonesia)", "Materai", "tax.materai", "global", []),
+    ("Tax (Indonesia)", "Faktur Pajak Group", "faktur.pajak.group", "global", []),
+    ("Tax (Indonesia)", "Tax Reconciliation", "tax.reconciliation", "company", []),
+    ("Tax (Indonesia)", "Fiscal Correction", "tax.fiscal.correction", "company", []),
     ("Tax (Indonesia)", "Faktur Output", "l10n_id_efaktur.document", "company", []),
     # --- Contacts ---
     ("Contacts", "Contact Tags", "res.partner.category", "global", []),
@@ -945,11 +953,12 @@ def _pull_global_data(client: _ClientShim) -> dict:
     """Pull data not scoped to a single company (modules, currencies, params, mail)."""
     data: dict[str, Any] = {}
 
-    # Modules
+    # Modules — pull every installed module so the audit is complete, plus
+    # the curated TRACKED_MODULES even when not installed (so we flag gaps).
     data["modules"] = _try(
         lambda: client.search_read(
             "ir.module.module",
-            [("name", "in", TRACKED_MODULES)],
+            ["|", ("state", "=", "installed"), ("name", "in", TRACKED_MODULES)],
             fields=["name", "state", "installed_version", "shortdesc"],
             order="name",
         ),
@@ -1054,16 +1063,17 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
     r = _safe(co_r.get("currency_id"), "")
     sheets["Company Settings"].append(cmp_setting("Currency", t, r, "PASS" if t == "IDR" else "WARN"))
 
-    # Fiscal country
+    # Fiscal country — only show "Should be Indonesia" hint when not yet set
     t = _safe(co_t.get("account_fiscal_country_id"), "Not set")
     r = _safe(co_r.get("account_fiscal_country_id"), "")
+    is_indonesia = "Indonesia" in t
     sheets["Company Settings"].append(
         cmp_setting(
             "Fiscal Country",
             t,
             r,
-            "PASS" if "Indonesia" in t else "WARN",
-            note="Should be Indonesia",
+            "PASS" if is_indonesia else "WARN",
+            note="" if is_indonesia else "Should be Indonesia",
         )
     )
 
@@ -1240,9 +1250,15 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
         gl_accs = tax_accounts.get(t["id"], [])
         gl_str = ", ".join(gl_accs) if gl_accs else ""
         active = t.get("active")
-        if active and not gl_accs:
+        # 0%-amount taxes (PPN Bebas / Exempt / Zero-rated) have no GL impact —
+        # the tax account is intentionally blank. Don't fail those.
+        is_zero_rate = abs(float(t.get("amount") or 0.0)) < 1e-9
+        if active and not gl_accs and not is_zero_rate:
             status = "FAIL"
             note = "Active tax missing GL account on repartition"
+        elif active and not gl_accs and is_zero_rate:
+            status = "PASS"
+            note = "0%/exempt — no GL needed"
         else:
             status = "PASS"
             note = ""
@@ -2508,20 +2524,27 @@ def _write_excel(
     rows = []
     target_modules = {m["name"]: m for m in (target_global.get("modules") or [])}
     ref_modules = {m["name"]: m for m in ((ref_global or {}).get("modules") or [])}
-    for mod in TRACKED_MODULES:
+    # Render: every installed module on target, plus any tracked-but-missing
+    # ones so config gaps still surface.
+    all_module_names = sorted(set(target_modules.keys()) | set(TRACKED_MODULES))
+    for mod in all_module_names:
         tm = target_modules.get(mod, {})
         rm = ref_modules.get(mod, {})
         tstate = tm.get("state", "not found")
         rstate = rm.get("state", "not found") if ref_global else "-"
         if mod in REQUIRED_MODULES:
             status = "PASS" if tstate == "installed" else "FAIL"
-        else:
+        elif mod in TRACKED_MODULES:
             if tstate == "installed":
                 status = "PASS"
             elif rstate == "installed":
                 status = "WARN"
             else:
                 status = "INFO"
+        else:
+            # Installed module not on the curated tracker — mark INFO.
+            status = "PASS" if tstate == "installed" else "INFO"
+        note = "Required" if mod in REQUIRED_MODULES else ("Tracked" if mod in TRACKED_MODULES else "")
         rows.append(
             {
                 "Section": "Module",
@@ -2529,7 +2552,7 @@ def _write_excel(
                 "Target State / Active": f"{tstate} ({tm.get('installed_version', '')})" if tm else tstate,
                 "Reference": rstate,
                 "Status": status,
-                "Note": "Required" if mod in REQUIRED_MODULES else "",
+                "Note": note,
             }
         )
 
