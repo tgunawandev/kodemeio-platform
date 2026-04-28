@@ -1819,6 +1819,360 @@ def audit_package(
     typer.echo(f"Wrote {output}")
 
 
+@app.command("report")
+def migration_report(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Tenant slug (or 'all' for all companies)")],
+    output: Annotated[
+        Optional[Path],
+        typer.Option("-o", "--output", help="Output Excel path"),
+    ] = None,
+) -> None:
+    """Generate a migration report Excel for one or all companies."""
+    actx: AppContext = ctx.obj
+    _bump_client_timeout(actx, seconds=600.0)
+    c = actx.client
+    out = actx.output
+
+    if slug == "all":
+        companies = c.search_read(
+            "accurate.company",
+            domain=[],
+            fields=["id", "slug"],
+            order="id",
+        )
+    else:
+        rec = _resolve_accurate_company(c, slug)
+        companies = [rec]
+
+    out.info(f"Generating migration report for {len(companies)} company(ies)...")
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        out.error("openpyxl not installed. Run: pip install openpyxl")
+        raise typer.Exit(1)
+
+    wb = Workbook()
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    hdr_fill = PatternFill("solid", fgColor="2F5496")
+    pass_fill = PatternFill("solid", fgColor="C6EFCE")
+    fail_fill = PatternFill("solid", fgColor="FFC7CE")
+    inc_fill = PatternFill("solid", fgColor="FFEB9C")
+    border = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+
+    def write_headers(ws, headers, widths=None):
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = hdr_font
+            cell.fill = hdr_fill
+            cell.alignment = Alignment(horizontal="center", wrap_text=True)
+        if widths:
+            for i, w in enumerate(widths, 1):
+                ws.column_dimensions[get_column_letter(i)].width = w
+        ws.freeze_panes = "A2"
+
+    # ── Sheet 1: Summary ──
+    ws1 = wb.active
+    ws1.title = "Migration Summary"
+    write_headers(
+        ws1,
+        [
+            "Company",
+            "Slug",
+            "State",
+            "Phase",
+            "Cutover Date",
+            "Total Moves",
+            "Opening JE",
+            "BS Adjustment",
+            "Parity Passed",
+            "Parity Total",
+            "Parity %",
+        ],
+        [30, 35, 12, 22, 14, 12, 10, 12, 12, 12, 10],
+    )
+
+    row = 2
+    all_parity_data = {}
+    for comp in companies:
+        rec = c.search_read(
+            "accurate.company",
+            domain=[("id", "=", comp["id"])],
+            fields=[
+                "name",
+                "slug",
+                "state",
+                "current_phase",
+                "cutover_date",
+                "odoo_company_id",
+            ],
+        )[0]
+        co_id = rec["odoo_company_id"][0] if rec["odoo_company_id"] else 0
+
+        moves = c.search_count(
+            "account.move",
+            [
+                ("company_id", "=", co_id),
+                ("state", "=", "posted"),
+            ],
+        )
+        opening = c.search_count(
+            "account.move",
+            [
+                ("company_id", "=", co_id),
+                ("x_accurate_migration_source", "=", "opening_gl_trial_balance"),
+            ],
+        )
+        bs_adj = c.search_count(
+            "account.move",
+            [
+                ("company_id", "=", co_id),
+                ("x_accurate_migration_source", "=", "bs_adjustment"),
+            ],
+        )
+
+        # Latest parity report
+        parity_reports = c.search_read(
+            "accurate.parity.report",
+            domain=[("company_id", "=", comp["id"])],
+            fields=["passed_count", "total_count", "run_date", "all_passed"],
+            order="id desc",
+            limit=1,
+        )
+        p_passed = parity_reports[0]["passed_count"] if parity_reports else 0
+        p_total = parity_reports[0]["total_count"] if parity_reports else 0
+        p_pct = f"{p_passed * 100 // p_total}%" if p_total else "N/A"
+
+        ws1.cell(row=row, column=1, value=rec["name"]).font = Font(size=10)
+        ws1.cell(row=row, column=2, value=rec["slug"]).font = Font(size=10)
+        ws1.cell(row=row, column=3, value=rec["state"]).font = Font(size=10)
+        ws1.cell(row=row, column=4, value=rec["current_phase"]).font = Font(size=10)
+        ws1.cell(row=row, column=5, value=rec["cutover_date"]).font = Font(size=10)
+        ws1.cell(row=row, column=6, value=moves).font = Font(size=10)
+        ws1.cell(row=row, column=7, value="Yes" if opening else "No").font = Font(size=10, bold=True)
+        ws1.cell(row=row, column=7).fill = pass_fill if opening else fail_fill
+        ws1.cell(row=row, column=8, value="Yes" if bs_adj else "No").font = Font(size=10, bold=True)
+        ws1.cell(row=row, column=8).fill = pass_fill if bs_adj else fail_fill
+        ws1.cell(row=row, column=9, value=p_passed).font = Font(size=10)
+        ws1.cell(row=row, column=10, value=p_total).font = Font(size=10)
+        ws1.cell(row=row, column=11, value=p_pct).font = Font(size=10, bold=True)
+
+        for col in range(1, 12):
+            ws1.cell(row=row, column=col).border = border
+        row += 1
+
+        all_parity_data[rec["slug"]] = parity_reports[0] if parity_reports else None
+        out.info(f"  {rec['slug']}: {moves} moves, parity {p_passed}/{p_total}")
+
+    # ── Sheet 2: Parity Detail ──
+    ws2 = wb.create_sheet("Parity Detail")
+    write_headers(
+        ws2,
+        [
+            "Company",
+            "Check",
+            "Category",
+            "Status",
+            "Accurate",
+            "Odoo",
+            "Delta",
+            "Source",
+            "Notes",
+        ],
+        [30, 18, 12, 8, 18, 18, 18, 12, 50],
+    )
+
+    row = 2
+    for comp in companies:
+        reports = c.search_read(
+            "accurate.parity.report",
+            domain=[("company_id", "=", comp["id"])],
+            fields=["id"],
+            order="id desc",
+            limit=1,
+        )
+        if not reports:
+            continue
+        lines = c.search_read(
+            "accurate.parity.line",
+            domain=[("report_id", "=", reports[0]["id"])],
+            fields=[
+                "check_name",
+                "category",
+                "status",
+                "accurate_total",
+                "odoo_total",
+                "source",
+                "remediation_hints",
+            ],
+            order="id",
+        )
+        rec_name = c.search_read(
+            "accurate.company",
+            [("id", "=", comp["id"])],
+            fields=["name"],
+        )[0]["name"]
+
+        for ln in lines:
+            delta = (ln.get("odoo_total") or 0) - (ln.get("accurate_total") or 0)
+            status = ln.get("status") or "?"
+            ws2.cell(row=row, column=1, value=rec_name).font = Font(size=10)
+            ws2.cell(row=row, column=2, value=ln["check_name"]).font = Font(size=10)
+            ws2.cell(row=row, column=3, value=ln.get("category") or "").font = Font(size=10)
+            status_cell = ws2.cell(row=row, column=4, value=status.upper())
+            status_cell.font = Font(size=10, bold=True)
+            if status == "passed":
+                status_cell.fill = pass_fill
+            elif status == "failed":
+                status_cell.fill = fail_fill
+            else:
+                status_cell.fill = inc_fill
+            ws2.cell(row=row, column=5, value=ln.get("accurate_total") or 0).font = Font(size=10)
+            ws2.cell(row=row, column=5).number_format = "#,##0.00"
+            ws2.cell(row=row, column=6, value=ln.get("odoo_total") or 0).font = Font(size=10)
+            ws2.cell(row=row, column=6).number_format = "#,##0.00"
+            ws2.cell(row=row, column=7, value=delta).font = Font(size=10)
+            ws2.cell(row=row, column=7).number_format = "#,##0.00"
+            ws2.cell(row=row, column=8, value=ln.get("source") or "").font = Font(size=10)
+            hints = ln.get("remediation_hints") or ""
+            ws2.cell(row=row, column=9, value=hints[:200] if hints else "").font = Font(size=9)
+            for col in range(1, 10):
+                ws2.cell(row=row, column=col).border = border
+            row += 1
+
+    ws2.auto_filter.ref = f"A1:I{row - 1}"
+
+    # ── Sheet 3: Move Breakdown ──
+    ws3 = wb.create_sheet("Move Breakdown")
+    write_headers(
+        ws3,
+        [
+            "Company",
+            "Source",
+            "Move Count",
+        ],
+        [30, 30, 12],
+    )
+
+    row = 2
+    source_labels = [
+        ("opening_gl_trial_balance", "Opening GL Trial Balance"),
+        ("bs_adjustment", "BS Adjustment"),
+        ("current_fy_full", "Current FY Transactions"),
+        ("gap_sync", "Gap Sync Backfill"),
+        ("ar_ap_reversal", "AR/AP Reversal"),
+        ("outstanding_open_items", "Outstanding Open Items"),
+        ("pnl_neutralization", "P&L Neutralization"),
+    ]
+    for comp in companies:
+        rec = c.search_read(
+            "accurate.company",
+            [("id", "=", comp["id"])],
+            fields=["name", "odoo_company_id"],
+        )[0]
+        co_id = rec["odoo_company_id"][0] if rec["odoo_company_id"] else 0
+        for src_code, src_label in source_labels:
+            cnt = c.search_count(
+                "account.move",
+                [
+                    ("company_id", "=", co_id),
+                    ("x_accurate_migration_source", "=", src_code),
+                    ("state", "=", "posted"),
+                ],
+            )
+            if cnt:
+                ws3.cell(row=row, column=1, value=rec["name"]).font = Font(size=10)
+                ws3.cell(row=row, column=2, value=src_label).font = Font(size=10)
+                ws3.cell(row=row, column=3, value=cnt).font = Font(size=10)
+                for col in range(1, 4):
+                    ws3.cell(row=row, column=col).border = border
+                row += 1
+        # Non-migration moves
+        total = c.search_count(
+            "account.move",
+            [
+                ("company_id", "=", co_id),
+                ("state", "=", "posted"),
+            ],
+        )
+        migration = c.search_count(
+            "account.move",
+            [
+                ("company_id", "=", co_id),
+                ("state", "=", "posted"),
+                ("x_accurate_migration_source", "!=", False),
+            ],
+        )
+        other = total - migration
+        if other:
+            ws3.cell(row=row, column=1, value=rec["name"]).font = Font(size=10)
+            ws3.cell(row=row, column=2, value="Other (non-migration)").font = Font(size=10)
+            ws3.cell(row=row, column=3, value=other).font = Font(size=10)
+            for col in range(1, 4):
+                ws3.cell(row=row, column=col).border = border
+            row += 1
+
+    # ── Sheet 4: Phase History ──
+    ws4 = wb.create_sheet("Phase History")
+    write_headers(
+        ws4,
+        [
+            "Company",
+            "Phase",
+            "State",
+            "Started",
+            "Duration (s)",
+        ],
+        [30, 22, 10, 22, 12],
+    )
+
+    row = 2
+    for comp in companies:
+        rec = c.search_read(
+            "accurate.company",
+            [("id", "=", comp["id"])],
+            fields=["name"],
+        )[0]
+        phases = c.search_read(
+            "accurate.company.phase",
+            domain=[("company_id", "=", comp["id"]), ("state", "=", "passed")],
+            fields=["phase_code", "state", "started_at", "duration_s"],
+            order="id desc",
+            limit=20,
+        )
+        for p in phases:
+            ws4.cell(row=row, column=1, value=rec["name"]).font = Font(size=10)
+            ws4.cell(row=row, column=2, value=p.get("phase_code") or "").font = Font(size=10)
+            state_cell = ws4.cell(row=row, column=3, value=p.get("state") or "")
+            state_cell.font = Font(size=10)
+            state_cell.fill = pass_fill if p.get("state") == "passed" else fail_fill
+            ws4.cell(row=row, column=4, value=p.get("started_at") or "").font = Font(size=10)
+            ws4.cell(row=row, column=5, value=p.get("duration_s") or 0).font = Font(size=10)
+            ws4.cell(row=row, column=5).number_format = "#,##0"
+            for col in range(1, 6):
+                ws4.cell(row=row, column=col).border = border
+            row += 1
+
+    # ── Save ──
+    if not output:
+        safe_slug = slug.replace("/", "_").replace(" ", "_")
+        output = Path(f"migration_report_{safe_slug}_{date.today().isoformat()}.xlsx")
+    wb.save(str(output))
+    out.info(f"Report saved to {output}")
+    out.info(f"  Sheet 1: Migration Summary ({len(companies)} companies)")
+    out.info(f"  Sheet 2: Parity Detail (12 checks per company)")
+    out.info(f"  Sheet 3: Move Breakdown (by migration source)")
+    out.info(f"  Sheet 4: Phase History")
+
+
 # --- attach sub-apps ---------------------------------------------------
 
 
