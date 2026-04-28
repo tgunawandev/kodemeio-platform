@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -69,6 +70,10 @@ def modules(
     ctx: typer.Context,
     profile_a: Annotated[str, typer.Argument(help="First profile name")],
     profile_b: Annotated[str, typer.Argument(help="Second profile name")],
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Export comparison to Excel (.xlsx)"),
+    ] = None,
 ) -> None:
     """Compare installed modules between two Odoo instances.
 
@@ -76,6 +81,7 @@ def modules(
 
     Examples:
       kctl-odoo diff modules production staging
+      kctl-odoo diff modules mac-odoo-erp tpp-odoo-erp -o diff.xlsx
     """
     actx: AppContext = ctx.obj
     out = actx.output
@@ -169,6 +175,127 @@ def modules(
 
     if not only_a and not only_b and not different:
         out.success("Instances are identical in module state and versions.")
+
+    if output:
+        _write_diff_xlsx(output, profile_a, profile_b, mods_a, mods_b, only_a, only_b, common, different)
+        out.success(f"Wrote {output}")
+
+
+def _write_diff_xlsx(
+    output_path: Path,
+    label_a: str,
+    label_b: str,
+    mods_a: dict[str, dict],
+    mods_b: dict[str, dict],
+    only_a: list[str],
+    only_b: list[str],
+    common: list[str],
+    different: list[tuple[str, str, str]],
+) -> None:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    hdr_fill = PatternFill("solid", fgColor="2F5496")
+    only_a_fill = PatternFill("solid", fgColor="DAEEF3")
+    only_b_fill = PatternFill("solid", fgColor="FDE9D9")
+    diff_fill = PatternFill("solid", fgColor="FFEB9C")
+    same_fill = PatternFill("solid", fgColor="C6EFCE")
+    border = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+
+    def write_headers(ws, headers, widths=None):
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = hdr_font
+            cell.fill = hdr_fill
+            cell.alignment = Alignment(horizontal="center", wrap_text=True)
+        if widths:
+            for i, w in enumerate(widths, 1):
+                ws.column_dimensions[get_column_letter(i)].width = w
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}1"
+
+    # Build diff set for quick lookup
+    diff_names = {n for n, _, _ in different}
+
+    # ── Sheet 1: Side-by-Side ──
+    ws1 = wb.active
+    ws1.title = "Side-by-Side"
+    headers1 = [
+        "Module",
+        f"{label_a} Status",
+        f"{label_a} Version",
+        f"{label_b} Status",
+        f"{label_b} Version",
+        "Comparison",
+    ]
+    write_headers(ws1, headers1, [35, 14, 16, 14, 16, 18])
+
+    all_names = sorted(set(mods_a.keys()) | set(mods_b.keys()))
+    row = 2
+    for name in all_names:
+        in_a = name in mods_a
+        in_b = name in mods_b
+        a_state = mods_a[name]["state"] if in_a else ""
+        a_ver = mods_a[name]["version"] if in_a else ""
+        b_state = mods_b[name]["state"] if in_b else ""
+        b_ver = mods_b[name]["version"] if in_b else ""
+
+        if not in_b:
+            comparison = f"Only {label_a}"
+            fill = only_a_fill
+        elif not in_a:
+            comparison = f"Only {label_b}"
+            fill = only_b_fill
+        elif name in diff_names:
+            comparison = "Version differs"
+            fill = diff_fill
+        else:
+            comparison = "Same"
+            fill = same_fill
+
+        values = [name, a_state, a_ver, b_state, b_ver, comparison]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws1.cell(row=row, column=col_idx, value=val)
+            cell.border = border
+            cell.fill = fill
+        row += 1
+
+    # ── Sheet 2: Only in A ──
+    ws2 = wb.create_sheet(f"Only {label_a}")
+    write_headers(ws2, ["Module", "State", "Version"], [35, 14, 16])
+    for r_idx, name in enumerate(only_a, 2):
+        for c_idx, val in enumerate([name, mods_a[name]["state"], mods_a[name]["version"]], 1):
+            cell = ws2.cell(row=r_idx, column=c_idx, value=val)
+            cell.border = border
+            cell.fill = only_a_fill
+
+    # ── Sheet 3: Only in B ──
+    ws3 = wb.create_sheet(f"Only {label_b}")
+    write_headers(ws3, ["Module", "State", "Version"], [35, 14, 16])
+    for r_idx, name in enumerate(only_b, 2):
+        for c_idx, val in enumerate([name, mods_b[name]["state"], mods_b[name]["version"]], 1):
+            cell = ws3.cell(row=r_idx, column=c_idx, value=val)
+            cell.border = border
+            cell.fill = only_b_fill
+
+    # ── Sheet 4: Version Differences ──
+    ws4 = wb.create_sheet("Version Differs")
+    write_headers(ws4, ["Module", f"{label_a} Version", f"{label_b} Version"], [35, 20, 20])
+    for r_idx, (name, va, vb) in enumerate(different, 2):
+        for c_idx, val in enumerate([name, va, vb], 1):
+            cell = ws4.cell(row=r_idx, column=c_idx, value=val)
+            cell.border = border
+            cell.fill = diff_fill
+
+    wb.save(output_path)
 
 
 @app.command()
