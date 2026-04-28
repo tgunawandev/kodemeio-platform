@@ -1310,6 +1310,27 @@ def _fetch_access_data(c, *, include_inactive: bool = False) -> dict:
     )
     admin_group_ids = {g["id"] for g in admin_groups}
 
+    # --- Menu visibility ----------------------------------------------------
+    # Use ir.ui.menu.full_list context so admin can see all menus
+    FILTERED_MENUS = {"Tests", "Start", "Apps"}
+    try:
+        menus = c.execute_kw(
+            "ir.ui.menu",
+            "search_read",
+            [[("parent_id", "=", False)]],
+            {
+                "fields": ["id", "name", "groups_id", "excluded_group_ids"],
+                "context": {"ir.ui.menu.full_list": True},
+            },
+        )
+    except Exception:
+        menus = []
+
+    # Filter out internal/framework menus, sort alphabetically
+    menus = [m for m in menus if m["name"] not in FILTERED_MENUS]
+    menus.sort(key=lambda m: m["name"])
+    menu_names = [m["name"] for m in menus]
+
     # --- Build user rows ----------------------------------------------------
     active_count = 0
     inactive_count = 0
@@ -1346,6 +1367,20 @@ def _fetch_access_data(c, *, include_inactive: bool = False) -> dict:
         else:
             default_ou = "-"
 
+        # Compute accessible menus for this user
+        accessible_menus: list[str] = []
+        for menu in menus:
+            menu_groups = set(menu.get("groups_id") or [])
+            menu_excluded = set(menu.get("excluded_group_ids") or [])
+            # Menu visible if:
+            # 1. No groups_id restriction (empty = visible to all), OR user is in at least one group
+            # 2. AND user is NOT in any excluded group
+            if menu_excluded and (user_groups & menu_excluded):
+                continue  # user is excluded
+            if menu_groups and not (user_groups & menu_groups):
+                continue  # user lacks required group
+            accessible_menus.append(menu["name"])
+
         user_rows.append(
             {
                 "login": u["login"],
@@ -1359,6 +1394,7 @@ def _fetch_access_data(c, *, include_inactive: bool = False) -> dict:
                 "default_ou": default_ou,
                 "is_admin": is_admin,
                 "groups_count": len(user_groups),
+                "accessible_apps": accessible_menus,
             }
         )
 
@@ -1393,6 +1429,7 @@ def _fetch_access_data(c, *, include_inactive: bool = False) -> dict:
         "inactive_count": inactive_count,
         "users": user_rows,
         "roles_summary": roles_summary,
+        "menu_names": menu_names,
     }
 
 
@@ -1415,14 +1452,19 @@ def _write_markdown(data: dict, path: str) -> None:
     # User access table
     lines.append("## User Access")
     lines.append("")
-    lines.append("| Login | Name | Company | Roles | Operating Units | Default OU | Admin | Last Login | Groups |")
-    lines.append("|-------|------|---------|-------|-----------------|------------|-------|------------|--------|")
+    lines.append(
+        "| Login | Name | Company | Roles | Operating Units | Default OU | Admin | Last Login | Groups | Apps |"
+    )
+    lines.append(
+        "|-------|------|---------|-------|-----------------|------------|-------|------------|--------|------|"
+    )
     for u in data["users"]:
         roles = " \\| ".join(_md_escape(r) for r in u["roles"]) if u["roles"] else "-"
         ous = " \\| ".join(_md_escape(o) for o in u["operating_units"]) if u["operating_units"] else "-"
         admin = "Yes" if u["is_admin"] else "No"
+        apps = ", ".join(_md_escape(a) for a in u.get("accessible_apps", [])) or "-"
         lines.append(
-            f"| {_md_escape(u['login'])} | {_md_escape(u['name'])} | {_md_escape(u['company'])} | {roles} | {ous} | {_md_escape(u['default_ou'])} | {admin} | {_md_escape(u['last_login'])} | {u['groups_count']} |"
+            f"| {_md_escape(u['login'])} | {_md_escape(u['name'])} | {_md_escape(u['company'])} | {roles} | {ous} | {_md_escape(u['default_ou'])} | {admin} | {_md_escape(u['last_login'])} | {u['groups_count']} | {apps} |"
         )
     lines.append("")
 
@@ -1463,6 +1505,7 @@ def _write_excel(data: dict, path: str) -> None:
         "Default OU",
         "Admin",
         "Groups",
+        "Apps",
     ]
     bold = Font(bold=True)
     for col_idx, header in enumerate(headers, 1):
@@ -1481,6 +1524,11 @@ def _write_excel(data: dict, path: str) -> None:
         ws.cell(row=row_idx, column=9, value=u["default_ou"])
         ws.cell(row=row_idx, column=10, value="Yes" if u["is_admin"] else "No")
         ws.cell(row=row_idx, column=11, value=u["groups_count"])
+        ws.cell(
+            row=row_idx,
+            column=12,
+            value=", ".join(u.get("accessible_apps", [])) if u.get("accessible_apps") else "-",
+        )
 
     ws.freeze_panes = "A2"
     for col_idx in range(1, len(headers) + 1):
@@ -1511,6 +1559,39 @@ def _write_excel(data: dict, path: str) -> None:
                 if cell.value:
                     max_len = max(max_len, len(str(cell.value)))
         ws2.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, 50)
+
+    # Sheet 3: Menu Access Matrix
+    ws3 = wb.create_sheet("Menu Access Matrix")
+
+    # Header row: Login, Name, then one column per menu
+    ws3.cell(row=1, column=1, value="Login").font = bold
+    ws3.cell(row=1, column=2, value="Name").font = bold
+    all_menu_names = data.get("menu_names", [])
+    for col_idx, menu_name in enumerate(all_menu_names, 3):
+        ws3.cell(row=1, column=col_idx, value=menu_name).font = bold
+
+    # Data rows
+    for row_idx, u in enumerate(data["users"], 2):
+        ws3.cell(row=row_idx, column=1, value=u["login"])
+        ws3.cell(row=row_idx, column=2, value=u["name"])
+        accessible = set(u.get("accessible_apps", []))
+        for col_idx, menu_name in enumerate(all_menu_names, 3):
+            ws3.cell(row=row_idx, column=col_idx, value="✓" if menu_name in accessible else "-")
+
+    ws3.freeze_panes = "C2"  # Freeze Login+Name columns and header row
+
+    # Auto-width for Login and Name columns
+    for col_idx in (1, 2):
+        max_len = len(str(ws3.cell(row=1, column=col_idx).value))
+        for row in ws3.iter_rows(min_row=2, min_col=col_idx, max_col=col_idx):
+            for cell in row:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+        ws3.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, 30)
+
+    # Menu columns: width based on header name length
+    for col_idx, menu_name in enumerate(all_menu_names, 3):
+        ws3.column_dimensions[get_column_letter(col_idx)].width = max(len(menu_name) + 2, 6)
 
     wb.save(path)
 
@@ -1558,12 +1639,15 @@ def access_report(
         return
 
     # --- Terminal table ------------------------------------------------------
+    total_menus = len(data.get("menu_names", []))
     rows: list[list[str]] = []
     for u in data["users"]:
         roles = ", ".join(u["roles"]) if u["roles"] else "-"
         ous = ", ".join(u["operating_units"]) if u["operating_units"] else "-"
         admin = "[red]Yes[/red]" if u["is_admin"] else "No"
         status = "[green]active[/green]" if u["status"] == "active" else "[red]inactive[/red]"
+        apps_count = len(u.get("accessible_apps", []))
+        apps_str = f"{apps_count}/{total_menus}"
         rows.append(
             [
                 u["login"],
@@ -1575,6 +1659,7 @@ def access_report(
                 status,
                 u["last_login"],
                 str(u["groups_count"]),
+                apps_str,
             ]
         )
 
@@ -1590,6 +1675,7 @@ def access_report(
             ("Status", ""),
             ("Last Login", "dim"),
             ("Groups", "dim"),
+            ("Apps", ""),
         ],
         rows,
         data_for_json=data["users"],
