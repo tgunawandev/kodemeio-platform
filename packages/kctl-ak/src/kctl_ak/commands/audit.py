@@ -5,9 +5,11 @@ from __future__ import annotations
 import csv
 import io
 import json
+import sys
 import time
 from collections import Counter
-from datetime import UTC
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -478,3 +480,79 @@ def delete_impersonation(
             raise typer.Exit(0)
 
     _delete_events(c, combined, "impersonation")
+
+
+@app.command("access-report")
+def access_report(
+    ctx: typer.Context,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Output file (format from extension: .xlsx, .md).")
+    ] = None,
+    format: Annotated[str, typer.Option("--format", "-f", help="Output format: md, xlsx, json.")] = "md",
+    active_only: Annotated[bool, typer.Option("--active-only", help="Only active human users.")] = False,
+    include_service_accounts: Annotated[
+        bool, typer.Option("--include-service-accounts", help="Include service accounts.")
+    ] = False,
+    include_deactivated: Annotated[
+        bool, typer.Option("--include-deactivated", help="Include deactivated users.")
+    ] = False,
+    app_slug: Annotated[str | None, typer.Option("--app", help="Filter to a specific app slug.")] = None,
+) -> None:
+    """Generate a user x application access control report."""
+    from kctl_ak.reports.access_control import (
+        ReportFilters,
+        ReportMeta,
+        build_rows,
+        fetch_report_data,
+        to_json,
+        write_markdown,
+        write_xlsx,
+    )
+
+    c: AppContext = ctx.obj
+
+    filters = ReportFilters(
+        active_only=active_only,
+        include_service_accounts=include_service_accounts,
+        include_deactivated=include_deactivated,
+        app_slug=app_slug,
+    )
+
+    c.output.info("Fetching users, applications, and policy bindings...")
+    data = fetch_report_data(c.client, filters)
+    rows = build_rows(data, filters)
+
+    meta = ReportMeta(
+        profile=c.profile or "default",
+        generated_at=datetime.now(UTC).isoformat(),
+        user_count=len({r.username for r in rows}),
+        app_count=len({r.app_slug for r in rows}),
+        row_count=len(rows),
+    )
+
+    if output:
+        ext = output.suffix.lower()
+        if ext == ".xlsx":
+            fmt = "xlsx"
+        elif ext == ".md":
+            fmt = "md"
+        else:
+            fmt = format
+    else:
+        fmt = format
+
+    if fmt == "xlsx":
+        if output is None:
+            c.output.error("Excel format requires --output file path.")
+            raise typer.Exit(1)
+        write_xlsx(rows, meta, output)
+        c.output.success(f"Excel report written to {output} ({meta.row_count} rows)")
+    elif fmt == "json":
+        c.output.raw_json(to_json(rows, meta))
+    else:
+        if output:
+            with open(output, "w") as f:
+                write_markdown(rows, meta, f)
+            c.output.success(f"Markdown report written to {output} ({meta.row_count} rows)")
+        else:
+            write_markdown(rows, meta, sys.stdout)

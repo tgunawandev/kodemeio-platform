@@ -352,3 +352,22 @@ class TestToJson:
         first = result["rows"][0]
         assert "username" in first
         assert "has_access" in first
+
+
+from typer.testing import CliRunner
+
+from kctl_ak.cli import app as cli_app
+
+cli_runner = CliRunner()
+
+
+class TestAccessReportCLI:
+    def test_help(self) -> None:
+        result = cli_runner.invoke(cli_app, ["audit", "access-report", "--help"])
+        assert result.exit_code == 0
+        assert "--output" in result.output
+        assert "--format" in result.output
+        assert "--active-only" in result.output
+        assert "--include-service-accounts" in result.output
+        assert "--include-deactivated" in result.output
+        assert "--app" in result.output
