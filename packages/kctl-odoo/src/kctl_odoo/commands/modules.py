@@ -1011,7 +1011,9 @@ def audit(
 # ---------------------------------------------------------------------------
 
 
-def _audit_report_collect(client, source_filter: str, private_names: set[str] | None, out) -> dict:
+def _audit_report_collect(
+    client, source_filter: str, private_names: set[str] | None, out, *, counts: bool = True
+) -> dict:
     """Collect comprehensive audit data for all installed modules."""
     out.info("Collecting installed modules...")
     modules = client.search_read(
@@ -1116,62 +1118,120 @@ def _audit_report_collect(client, source_filter: str, private_names: set[str] | 
         for mname in mod_names:
             counts_by_module.setdefault(mname, {})[key] = per_mod.get(mname, 0)
 
-    out.info("Counting rows and last activity per model (this may take a minute)...")
     model_details: list[dict] = []
     module_totals: dict[str, int] = {}
     module_last_activity: dict[str, str] = {}
 
-    for mod in filtered:
-        name = mod["name"]
-        m_ids = models_by_module.get(name, [])
-        total = 0
-        for mid in m_ids:
-            mi = model_info.get(mid)
-            if not mi:
-                continue
-            model_name = mi["model"]
-            is_transient = mi.get("transient", False)
-            cnt = 0
-            last_write = None
-            if not is_transient:
-                try:
-                    cnt = client.search_count(model_name, [])
-                except Exception:
-                    cnt = 0
-                if cnt > 0:
+    if counts:
+        out.info("Counting rows and last activity per model (this may take a minute)...")
+        for mod in filtered:
+            name = mod["name"]
+            m_ids = models_by_module.get(name, [])
+            total = 0
+            for mid in m_ids:
+                mi = model_info.get(mid)
+                if not mi:
+                    continue
+                model_name = mi["model"]
+                is_transient = mi.get("transient", False)
+                cnt = 0
+                last_write = None
+                if not is_transient:
                     try:
-                        latest = client.search_read(
-                            model_name,
-                            domain=[],
-                            fields=["write_date"],
-                            limit=1,
-                            order="write_date desc",
-                        )
-                        if latest:
-                            last_write = latest[0].get("write_date")
+                        cnt = client.search_count(model_name, [])
                     except Exception:
-                        pass
-                total += cnt
+                        cnt = 0
+                    if cnt > 0:
+                        try:
+                            latest = client.search_read(
+                                model_name,
+                                domain=[],
+                                fields=["write_date"],
+                                limit=1,
+                                order="write_date desc",
+                            )
+                            if latest:
+                                last_write = latest[0].get("write_date")
+                        except Exception:
+                            pass
+                    total += cnt
 
-            field_count = len(mi.get("field_id") or [])
-            model_details.append(
-                {
-                    "module": name,
-                    "model": model_name,
-                    "description": mi.get("name") or "",
-                    "transient": is_transient,
-                    "row_count": cnt,
-                    "last_write": last_write or "",
-                    "field_count": field_count,
-                }
-            )
+                field_count = len(mi.get("field_id") or [])
+                model_details.append(
+                    {
+                        "module": name,
+                        "model": model_name,
+                        "description": mi.get("name") or "",
+                        "transient": is_transient,
+                        "row_count": cnt,
+                        "last_write": last_write or "",
+                        "field_count": field_count,
+                    }
+                )
 
-            if last_write:
-                prev = module_last_activity.get(name, "")
-                if last_write > prev:
-                    module_last_activity[name] = last_write
+                if last_write:
+                    prev = module_last_activity.get(name, "")
+                    if last_write > prev:
+                        module_last_activity[name] = last_write
 
-        module_totals[name] = total
+            module_totals[name] = total
+    else:
+        out.info("Fast mode — skipping row counts, fetching last activity from mail.message...")
+        # Build model details without row counts
+        for mod in filtered:
+            name = mod["name"]
+            m_ids = models_by_module.get(name, [])
+            for mid in m_ids:
+                mi = model_info.get(mid)
+                if not mi:
+                    continue
+                field_count = len(mi.get("field_id") or [])
+                model_details.append(
+                    {
+                        "module": name,
+                        "model": mi["model"],
+                        "description": mi.get("name") or "",
+                        "transient": mi.get("transient", False),
+                        "row_count": "",
+                        "last_write": "",
+                        "field_count": field_count,
+                    }
+                )
+            module_totals[name] = 0
+
+        # Bulk last-activity from mail.message (one query)
+        all_model_names = sorted(
+            {
+                model_info[mid]["model"]
+                for ids in models_by_module.values()
+                for mid in ids
+                if mid in model_info and not model_info[mid].get("transient")
+            }
+        )
+        model_to_module: dict[str, str] = {}
+        for mod in filtered:
+            for mid in models_by_module.get(mod["name"], []):
+                if mid in model_info:
+                    model_to_module[model_info[mid]["model"]] = mod["name"]
+
+        if all_model_names:
+            try:
+                recent_msgs = client.search_read(
+                    "mail.message",
+                    domain=[("model", "in", all_model_names)],
+                    fields=["model", "date"],
+                    limit=5000,
+                    order="date desc",
+                )
+                for msg in recent_msgs:
+                    m_name = msg.get("model")
+                    mod_name = model_to_module.get(m_name)
+                    if mod_name and msg.get("date"):
+                        prev = module_last_activity.get(mod_name, "")
+                        if msg["date"] > prev:
+                            module_last_activity[mod_name] = msg["date"]
+            except Exception:
+                pass
 
     out.info("Collecting group access matrix...")
     group_access: list[dict] = []
@@ -1229,17 +1289,31 @@ def _audit_report_collect(client, source_filter: str, private_names: set[str] | 
             for mid in models_by_module.get(name, [])
             if mid in model_info and not model_info[mid].get("transient")
         ]
-        status = _audit_classify(total, bool(persistent))
+        c_data = counts_by_module.get(name, {})
+
+        if counts:
+            status = _audit_classify(total, bool(persistent))
+        else:
+            has_activity = bool(module_last_activity.get(name))
+            has_ui = (c_data.get("views", 0) + c_data.get("menus", 0)) > 0
+            if not persistent:
+                status = "INHERIT"
+            elif has_activity:
+                status = "ACTIVE"
+            elif has_ui:
+                status = "INSTALLED"
+            else:
+                status = "NO ACTIVITY"
+
         if status == "UNUSED":
             rec = "UNINSTALL candidate"
-        elif status == "LOW":
+        elif status in ("LOW", "NO ACTIVITY"):
             rec = "REVIEW"
         elif status == "INHERIT":
             rec = "KEEP (bridge)"
         else:
             rec = "KEEP"
 
-        c_data = counts_by_module.get(name, {})
         summary.append(
             {
                 "module": name,
@@ -1248,7 +1322,7 @@ def _audit_report_collect(client, source_filter: str, private_names: set[str] | 
                 "version": mod.get("installed_version") or "",
                 "status": status,
                 "total_models": len(models_by_module.get(name, [])),
-                "total_rows": total,
+                "total_rows": total if counts else "",
                 "views": c_data.get("views", 0),
                 "menus": c_data.get("menus", 0),
                 "reports": c_data.get("reports", 0),
@@ -1265,7 +1339,7 @@ def _audit_report_collect(client, source_filter: str, private_names: set[str] | 
     summary.sort(
         key=lambda r: (
             _AUDIT_STATUS_ORDER.get(r["status"], 99),
-            -r["total_rows"],
+            -(r["total_rows"] if isinstance(r["total_rows"], int) else 0),
             r["module"],
         ),
     )
@@ -1374,7 +1448,7 @@ def _write_audit_xlsx(data: dict, output_path: Path, profile_label: str) -> None
 
     sorted_models = sorted(
         data["model_details"],
-        key=lambda m: (m["module"], -m["row_count"], m["model"]),
+        key=lambda m: (m["module"], -(m["row_count"] if isinstance(m["row_count"], int) else 0), m["model"]),
     )
     for row_idx, m in enumerate(sorted_models, 2):
         values = [
@@ -1429,6 +1503,13 @@ def audit_report(
             help="Output Excel file path.",
         ),
     ] = Path("modules-audit-report.xlsx"),
+    fast: Annotated[
+        bool,
+        typer.Option(
+            "--fast/--full",
+            help="Fast mode skips per-model row counts (~30s vs ~14min). Uses mail.message for last activity.",
+        ),
+    ] = False,
 ) -> None:
     """Comprehensive module audit report as Excel workbook.
 
@@ -1437,9 +1518,11 @@ def audit_report(
       - Sheet 2: Model Detail (per-model row counts, last write date, field counts)
       - Sheet 3: Group & Access Matrix (groups per module, user counts, CRUD access)
 
+    Use --fast to skip row counting (~30s). Use --full for complete data (~14min).
+
     Examples:
-        kctl-odoo modules audit-report
-        kctl-odoo modules audit-report --source private -o tpp-audit.xlsx
+        kctl-odoo modules audit-report --fast
+        kctl-odoo modules audit-report --full --source private -o tpp-audit.xlsx
         kctl-odoo -p idtpp-tpp-odoo-erp modules audit-report -o tpp-erp-audit.xlsx
     """
     actx: AppContext = ctx.obj
@@ -1473,7 +1556,7 @@ def audit_report(
         else:
             private_names = {m.parent.name for m in root.rglob("__manifest__.py")}
 
-    data = _audit_report_collect(c, source, private_names, out)
+    data = _audit_report_collect(c, source, private_names, out, counts=not fast)
 
     profile_label = getattr(c, "database", "") or "odoo"
     _write_audit_xlsx(data, output, profile_label)
