@@ -14,7 +14,7 @@ from pydantic import BaseModel
 _SERVICE_ACCOUNT_TYPES = frozenset({"internal_service_account", "service_account"})
 
 _HEADERS = ["Username", "Email", "Name", "Type", "Active", "Application", "Slug", "Access", "Via", "Negate"]
-_SUMMARY_HEADERS = ["Username", "Email", "Name", "Type", "Active", "Groups", "Apps with Access", "App Count"]
+_SUMMARY_HEADERS = ["User ID", "Username", "Email", "Name", "Type", "Active", "Groups", "Apps with Access", "App Count"]
 
 
 class ReportFilters(BaseModel):
@@ -38,6 +38,7 @@ class AccessRow(BaseModel):
 
 
 class SummaryRow(BaseModel):
+    user_id: int
     username: str
     email: str
     name: str
@@ -175,9 +176,11 @@ def build_summary_rows(data: ReportData, filters: ReportFilters) -> list[Summary
             user_map[r.username]["apps"].append(r.application)
 
     groups_by_user: dict[str, list[str]] = {}
+    id_by_user: dict[str, int] = {}
     for u in data.users:
         username = u.get("username", "")
         groups_by_user[username] = sorted(g.get("name", "") for g in u.get("groups_obj", []))
+        id_by_user[username] = int(u.get("pk", 0))
 
     rows: list[SummaryRow] = []
     for username in sorted(user_map):
@@ -185,6 +188,7 @@ def build_summary_rows(data: ReportData, filters: ReportFilters) -> list[Summary
         groups = groups_by_user.get(username, [])
         rows.append(
             SummaryRow(
+                user_id=id_by_user.get(username, 0),
                 username=username,
                 email=info["email"],
                 name=info["name"],
@@ -210,7 +214,17 @@ def write_summary_markdown(rows: list[SummaryRow], meta: ReportMeta, dest: Any) 
     dest.write("| " + " | ".join("---" for _ in headers) + " |\n")
 
     for r in rows:
-        vals = [r.username, r.email, r.name, r.user_type, r.is_active, r.groups, r.apps_with_access, str(r.app_count)]
+        vals = [
+            str(r.user_id),
+            r.username,
+            r.email,
+            r.name,
+            r.user_type,
+            r.is_active,
+            r.groups,
+            r.apps_with_access,
+            str(r.app_count),
+        ]
         dest.write("| " + " | ".join(vals) + " |\n")
 
 
@@ -237,7 +251,19 @@ def write_summary_xlsx(rows: list[SummaryRow], meta: ReportMeta, dest: Path) -> 
         ws.cell(1, col_idx).font = bold
 
     for r in rows:
-        ws.append([r.username, r.email, r.name, r.user_type, r.is_active, r.groups, r.apps_with_access, r.app_count])
+        ws.append(
+            [
+                r.user_id,
+                r.username,
+                r.email,
+                r.name,
+                r.user_type,
+                r.is_active,
+                r.groups,
+                r.apps_with_access,
+                r.app_count,
+            ]
+        )
 
     last_col = get_column_letter(len(headers))
     ws.auto_filter.ref = f"A1:{last_col}{len(rows) + 1}"
