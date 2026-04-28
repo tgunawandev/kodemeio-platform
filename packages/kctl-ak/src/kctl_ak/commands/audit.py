@@ -505,6 +505,7 @@ def access_report(
     from kctl_ak.reports.access_control import (
         ReportFilters,
         ReportMeta,
+        build_app_binding_rows,
         build_rows,
         build_summary_rows,
         fetch_report_data,
@@ -541,35 +542,40 @@ def access_report(
         fmt = format
 
     if summary:
-        srows = build_summary_rows(data, filters)
+        urows = build_summary_rows(data, filters)
+        arows = build_app_binding_rows(data)
         meta = ReportMeta(
             profile=c.profile or "default",
             generated_at=datetime.now(UTC).isoformat(),
-            user_count=len(srows),
-            app_count=len({a.get("slug", "") for a in data.apps}),
-            row_count=len(srows),
+            user_count=len(urows),
+            app_count=len(arows),
+            row_count=len(urows),
         )
         if fmt == "xlsx":
             if output is None:
                 c.output.error("Excel format requires --output file path.")
                 raise typer.Exit(1)
-            write_summary_xlsx(srows, meta, output)
-            c.output.success(f"Summary Excel written to {output} ({meta.row_count} users)")
+            write_summary_xlsx(urows, arows, meta, output)
+            c.output.success(f"Summary Excel written to {output} ({len(urows)} users, {len(arows)} apps)")
         elif fmt == "json":
-            payload = {"meta": meta.model_dump(), "rows": [r.model_dump() for r in srows]}
+            payload = {
+                "meta": meta.model_dump(),
+                "users": [r.model_dump() for r in urows],
+                "apps": [a.model_dump() for a in arows],
+            }
             if output:
                 with open(output, "w") as f:
                     json.dump(payload, f, indent=2)
-                c.output.success(f"Summary JSON written to {output} ({meta.row_count} users)")
+                c.output.success(f"Summary JSON written to {output} ({len(urows)} users, {len(arows)} apps)")
             else:
                 c.output.raw_json(payload)
         else:
             if output:
                 with open(output, "w") as f:
-                    write_summary_markdown(srows, meta, f)
-                c.output.success(f"Summary Markdown written to {output} ({meta.row_count} users)")
+                    write_summary_markdown(urows, arows, meta, f)
+                c.output.success(f"Summary Markdown written to {output} ({len(urows)} users, {len(arows)} apps)")
             else:
-                write_summary_markdown(srows, meta, sys.stdout)
+                write_summary_markdown(urows, arows, meta, sys.stdout)
         return
 
     rows = build_rows(data, filters)

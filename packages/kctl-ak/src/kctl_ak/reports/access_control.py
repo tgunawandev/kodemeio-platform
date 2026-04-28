@@ -14,7 +14,8 @@ from pydantic import BaseModel
 _SERVICE_ACCOUNT_TYPES = frozenset({"internal_service_account", "service_account"})
 
 _HEADERS = ["Username", "Email", "Name", "Type", "Active", "Application", "Slug", "Access", "Via", "Negate"]
-_SUMMARY_HEADERS = ["User ID", "Username", "Email", "Name", "Type", "Active", "Groups", "Apps with Access", "App Count"]
+_SUMMARY_HEADERS = ["User ID", "Username", "Email", "Name", "Type", "Active", "Groups"]
+_APP_BINDING_HEADERS = ["Application", "Slug", "Groups Bound", "Group Count", "Has Bindings?"]
 
 
 class ReportFilters(BaseModel):
@@ -45,8 +46,14 @@ class SummaryRow(BaseModel):
     user_type: str
     is_active: str
     groups: str
-    apps_with_access: str
-    app_count: int
+
+
+class AppBindingRow(BaseModel):
+    app_name: str
+    app_slug: str
+    groups_bound: str
+    group_count: int
+    has_bindings: str
 
 
 class ReportMeta(BaseModel):
@@ -159,123 +166,148 @@ def build_rows(data: ReportData, filters: ReportFilters) -> list[AccessRow]:
 
 
 def build_summary_rows(data: ReportData, filters: ReportFilters) -> list[SummaryRow]:
-    """Build one row per user with groups and accessible apps aggregated."""
-    detail_rows = build_rows(data, filters)
-
-    user_map: dict[str, dict[str, Any]] = {}
-    for r in detail_rows:
-        if r.username not in user_map:
-            user_map[r.username] = {
-                "email": r.email,
-                "name": r.name,
-                "user_type": r.user_type,
-                "is_active": r.is_active,
-                "apps": [],
-            }
-        if r.has_access == "yes":
-            user_map[r.username]["apps"].append(r.application)
-
-    groups_by_user: dict[str, list[str]] = {}
-    id_by_user: dict[str, int] = {}
-    for u in data.users:
-        username = u.get("username", "")
-        groups_by_user[username] = sorted(g.get("name", "") for g in u.get("groups_obj", []))
-        id_by_user[username] = int(u.get("pk", 0))
-
+    """Build one row per user with their groups (no per-app access info)."""
     rows: list[SummaryRow] = []
-    for username in sorted(user_map):
-        info = user_map[username]
-        groups = groups_by_user.get(username, [])
+    for u in data.users:
+        is_service = u.get("type", "internal") in _SERVICE_ACCOUNT_TYPES
+        is_active = u.get("is_active", False)
+        if is_service and not filters.include_service_accounts:
+            continue
+        if not is_active and not filters.include_deactivated:
+            continue
+        if filters.active_only and not is_active:
+            continue
+
+        groups = sorted(g.get("name", "") for g in u.get("groups_obj", []))
         rows.append(
             SummaryRow(
-                user_id=id_by_user.get(username, 0),
-                username=username,
-                email=info["email"],
-                name=info["name"],
-                user_type=info["user_type"],
-                is_active=info["is_active"],
+                user_id=int(u.get("pk", 0)),
+                username=u.get("username", ""),
+                email=u.get("email", ""),
+                name=u.get("name", ""),
+                user_type=_classify_user_type(u),
+                is_active="yes" if u.get("is_active") else "no",
                 groups=", ".join(groups) if groups else "(none)",
-                apps_with_access=", ".join(sorted(info["apps"])) if info["apps"] else "(none)",
-                app_count=len(info["apps"]),
             )
         )
+    rows.sort(key=lambda r: r.username)
     return rows
 
 
-def write_summary_markdown(rows: list[SummaryRow], meta: ReportMeta, dest: Any) -> None:
-    """Write summary Markdown pipe-table (one row per user)."""
+def build_app_binding_rows(data: ReportData) -> list[AppBindingRow]:
+    """Build one row per app showing which groups are bound to it."""
+    bindings_by_app: dict[str, list[str]] = {str(a["pk"]): [] for a in data.apps}
+    for b in data.bindings:
+        if not b.get("enabled", True):
+            continue
+        target = str(b.get("target", ""))
+        if target not in bindings_by_app:
+            continue
+        group_obj = b.get("group_obj") or {}
+        if group_obj:
+            bindings_by_app[target].append(group_obj.get("name", "unknown"))
+
+    rows: list[AppBindingRow] = []
+    for a in data.apps:
+        groups = sorted(set(bindings_by_app.get(str(a["pk"]), [])))
+        rows.append(
+            AppBindingRow(
+                app_name=a.get("name", ""),
+                app_slug=a.get("slug", ""),
+                groups_bound=", ".join(groups) if groups else "(none)",
+                group_count=len(groups),
+                has_bindings="yes" if groups else "no",
+            )
+        )
+    rows.sort(key=lambda r: r.app_slug)
+    return rows
+
+
+def write_summary_markdown(
+    user_rows: list[SummaryRow],
+    app_rows: list[AppBindingRow],
+    meta: ReportMeta,
+    dest: Any,
+) -> None:
+    """Write summary Markdown with Users table and Apps (group bindings) table."""
     dest.write("# Access Control Summary\n\n")
     dest.write(f"- **Profile:** {meta.profile}\n")
     dest.write(f"- **Generated:** {meta.generated_at}\n")
     dest.write(f"- **Users:** {meta.user_count} | **Applications:** {meta.app_count}\n\n")
 
-    headers = _SUMMARY_HEADERS
-    dest.write("| " + " | ".join(headers) + " |\n")
-    dest.write("| " + " | ".join("---" for _ in headers) + " |\n")
+    dest.write("## Users\n\n")
+    dest.write("| " + " | ".join(_SUMMARY_HEADERS) + " |\n")
+    dest.write("| " + " | ".join("---" for _ in _SUMMARY_HEADERS) + " |\n")
+    for r in user_rows:
+        vals = [str(r.user_id), r.username, r.email, r.name, r.user_type, r.is_active, r.groups]
+        dest.write("| " + " | ".join(vals) + " |\n")
 
-    for r in rows:
-        vals = [
-            str(r.user_id),
-            r.username,
-            r.email,
-            r.name,
-            r.user_type,
-            r.is_active,
-            r.groups,
-            r.apps_with_access,
-            str(r.app_count),
-        ]
+    dest.write("\n## Apps (Group Bindings)\n\n")
+    dest.write("| " + " | ".join(_APP_BINDING_HEADERS) + " |\n")
+    dest.write("| " + " | ".join("---" for _ in _APP_BINDING_HEADERS) + " |\n")
+    for a in app_rows:
+        vals = [a.app_name, a.app_slug, a.groups_bound, str(a.group_count), a.has_bindings]
         dest.write("| " + " | ".join(vals) + " |\n")
 
 
-def write_summary_xlsx(rows: list[SummaryRow], meta: ReportMeta, dest: Path) -> None:
-    """Write summary Excel report (one row per user)."""
+def _xlsx_write_sheet(ws: Any, headers: list[str], data_rows: list[list[Any]], bold: Any) -> None:
+    """Write headers + rows to a worksheet with auto-filter, frozen pane, auto-fit widths."""
+    from openpyxl.utils import get_column_letter
+
+    ws.append(headers)
+    for col_idx in range(1, len(headers) + 1):
+        ws.cell(1, col_idx).font = bold
+
+    for row in data_rows:
+        ws.append(row)
+
+    last_col = get_column_letter(len(headers))
+    ws.auto_filter.ref = f"A1:{last_col}{len(data_rows) + 1}"
+    ws.freeze_panes = "A2"
+
+    for col_idx, header in enumerate(headers, 1):
+        max_len = len(header)
+        for row_idx in range(2, len(data_rows) + 2):
+            val = str(ws.cell(row_idx, col_idx).value or "")
+            if len(val) > max_len:
+                max_len = len(val)
+        ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, 60)
+
+
+def write_summary_xlsx(
+    user_rows: list[SummaryRow],
+    app_rows: list[AppBindingRow],
+    meta: ReportMeta,
+    dest: Path,
+) -> None:
+    """Write summary Excel: Users sheet + Apps (group bindings) sheet + Meta sheet."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font
-        from openpyxl.utils import get_column_letter
     except ImportError:
         raise ImportError(
             "openpyxl is required for Excel output. Install it with: uv pip install kctl-ak[reports]"
         ) from None
 
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Access Summary"
-
-    headers = _SUMMARY_HEADERS
-    ws.append(headers)
-
     bold = Font(bold=True)
-    for col_idx in range(1, len(headers) + 1):
-        ws.cell(1, col_idx).font = bold
 
-    for r in rows:
-        ws.append(
-            [
-                r.user_id,
-                r.username,
-                r.email,
-                r.name,
-                r.user_type,
-                r.is_active,
-                r.groups,
-                r.apps_with_access,
-                r.app_count,
-            ]
-        )
+    ws_users = wb.active
+    ws_users.title = "Users"
+    _xlsx_write_sheet(
+        ws_users,
+        _SUMMARY_HEADERS,
+        [[r.user_id, r.username, r.email, r.name, r.user_type, r.is_active, r.groups] for r in user_rows],
+        bold,
+    )
 
-    last_col = get_column_letter(len(headers))
-    ws.auto_filter.ref = f"A1:{last_col}{len(rows) + 1}"
-    ws.freeze_panes = "A2"
-
-    for col_idx, header in enumerate(headers, 1):
-        max_len = len(header)
-        for row_idx in range(2, len(rows) + 2):
-            val = str(ws.cell(row_idx, col_idx).value or "")
-            if len(val) > max_len:
-                max_len = len(val)
-        ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, 60)
+    ws_apps = wb.create_sheet("Apps")
+    _xlsx_write_sheet(
+        ws_apps,
+        _APP_BINDING_HEADERS,
+        [[a.app_name, a.app_slug, a.groups_bound, a.group_count, a.has_bindings] for a in app_rows],
+        bold,
+    )
 
     summary = wb.create_sheet("Meta")
     for label, value in [
