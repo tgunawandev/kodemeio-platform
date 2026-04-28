@@ -1199,3 +1199,412 @@ def sudo_audit(
         rows,
         data_for_json=findings,
     )
+
+
+# ---------------------------------------------------------------------------
+# Access Report — comprehensive user access matrix export
+# ---------------------------------------------------------------------------
+
+
+def _fetch_access_data(c, *, include_inactive: bool = False) -> dict:
+    """Batch-fetch all user access data in ~5 RPC calls."""
+    domain: list = [("share", "=", False)]
+    if not include_inactive:
+        domain.append(("active", "=", True))
+
+    ou_fields = ["assigned_operating_unit_ids", "default_operating_unit_id"]
+    base_fields = [
+        "id",
+        "login",
+        "name",
+        "active",
+        "login_date",
+        "company_id",
+        "company_ids",
+        "groups_id",
+    ]
+    try:
+        users = c.search_read(
+            "res.users",
+            domain=domain,
+            fields=base_fields + ou_fields,
+            order="login",
+            limit=0,
+        )
+        has_ou = True
+    except Exception:
+        users = c.search_read(
+            "res.users",
+            domain=domain,
+            fields=base_fields,
+            order="login",
+            limit=0,
+        )
+        has_ou = False
+
+    # --- Role assignments ---------------------------------------------------
+    try:
+        role_lines = c.search_read(
+            "res.users.role.line",
+            domain=[],
+            fields=["user_id", "role_id"],
+        )
+    except Exception:
+        role_lines = []
+
+    # Map user_id -> list of role_ids
+    user_role_map: dict[int, list[int]] = {}
+    all_role_ids: set[int] = set()
+    for rl in role_lines:
+        uid = rl["user_id"][0] if isinstance(rl["user_id"], list) else rl["user_id"]
+        rid = rl["role_id"][0] if isinstance(rl["role_id"], list) else rl["role_id"]
+        user_role_map.setdefault(uid, []).append(rid)
+        all_role_ids.add(rid)
+
+    role_names: dict[int, str] = {}
+    if all_role_ids:
+        try:
+            roles = c.read("res.users.role", list(all_role_ids), ["id", "name"])
+            role_names = {r["id"]: r["name"] for r in roles}
+        except Exception:
+            pass
+
+    # --- OU names -----------------------------------------------------------
+    if has_ou:
+        all_ou_ids: set[int] = set()
+        for u in users:
+            all_ou_ids.update(u.get("assigned_operating_unit_ids") or [])
+            dou = u.get("default_operating_unit_id")
+            if isinstance(dou, list):
+                all_ou_ids.add(dou[0])
+            elif isinstance(dou, int) and dou:
+                all_ou_ids.add(dou)
+
+        ou_names: dict[int, str] = {}
+        if all_ou_ids:
+            ous = c.read("operating.unit", list(all_ou_ids), ["id", "name"])
+            ou_names = {o["id"]: o["name"] for o in ous}
+    else:
+        ou_names: dict[int, str] = {}
+
+    # --- Company names ------------------------------------------------------
+    all_company_ids: set[int] = set()
+    for u in users:
+        cid = u.get("company_id")
+        if isinstance(cid, list):
+            all_company_ids.add(cid[0])
+        elif isinstance(cid, int) and cid:
+            all_company_ids.add(cid)
+        all_company_ids.update(u.get("company_ids") or [])
+
+    company_names: dict[int, str] = {}
+    if all_company_ids:
+        companies = c.read("res.company", list(all_company_ids), ["id", "name"])
+        company_names = {co["id"]: co["name"] for co in companies}
+
+    # --- Admin group --------------------------------------------------------
+    admin_groups = c.search_read(
+        "res.groups",
+        domain=[("full_name", "ilike", "Administration / Settings")],
+        fields=["id"],
+    )
+    admin_group_ids = {g["id"] for g in admin_groups}
+
+    # --- Build user rows ----------------------------------------------------
+    active_count = 0
+    inactive_count = 0
+    user_rows: list[dict] = []
+
+    for u in users:
+        is_active = u.get("active", True)
+        if is_active:
+            active_count += 1
+        else:
+            inactive_count += 1
+
+        company = u.get("company_id")
+        company_name = company[1] if isinstance(company, list) else str(company or "-")
+
+        company_id_list = u.get("company_ids") or []
+        companies_list = [company_names.get(cid, str(cid)) for cid in company_id_list]
+
+        user_groups = set(u.get("groups_id") or [])
+        is_admin = bool(user_groups & admin_group_ids)
+
+        uid = u["id"]
+        role_ids = user_role_map.get(uid, [])
+        roles_list = [role_names.get(rid, str(rid)) for rid in role_ids]
+
+        ou_ids = u.get("assigned_operating_unit_ids") or []
+        ous_list = [ou_names.get(oid, str(oid)) for oid in ou_ids]
+
+        dou = u.get("default_operating_unit_id")
+        if isinstance(dou, list):
+            default_ou = dou[1]
+        elif isinstance(dou, int) and dou:
+            default_ou = ou_names.get(dou, str(dou))
+        else:
+            default_ou = "-"
+
+        user_rows.append(
+            {
+                "login": u["login"],
+                "name": u["name"],
+                "company": company_name,
+                "companies": companies_list,
+                "status": "active" if is_active else "inactive",
+                "last_login": str(u.get("login_date") or "never"),
+                "roles": roles_list,
+                "operating_units": ous_list,
+                "default_ou": default_ou,
+                "is_admin": is_admin,
+                "groups_count": len(user_groups),
+            }
+        )
+
+    # --- Roles summary ------------------------------------------------------
+    roles_summary: list[dict] = []
+    # Invert: role -> list of logins
+    role_user_map: dict[int, list[str]] = {}
+    user_login_map = {u["id"]: u["login"] for u in users}
+    for rl in role_lines:
+        uid = rl["user_id"][0] if isinstance(rl["user_id"], list) else rl["user_id"]
+        rid = rl["role_id"][0] if isinstance(rl["role_id"], list) else rl["role_id"]
+        login = user_login_map.get(uid)
+        if login:
+            role_user_map.setdefault(rid, []).append(login)
+
+    for rid in sorted(all_role_ids):
+        rname = role_names.get(rid, str(rid))
+        rusers = sorted(set(role_user_map.get(rid, [])))
+        roles_summary.append(
+            {
+                "role": rname,
+                "users_count": len(rusers),
+                "users": rusers,
+            }
+        )
+
+    return {
+        "instance": c._base_url,
+        "database": c.database,
+        "generated": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "active_count": active_count,
+        "inactive_count": inactive_count,
+        "users": user_rows,
+        "roles_summary": roles_summary,
+    }
+
+
+def _write_markdown(data: dict, path: str) -> None:
+    """Write access report as a Markdown file."""
+
+    def _md_escape(val: str) -> str:
+        return str(val).replace("|", "\\|")
+
+    lines: list[str] = []
+    lines.append("# User Access Report")
+    lines.append("")
+    lines.append(f"- **Instance:** {data['instance']}")
+    lines.append(f"- **Database:** {data['database']}")
+    lines.append(f"- **Generated:** {data['generated']}")
+    lines.append(f"- **Active users:** {data['active_count']}")
+    lines.append(f"- **Inactive users:** {data['inactive_count']}")
+    lines.append("")
+
+    # User access table
+    lines.append("## User Access")
+    lines.append("")
+    lines.append("| Login | Name | Company | Roles | Operating Units | Default OU | Admin | Last Login | Groups |")
+    lines.append("|-------|------|---------|-------|-----------------|------------|-------|------------|--------|")
+    for u in data["users"]:
+        roles = " \\| ".join(_md_escape(r) for r in u["roles"]) if u["roles"] else "-"
+        ous = " \\| ".join(_md_escape(o) for o in u["operating_units"]) if u["operating_units"] else "-"
+        admin = "Yes" if u["is_admin"] else "No"
+        lines.append(
+            f"| {_md_escape(u['login'])} | {_md_escape(u['name'])} | {_md_escape(u['company'])} | {roles} | {ous} | {_md_escape(u['default_ou'])} | {admin} | {_md_escape(u['last_login'])} | {u['groups_count']} |"
+        )
+    lines.append("")
+
+    # Roles summary table
+    lines.append("## Roles Summary")
+    lines.append("")
+    lines.append("| Role | Users | Assigned To |")
+    lines.append("|------|-------|-------------|")
+    for r in data["roles_summary"]:
+        assigned = ", ".join(_md_escape(u) for u in r["users"]) if r["users"] else "-"
+        lines.append(f"| {_md_escape(r['role'])} | {r['users_count']} | {assigned} |")
+    lines.append("")
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def _write_excel(data: dict, path: str) -> None:
+    """Write access report as an Excel file."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+
+    # Sheet 1: User Access
+    ws = wb.active
+    ws.title = "User Access"
+    headers = [
+        "Login",
+        "Name",
+        "Company",
+        "Companies",
+        "Status",
+        "Last Login",
+        "Roles",
+        "Operating Units",
+        "Default OU",
+        "Admin",
+        "Groups",
+    ]
+    bold = Font(bold=True)
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font = bold
+
+    for row_idx, u in enumerate(data["users"], 2):
+        ws.cell(row=row_idx, column=1, value=u["login"])
+        ws.cell(row=row_idx, column=2, value=u["name"])
+        ws.cell(row=row_idx, column=3, value=u["company"])
+        ws.cell(row=row_idx, column=4, value=", ".join(u["companies"]) if u["companies"] else "-")
+        ws.cell(row=row_idx, column=5, value=u["status"])
+        ws.cell(row=row_idx, column=6, value=u["last_login"])
+        ws.cell(row=row_idx, column=7, value=", ".join(u["roles"]) if u["roles"] else "-")
+        ws.cell(row=row_idx, column=8, value=", ".join(u["operating_units"]) if u["operating_units"] else "-")
+        ws.cell(row=row_idx, column=9, value=u["default_ou"])
+        ws.cell(row=row_idx, column=10, value="Yes" if u["is_admin"] else "No")
+        ws.cell(row=row_idx, column=11, value=u["groups_count"])
+
+    ws.freeze_panes = "A2"
+    for col_idx in range(1, len(headers) + 1):
+        max_len = len(headers[col_idx - 1])
+        for row in ws.iter_rows(min_row=2, min_col=col_idx, max_col=col_idx):
+            for cell in row:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, 50)
+
+    # Sheet 2: Roles Summary
+    ws2 = wb.create_sheet("Roles Summary")
+    role_headers = ["Role", "Users Count", "Assigned To"]
+    for col_idx, header in enumerate(role_headers, 1):
+        cell = ws2.cell(row=1, column=col_idx, value=header)
+        cell.font = bold
+
+    for row_idx, r in enumerate(data["roles_summary"], 2):
+        ws2.cell(row=row_idx, column=1, value=r["role"])
+        ws2.cell(row=row_idx, column=2, value=r["users_count"])
+        ws2.cell(row=row_idx, column=3, value=", ".join(r["users"]) if r["users"] else "-")
+
+    ws2.freeze_panes = "A2"
+    for col_idx in range(1, len(role_headers) + 1):
+        max_len = len(role_headers[col_idx - 1])
+        for row in ws2.iter_rows(min_row=2, min_col=col_idx, max_col=col_idx):
+            for cell in row:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+        ws2.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, 50)
+
+    wb.save(path)
+
+
+@app.command("access-report")
+def access_report(
+    ctx: typer.Context,
+    output: Annotated[str | None, typer.Option("--output", "-o", help="Output file path (.md, .xlsx, .json)")] = None,
+    all_users: Annotated[bool, typer.Option("--all/--active", help="Include inactive users")] = False,
+) -> None:
+    """Export user access matrix with roles, OUs, and admin status.
+
+    Outputs a comprehensive report of all internal users with their roles,
+    operating units, companies, admin status, and group counts.
+
+    Supports terminal table, Markdown, Excel, and JSON output.
+    """
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+
+    data = _fetch_access_data(c, include_inactive=all_users)
+
+    # --- File output --------------------------------------------------------
+    if output:
+        ext = output.rsplit(".", 1)[-1].lower() if "." in output else ""
+        if ext == "md":
+            _write_markdown(data, output)
+        elif ext in ("xlsx", "xls"):
+            _write_excel(data, output)
+        elif ext == "json":
+            import json as json_mod
+
+            with open(output, "w", encoding="utf-8") as f:
+                json_mod.dump(data, f, indent=2, ensure_ascii=False)
+        else:
+            out.error(f"Unsupported file extension: .{ext} (use .md, .xlsx, or .json)")
+            raise typer.Exit(1)
+        out.success(f"Access report written to {output}")
+        return
+
+    # --- JSON stdout mode ---------------------------------------------------
+    if actx.json_mode:
+        out.raw_json(data)
+        return
+
+    # --- Terminal table ------------------------------------------------------
+    rows: list[list[str]] = []
+    for u in data["users"]:
+        roles = ", ".join(u["roles"]) if u["roles"] else "-"
+        ous = ", ".join(u["operating_units"]) if u["operating_units"] else "-"
+        admin = "[red]Yes[/red]" if u["is_admin"] else "No"
+        status = "[green]active[/green]" if u["status"] == "active" else "[red]inactive[/red]"
+        rows.append(
+            [
+                u["login"],
+                u["name"],
+                roles,
+                ous,
+                u["default_ou"],
+                admin,
+                status,
+                u["last_login"],
+                str(u["groups_count"]),
+            ]
+        )
+
+    out.table(
+        f"User Access Report ({data['active_count']} active, {data['inactive_count']} inactive)",
+        [
+            ("Login", "cyan"),
+            ("Name", ""),
+            ("Roles", ""),
+            ("OUs", ""),
+            ("Default OU", ""),
+            ("Admin", ""),
+            ("Status", ""),
+            ("Last Login", "dim"),
+            ("Groups", "dim"),
+        ],
+        rows,
+        data_for_json=data["users"],
+    )
+
+    # Roles summary
+    role_rows: list[list[str]] = []
+    for r in data["roles_summary"]:
+        assigned = ", ".join(r["users"]) if r["users"] else "-"
+        role_rows.append([r["role"], str(r["users_count"]), assigned])
+
+    if role_rows:
+        out.table(
+            f"Roles Summary ({len(role_rows)} roles)",
+            [("Role", "cyan"), ("Users", ""), ("Assigned To", "dim")],
+            role_rows,
+            data_for_json=data["roles_summary"],
+        )
