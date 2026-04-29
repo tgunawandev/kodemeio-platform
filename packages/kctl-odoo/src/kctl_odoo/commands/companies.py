@@ -314,13 +314,14 @@ def _run_setup(
     dry_run: bool = False,
 ) -> dict | None:
     """Call CompanyOnboardingService.provision() via JSON-RPC."""
-    # Verify company_onboarding module is installed
+    # Verify company_management module is installed (renamed from
+    # company_onboarding in 18.0.8.0.0).
     installed = c.search(
         "ir.module.module",
-        [("name", "=", "company_onboarding"), ("state", "=", "installed")],
+        [("name", "in", ["company_management", "company_onboarding"]), ("state", "=", "installed")],
     )
     if not installed:
-        out.error("Module 'company_onboarding' is not installed. Install it first.")
+        out.error("Module 'company_management' is not installed. Install it first.")
         raise typer.Exit(1)
 
     company_vals = {"name": name}
@@ -401,7 +402,7 @@ def setup(
     Installs l10n_id CoA (journals + taxes), then clones warehouses, fiscal
     positions, extra journals, and report formats from the template company.
 
-    Requires the company_onboarding module to be installed.
+    Requires the company_management module to be installed.
 
     Examples:
         kctl-odoo companies setup --name "CV Baru Import" --template 2
@@ -448,7 +449,7 @@ def setup_batch(
         CV Baru Import,Jl. Raya 1,Surabaya,01.234.567.8-901.000,BRI
         CV Lain Import,Jl. Lain 2,Jakarta,02.345.678.9-012.000,LNI
 
-    Requires the company_onboarding module to be installed.
+    Requires the company_management module to be installed.
 
     Examples:
         kctl-odoo companies setup-batch companies.csv --template 2
@@ -524,7 +525,7 @@ def bootstrap_baseline(
       - Bank journals have default_account_id set
 
     Used to backfill the template company and pre-existing companies that
-    were created before company_onboarding was installed. Calls
+    were created before company_management was installed. Calls
     company.onboarding.service.bootstrap_baseline() server-side, which uses
     sudo() to bypass the stock_request and operating_unit access groups.
 
@@ -539,10 +540,10 @@ def bootstrap_baseline(
 
     installed = c.search(
         "ir.module.module",
-        [("name", "=", "company_onboarding"), ("state", "=", "installed")],
+        [("name", "in", ["company_management", "company_onboarding"]), ("state", "=", "installed")],
     )
     if not installed:
-        out.error("Module 'company_onboarding' is not installed.")
+        out.error("Module 'company_management' is not installed.")
         raise typer.Exit(1)
 
     if all_companies:
