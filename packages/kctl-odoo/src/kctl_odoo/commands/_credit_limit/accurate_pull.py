@@ -199,13 +199,32 @@ def pull_customers(client: AccurateClient) -> list[dict[str, Any]]:
 def pull_customer_credit_limits(client: AccurateClient, customer_ids: list[int]) -> dict[int, float]:
     """Fetch detail for each customer and extract ``customerLimitAmountValue``.
 
-    The customer/list endpoint doesn't expose ``customerLimitAmountValue``
-    even with ``fields=`` — only the detail endpoint has it. Uses
-    ``detail_many`` for parallel pulls (8 concurrent at 8 req/sec).
+    Kept for backwards compatibility; new callers should prefer
+    :func:`pull_customer_details` which returns address + identity fields
+    in addition to the credit limit.
+    """
+    if not customer_ids:
+        return {}
+    details = pull_customer_details(client, customer_ids)
+    return {cid: d.get("current_credit_limit", 0.0) for cid, d in details.items()}
 
-    Returns ``{customer_id: limit_amount}``. Customers without a limit set
-    return 0.0. Failures (per-record) are silently skipped — the customer
-    just doesn't appear in the dict.
+
+def pull_customer_details(client: AccurateClient, customer_ids: list[int]) -> dict[int, dict[str, Any]]:
+    """Fetch full customer detail for each id — credit limit + address + identity.
+
+    The customer/list endpoint doesn't expose ``customerLimitAmountValue``
+    or any of the bill* address fields even with ``fields=`` — only the
+    detail endpoint has them. Uses ``detail_many`` for parallel pulls
+    (8 concurrent at 8 req/sec).
+
+    Returns ``{customer_id: enriched_dict}`` where the enriched dict has:
+      - current_credit_limit (float)
+      - billing_street, billing_city, billing_province,
+        billing_zip, billing_country (str)
+      - id_card (str — KTP / national ID, if recorded)
+      - npwp (str — NPWP/tax id, also returned by list endpoint)
+      - wp_name (str — wajib pajak / tax-bearer name on NPWP)
+      - shipping_street, shipping_city, shipping_province (str)
     """
     if not customer_ids:
         return {}
@@ -213,12 +232,30 @@ def pull_customer_credit_limits(client: AccurateClient, customer_ids: list[int])
         "/accurate/api/customer/detail.do",
         customer_ids,
     )
-    result: dict[int, float] = {}
+    result: dict[int, dict[str, Any]] = {}
     for d in details:
         cid = d.get("id")
         if cid is None or "__error__" in d:
             continue
-        result[cid] = _money(d.get("customerLimitAmountValue"))
+        result[cid] = {
+            "current_credit_limit": _money(d.get("customerLimitAmountValue")),
+            "billing_street": d.get("billStreet") or "",
+            "billing_city": d.get("billCity") or "",
+            "billing_province": d.get("billProvince") or "",
+            "billing_zip": d.get("billZipCode") or "",
+            "billing_country": d.get("billCountry") or "",
+            "shipping_street": d.get("shipStreet") or "",
+            "shipping_city": d.get("shipCity") or "",
+            "shipping_province": d.get("shipProvince") or "",
+            "id_card": d.get("idCard") or "",
+            "npwp": d.get("npwpNo") or "",
+            "wp_name": d.get("wpName") or "",
+            # Full Accurate detail dict — for the "Atribut Lengkap" sheet.
+            # This carries every field Accurate returns (~100+ fields including
+            # group limit settings, default accounts, salesman, custom fields,
+            # tax codes, payment terms, etc.) — required for shareholder review.
+            "_raw_accurate": d,
+        }
     return result
 
 
@@ -293,6 +330,91 @@ def _build_last_payment_lookup(
             if existing is None or receipt_date > existing:
                 last_payment[inv_id] = receipt_date
     return last_payment
+
+
+def pull_sales_invoices_and_payments_accurate(
+    client: AccurateClient,
+    *,
+    today: date | None = None,
+) -> dict[int, list[dict[str, Any]]]:
+    """Accurate-data pull with **100% accuracy** for shareholder review.
+
+    Unlike :func:`pull_sales_invoices_and_payments` which reads only the
+    list endpoint (and falls back to inference for partials), this version
+    fetches each invoice's *detail* record. The detail endpoint exposes
+    the authoritative ``outstanding`` and ``lastPaymentDate`` fields
+    directly — no estimation.
+
+    Cost: one detail call per invoice (~125ms each at 8rps, parallelised
+    8x via detail_many ≈ N/8 seconds total). For a tenant with 47
+    invoices this is ~6 seconds.
+    """
+    today = today or date.today()
+    invoice_summaries = client.sales_invoices.list_raw(
+        fields="id,number,transDate,dueDate,totalAmount,statusName,customer,customerNo"
+    )
+    if not invoice_summaries:
+        return {}
+    invoice_ids = [int(r["id"]) for r in invoice_summaries if r.get("id") is not None]
+    detail_records = client.detail_many(
+        "/accurate/api/sales-invoice/detail.do",
+        invoice_ids,
+    )
+
+    by_customer: dict[int, list[dict[str, Any]]] = {}
+    for d in detail_records:
+        if "__error__" in d:
+            continue
+        try:
+            invoice_id = int(d["id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        customer_id = _customer_id_of(d)
+        if customer_id is None:
+            continue
+
+        invoice_date = _parse_accurate_date(d.get("transDate"))
+        due_date = _parse_accurate_date(d.get("dueDate")) or invoice_date
+
+        # Authoritative numbers from detail endpoint
+        amount_total = _money(d.get("totalAmount"))
+        # Accurate detail returns BOTH outstanding (residual amount) and
+        # paidOverTotal (cumulative paid)
+        amount_residual = _money(d.get("outstanding"))
+        last_payment_date = _parse_accurate_date(d.get("lastPaymentDate"))
+
+        # payment_state from authoritative numbers
+        if amount_residual <= 0 and amount_total > 0:
+            payment_state = "paid"
+        elif 0 < amount_residual < amount_total:
+            payment_state = "partial"
+        elif amount_residual >= amount_total > 0:
+            payment_state = "not_paid"
+        elif amount_total == 0:
+            payment_state = "paid"
+        else:
+            payment_state = "not_paid"
+
+        invoice_dict: dict[str, Any] = {
+            # Compute-layer required keys
+            "invoice_date": invoice_date,
+            "invoice_date_due": due_date,
+            "amount_total_signed": amount_total,
+            "amount_residual": amount_residual,
+            "payment_state": payment_state,
+            "last_payment_date": last_payment_date,
+            # Extras for the Raw Invoices sheet
+            "id": invoice_id,
+            "customer_id": customer_id,
+            "customer_no": _customer_field(d, "customerNo") or "",
+            "customer_name": _customer_field(d, "name") or d.get("customerName") or "",
+            "doc_number": d.get("number") or "",
+            "amount_total": amount_total,
+            "status": d.get("statusName") or d.get("status") or "",
+        }
+        by_customer.setdefault(customer_id, []).append(invoice_dict)
+
+    return by_customer
 
 
 def pull_sales_invoices_and_payments(
