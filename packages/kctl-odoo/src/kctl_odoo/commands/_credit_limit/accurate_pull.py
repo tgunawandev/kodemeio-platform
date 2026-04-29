@@ -196,6 +196,32 @@ def pull_customers(client: AccurateClient) -> list[dict[str, Any]]:
     return [r for r in out if r["id"] is not None]
 
 
+def pull_customer_credit_limits(client: AccurateClient, customer_ids: list[int]) -> dict[int, float]:
+    """Fetch detail for each customer and extract ``customerLimitAmountValue``.
+
+    The customer/list endpoint doesn't expose ``customerLimitAmountValue``
+    even with ``fields=`` — only the detail endpoint has it. Uses
+    ``detail_many`` for parallel pulls (8 concurrent at 8 req/sec).
+
+    Returns ``{customer_id: limit_amount}``. Customers without a limit set
+    return 0.0. Failures (per-record) are silently skipped — the customer
+    just doesn't appear in the dict.
+    """
+    if not customer_ids:
+        return {}
+    details = client.detail_many(
+        "/accurate/api/customer/detail.do",
+        customer_ids,
+    )
+    result: dict[int, float] = {}
+    for d in details:
+        cid = d.get("id")
+        if cid is None or "__error__" in d:
+            continue
+        result[cid] = _money(d.get("customerLimitAmountValue"))
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Sales-invoice + sales-receipt pull
 # ---------------------------------------------------------------------------

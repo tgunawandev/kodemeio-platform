@@ -23,6 +23,7 @@ import yaml
 from accurate_sdk import AccurateClient
 
 from kctl_odoo.commands._credit_limit.accurate_pull import (
+    pull_customer_credit_limits,
     pull_customers,
     pull_sales_invoices_and_payments,
 )
@@ -174,7 +175,7 @@ def _write_pilot_workbook(
         ("Tenant", tenant_name),
         ("Run timestamp (UTC)", params.today.isoformat()),
         ("Coverage multiplier", coverage),
-        ("Insufficient-data threshold (min settled invoices)", params.insufficient_min_invoices),
+        ("Insufficient-data threshold (min total invoices)", params.insufficient_min_invoices),
         ("Overdue review threshold (days)", params.overdue_review_days),
         ("", ""),
         ("Customer count", len(customers)),
@@ -398,6 +399,20 @@ def credit_limit_report(
             help="Pilot debug: only process the first N customers (default: all)",
         ),
     ] = None,
+    insufficient_min_invoices: Annotated[
+        int,
+        typer.Option(
+            "--insufficient-min-invoices",
+            help="Minimum total invoices required to compute a proposal (default: 3)",
+        ),
+    ] = 3,
+    overdue_review_days: Annotated[
+        int,
+        typer.Option(
+            "--overdue-review-days",
+            help="Days-past-due threshold to flag REVIEW_REQUIRED (default: 120)",
+        ),
+    ] = 120,
 ) -> None:
     """Pull customer + invoice data from Accurate Online and propose credit limits (PILOT).
 
@@ -436,8 +451,23 @@ def credit_limit_report(
     n_invoices = sum(len(v) for v in by_customer.values())
     out.info(f"  {n_invoices} invoices across {len(by_customer)} customers (of {len(customers)} total)")
 
-    out.info(f"Computing proposed limits at coverage={coverage}...")
-    params = Params(coverage=coverage, today=today)
+    # Fetch current credit limit per customer (only customers with at least one invoice).
+    # This requires the detail endpoint — list.do doesn't expose customerLimitAmountValue.
+    in_scope_ids = sorted(by_customer.keys())
+    if in_scope_ids:
+        out.info(f"Pulling current credit limits for {len(in_scope_ids)} in-scope customers (detail endpoint)...")
+        limits = pull_customer_credit_limits(client, in_scope_ids)
+        for cust in customers:
+            if cust["id"] in limits:
+                cust["current_credit_limit"] = limits[cust["id"]]
+
+    out.info(f"Computing proposed limits at coverage={coverage}, min_invoices={insufficient_min_invoices}...")
+    params = Params(
+        coverage=coverage,
+        insufficient_min_invoices=insufficient_min_invoices,
+        overdue_review_days=overdue_review_days,
+        today=today,
+    )
     proposals: list[tuple[dict[str, Any], ProposalRow]] = []
     for cust in customers:
         cust_id = cust["id"]
