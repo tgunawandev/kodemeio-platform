@@ -6,6 +6,7 @@ from typing import Annotated
 
 import typer
 
+from kctl_odoo.commands._credit_limit.command import credit_limit_proposal as _credit_limit_proposal
 from kctl_odoo.core.callbacks import AppContext
 from kctl_odoo.core.resolve import resolve_id
 
@@ -466,3 +467,6 @@ def stats(ctx: typer.Context) -> None:
     ]
 
     out.detail("Partner Statistics", sections, data_for_json=json_out)
+
+
+app.command("credit-limit-proposal")(_credit_limit_proposal)
