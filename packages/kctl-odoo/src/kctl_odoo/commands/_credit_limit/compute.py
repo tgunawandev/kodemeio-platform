@@ -157,7 +157,10 @@ def compute_per_pair(
     note = ""
 
     proposed: float | str
-    if settled_count < params.insufficient_min_invoices:
+    # Gate on total invoice count, not settled — the formula is avg-sales-based
+    # (payment_state is informational). A customer with 5 unpaid invoices still
+    # has a real sales pattern; we just flag them via review_flag/has_overdue_120d.
+    if invoice_count < params.insufficient_min_invoices:
         proposed = "INSUFFICIENT_DATA"
     elif avg_monthly < 0:
         proposed = 0.0

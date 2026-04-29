@@ -2176,9 +2176,20 @@ def migration_report(
 # --- attach sub-apps ---------------------------------------------------
 
 
+# Direct-Accurate reports group ("reports" plural to avoid colliding with
+# the existing flat `accurate report` migration-report command above).
+from kctl_odoo.commands._credit_limit.accurate_command import (  # noqa: E402
+    credit_limit_report,
+)
+
+reports_app = typer.Typer(help="Direct-Accurate pilot reports (no Odoo migration required).")
+reports_app.command("credit-limit")(credit_limit_report)
+
+
 app.add_typer(companies_app, name="companies")
 app.add_typer(errors_app, name="errors")
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(reconcile_app, name="reconcile")
 app.add_typer(variance_app, name="variance")
 app.add_typer(cutover_app, name="cutover")
+app.add_typer(reports_app, name="reports")

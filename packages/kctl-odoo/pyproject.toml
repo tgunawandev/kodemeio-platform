@@ -24,6 +24,8 @@ dependencies = [
     "kctl-lib>=0.4.0",
     "httpx>=0.28.0",
     "openpyxl>=3.1.5",
+    "kodemeio-accurate>=0.5.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +43,7 @@ kctl-odoo = "kctl_odoo.cli:_run"
 
 [tool.uv.sources]
 kctl-lib = { workspace = true }
+kodemeio-accurate = { path = "../../../kodemeio-accurate/packages/accurate-sdk", editable = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kctl_odoo"]
