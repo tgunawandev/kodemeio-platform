@@ -161,7 +161,7 @@ def companies_show(
         limit=20,
     )
 
-    out.section(f"{rec['name']} ({rec['slug']})")
+    out.header(f"{rec['name']} ({rec['slug']})")
     for k, v in [
         ("State", rec["state"]),
         ("Current Phase", rec.get("current_phase") or "-"),
@@ -1629,7 +1629,7 @@ def snapshot_pull(
     date_str = snapshot_date or date.today().isoformat()
     sources = ["accurate", "odoo"] if source == "both" else [source]
     for src in sources:
-        result = actx.client.execute(
+        result = actx.client.execute_kw(
             "accurate.company",
             "cli_snapshot_pull",
             [[("slug", "=", slug)], src, date_str],
@@ -1647,7 +1647,7 @@ def snapshot_list(
 ) -> None:
     """List recent snapshots for <slug>."""
     actx: AppContext = ctx.obj
-    rows = actx.client.execute(
+    rows = actx.client.execute_kw(
         "accurate.snapshot",
         "cli_list_for_slug",
         [slug, limit],
@@ -1668,7 +1668,7 @@ def snapshot_export(
     actx: AppContext = ctx.obj
     import base64
 
-    blob_b64 = actx.client.execute(
+    blob_b64 = actx.client.execute_kw(
         "accurate.snapshot",
         "cli_export_gzip",
         [snapshot_id],
@@ -1700,7 +1700,7 @@ def reconcile_run(
     _bump_client_timeout(actx, seconds=1800.0)
 
     date_str = run_date or date.today().isoformat()
-    result = actx.client.execute(
+    result = actx.client.execute_kw(
         "accurate.company",
         "cli_reconcile_run",
         [
@@ -1733,7 +1733,7 @@ def variance_list(
 ) -> None:
     """List variance explanations for <slug>."""
     actx: AppContext = ctx.obj
-    rows = actx.client.execute(
+    rows = actx.client.execute_kw(
         "accurate.company",
         "cli_variance_list",
         [slug],
@@ -1756,7 +1756,7 @@ def variance_add(
 ) -> None:
     """Create a variance explanation."""
     actx: AppContext = ctx.obj
-    result = actx.client.execute(
+    result = actx.client.execute_kw(
         "accurate.company",
         "cli_variance_add",
         [slug, validator, delta_key, category, explanation, expires],
@@ -1771,7 +1771,7 @@ def variance_expire(
 ) -> None:
     """Expire (deactivate) a variance explanation."""
     actx: AppContext = ctx.obj
-    result = actx.client.execute(
+    result = actx.client.execute_kw(
         "accurate.company",
         "cli_variance_expire",
         [explanation_id],
@@ -1786,7 +1786,7 @@ cutover_app = typer.Typer(help="Cutover readiness + execution (Phase 4).")
 def cutover_status(ctx: typer.Context) -> None:
     """Streak status across all tenants."""
     actx: AppContext = ctx.obj
-    rows = actx.client.execute(
+    rows = actx.client.execute_kw(
         "accurate.company",
         "cli_cutover_status",
         [],
@@ -1809,7 +1809,7 @@ def audit_package(
     import base64
 
     _bump_client_timeout(actx, seconds=300.0)
-    blob_b64 = actx.client.execute(
+    blob_b64 = actx.client.execute_kw(
         "accurate.company",
         "cli_audit_package",
         [[("slug", "=", slug)]],
