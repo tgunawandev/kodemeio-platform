@@ -1792,18 +1792,21 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
         #     info_issues.append("no income account override")
 
         all_issues = critical + important + info_issues
-        if not all_issues:
-            continue
-
+        # Show every product (not only ones with issues) so the catalog is
+        # visible in the audit. Status reflects the worst-case severity, with
+        # PASS for products that have all required fields.
         if critical:
             severity = "CRITICAL"
             status = "FAIL"
         elif important:
             severity = "IMPORTANT"
             status = "WARN"
-        else:
+        elif info_issues:
             severity = "INFO"
             status = "INFO"
+        else:
+            severity = ""
+            status = "PASS"
 
         sheets["Product Quality"].append(
             _row(
@@ -1814,8 +1817,8 @@ def _check_company(target: dict, ref: dict | None, company_name: str) -> dict[st
                 Type=ptype or "?",
                 Severity=severity,
                 Category=_safe(p.get("categ_id")),
-                **{"Missing Fields": ", ".join(all_issues)},
-                **{"Fix": "Inventory > Products > <product> — set the missing field"},
+                **{"Missing Fields": ", ".join(all_issues) if all_issues else "-"},
+                **{"Fix": "Inventory > Products > <product> — set the missing field" if all_issues else ""},
                 Status=status,
                 **{"Issue Count": len(all_issues)},
             )
