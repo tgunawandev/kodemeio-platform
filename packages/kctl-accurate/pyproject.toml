@@ -20,6 +20,7 @@ dependencies = [
 dev = [
     "pytest>=8.3.0",
     "pytest-httpx>=0.35.0",
+    "pytest-cov>=6.0.0",
     "ruff>=0.9.0",
     "mypy>=1.14.0",
     "types-PyYAML>=6.0.0",
@@ -27,6 +28,8 @@ dev = [
 
 [project.scripts]
 kctl-accurate = "kctl_accurate.cli:_run"
+
+[project.entry-points."kctl_accurate.plugins"]
 
 [tool.uv.sources]
 kctl-lib = { workspace = true }

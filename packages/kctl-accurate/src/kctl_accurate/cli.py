@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import typer
-from kctl_lib import handle_cli_error
-from kctl_lib.exceptions import KctlError
+from kctl_lib import KctlError, handle_cli_error
 
 from kctl_accurate import __version__
 
