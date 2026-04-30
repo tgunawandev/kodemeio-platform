@@ -1232,6 +1232,64 @@ def coa_cleanup(
         )
 
 
+@app.command("ar-ap-reversal")
+def ar_ap_reversal(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID, or 'all'")],
+    confirm: Annotated[bool, typer.Option("--confirm", help="Required to proceed")] = False,
+) -> None:
+    """Post the AR/AP reversal JE to neutralise bulk opening AR/AP.
+
+    The opening JE bulk-imports AR/AP from Accurate's TB at cutover.
+    When outstanding-equivalent invoices are also imported (via
+    `outstanding_open_items` OR `gap_sync` source) the AR/AP is
+    doubled. This command posts a reversal JE that zeroes the
+    bulk AR/AP so the individual outstanding invoices remain the
+    only AR/AP balance.
+
+    Idempotent — skips when a reversal JE already exists.
+    """
+    if not confirm:
+        raise typer.BadParameter("Add --confirm to proceed (posts a JE).")
+
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    _bump_client_timeout(actx, seconds=900.0)
+
+    if identifier == "all":
+        targets = c.search_read(
+            "accurate.company",
+            domain=[("state", "in", ("in_progress", "live"))],
+            fields=["id", "slug"],
+            order="id",
+        )
+    else:
+        rec = _resolve_accurate_company(c, identifier)
+        targets = [{"id": rec["id"], "slug": rec["slug"]}]
+
+    for t in targets:
+        out.info(f"=== {t['slug']} ===")
+        try:
+            r = c.execute_kw(
+                "accurate.company",
+                "action_run_ar_ap_reversal",
+                [[t["id"]]],
+            )
+        except Exception as exc:  # noqa: BLE001
+            out.error(f"  FAILED: {exc}")
+            continue
+
+        if r.get("skipped"):
+            out.kv("  status", f"skipped ({r.get('reason')})")
+            if r.get("move_id"):
+                out.kv("  existing", f"id={r['move_id']} name={r.get('move_name')}")
+        else:
+            out.kv("  posted", f"id={r.get('move_id')} name={r.get('move_name')}")
+            out.kv("  reversed", f"{r.get('total_reversed', 0):+,.0f}")
+            out.kv("  lines", str(r.get("lines_count", 0)))
+
+
 # --- errors ------------------------------------------------------------
 
 
