@@ -10,6 +10,8 @@ from kctl_lib import KctlError, handle_cli_error
 from kctl_accurate import __version__
 from kctl_accurate.commands.auth import app as auth_app
 from kctl_accurate.commands.config_cmd import app as config_app
+from kctl_accurate.commands.dashboard import app as dashboard_app
+from kctl_accurate.commands.db import app as db_app
 from kctl_accurate.commands.doctor_cmd import app as doctor_app
 from kctl_accurate.commands.modules import build_module_app
 from kctl_accurate.core.callbacks import AppContext
@@ -33,6 +35,8 @@ app = typer.Typer(
 app.add_typer(auth_app, name="auth")
 app.add_typer(config_app, name="config")
 app.add_typer(doctor_app, name="doctor")
+app.add_typer(db_app, name="db")
+app.add_typer(dashboard_app, name="dashboard")
 
 # ── Module groups (all 23) ──────────────────────────────────────────────────
 for _cli_name, _spec in MODULE_REGISTRY.items():
