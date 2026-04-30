@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from kctl_lib.exceptions import AuthenticationError, ConfigError
+from kctl_lib.exceptions import APIError, AuthenticationError, ConfigError
 from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 from pytest_httpx import HTTPXMock
 
@@ -73,6 +73,23 @@ def test_401_translates_to_auth_error(httpx_mock: HTTPXMock) -> None:
     w = _make_wrapper()
     with pytest.raises(AuthenticationError):
         w.token_info()
+
+
+def test_s_false_response_raises_api_error(httpx_mock: HTTPXMock) -> None:
+    """When Accurate returns s=false, d is a list of error strings — must
+    raise APIError, not crash later when callers try d.get(...)."""
+    httpx_mock.add_response(
+        method="POST",
+        url="https://account.accurate.id/api/api-token.do",
+        json={
+            "s": False,
+            "d": ["Header X-Api-Signature invalid: Require Application 'kctl-accurate' signature"],
+        },
+    )
+    w = _make_wrapper()
+    with pytest.raises(APIError) as exc_info:
+        w.token_info()
+    assert "X-Api-Signature" in str(exc_info.value)
 
 
 def test_connection_error(httpx_mock: HTTPXMock) -> None:

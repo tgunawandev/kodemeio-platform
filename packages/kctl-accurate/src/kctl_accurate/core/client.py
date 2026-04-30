@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 from accurate_sdk import AccurateClient
+from accurate_sdk.exceptions import AccurateAPIError
 from kctl_lib.exceptions import ConfigError
 
 from kctl_accurate.core.config import ServiceConfig
@@ -48,10 +49,30 @@ class AccurateClientWrapper:
     def config(self) -> ServiceConfig:
         return self._config
 
+    @staticmethod
+    def _check_s(response: dict[str, Any], endpoint: str) -> dict[str, Any]:
+        """Raise AccurateAPIError if response carries s=false.
+
+        Accurate uses a uniform envelope: ``{"s": bool, "d": <payload>}``.
+        On failure, ``d`` is a list of human-readable error strings (not the
+        success-shape dict), so callers that try ``response["d"].get(...)``
+        crash with AttributeError. Centralizing the check here gives a clean
+        APIError → exit-code path via the SDK→KctlError translator.
+        """
+        if not response.get("s", False):
+            errors = response.get("d") or []
+            if isinstance(errors, list):
+                msg = "; ".join(str(e) for e in errors) or "unknown error"
+            else:
+                msg = str(errors)
+            raise AccurateAPIError(f"Accurate API error for {endpoint}: {msg}")
+        return response
+
     def token_info(self) -> dict[str, Any]:
         """Call the token discovery endpoint and return the raw response dict."""
         try:
-            return cast(dict[str, Any], self._client.token_info())
+            response = cast(dict[str, Any], self._client.token_info())
+            return self._check_s(response, "api-token.do")
         except Exception as exc:
             raise translate(exc) from exc
 
@@ -59,6 +80,7 @@ class AccurateClientWrapper:
         """List all databases accessible with this token."""
         try:
             response = self._client.get("https://account.accurate.id/api/db-list.do")
+            self._check_s(response, "db-list.do")
             return response.get("d") or []
         except Exception as exc:
             raise translate(exc) from exc
@@ -70,6 +92,7 @@ class AccurateClientWrapper:
                 "https://account.accurate.id/api/open-db.do",
                 params={"id": db_id},
             )
+            self._check_s(response, "open-db.do")
             return response.get("d") or {}
         except Exception as exc:
             raise translate(exc) from exc
@@ -77,13 +100,15 @@ class AccurateClientWrapper:
     def refresh_token(self) -> dict[str, Any]:
         """Refresh the master API token and return updated info."""
         try:
-            return cast(dict[str, Any], self._client.post("https://account.accurate.id/api/refresh-token.do"))
+            response = cast(dict[str, Any], self._client.post("https://account.accurate.id/api/refresh-token.do"))
+            return self._check_s(response, "refresh-token.do")
         except Exception as exc:
             raise translate(exc) from exc
 
     def logout(self) -> dict[str, Any]:
         """Invalidate the current master API token server-side."""
         try:
-            return cast(dict[str, Any], self._client.post("https://account.accurate.id/api/logout.do"))
+            response = cast(dict[str, Any], self._client.post("https://account.accurate.id/api/logout.do"))
+            return self._check_s(response, "logout.do")
         except Exception as exc:
             raise translate(exc) from exc
