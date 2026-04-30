@@ -10,6 +10,7 @@ from kctl_lib import KctlError, handle_cli_error
 from kctl_accurate import __version__
 from kctl_accurate.commands.auth import app as auth_app
 from kctl_accurate.commands.config_cmd import app as config_app
+from kctl_accurate.commands.doctor_cmd import app as doctor_app
 from kctl_accurate.core.callbacks import AppContext
 
 
@@ -29,6 +30,7 @@ app = typer.Typer(
 
 app.add_typer(auth_app, name="auth")
 app.add_typer(config_app, name="config")
+app.add_typer(doctor_app, name="doctor")
 
 
 @app.callback()
