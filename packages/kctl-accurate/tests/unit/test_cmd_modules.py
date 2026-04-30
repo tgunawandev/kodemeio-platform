@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
+import pytest
 from pytest_httpx import HTTPXMock
 from typer.testing import CliRunner
 
@@ -168,3 +170,74 @@ def test_customers_list_days_adds_filter_params(runner: CliRunner, write_profile
     # We can't know the exact date but the format should be DD/MM/YYYY
     val = params.get("filter.lastUpdated.val[0]", "")
     assert len(val) == 10 and val[2] == "/" and val[5] == "/"
+
+
+# ── --out FILE tests ──────────────────────────────────────────────────────────
+
+
+def test_customers_list_out_jsonl(runner: CliRunner, write_profile, httpx_mock: HTTPXMock, tmp_path: Path) -> None:
+    """``customers list --out FILE.jsonl`` writes one JSON object per line."""
+    _setup_profile(write_profile)
+    httpx_mock.add_response(
+        method="GET",
+        url=re.compile(rf"{re.escape(_HOST)}/accurate/api/customer/list\.do"),
+        json=_LIST_RESPONSE,
+    )
+    out_file = tmp_path / "customers.jsonl"
+    result = runner.invoke(app, ["-p", "tpp", "customers", "list", "--out", str(out_file)])
+    assert result.exit_code == 0, result.output + (result.stderr or "")
+
+    lines = out_file.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1, f"Expected 1 line, got: {lines}"
+    obj = json.loads(lines[0])
+    assert obj["id"] == 1001
+    assert obj["name"] == "PT Maju Bersama"
+
+
+def test_customers_list_out_csv(runner: CliRunner, write_profile, httpx_mock: HTTPXMock, tmp_path: Path) -> None:
+    """``customers list --out FILE.csv`` writes header + one data row."""
+    _setup_profile(write_profile)
+    httpx_mock.add_response(
+        method="GET",
+        url=re.compile(rf"{re.escape(_HOST)}/accurate/api/customer/list\.do"),
+        json=_LIST_RESPONSE,
+    )
+    out_file = tmp_path / "customers.csv"
+    result = runner.invoke(app, ["-p", "tpp", "customers", "list", "--out", str(out_file)])
+    assert result.exit_code == 0, result.output + (result.stderr or "")
+
+    lines = out_file.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2, f"Expected header + 1 data row, got: {lines}"
+    # Header must use curated columns from ModuleSpec
+    assert "id" in lines[0]
+    assert "name" in lines[0]
+    # Data row contains the customer name
+    assert "PT Maju Bersama" in lines[1]
+
+
+def test_customers_list_out_unknown_ext_exits_nonzero(runner: CliRunner, write_profile, tmp_path: Path) -> None:
+    """``customers list --out FILE.unknown`` exits non-zero with unsupported message."""
+    _setup_profile(write_profile)
+    out_file = tmp_path / "customers.xlsx"
+    result = runner.invoke(app, ["-p", "tpp", "customers", "list", "--out", str(out_file)])
+    assert result.exit_code != 0
+    combined = (result.output or "") + (result.stderr or "")
+    assert "Unsupported" in combined or "unsupported" in combined.lower()
+
+
+def test_customers_get_out_json(runner: CliRunner, write_profile, httpx_mock: HTTPXMock, tmp_path: Path) -> None:
+    """``customers get 1001 --out FILE.json`` writes a single JSON object."""
+    _setup_profile(write_profile)
+    httpx_mock.add_response(
+        method="GET",
+        url=re.compile(rf"{re.escape(_HOST)}/accurate/api/customer/detail\.do"),
+        json=_DETAIL_RESPONSE,
+    )
+    out_file = tmp_path / "customer.json"
+    result = runner.invoke(app, ["-p", "tpp", "customers", "get", "1001", "--out", str(out_file)])
+    assert result.exit_code == 0, result.output + (result.stderr or "")
+
+    payload = json.loads(out_file.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict), "get --out .json must write a dict, not a list"
+    assert payload["id"] == 1001
+    assert payload["name"] == "PT Maju Bersama"

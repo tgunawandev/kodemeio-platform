@@ -8,13 +8,16 @@ registered in ``cli.py`` by iterating over ``MODULE_REGISTRY``.
 from __future__ import annotations
 
 import json
+import sys
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 
 from kctl_accurate.core.callbacks import AppContext
 from kctl_accurate.core.columns import ModuleSpec
+from kctl_accurate.core.streaming import OutputSink
 
 
 def build_module_app(spec: ModuleSpec) -> typer.Typer:
@@ -46,10 +49,25 @@ def build_module_app(spec: ModuleSpec) -> typer.Typer:
             int | None,
             typer.Option("--limit", "-n", help="Cap the number of rows returned (no limit by default)."),
         ] = None,
+        out: Annotated[
+            Path | None,
+            typer.Option("--out", help="Write output to FILE (.jsonl/.ndjson, .json, or .csv)."),
+        ] = None,
+        full: Annotated[
+            bool,
+            typer.Option("--full", help="Include all fields (only affects CSV output)."),
+        ] = False,
     ) -> None:
         f"""List {spec.cli_name}. Use --since or --days for incremental filtering."""
         actx: AppContext = ctx.obj
         raw_client = actx.client.raw
+
+        # Validate --out extension early so we fail before the API call.
+        if out is not None and not OutputSink.supports(out):
+            from kctl_accurate.core.streaming import UNSUPPORTED_EXT_MESSAGE
+
+            typer.echo(f"ERROR: {UNSUPPORTED_EXT_MESSAGE}", err=True)
+            raise typer.Exit(2)
 
         # Resolve modified_since
         modified_since: date | None = None
@@ -67,6 +85,14 @@ def build_module_app(spec: ModuleSpec) -> typer.Typer:
 
         if limit is not None:
             rows = rows[:limit]
+
+        # ── --out FILE: write to disk, suppress table/JSON stdout ──────────
+        if out is not None:
+            with OutputSink(out, columns=spec.columns, full=full, mode="array") as sink:
+                for row in rows:
+                    sink.write_record(row)
+            typer.echo(f"Wrote {sink.record_count} records to {out}", err=True)
+            return
 
         if actx.json_mode:
             print(json.dumps(rows, indent=2, ensure_ascii=False, default=str))
@@ -89,13 +115,31 @@ def build_module_app(spec: ModuleSpec) -> typer.Typer:
         ctx: typer.Context,
         record_id: Annotated[int, typer.Argument(help="Accurate record ID.")],
         full: Annotated[bool, typer.Option("--full", help="Show all fields (not just curated columns).")] = False,
+        out: Annotated[
+            Path | None,
+            typer.Option("--out", help="Write output to FILE (.jsonl/.ndjson, .json, or .csv)."),
+        ] = None,
     ) -> None:
         f"""Fetch a single {spec.cli_name} record by ID."""
         actx: AppContext = ctx.obj
         raw_client = actx.client.raw
 
+        # Validate --out extension early so we fail before the API call.
+        if out is not None and not OutputSink.supports(out):
+            from kctl_accurate.core.streaming import UNSUPPORTED_EXT_MESSAGE
+
+            typer.echo(f"ERROR: {UNSUPPORTED_EXT_MESSAGE}", err=True)
+            raise typer.Exit(2)
+
         accessor = getattr(raw_client, spec.sdk_accessor)
         record: dict[str, Any] = accessor.get_raw(record_id)
+
+        # ── --out FILE ──────────────────────────────────────────────────────
+        if out is not None:
+            with OutputSink(out, columns=spec.columns, full=full, mode="object") as sink:
+                sink.write_record(record)
+            typer.echo(f"Wrote 1 record to {out}", err=True)
+            return
 
         if actx.json_mode:
             print(json.dumps(record, indent=2, ensure_ascii=False, default=str))
