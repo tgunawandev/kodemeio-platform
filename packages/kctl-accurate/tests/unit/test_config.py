@@ -15,6 +15,8 @@ from kctl_accurate.core.config import (
 )
 
 
+# TODO(Task 4): move to tests/conftest.py — Task 4's plan recreates the
+# same fixture there for cross-test reuse.
 @pytest.fixture
 def fake_config_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Redirect ~/.config/kodemeio/config.yaml to a tmp dir for the test."""
@@ -125,3 +127,19 @@ def test_resolve_missing_creds_returns_blanks(fake_config_home: Path) -> None:
     assert cfg.api_token == ""
     assert cfg.signature_secret == ""
     assert cfg.db_id == 0
+
+
+def test_resolve_invalid_db_id_env_raises_config_error(fake_config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from kctl_lib.exceptions import ConfigError
+
+    _write_config(
+        fake_config_home,
+        {
+            "default_profile": "tpp",
+            "profiles": {"tpp": {"accurate": {"api_token": "t", "signature_secret": "s", "db_id": 1}}},
+        },
+    )
+    monkeypatch.setenv("KCTL_ACCURATE_DB_ID", "not-a-number")
+    with pytest.raises(ConfigError) as exc_info:
+        resolve_connection(profile_name="tpp")
+    assert "KCTL_ACCURATE_DB_ID" in str(exc_info.value)

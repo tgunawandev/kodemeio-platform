@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 
+from kctl_lib.exceptions import ConfigError
 from kctl_lib.config import (
     CONFIG_DIR,
     CONFIG_FILE,
@@ -33,7 +34,7 @@ from kctl_lib.config import set_service_config as _set_service_config_raw
 from pydantic import BaseModel
 
 SERVICE_KEY = "accurate"
-_ENV_PREFIX = "KCTL_ACCURATE"
+ENV_PREFIX = "KCTL_ACCURATE"
 
 
 class ServiceConfig(BaseModel):
@@ -65,7 +66,7 @@ def set_service_config(profile_name: str, svc_config: ServiceConfig) -> None:
 
 
 def resolve_active_profile_name(profile_name: str | None = None) -> str:
-    return _resolve_active_profile_name(profile_name, _ENV_PREFIX)
+    return _resolve_active_profile_name(profile_name, ENV_PREFIX)
 
 
 def mask_secret(secret: str) -> str:
@@ -94,13 +95,16 @@ def resolve_connection(
     svc = get_service_config(pname)
 
     # Env vars.
-    if env := os.environ.get(f"{_ENV_PREFIX}_API_TOKEN"):
+    if (env := os.environ.get(f"{ENV_PREFIX}_API_TOKEN")) is not None:
         svc.api_token = env
-    if env := os.environ.get(f"{_ENV_PREFIX}_SIGNATURE_SECRET"):
+    if (env := os.environ.get(f"{ENV_PREFIX}_SIGNATURE_SECRET")) is not None:
         svc.signature_secret = env
-    if env := os.environ.get(f"{_ENV_PREFIX}_DB_ID"):
-        svc.db_id = int(env)
-    if env := os.environ.get(f"{_ENV_PREFIX}_HOST"):
+    if (env := os.environ.get(f"{ENV_PREFIX}_DB_ID")) is not None:
+        try:
+            svc.db_id = int(env)
+        except ValueError as exc:
+            raise ConfigError(f"KCTL_ACCURATE_DB_ID must be an integer, got: {env!r}") from exc
+    if (env := os.environ.get(f"{ENV_PREFIX}_HOST")) is not None:
         svc.host = env
 
     # CLI overrides.
@@ -119,6 +123,7 @@ def resolve_connection(
 __all__ = [
     "CONFIG_DIR",
     "CONFIG_FILE",
+    "ENV_PREFIX",
     "ConfigFile",
     "SERVICE_KEY",
     "ServiceConfig",
