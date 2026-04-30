@@ -44,3 +44,8 @@ line-length = 120
 [tool.mypy]
 python_version = "3.12"
 strict = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["kctl_lib", "kctl_lib.*", "accurate_sdk", "accurate_sdk.*"]
+follow_imports = "silent"

@@ -13,6 +13,7 @@ Resolution order (highest wins):
 from __future__ import annotations
 
 import os
+from typing import cast
 
 from kctl_lib.exceptions import ConfigError
 from kctl_lib.config import (
@@ -66,7 +67,7 @@ def set_service_config(profile_name: str, svc_config: ServiceConfig) -> None:
 
 
 def resolve_active_profile_name(profile_name: str | None = None) -> str:
-    return _resolve_active_profile_name(profile_name, ENV_PREFIX)
+    return cast(str, _resolve_active_profile_name(profile_name, ENV_PREFIX))
 
 
 def mask_secret(secret: str) -> str:

@@ -15,7 +15,7 @@ from kctl_accurate.core.config import resolve_connection
 
 
 @dataclass
-class AppContext(AppContextBase):
+class AppContext(AppContextBase):  # type: ignore[misc]
     """kctl-accurate application context."""
 
     api_token_override: str | None = None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import typer
 from kctl_lib.doctor_base import CheckResult, DoctorCheck, run_doctor
@@ -116,7 +117,7 @@ class _CachedCheck:
 
     @property
     def name(self) -> str:
-        return self._result.name
+        return cast(str, self._result.name)
 
     def run(self) -> CheckResult:
         return self._result
@@ -141,7 +142,7 @@ def doctor(ctx: typer.Context) -> None:
     # making duplicate API calls.
     results = [c.run() for c in checks]
     cached = [_CachedCheck(r) for r in results]
-    ok = run_doctor(cached, actx.output)  # type: ignore[arg-type]
+    ok = run_doctor(cached, actx.output)
     # kctl-* convention: warn also exits non-zero
     has_warn = any(r.status == "warn" for r in results)
     if not ok or has_warn:

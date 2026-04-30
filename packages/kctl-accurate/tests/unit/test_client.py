@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from kctl_lib.exceptions import APIError, AuthenticationError, ConfigError
+from kctl_lib.exceptions import AuthenticationError, ConfigError
 from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 from pytest_httpx import HTTPXMock
 

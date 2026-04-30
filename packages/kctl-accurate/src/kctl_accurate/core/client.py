@@ -8,7 +8,7 @@ HTTP 401 later.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from accurate_sdk import AccurateClient
 from kctl_lib.exceptions import ConfigError
@@ -51,7 +51,7 @@ class AccurateClientWrapper:
     def token_info(self) -> dict[str, Any]:
         """Call the token discovery endpoint and return the raw response dict."""
         try:
-            return self._client.token_info()
+            return cast(dict[str, Any], self._client.token_info())
         except Exception as exc:
             raise translate(exc) from exc
 
@@ -77,13 +77,13 @@ class AccurateClientWrapper:
     def refresh_token(self) -> dict[str, Any]:
         """Refresh the master API token and return updated info."""
         try:
-            return self._client.post("https://account.accurate.id/api/refresh-token.do")
+            return cast(dict[str, Any], self._client.post("https://account.accurate.id/api/refresh-token.do"))
         except Exception as exc:
             raise translate(exc) from exc
 
     def logout(self) -> dict[str, Any]:
         """Invalidate the current master API token server-side."""
         try:
-            return self._client.post("https://account.accurate.id/api/logout.do")
+            return cast(dict[str, Any], self._client.post("https://account.accurate.id/api/logout.do"))
         except Exception as exc:
             raise translate(exc) from exc
