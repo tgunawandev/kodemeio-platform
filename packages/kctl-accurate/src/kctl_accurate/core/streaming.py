@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import csv
 import json
-from io import StringIO
 from pathlib import Path
 from typing import IO, Mapping, Sequence
 
@@ -99,7 +98,7 @@ class OutputSink:
 
         # Runtime state
         self._fh: IO[str] | None = None
-        self._buffer: list[dict] = []  # JSON array mode
+        self._buffer: list[dict[str, object]] = []  # JSON array mode
         self._csv_writer: csv.DictWriter | None = None  # type: ignore[type-arg]
         self._csv_fieldnames: list[str] = []
         self._record_count: int = 0

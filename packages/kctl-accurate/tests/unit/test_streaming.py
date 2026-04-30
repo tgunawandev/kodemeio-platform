@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from kctl_accurate.core.streaming import UNSUPPORTED_EXT_MESSAGE, OutputSink
+from kctl_accurate.core.streaming import OutputSink
 from kctl_lib.exceptions import ConfigError
 
 # ── fixtures ────────────────────────────────────────────────────────────────
