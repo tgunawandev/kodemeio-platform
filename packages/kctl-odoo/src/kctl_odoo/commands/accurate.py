@@ -1149,6 +1149,89 @@ def full_remediate(
                 )
 
 
+# --- coa-cleanup -------------------------------------------------------
+
+
+@app.command("coa-cleanup")
+def coa_cleanup(
+    ctx: typer.Context,
+    identifier: Annotated[str, typer.Argument(help="Slug or ID, or 'all' for every live company")],
+    confirm: Annotated[bool, typer.Option("--confirm", help="Required to proceed (write SQL)")] = False,
+) -> None:
+    """Migrate factory l10n_id CoA → Accurate CoA per company.
+
+    After Accurate import, both CoAs coexist on the company:
+    - Factory: 11210010 Account Receivable, 21100010 Trade Receivable, ...
+    - Accurate: 1100.01 Piutang Dagang IDR, 2000.09 Hutang Dagang IDR, ...
+
+    Transactions booked through Odoo defaults can land on factory accounts.
+    This command re-points all move lines + property defaults onto Accurate
+    accounts, then removes the factory accounts from the company. Result:
+    only Accurate-style codes remain, AR/AP balances match Accurate exactly.
+
+    Idempotent — safe to re-run.
+    """
+    if not confirm:
+        raise typer.BadParameter("Add --confirm to proceed (modifies account_move_line + ir_property + journals).")
+
+    actx: AppContext = ctx.obj
+    out = actx.output
+    c = actx.client
+    _bump_client_timeout(actx, seconds=1800.0)
+
+    if identifier == "all":
+        targets = c.search_read(
+            "accurate.company",
+            domain=[("state", "in", ("in_progress", "live"))],
+            fields=["id", "slug"],
+            order="id",
+        )
+    else:
+        rec = _resolve_accurate_company(c, identifier)
+        targets = [{"id": rec["id"], "slug": rec["slug"]}]
+
+    rows = []
+    for t in targets:
+        out.info(f"=== {t['slug']} ===")
+        try:
+            r = c.execute_kw(
+                "accurate.company",
+                "action_cleanup_factory_coa",
+                [[t["id"]]],
+            )
+        except Exception as exc:  # noqa: BLE001
+            out.error(f"  FAILED: {exc}")
+            rows.append([t["slug"], "FAIL", str(exc)[:60]])
+            continue
+
+        out.kv("  factories_found", str(r.get("factories_found", 0)))
+        out.kv("  moved_lines", str(r.get("moved_lines", 0)))
+        out.kv("  factories_removed", str(r.get("factories_removed", 0)))
+        out.kv("  remaining_factory", str(r.get("remaining_factory", 0)))
+        out.kv("  remaining_dotted", str(r.get("remaining_dotted", 0)))
+        ar = r.get("ar_balance", 0)
+        ap = r.get("ap_balance", 0)
+        out.kv("  AR", f"{ar:+,.0f}")
+        out.kv("  AP", f"{ap:+,.0f}")
+        rows.append(
+            [
+                t["slug"],
+                str(r.get("factories_found", 0)),
+                str(r.get("factories_removed", 0)),
+                str(r.get("moved_lines", 0)),
+                str(r.get("remaining_factory", 0)),
+                f"{ar:+,.0f}",
+                f"{ap:+,.0f}",
+            ]
+        )
+
+    if len(rows) > 1:
+        out.table(
+            ["slug", "found", "removed", "moved", "remain", "AR", "AP"],
+            rows,
+        )
+
+
 # --- errors ------------------------------------------------------------
 
 
