@@ -248,14 +248,21 @@ def _check_db_exists(
 ) -> bool:
     """Return True if the named DB exists on the compose's postgres container.
 
-    Implementation: runs ``psql -tAc "SELECT 1 FROM pg_database WHERE datname='X'" | grep -q 1``
+    Implementation: runs ``psql -tAc "SELECT 1 FROM pg_database WHERE datname=$$X$$" | grep -q 1``
     via Dokploy schedules. Schedule run exit 0 (Dokploy 200) → DB exists.
     Anything else → assume missing (the caller should treat this as "create
     me one"). Safe to false-negative — over-creates are guarded by callers.
+
+    Uses PostgreSQL dollar-quoting (``$$X$$``) instead of single quotes for
+    SQL string literals, with the leading dollars shell-escaped (``\\$\\$``)
+    so the shell preserves them rather than expanding ``$$`` to PID. Dokploy's
+    schedule API silently mangles single-quote-containing SQL inside
+    double-quoted shell args (empirically observed on tpp-infra-postgres),
+    so this is the only encoding that survives transport intact.
     """
     cmd = (
         f"psql -U {database_user} -d postgres -tAc "
-        f"\"SELECT 1 FROM pg_database WHERE datname='{database_name}'\" "
+        f'"SELECT 1 FROM pg_database WHERE datname=\\$\\${database_name}\\$\\$" '
         f"| grep -q 1"
     )
     ok, _ = _run_remote_command(
@@ -330,10 +337,12 @@ def _drop_and_recreate_db(
         f"psql -U {database_user} -d postgres -c "
         f'"REVOKE CONNECT ON DATABASE {database_name} FROM PUBLIC, {database_user};"'
     )
+    # Dollar-quoted DB name (\$\$X\$\$) survives Dokploy's command transport
+    # where 'X'-style SQL string literals get mangled. See _check_db_exists.
     terminate = (
         f"psql -U {database_user} -d postgres -c "
         f'"SELECT pg_terminate_backend(pid) FROM pg_stat_activity '
-        f"WHERE datname='{database_name}' AND pid<>pg_backend_pid();\""
+        f'WHERE datname=\\$\\${database_name}\\$\\$ AND pid<>pg_backend_pid();"'
     )
     drop = f"dropdb -U {database_user} --if-exists {database_name}"
     create = f"createdb -U {database_user} -O {database_user} {database_name}"
@@ -397,11 +406,12 @@ def _verify_restore_populated(
     failure — pg_restore can claim victory after dropping objects but
     failing to recreate them. This catches that.
     """
-    # Use a heredoc-free shell script: psql to count user tables, then test >0.
-    # We invoke psql with -c directly and quote the SQL with double quotes so
-    # the f-string interpolation stays simple. 'public' is wrapped in literal
-    # single quotes for SQL by escaping via $'...' POSIX form.
-    sql = "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname='public'"
+    # Use ``current_schema()`` instead of a string literal ``'public'`` so
+    # the SQL has no embedded single quotes. Dokploy's command transport
+    # silently mangles ``'X'``-style SQL inside double-quoted shell args
+    # (see _check_db_exists for the workaround story). For a default psql
+    # session against an Odoo DB, current_schema() resolves to 'public'.
+    sql = "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname=current_schema()"
     cmd = f'count=$(psql -U {database_user} -d {database_name} -tAc "{sql}") && [ "$count" -gt 0 ]'
     ok, _ = _run_remote_command(
         c,
