@@ -15,23 +15,6 @@ from kctl_accurate.core.config import (
 )
 
 
-# TODO(Task 4): move to tests/conftest.py — Task 4's plan recreates the
-# same fixture there for cross-test reuse.
-@pytest.fixture
-def fake_config_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Redirect ~/.config/kodemeio/config.yaml to a tmp dir for the test."""
-    config_dir = tmp_path / ".config" / "kodemeio"
-    config_dir.mkdir(parents=True)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    # kctl_lib.config caches CONFIG_DIR/CONFIG_FILE at import time, so
-    # we patch those too.
-    import kctl_lib.config as klc
-
-    monkeypatch.setattr(klc, "CONFIG_DIR", config_dir)
-    monkeypatch.setattr(klc, "CONFIG_FILE", config_dir / "config.yaml")
-    return config_dir
-
-
 def _write_config(config_dir: Path, data: dict) -> None:
     (config_dir / "config.yaml").write_text(yaml.safe_dump(data))
 
