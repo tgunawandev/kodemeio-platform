@@ -1,15 +1,17 @@
 """Translate accurate-sdk exceptions to kctl_lib.KctlError subclasses.
 
-Centralizes the exit-code contract:
-    0 = success
-    1 = command-level failure / API s=false / pagination cap exceeded
-    2 = config error (handled where it's raised, not here)
-    3 = network/HTTP 5xx error
-    4 = auth error (401/403)
-    5 = rate-limit exhaustion (429 after retries)
+The KctlError subclass carries the *intended* exit code per the
+spec's contract:
+    AuthenticationError → exit 4 (auth/signature failure)
+    APIError(429)       → exit 5 (rate-limit exhaustion)
+    KctlConnectionError → exit 3 (network/host unreachable)
+    APIError (other)    → exit 1 (command-level failure)
+    NotFoundError       → exit 1
 
-Exit codes are produced by ``kctl_lib.handle_cli_error`` based on the
-KctlError subclass.
+kctl_lib 0.4.0's handle_cli_error currently exits 1 for every
+KctlError; per-code routing requires either a kctl_lib upgrade or
+per-command _run() overrides. Carrying the right subclass here lets
+that future upgrade activate without re-touching every command.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from __future__ import annotations
 import httpx
 from accurate_sdk.exceptions import (
     AccurateAPIError,
+    AccurateRateLimitError,
     AccurateSDKError,
     PaginationLimitExceeded,
 )
@@ -29,7 +32,7 @@ from kctl_lib.exceptions import (
 from kctl_lib.exceptions import ConnectionError as KctlConnectionError
 
 
-def translate(exc: BaseException) -> KctlError:
+def translate(exc: Exception) -> KctlError:
     """Convert any exception coming out of accurate-sdk into a KctlError."""
     if isinstance(exc, KctlError):
         return exc
@@ -40,7 +43,7 @@ def translate(exc: BaseException) -> KctlError:
         if code in (401, 403):
             return AuthenticationError(f"Accurate auth failed (HTTP {code}): {body[:200]}")
         if code == 404:
-            return NotFoundError("record", body[:80] or "unknown")
+            return NotFoundError("record", body[:200] or "unknown")
         if code == 429:
             return APIError(status_code=429, detail=f"Accurate rate limit exhausted: {body[:200]}")
         return APIError(status_code=code, detail=body[:200])
@@ -51,6 +54,9 @@ def translate(exc: BaseException) -> KctlError:
         except RuntimeError:
             url = "(unknown)"
         return KctlConnectionError(url, exc)
+
+    if isinstance(exc, AccurateRateLimitError):
+        return APIError(status_code=429, detail=f"Accurate rate limit exhausted: {exc}")
 
     if isinstance(exc, AccurateAPIError):
         return APIError(detail=str(exc))

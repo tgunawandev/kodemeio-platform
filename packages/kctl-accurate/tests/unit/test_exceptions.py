@@ -6,6 +6,7 @@ import httpx
 import pytest
 from accurate_sdk.exceptions import (
     AccurateAPIError,
+    AccurateRateLimitError,
     AccurateSDKError,
     PaginationLimitExceeded,
 )
@@ -57,6 +58,12 @@ def test_translate_request_error_to_connection_error() -> None:
     exc = httpx.ConnectError("network down")
     out = translate(exc)
     assert isinstance(out, KctlConnectionError)
+
+
+def test_translate_accurate_rate_limit_error() -> None:
+    out = translate(AccurateRateLimitError("retried 5 times, still 429"))
+    assert isinstance(out, APIError)
+    assert "rate" in str(out).lower()
 
 
 def test_translate_accurate_api_error() -> None:
