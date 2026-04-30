@@ -8,6 +8,7 @@ import typer
 from kctl_lib import KctlError, handle_cli_error
 
 from kctl_accurate import __version__
+from kctl_accurate.commands.auth import app as auth_app
 from kctl_accurate.core.callbacks import AppContext
 
 
@@ -24,6 +25,8 @@ app = typer.Typer(
     rich_markup_mode="rich",
     pretty_exceptions_enable=False,
 )
+
+app.add_typer(auth_app, name="auth")
 
 
 @app.callback()
