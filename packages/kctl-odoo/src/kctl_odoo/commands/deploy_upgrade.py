@@ -156,33 +156,45 @@ def upgrade(
     _redeploy(url, api_key, compose_id)
     console.print("  Redeploy triggered")
 
-    # Step 3: Wait for init container to finish
-    console.print(f"[cyan]Step 3/5:[/cyan] Waiting {wait}s for init + module upgrade...")
-    time.sleep(wait)
-
-    # Step 4: Health check
+    # Step 3+4: Poll for health (replaces fixed sleep + separate health check)
     if health_url:
-        console.print(f"[cyan]Step 4/5:[/cyan] Checking health at {health_url}...")
+        max_wait = wait
+        console.print(f"[cyan]Step 3/5:[/cyan] Polling health for up to {max_wait}s...")
+        console.print(f"  URL: {health_url}")
         healthy = False
-        for attempt in range(1, 11):
+        elapsed = 0
+        interval = 15
+        while elapsed < max_wait:
+            time.sleep(interval)
+            elapsed += interval
             try:
-                req = urllib.request.Request(health_url)
-                resp = urllib.request.urlopen(req, timeout=10)
-                if resp.status == 200:
-                    console.print(f"  [green]Healthy (attempt {attempt})[/green]")
-                    healthy = True
-                    break
+                parsed = urllib.parse.urlparse(health_url)
+                if parsed.scheme == "https":
+                    conn = http.client.HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=10)
+                else:
+                    conn = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=10)
+                conn.request("GET", parsed.path or "/")
+                resp = conn.getresponse()
+                code = resp.status
+                conn.close()
             except Exception:
-                pass
-            console.print(f"  Attempt {attempt}/10 — not ready, waiting 30s...")
-            time.sleep(30)
+                code = 0
+
+            mins = elapsed // 60
+            secs = elapsed % 60
+            if code == 200:
+                console.print(f"  [green]Healthy after {mins}m{secs}s[/green]")
+                healthy = True
+                break
+            console.print(f"  {mins}m{secs}s — HTTP {code}")
 
         if not healthy:
-            console.print("[red]Health check failed after 5 min[/red]")
-            console.print("[yellow]Env vars NOT cleaned up — investigate and run with --skip-cleanup to retry[/yellow]")
+            console.print(f"[red]Health check failed after {max_wait}s[/red]")
+            console.print("[yellow]Env vars NOT cleaned up — investigate manually[/yellow]")
             raise typer.Exit(1)
     else:
-        console.print("[cyan]Step 4/5:[/cyan] No --health-url provided, skipping health check")
+        console.print(f"[cyan]Step 3/5:[/cyan] No --health-url, waiting {wait}s...")
+        time.sleep(wait)
 
     # Step 5: Clean up env vars
     if skip_cleanup:

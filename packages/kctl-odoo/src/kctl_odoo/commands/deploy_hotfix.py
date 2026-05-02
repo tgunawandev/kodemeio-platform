@@ -186,67 +186,57 @@ def _get_git_sha(module_path: Path) -> str:
         return "unknown"
 
 
-def _query_hotfix_params(ssh_host: str, container: str) -> list[dict]:
-    """Query all kodemeio.hotfix.* ir.config_parameter records."""
-    script = (
-        "import os, xmlrpc.client as x, json; "
-        "db = os.environ.get('PGDATABASE', 'odoo'); "
-        "pwd = os.environ.get('ODOO_ADMIN_PASSWD', 'admin'); "
-        "url = 'http://localhost:8069'; "
-        "common = x.ServerProxy(f'{url}/xmlrpc/2/common'); "
-        "uid = common.authenticate(db, 'admin', pwd, {}); "
-        "models = x.ServerProxy(f'{url}/xmlrpc/2/object'); "
-        "ids = models.execute_kw(db, uid, pwd, 'ir.config_parameter', 'search', "
-        "[[['key', 'like', 'kodemeio.hotfix.']]]); "
-        "recs = models.execute_kw(db, uid, pwd, 'ir.config_parameter', 'read', "
-        "[ids], {'fields': ['key', 'value']}); "
-        "print(json.dumps(recs))"
+def _psql(ssh_host: str, container: str, sql: str) -> subprocess.CompletedProcess[str]:
+    """Execute SQL via psql inside the container (uses container's PGHOST/PGUSER/PGPASSWORD/PGDATABASE env)."""
+    escaped_sql = sql.replace("'", "'\\''")
+    return _ssh_run(
+        ssh_host,
+        f"docker exec {container} sh -c \"psql -U \\$PGUSER -h \\$PGHOST -d \\$PGDATABASE -t -A -c '{escaped_sql}'\"",
+        check=False,
     )
-    result = _ssh_run(ssh_host, f'docker exec {container} python3 -c "{script}"', check=False)
-    if result.returncode != 0:
+
+
+def _query_hotfix_params(ssh_host: str, container: str) -> list[dict]:
+    """Query all kodemeio.hotfix.* ir.config_parameter records via SQL."""
+    result = _psql(
+        ssh_host,
+        container,
+        "SELECT key, value FROM ir_config_parameter WHERE key LIKE 'kodemeio.hotfix.%'",
+    )
+    if result.returncode != 0 or not result.stdout.strip():
         return []
-    try:
-        return json.loads(result.stdout.strip())
-    except (json.JSONDecodeError, ValueError):
-        return []
+    records = []
+    for line in result.stdout.strip().split("\n"):
+        parts = line.split("|", 1)
+        if len(parts) == 2:
+            records.append({"key": parts[0].strip(), "value": parts[1].strip()})
+    return records
 
 
 def _set_hotfix_param(ssh_host: str, container: str, key: str, value: str) -> None:
-    """Set an ir.config_parameter via XML-RPC inside the container."""
-    escaped_value = value.replace("'", "\\'").replace('"', '\\"')
-    script = (
-        "import os, xmlrpc.client as x; "
-        "db = os.environ.get('PGDATABASE', 'odoo'); "
-        "pwd = os.environ.get('ODOO_ADMIN_PASSWD', 'admin'); "
-        "url = 'http://localhost:8069'; "
-        "common = x.ServerProxy(f'{url}/xmlrpc/2/common'); "
-        "uid = common.authenticate(db, 'admin', pwd, {}); "
-        "models = x.ServerProxy(f'{url}/xmlrpc/2/object'); "
-        f"models.execute_kw(db, uid, pwd, 'ir.config_parameter', 'set_param', "
-        f"['{key}', '{escaped_value}'])"
+    """Upsert an ir.config_parameter via SQL."""
+    safe_value = value.replace("'", "''")
+    _psql(
+        ssh_host,
+        container,
+        f"INSERT INTO ir_config_parameter (key, value, create_uid, write_uid, create_date, write_date) "
+        f"VALUES ('{key}', '{safe_value}', 1, 1, now(), now()) "
+        f"ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, write_date = now()",
     )
-    _ssh_run(ssh_host, f'docker exec {container} python3 -c "{script}"', check=False)
 
 
 def _delete_hotfix_params(ssh_host: str, container: str) -> int:
-    """Delete all kodemeio.hotfix.* params. Returns count deleted."""
-    script = (
-        "import os, xmlrpc.client as x; "
-        "db = os.environ.get('PGDATABASE', 'odoo'); "
-        "pwd = os.environ.get('ODOO_ADMIN_PASSWD', 'admin'); "
-        "url = 'http://localhost:8069'; "
-        "common = x.ServerProxy(f'{url}/xmlrpc/2/common'); "
-        "uid = common.authenticate(db, 'admin', pwd, {}); "
-        "models = x.ServerProxy(f'{url}/xmlrpc/2/object'); "
-        "ids = models.execute_kw(db, uid, pwd, 'ir.config_parameter', 'search', "
-        "[[['key', 'like', 'kodemeio.hotfix.']]]); "
-        "print(len(ids)); "
-        "models.execute_kw(db, uid, pwd, 'ir.config_parameter', 'unlink', [ids]) "
-        "if ids else None"
+    """Delete all kodemeio.hotfix.* params via SQL. Returns count deleted."""
+    result = _psql(
+        ssh_host,
+        container,
+        "DELETE FROM ir_config_parameter WHERE key LIKE 'kodemeio.hotfix.%'",
     )
-    result = _ssh_run(ssh_host, f'docker exec {container} python3 -c "{script}"', check=False)
+    if result.returncode != 0:
+        return 0
     try:
-        return int(result.stdout.strip())
+        count_str = result.stdout.strip().replace("DELETE ", "")
+        return int(count_str) if count_str.isdigit() else 0
     except (ValueError, AttributeError):
         return 0
 
