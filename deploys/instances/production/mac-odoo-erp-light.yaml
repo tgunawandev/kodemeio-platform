@@ -1,0 +1,33 @@
+kind: instance
+extends: ../../bases/odoo.yaml
+instance:
+  name: mac-odoo-erp-light
+  description: MAC — ERP Light (minimal modules, comparison testing)
+project: mac
+environment: production
+server: tpp-prod-02
+dns:
+  zone: idtpp.com
+  name: mac-odoo-erp-light
+domain:
+  host: mac-odoo-erp-light.idtpp.com
+  port: 8069
+  service: odoo-web
+  https: true
+  cert: letsencrypt
+database:
+  name: mac_odoo_erp_light
+  user: odoo
+env_file: ../../env/production/.env.mac-odoo-erp-light
+env_overrides:
+  COMPOSE_PROJECT_NAME: mac-odoo-erp-light
+  TENANT: mac
+  PGDATABASE: mac_odoo_erp_light
+  PGUSER: odoo
+  ODOO_DB_FILTER: ^mac_odoo_erp_light$
+  DOMAIN: mac-odoo-erp-light.idtpp.com
+  ODOO_WORKERS: '2'
+post_deploy:
+  odoo_profile: profile-erp-light
+  odoo_install_bundle: ''
+  recipe: erp-light

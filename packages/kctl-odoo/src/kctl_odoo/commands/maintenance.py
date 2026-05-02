@@ -360,6 +360,23 @@ def check_data(
         except Exception:
             pass
 
+    # Users without timezone set (should be Asia/Jakarta for Indonesian companies)
+    if cat in ("all", "master"):
+        try:
+            no_tz = c.search_count(
+                "res.users",
+                [("active", "=", True), ("share", "=", False), "|", ("tz", "=", False), ("tz", "!=", "Asia/Jakarta")],
+            )
+            _check_custom(
+                "master",
+                "Users without Asia/Jakarta timezone",
+                no_tz == 0,
+                no_tz,
+                f"{no_tz} internal users do not have tz=Asia/Jakarta — causes wrong timestamps in attendance/payroll",
+            )
+        except Exception:
+            pass
+
     # =====================================================================
     # OPERATIONS CHECKS
     # =====================================================================
