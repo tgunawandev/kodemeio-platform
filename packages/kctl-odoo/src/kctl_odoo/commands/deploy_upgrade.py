@@ -7,9 +7,11 @@ shared config under the same profile.
 
 from __future__ import annotations
 
+import http.client
 import json
+import ssl
 import time
-import urllib.request
+import urllib.parse
 from typing import Annotated
 
 import typer
@@ -42,62 +44,60 @@ def _dokploy_config(profile: str) -> tuple[str, str]:
     return url.rstrip("/"), api_key
 
 
-def _dokploy_api(url: str, api_key: str, endpoint: str, *, method: str = "GET", data: dict | None = None) -> dict:
-    """Call a Dokploy API endpoint."""
-    full_url = f"{url}/api/{endpoint}"
-    body = json.dumps(data).encode() if data else None
-    req = urllib.request.Request(
-        full_url,
-        data=body,
-        headers={"Content-Type": "application/json", "x-api-key": api_key},
-        method=method,
-    )
+def _dokploy_request(
+    base_url: str, api_key: str, path: str, *, method: str = "GET", data: dict | None = None, query: str = ""
+) -> tuple[int, dict]:
+    """HTTP request using http.client (preserves lowercase x-api-key header)."""
+    parsed = urllib.parse.urlparse(base_url)
+    full_path = f"/api/{path}"
+    if query:
+        full_path += f"?{query}"
+
+    if parsed.scheme == "https":
+        conn = http.client.HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=30)
+    else:
+        conn = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=30)
+
+    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+    body = json.dumps(data) if data else None
+
     try:
-        resp = urllib.request.urlopen(req, timeout=30)
-        return json.loads(resp.read().decode()) if resp.read else {}
-    except urllib.error.HTTPError as e:
-        body_text = e.read().decode() if e.fp else ""
-        console.print(f"[red]Dokploy API error: HTTP {e.code} — {body_text}[/red]")
-        raise typer.Exit(1)
+        conn.request(method, full_path, body=body, headers=headers)
+        resp = conn.getresponse()
+        resp_body = resp.read().decode()
+        return resp.status, json.loads(resp_body) if resp_body else {}
     except Exception as e:
         console.print(f"[red]Dokploy API error: {e}[/red]")
         raise typer.Exit(1)
+    finally:
+        conn.close()
 
 
 def _get_env(url: str, api_key: str, compose_id: str) -> str:
     """Fetch current env content for a compose."""
-    full_url = f"{url}/api/compose.one?composeId={compose_id}"
-    req = urllib.request.Request(full_url, headers={"x-api-key": api_key})
-    resp = urllib.request.urlopen(req, timeout=15)
-    data = json.loads(resp.read().decode())
+    status, data = _dokploy_request(url, api_key, "compose.one", query=f"composeId={compose_id}")
+    if status != 200:
+        console.print(f"[red]Failed to get compose env: HTTP {status}[/red]")
+        raise typer.Exit(1)
     return data.get("env", "")
 
 
 def _set_env(url: str, api_key: str, compose_id: str, env_content: str) -> None:
     """Update env content for a compose."""
-    _dokploy_api(
-        url,
-        api_key,
-        "compose.update",
-        method="POST",
-        data={
-            "composeId": compose_id,
-            "env": env_content,
-        },
+    status, data = _dokploy_request(
+        url, api_key, "compose.update", method="POST", data={"composeId": compose_id, "env": env_content}
     )
+    if status != 200:
+        console.print(f"[red]Failed to update env: HTTP {status} — {data}[/red]")
+        raise typer.Exit(1)
 
 
 def _redeploy(url: str, api_key: str, compose_id: str) -> None:
     """Trigger compose redeploy."""
-    _dokploy_api(
-        url,
-        api_key,
-        "compose.redeploy",
-        method="POST",
-        data={
-            "composeId": compose_id,
-        },
-    )
+    status, data = _dokploy_request(url, api_key, "compose.redeploy", method="POST", data={"composeId": compose_id})
+    if status != 200:
+        console.print(f"[red]Failed to trigger redeploy: HTTP {status} — {data}[/red]")
+        raise typer.Exit(1)
 
 
 def upgrade(
