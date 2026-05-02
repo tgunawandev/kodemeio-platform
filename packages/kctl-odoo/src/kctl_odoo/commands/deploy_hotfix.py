@@ -1,10 +1,8 @@
 """Emergency hotfix deployment commands.
 
-Provides hotfix, hotfix-status, and hotfix-rollback commands for
-deploying module patches directly to running containers via SSH.
-
 Uses Dokploy API to resolve compose → server IP + container names,
-then SSH + docker for the actual file copy and module upgrade.
+SSH + docker for file copy and module upgrade, and Odoo JSON-RPC
+(via --odoo-profile) for hotfix tracking in ir.config_parameter.
 """
 
 from __future__ import annotations
@@ -37,50 +35,42 @@ console = Console()
 
 
 # ---------------------------------------------------------------------------
-# Dokploy API helpers (same http.client pattern as deploy_upgrade)
+# Dokploy API helpers
 # ---------------------------------------------------------------------------
 
 
 def _dokploy_config(profile: str) -> tuple[str, str]:
-    """Read Dokploy URL and API key from shared config."""
     import yaml
 
     config_path = Path.home() / ".config" / "kodemeio" / "config.yaml"
     if not config_path.exists():
         console.print(f"[red]Config not found: {config_path}[/red]")
         raise typer.Exit(1)
-
     cfg = yaml.safe_load(config_path.read_text())
-    prof = cfg.get("profiles", {}).get(profile, {})
-    dokploy = prof.get("dokploy", {})
+    dokploy = cfg.get("profiles", {}).get(profile, {}).get("dokploy", {})
     url = dokploy.get("url", "")
     api_key = dokploy.get("api_key", "")
-
     if not url or not api_key:
         console.print(f"[red]No dokploy config in profile '{profile}'.[/red]")
         raise typer.Exit(1)
-
     return url.rstrip("/"), api_key
 
 
 def _dokploy_get(base_url: str, api_key: str, path: str, query: str = "") -> dict:
-    """GET request to Dokploy API using http.client (preserves header case)."""
     parsed = urllib.parse.urlparse(base_url)
     full_path = f"/api/{path}"
     if query:
         full_path += f"?{query}"
-
     if parsed.scheme == "https":
         conn = http.client.HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=15)
     else:
         conn = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=15)
-
     try:
         conn.request("GET", full_path, headers={"x-api-key": api_key})
         resp = conn.getresponse()
         body = resp.read().decode()
         if resp.status != 200:
-            console.print(f"[red]Dokploy API error: HTTP {resp.status} — {body[:200]}[/red]")
+            console.print(f"[red]Dokploy API error: HTTP {resp.status}[/red]")
             raise typer.Exit(1)
         return json.loads(body)
     finally:
@@ -88,23 +78,86 @@ def _dokploy_get(base_url: str, api_key: str, path: str, query: str = "") -> dic
 
 
 def _resolve_compose(base_url: str, api_key: str, compose_id: str) -> tuple[str, str, str]:
-    """Resolve a compose ID to (ssh_host, appName, server_ip).
-
-    Returns (server_user@server_ip, appName, compose_name).
-    """
     data = _dokploy_get(base_url, api_key, "compose.one", f"composeId={compose_id}")
     app_name = data.get("appName", "")
     compose_name = data.get("name", compose_id)
     server = data.get("server", {})
     ip = server.get("ipAddress", "")
     user = server.get("username", "root")
-
     if not ip:
         console.print("[red]Could not resolve server IP from Dokploy[/red]")
         raise typer.Exit(1)
+    return f"{user}@{ip}", app_name, compose_name
 
-    ssh_host = f"{user}@{ip}"
-    return ssh_host, app_name, compose_name
+
+# ---------------------------------------------------------------------------
+# Odoo JSON-RPC client for tracking (lightweight, no kctl_common dependency)
+# ---------------------------------------------------------------------------
+
+
+def _odoo_client(profile: str):
+    """Create an OdooClient from a kctl-odoo profile."""
+    try:
+        from kctl_odoo.core.client import OdooClient
+        from kctl_odoo.core.config import resolve_connection
+
+        url, database, username, api_key = resolve_connection(profile)
+        return OdooClient(
+            base_url=url,
+            database=database,
+            username=username,
+            api_key=api_key,
+        )
+    except Exception as e:
+        console.print(f"[yellow]Cannot connect to Odoo for tracking: {e}[/yellow]")
+        return None
+
+
+def _query_hotfix_records(client) -> list[dict]:
+    """Query hotfix records via JSON-RPC."""
+    try:
+        return client.search_read(
+            "ir.config_parameter",
+            domain=[("key", "like", HOTFIX_PARAM_PREFIX)],
+            fields=["key", "value"],
+            limit=0,
+        )
+    except Exception:
+        return []
+
+
+def _set_hotfix_record(client, key: str, value: str) -> None:
+    """Create or update a hotfix tracking record via JSON-RPC."""
+    try:
+        existing = client.search_read(
+            "ir.config_parameter",
+            domain=[("key", "=", key)],
+            fields=["id"],
+            limit=1,
+        )
+        if existing:
+            client.write("ir.config_parameter", [existing[0]["id"]], {"value": value})
+        else:
+            client.create("ir.config_parameter", {"key": key, "value": value})
+    except Exception as e:
+        console.print(f"[yellow]Failed to record hotfix: {e}[/yellow]")
+
+
+def _delete_hotfix_records(client) -> int:
+    """Delete all hotfix tracking records via JSON-RPC."""
+    try:
+        records = client.search_read(
+            "ir.config_parameter",
+            domain=[("key", "like", HOTFIX_PARAM_PREFIX)],
+            fields=["id"],
+            limit=0,
+        )
+        ids = [r["id"] for r in records]
+        if ids:
+            client.unlink("ir.config_parameter", ids)
+        return len(ids)
+    except Exception:
+        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -113,13 +166,8 @@ def _resolve_compose(base_url: str, api_key: str, compose_id: str) -> tuple[str,
 
 
 def _ssh_run(
-    target_host: str,
-    cmd: str,
-    *,
-    check: bool = True,
-    capture: bool = True,
+    target_host: str, cmd: str, *, check: bool = True, capture: bool = True
 ) -> subprocess.CompletedProcess[str]:
-    """Run a command on a remote host via SSH."""
     return subprocess.run(
         ["ssh", "-o", "StrictHostKeyChecking=accept-new", target_host, cmd],
         capture_output=capture,
@@ -128,13 +176,7 @@ def _ssh_run(
     )
 
 
-def _docker_cp(
-    ssh_host: str,
-    local_path: Path,
-    container: str,
-    remote_path: str,
-) -> subprocess.CompletedProcess[str]:
-    """Copy a local directory into a remote Docker container via tar + SSH."""
+def _docker_cp(ssh_host: str, local_path: Path, container: str, remote_path: str) -> subprocess.CompletedProcess[str]:
     module_name = local_path.name
     tar_cmd = f"tar -C {local_path.parent} -cf - {module_name}"
     remote_cmd = (
@@ -148,31 +190,25 @@ def _docker_cp(
 
 
 def _find_module_path(module: str, project_dir: Path | None) -> tuple[Path, str]:
-    """Locate a private module and return (path, bucket)."""
     base = project_dir or Path.cwd()
     for bucket in PRIVATE_BUCKETS:
         candidate = base / "src" / "private" / bucket / module
         if candidate.is_dir() and (candidate / "__manifest__.py").exists():
             return candidate, bucket
-    msg = f"Module '{module}' not found in any private bucket ({', '.join(PRIVATE_BUCKETS)})"
-    console.print(f"[red]{msg}[/red]")
+    console.print(f"[red]Module '{module}' not found in src/private/[/red]")
     raise typer.Exit(1)
 
 
 def _production_gate(target: str, confirmed: bool) -> None:
-    """Block production targets unless explicitly confirmed."""
     safe_keywords = ("staging", "stg", "dev", "test", "local")
     if any(kw in target for kw in safe_keywords):
         return
     if not confirmed:
-        console.print(
-            f"[red]Target '{target}' looks like production.[/red]\nPass --i-know-what-im-doing to confirm.",
-        )
+        console.print(f"[red]Target '{target}' looks like production.[/red]\nPass --i-know-what-im-doing to confirm.")
         raise typer.Exit(1)
 
 
 def _get_git_sha(module_path: Path) -> str:
-    """Get current git SHA for the module directory."""
     try:
         result = subprocess.run(
             ["git", "log", "-1", "--format=%h", "--", str(module_path)],
@@ -186,61 +222,6 @@ def _get_git_sha(module_path: Path) -> str:
         return "unknown"
 
 
-def _psql(ssh_host: str, container: str, sql: str) -> subprocess.CompletedProcess[str]:
-    """Execute SQL via psql inside the container (uses container's PGHOST/PGUSER/PGPASSWORD/PGDATABASE env)."""
-    escaped_sql = sql.replace("'", "'\\''")
-    return _ssh_run(
-        ssh_host,
-        f"docker exec {container} sh -c \"psql -U \\$PGUSER -h \\$PGHOST -d \\$PGDATABASE -t -A -c '{escaped_sql}'\"",
-        check=False,
-    )
-
-
-def _query_hotfix_params(ssh_host: str, container: str) -> list[dict]:
-    """Query all kodemeio.hotfix.* ir.config_parameter records via SQL."""
-    result = _psql(
-        ssh_host,
-        container,
-        "SELECT key, value FROM ir_config_parameter WHERE key LIKE 'kodemeio.hotfix.%'",
-    )
-    if result.returncode != 0 or not result.stdout.strip():
-        return []
-    records = []
-    for line in result.stdout.strip().split("\n"):
-        parts = line.split("|", 1)
-        if len(parts) == 2:
-            records.append({"key": parts[0].strip(), "value": parts[1].strip()})
-    return records
-
-
-def _set_hotfix_param(ssh_host: str, container: str, key: str, value: str) -> None:
-    """Upsert an ir.config_parameter via SQL."""
-    safe_value = value.replace("'", "''")
-    _psql(
-        ssh_host,
-        container,
-        f"INSERT INTO ir_config_parameter (key, value, create_uid, write_uid, create_date, write_date) "
-        f"VALUES ('{key}', '{safe_value}', 1, 1, now(), now()) "
-        f"ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, write_date = now()",
-    )
-
-
-def _delete_hotfix_params(ssh_host: str, container: str) -> int:
-    """Delete all kodemeio.hotfix.* params via SQL. Returns count deleted."""
-    result = _psql(
-        ssh_host,
-        container,
-        "DELETE FROM ir_config_parameter WHERE key LIKE 'kodemeio.hotfix.%'",
-    )
-    if result.returncode != 0:
-        return 0
-    try:
-        count_str = result.stdout.strip().replace("DELETE ", "")
-        return int(count_str) if count_str.isdigit() else 0
-    except (ValueError, AttributeError):
-        return 0
-
-
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -252,30 +233,26 @@ def hotfix(
     dokploy_profile: Annotated[
         str, typer.Option("--dokploy-profile", "-dp", help="Dokploy config profile (required)")
     ] = ...,
+    odoo_profile: Annotated[
+        str | None, typer.Option("--odoo-profile", "-op", help="Odoo config profile for tracking (optional)")
+    ] = None,
     force: Annotated[bool, typer.Option("--force", help="Skip hotfix count / duplicate checks")] = False,
     i_know_what_im_doing: Annotated[
-        bool,
-        typer.Option("--i-know-what-im-doing", help="Confirm production deployment"),
+        bool, typer.Option("--i-know-what-im-doing", help="Confirm production deployment")
     ] = False,
-    project_dir: Annotated[
-        Path | None,
-        typer.Option("--project-dir", "-C", help="Project root directory"),
-    ] = None,
+    project_dir: Annotated[Path | None, typer.Option("--project-dir", "-C", help="Project root directory")] = None,
 ) -> None:
     """Deploy an emergency hotfix to a running container.
 
     Copies a private module into the target container, runs odoo -u,
-    and restarts the web + cron services. Records the hotfix as an
-    ir.config_parameter for tracking.
+    and restarts services. Optionally tracks the hotfix via --odoo-profile.
 
     Examples:
       kctl-odoo deploy hotfix h1I7b35s8w9UVOhbqLNgT -m stock_management -dp idtpp
-      kctl-odoo deploy hotfix h1I7b35s8w9UVOhbqLNgT -m account_management -dp idtpp --i-know-what-im-doing
+      kctl-odoo deploy hotfix h1I7b35s8w9UVOhbqLNgT -m stock_management -dp idtpp -op idtpp-mac-odoo-hrms-stg
     """
-    # Resolve via Dokploy API
     dok_url, dok_key = _dokploy_config(dokploy_profile)
     ssh_host, app_name, compose_name = _resolve_compose(dok_url, dok_key, compose_id)
-
     _production_gate(compose_name, i_know_what_im_doing)
 
     web_container = f"{app_name}-odoo-web-1"
@@ -283,44 +260,36 @@ def hotfix(
 
     console.print(f"[bold]Hotfix: {module} → {compose_name}[/bold]")
     console.print(f"  Server: {ssh_host}")
-    console.print(f"  Web container: {web_container}")
+    console.print(f"  Container: {web_container}")
 
-    # Locate module
     module_path, bucket = _find_module_path(module, project_dir)
     console.print(f"  Module: src/private/{bucket}/{module}")
 
-    # Check active hotfixes
-    existing = _query_hotfix_params(ssh_host, web_container)
-    if not force:
+    # Check existing hotfixes via Odoo API (if profile provided)
+    client = _odoo_client(odoo_profile) if odoo_profile else None
+    if client and not force:
+        existing = _query_hotfix_records(client)
         if len(existing) >= MAX_ACTIVE_HOTFIXES:
-            console.print(
-                f"[red]Too many active hotfixes ({len(existing)}/{MAX_ACTIVE_HOTFIXES}).[/red]\n"
-                "Use --force to override or run hotfix-rollback first.",
-            )
+            console.print(f"[red]Max {MAX_ACTIVE_HOTFIXES} hotfixes reached. Use --force.[/red]")
             raise typer.Exit(1)
-
         for rec in existing:
             try:
                 val = json.loads(rec.get("value", "{}"))
+                if val.get("module") == module:
+                    console.print(f"[red]Module '{module}' already hotfixed. Use --force.[/red]")
+                    raise typer.Exit(1)
             except (json.JSONDecodeError, ValueError):
                 continue
-            if val.get("module") == module:
-                console.print(
-                    f"[red]Module '{module}' already has an active hotfix.[/red]\nUse --force to override.",
-                )
-                raise typer.Exit(1)
 
-    # Copy module into web container
+    # Step 1: Copy module
     remote_path = f"/opt/odoo/src/private/{bucket}/"
     console.print(f"\n[cyan]Step 1/4:[/cyan] Copying {module} to container...")
     _docker_cp(ssh_host, module_path, web_container, remote_path)
-
-    # Also copy into cron container if it exists
     cron_check = _ssh_run(ssh_host, f"docker ps -q -f name={cron_container}", check=False)
     if cron_check.stdout.strip():
         _docker_cp(ssh_host, module_path, cron_container, remote_path)
 
-    # Run module upgrade inside web container
+    # Step 2: Module upgrade
     console.print(f"[cyan]Step 2/4:[/cyan] Running odoo -u {module}...")
     upgrade_result = _ssh_run(
         ssh_host,
@@ -332,32 +301,33 @@ def hotfix(
         raise typer.Exit(1)
     console.print(f"  Module {module} upgraded")
 
-    # Restart containers
+    # Step 3: Restart
     console.print("[cyan]Step 3/4:[/cyan] Restarting containers...")
     _ssh_run(ssh_host, f"docker restart {web_container}", check=False)
     if cron_check.stdout.strip():
         _ssh_run(ssh_host, f"docker restart {cron_container}", check=False)
     console.print("  Containers restarted")
 
-    # Log hotfix record
+    # Step 4: Track hotfix
     console.print("[cyan]Step 4/4:[/cyan] Recording hotfix...")
     now = datetime.now(UTC)
-    git_sha = _get_git_sha(module_path)
-    operator = getpass.getuser()
-    timestamp = now.strftime("%Y%m%d%H%M%S")
-    param_key = f"{HOTFIX_PARAM_PREFIX}{module}.{timestamp}"
-    param_value = json.dumps(
+    record = json.dumps(
         {
             "module": module,
             "bucket": bucket,
-            "git_sha": git_sha,
-            "operator": operator,
+            "git_sha": _get_git_sha(module_path),
+            "operator": getpass.getuser(),
             "timestamp": now.isoformat(),
             "target": compose_name,
         }
     )
-    _set_hotfix_param(ssh_host, web_container, param_key, param_value)
-    console.print(f"  Recorded: {param_key}")
+    param_key = f"{HOTFIX_PARAM_PREFIX}{module}.{now.strftime('%Y%m%d%H%M%S')}"
+
+    if client:
+        _set_hotfix_record(client, param_key, record)
+        console.print(f"  Tracked: {param_key}")
+    else:
+        console.print("  [yellow]No --odoo-profile — hotfix not tracked[/yellow]")
 
     console.print()
     console.print("[bold green]Hotfix applied![/bold green]")
@@ -369,18 +339,22 @@ def hotfix_status(
     dokploy_profile: Annotated[
         str, typer.Option("--dokploy-profile", "-dp", help="Dokploy config profile (required)")
     ] = ...,
+    odoo_profile: Annotated[str, typer.Option("--odoo-profile", "-op", help="Odoo config profile (required)")] = ...,
 ) -> None:
-    """Show active hotfixes on a deployment target.
+    """Show active hotfixes on a target.
 
     Examples:
-      kctl-odoo deploy hotfix-status h1I7b35s8w9UVOhbqLNgT -dp idtpp
+      kctl-odoo deploy hotfix-status h1I7b35s8w9UVOhbqLNgT -dp idtpp -op idtpp-mac-odoo-hrms-stg
     """
     dok_url, dok_key = _dokploy_config(dokploy_profile)
-    ssh_host, app_name, compose_name = _resolve_compose(dok_url, dok_key, compose_id)
-    web_container = f"{app_name}-odoo-web-1"
+    _ssh_host, _app_name, compose_name = _resolve_compose(dok_url, dok_key, compose_id)
 
-    records = _query_hotfix_params(ssh_host, web_container)
+    client = _odoo_client(odoo_profile)
+    if not client:
+        console.print("[red]Cannot connect to Odoo — check --odoo-profile[/red]")
+        raise typer.Exit(1)
 
+    records = _query_hotfix_records(client)
     if not records:
         console.print(f"[green]No active hotfixes on {compose_name}.[/green]")
         return
@@ -398,7 +372,6 @@ def hotfix_status(
             val = json.loads(rec.get("value", "{}"))
         except (json.JSONDecodeError, ValueError):
             continue
-
         ts_str = val.get("timestamp", "")
         try:
             applied = datetime.fromisoformat(ts_str)
@@ -408,7 +381,6 @@ def hotfix_status(
         except (ValueError, TypeError):
             applied_display = ts_str or "?"
             age_display = "?"
-
         table.add_row(
             val.get("module", "?"), val.get("git_sha", "?"), val.get("operator", "?"), applied_display, age_display
         )
@@ -422,37 +394,47 @@ def hotfix_rollback(
     dokploy_profile: Annotated[
         str, typer.Option("--dokploy-profile", "-dp", help="Dokploy config profile (required)")
     ] = ...,
+    odoo_profile: Annotated[
+        str | None, typer.Option("--odoo-profile", "-op", help="Odoo config profile (optional)")
+    ] = None,
     i_know_what_im_doing: Annotated[
-        bool,
-        typer.Option("--i-know-what-im-doing", help="Confirm production rollback"),
+        bool, typer.Option("--i-know-what-im-doing", help="Confirm production rollback")
     ] = False,
 ) -> None:
     """Roll back all hotfixes by recreating containers from the clean image.
 
     Examples:
-      kctl-odoo deploy hotfix-rollback h1I7b35s8w9UVOhbqLNgT -dp idtpp
+      kctl-odoo deploy hotfix-rollback h1I7b35s8w9UVOhbqLNgT -dp idtpp -op idtpp-mac-odoo-hrms-stg
     """
     dok_url, dok_key = _dokploy_config(dokploy_profile)
     ssh_host, app_name, compose_name = _resolve_compose(dok_url, dok_key, compose_id)
-
     _production_gate(compose_name, i_know_what_im_doing)
 
-    web_container = f"{app_name}-odoo-web-1"
+    # Clear tracking records if Odoo is accessible
+    if odoo_profile:
+        client = _odoo_client(odoo_profile)
+        if client:
+            deleted = _delete_hotfix_records(client)
+            console.print(f"  Cleared {deleted} hotfix record(s)")
 
-    records = _query_hotfix_params(ssh_host, web_container)
-    if not records:
-        console.print(f"[green]No active hotfixes on {compose_name}.[/green]")
-        return
-
-    console.print(f"[yellow]Rolling back {len(records)} hotfix(es) on {compose_name}...[/yellow]")
-
-    deleted = _delete_hotfix_params(ssh_host, web_container)
-    console.print(f"  Cleared {deleted} hotfix record(s)")
-
-    console.print("  Recreating containers from clean image...")
-    _ssh_run(
-        ssh_host,
-        f"cd /opt/dokploy && docker compose -p {app_name} up -d --force-recreate odoo-web odoo-cron",
-        check=False,
-    )
-    console.print(f"[bold green]Rollback complete on {compose_name}.[/bold green]")
+    # Force-recreate containers via Dokploy API redeploy
+    console.print(f"[cyan]Recreating containers for {compose_name}...[/cyan]")
+    parsed = urllib.parse.urlparse(dok_url)
+    if parsed.scheme == "https":
+        conn = http.client.HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=30)
+    else:
+        conn = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=30)
+    try:
+        conn.request(
+            "POST",
+            "/api/compose.redeploy",
+            json.dumps({"composeId": compose_id}),
+            headers={"x-api-key": dok_key, "Content-Type": "application/json"},
+        )
+        resp = conn.getresponse()
+        if resp.status == 200:
+            console.print(f"[bold green]Rollback triggered on {compose_name}.[/bold green]")
+        else:
+            console.print(f"[red]Redeploy failed: HTTP {resp.status}[/red]")
+    finally:
+        conn.close()
