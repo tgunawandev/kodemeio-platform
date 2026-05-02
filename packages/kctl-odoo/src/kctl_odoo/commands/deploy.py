@@ -332,3 +332,10 @@ def env_(
         rows,
         data_for_json=json_data,
     )
+
+
+from kctl_odoo.commands.deploy_hotfix import hotfix, hotfix_rollback, hotfix_status
+
+app.command("hotfix")(hotfix)
+app.command("hotfix-status")(hotfix_status)
+app.command("hotfix-rollback")(hotfix_rollback)
