@@ -100,7 +100,6 @@ def _redeploy(url: str, api_key: str, compose_id: str) -> None:
     )
 
 
-@typer.command("upgrade")
 def upgrade(
     compose_id: Annotated[str, typer.Argument(help="Dokploy compose ID")],
     modules: Annotated[
