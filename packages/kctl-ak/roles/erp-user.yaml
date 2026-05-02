@@ -1,7 +1,0 @@
-name: ERP User
-description: Odoo ERP access with basic services
-groups:
-  - ak-role-erp
-  - ak-role-basic
-  - ak-app-mattermost-all
-  - ak-app-odoo-all

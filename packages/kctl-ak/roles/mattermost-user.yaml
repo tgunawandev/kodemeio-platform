@@ -1,4 +1,0 @@
-name: Mattermost User
-description: Chat-only access to Mattermost
-groups:
-  - ak-app-mattermost-all

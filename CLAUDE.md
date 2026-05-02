@@ -1,120 +1,28 @@
 # CLAUDE.md - kodemeio-platform
 
-Shared CLI infrastructure: `kctl-lib` Python package + copier template.
+Infrastructure-only repository: deployment manifests, environment configs, and operational tooling.
 
-## Quick Commands
+## CLI Tools
 
-```bash
-# Development (full workspace)
-uv sync --all-extras --all-packages   # Install all packages + dev deps
-uv run pytest packages/kctl-lib/tests/ -v  # kctl-lib: 247 tests
-uv run pytest packages/kctl-op/tests/ -v      # kctl-op: 115 tests
-uv run ruff check packages/*/src/             # Lint all packages
-
-# Single package
-cd packages/kctl-lib
-uv sync --all-extras
-uv run pytest tests/ -v
-uv run mypy src/
-uv build
-
-# Scaffold new CLI
-copier copy templates/kctl-cli/ /path/to/new-cli/
-```
-
-## Architecture
-
-`kctl-lib` is a shared Python package (PyPI: kctl-lib v0.4.0) used by **28 CLI tools**, all consolidated into this single workspace.
-
-### Workspace Members (29 packages)
-
-Source of truth: `scripts/audit-platform.py` enumerates live package metadata
-(commands, tests, README size, score). Run `uv run python scripts/audit-platform.py`
-for the authoritative list + quality scores.
-
-#### Shared Library
-- **kctl-lib** — Shared CLI infrastructure (v0.4.0, published to PyPI)
-
-#### Meta-CLIs
-- **kctl-profiles** (installed from kctl-lib) — Meta-CLI for profile inspection and migration
-
-#### Infrastructure & Ops
-- **kctl-dokploy** — Dokploy deployment platform
-- **kctl-hz** — Hetzner Cloud infrastructure
-- **kctl-pg** — PostgreSQL administration
-- **kctl-redis** — Redis cache & message broker
-- **kctl-cf** — Cloudflare DNS/CDN/WAF
-- **kctl-ak** — Authentik SSO/identity
-- **kctl-grafana** — Grafana monitoring platform
-- **kctl-rustdesk** — RustDesk server management
-- **kctl-waha** — WhatsApp HTTP API
-- **kctl-mailcow** — Mailcow mail server
-- **kctl-mm** — Mattermost Team Edition
-- **kctl-glitchtip** — GlitchTip error tracking (Sentry-compat API)
-- **kctl-rmm** — Tactical RMM remote monitoring
-- **kctl-dbgate** — DBGate database management UI (10 groups: connections, servers, query, sessions, plugins, history, storage, config, doctor, health)
-
-#### Application Management
-- **kctl-odoo** — Odoo 18 ERP management
-- **kctl-api** — FastAPI platform management
-- **kctl-react** — React PWA monorepo management
-- **kctl-claw** — AI agent gateway management
-
-#### Developer & SaaS Tools
-- **kctl-op** — 1Password secret management *(renamed from kctl-1password)*
-- **kctl-github** — Cross-repo GitHub management
-- **kctl-sentry** — Sentry error tracking
-- **kctl-linear** — Linear project/sprint tracking
-- **kctl-claude** — Claude Code environment management
-- **kctl-telegram** — Telegram bot platform
-- **kctl-notion** — Notion wiki/database management
-- **kctl-zulip** — Zulip team chat administration
-- **kctl-outline** — Outline wiki/knowledge base
-- **kctl-opencloud** — OpenCloud file storage platform
-
-Each CLI uses thin re-export modules in `core/` that import from `kctl_lib`, keeping domain-specific code local. CLIs with HTTP APIs subclass `APIClient` from kctl-lib; exceptions are kctl-pg (psycopg/SSH), kctl-redis (redis-py/SSH), kctl-odoo (JSON-RPC), kctl-op (subprocess), kctl-linear (GraphQL).
+All kctl-* CLI tools have moved to [kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli).
 
 ## Key Paths
 
 | Path | Description |
 |------|-------------|
-| `packages/kctl-lib/` | Shared library (v0.4.0, PyPI, 247 tests) |
-| `packages/kctl-ak/` | Authentik SSO/identity CLI |
-| `packages/kctl-api/` | FastAPI platform CLI |
-| `packages/kctl-claude/` | Claude Code environment CLI |
-| `packages/kctl-claw/` | AI agent gateway CLI |
-| `packages/kctl-cf/` | Cloudflare DNS/CDN/WAF CLI |
-| `packages/kctl-dokploy/` | Dokploy deployment CLI |
-| `packages/kctl-github/` | GitHub cross-repo management CLI |
-| `packages/kctl-grafana/` | Grafana monitoring CLI |
-| `packages/kctl-hz/` | Hetzner Cloud infrastructure CLI |
-| `packages/kctl-linear/` | Linear project tracking CLI |
-| `packages/kctl-mailcow/` | Mailcow mail server CLI |
-| `packages/kctl-mm/` | Mattermost Team Edition CLI |
-| `packages/kctl-notion/` | Notion wiki management CLI |
-| `packages/kctl-odoo/` | Odoo 18 ERP management CLI |
-| `packages/kctl-op/` | 1Password secret management CLI |
-| `packages/kctl-pg/` | PostgreSQL administration CLI |
-| `packages/kctl-redis/` | Redis cache & message broker CLI |
-| `packages/kctl-react/` | React PWA monorepo CLI |
-| `packages/kctl-rustdesk/` | RustDesk server management CLI |
-| `packages/kctl-sentry/` | Sentry error tracking CLI |
-| `packages/kctl-telegram/` | Telegram bot platform CLI |
-| `packages/kctl-waha/` | WhatsApp HTTP API CLI |
-| `packages/kctl-zulip/` | Zulip team chat CLI |
 | `deploys/bases/` | Deployment base templates (odoo, react-pwa, nextjs, fastapi, infra) |
 | `deploys/instances/production/` | Production instance manifests (35 services) |
 | `deploys/instances/staging/` | Staging instance manifests (17 services — mac + tpp) |
 | `deploys/env/production/` | Production .env files (gitignored) |
 | `deploys/env/staging/` | Staging .env files (gitignored) |
 | `deploys/tenants/` | Tenant definitions with environment config |
-| `templates/kctl-cli/` | Copier template for new CLIs |
-| `docs/cli-standards.md` | CLI naming and option standards |
+| `deploys/migrations/` | Migration manifest YAML files |
+| `deploys/generate.py` | Generate instances from tenant config |
 | `docs/architecture.md` | Platform architecture |
 | `docs/migration-sop.md` | Server migration runbook |
-| `deploys/migrations/` | Migration manifest YAML files |
-| `.github/workflows/ci.yml` | CI: test + lint on push/PR |
-| `.github/workflows/publish.yml` | Auto-publish to PyPI on v* tag |
+| `runbooks/` | Operational runbooks (postgres-restore, etc.) |
+| `.github/workflows/deploy.yml` | Deploy: detect changed manifests on push to main |
+| `.github/workflows/secret-scan.yml` | Gitleaks secret scanning on push/PR |
 
 ## Deployment System
 
@@ -182,9 +90,9 @@ kctl-dokploy deploy apply-all -d deploys/instances/production/
 # Batch deploy all staging
 kctl-dokploy deploy apply-all -d deploys/instances/staging/
 
-# Troubleshoot failed deployment (auto-runs on deploy failure too)
-kctl-dokploy deploy troubleshoot -f <manifest>         # Diagnose by manifest
-kctl-dokploy deploy troubleshoot --compose <id>        # Diagnose by compose ID
+# Troubleshoot failed deployment
+kctl-dokploy deploy troubleshoot -f <manifest>
+kctl-dokploy deploy troubleshoot --compose <id>
 
 # Staged deployment (for troubleshooting)
 kctl-dokploy deploy setup -f <manifest>   # Stage 1: DNS + DB + Compose + Env + Domain
@@ -192,23 +100,19 @@ kctl-dokploy deploy run -f <manifest>     # Stage 2: Deploy + Verify healthcheck
 kctl-dokploy deploy post -f <manifest>    # Stage 3: Backup + Schedules + Post-deploy
 
 # Preflight checks (pre-deploy validation)
-kctl-dokploy deploy preflight -f <manifest>                   # Single manifest
-kctl-dokploy deploy preflight-all -d deploys/instances/production/  # All production
-kctl-dokploy deploy preflight-all -d deploys/instances/production/ --server tpp-prod-02  # Filter by server
-
-# Preflight with specific gates
-kctl-dokploy deploy preflight -f <manifest> --gates dns,database,env_sync
+kctl-dokploy deploy preflight -f <manifest>
+kctl-dokploy deploy preflight-all -d deploys/instances/production/
+kctl-dokploy deploy preflight-all -d deploys/instances/production/ --server tpp-prod-02
 
 # Server migration
 kctl-dokploy deploy migrate validate -f deploys/migrations/mac-to-dedicated.yaml
 kctl-dokploy deploy migrate plan -f deploys/migrations/mac-to-dedicated.yaml
 kctl-dokploy deploy migrate apply -f deploys/migrations/mac-to-dedicated.yaml
-kctl-dokploy deploy migrate apply -f deploys/migrations/mac-to-dedicated.yaml --resume
 kctl-dokploy deploy migrate rollback -f deploys/migrations/mac-to-dedicated.yaml
 kctl-dokploy deploy migrate cleanup -f deploys/migrations/mac-to-dedicated.yaml
 
 # Preview / status
-kctl-dokploy deploy status -f <manifest>  # Dry-run all phases
+kctl-dokploy deploy status -f <manifest>
 
 # Generate manifests from tenant config
 cd deploys && python generate.py            # Generate all
@@ -240,8 +144,6 @@ Source: `kodemeio-odoo` repo → `compose/odoo.prod.yml` (4 containers: init →
 ### Compose Postgres Backup → S3 → Local Restore
 
 `kctl-dokploy backups restore` streams Dokploy's native SSE restore endpoint.
-Dokploy's server handles `pg_restore` via `docker exec` — no SSH or temp files
-from the client side.
 
 ```bash
 # One-shot restore — latest S3 key for a database (prod → local)
@@ -254,173 +156,7 @@ kctl-dokploy -p local backups restore \
     --latest <db-name>
 ```
 
-Prereqs: target DB pre-created with `OWNER=odoo` (use `SERVICE_DATABASES` env);
-`odoo` role SUPERUSER on target postgres; destination `provider: "Other"` for Hetzner.
-
 See `runbooks/postgres-restore.md` for the full reference.
-
-### Fast Log Debugging (local + prod Odoo)
-
-Two commands for live streaming:
-
-- `kctl-dokploy compose service-logs <id> --service odoo-web -f` — generic
-  live container-log streamer (SSH + `docker logs -f` for remote, direct for
-  local). Works for any compose service, not just Odoo.
-- `kctl-odoo logs tail` — Odoo-specific wrapper that auto-picks local vs
-  remote from the profile URL and layers structured filters on top of the
-  stream: `--level` (WARNING/ERROR/CRITICAL), `--module account.move`,
-  `--request <id>`, `--worker <pid>`, `--grep <regex>`. Filters compose as
-  AND and are applied client-side so they work identically in both modes.
-
-```bash
-# Local dev — watch everything
-kctl-odoo logs tail
-
-# Remote prod — tail tpp-odoo-erp with filters
-kctl-odoo -p idtpp-tpp-odoo-erp logs tail \
-    --dokploy-profile idtpp --compose-id <id> \
-    --level WARNING --module account.move
-```
-
-For post-mortem querying of errors already persisted to Odoo's `ir.logging`
-table, use `kctl-odoo logs errors --days N` (JSON-RPC, not a stream). There
-is also an Alloy → Loki pipeline deployed on all prod servers, but Odoo
-containers aren't currently shipped to it — wiring that is a separate task.
-
-Dokploy's server uses `pg_restore` inside the target container — S3 creds come from
-the destination record, no separate credential setup needed. See
-`packages/kctl-dokploy/README.md` and `runbooks/postgres-restore.md` for full details.
-
-## kctl-lib Modules
-
-| Module | Purpose |
-|--------|---------|
-| `exceptions.py` | 9 exception classes: KctlError → ConfigError, AuthenticationError, NotFoundError, AppNotFoundError, CommandError, APIError, ConnectionError, DockerError, ValidationError |
-| `output.py` | `Output` class — pretty (Rich), json, csv, yaml. Methods: table(), detail(), tree(), success/error/warn/info(), raw_json() |
-| `config.py` | Profile framework — `~/.config/kodemeio/config.yaml`, service-scoped, env var expansion (`${VAR}`) |
-| `callbacks.py` | `AppContextBase` dataclass — lazy Output init. Each CLI subclasses. |
-| `runner.py` | `run()`, `run_quiet()`, `get_git_sha()`, `get_git_branch()` |
-| `plugins.py` | `KctlPlugin` protocol + `discover_and_load_plugins(app, group)` |
-| `history.py` | `HistoryStore` — SQLite at `~/.local/share/kodemeio/{app}/history.db` |
-| `testing.py` | `mock_output()`, `mock_app_context()`, `temp_config()` |
-| `docker.py` | `DockerManager` — Docker Compose wrapper (up/down/ps/logs/restart/image_size/prune/exec) |
-| `validate.py` | YAML/JSON/env/Dockerfile linting with `Issue` dataclass |
-| `git_ops.py` | Git workflow helpers — branch_status, pr_create, changelog_generate, diff_summary |
-| `completions.py` | Shell completion generation + install (zsh/bash/fish) |
-| `self_update.py` | PyPI version check + uv tool upgrade |
-| `doctor_base.py` | `DoctorCheck` protocol + `run_doctor()` + 4 built-in checks (Python, uv, git, Docker) |
-| `monitor_base.py` | `health_check_url()`, `ssl_check()`, `dns_check()` |
-| `ssh.py` | `ssh_run()`, `scp_download()`, `scp_upload()` — standardized SSH command execution with `SSHResult` |
-| `ssh_tunnel.py` | `SSHTunnel` — context manager wrapping `SSHTunnelForwarder` for database CLIs |
-| `api_client.py` | `APIClient` — sync HTTP base client with retry, auth header, error mapping |
-| `async_api_client.py` | `AsyncAPIClient` — async HTTP base client with retry, auth header, error mapping |
-| `skill_generator.py` | `SkillGenerator` — Typer app introspection → SKILL.md auto-generation (`skill generate`) |
-
-## Profile System
-
-Spec: [`kodemeio-docs/superpowers/specs/2026-04-19-kctl-profiles-standardization-design.md`](../kodemeio-docs/superpowers/specs/2026-04-19-kctl-profiles-standardization-design.md)
-
-### Two-tier taxonomy
-
-- **Platform profiles** (4 fixed): `abcfood`, `kodemeio`, `idtpp`, `local`
-- **App profiles**: `<platform>-<tenant>-<stack>-<app>[-<env>]`
-  - Examples: `idtpp-tpp-odoo-erp`, `idtpp-tpp-odoo-erp-stg`, `abcfood-tmi-odoo-erp`, `local-dev-odoo-hrms`, `local-tpp-odoo-erp`
-  - Strict 4-segment rule — every app profile has `platform-tenant-stack-app`; infra-only overrides use `stack=infra` (e.g., `idtpp-mac-infra-hetzner`, `idtpp-mac-infra-postgres`)
-
-### Prefix inheritance
-
-`get_service_config(profile, service_key)` walks the inheritance chain — leaf → drop trailing segment → ... → platform. First match wins; missing ancestors are skipped.
-
-```
-idtpp-tpp-odoo-erp  →  idtpp-tpp-odoo  →  idtpp-tpp  →  idtpp
-```
-
-Example: `postgres` config not on `idtpp-tpp-odoo-erp` falls through to `idtpp`.
-
-### No default profile
-
-`resolve_active_profile_name` raises `ValueError` (listing available profiles) if neither `-p/--profile` nor `KCTL_{SERVICE}_PROFILE` is set.
-
-### Profile banner (kctl-dokploy; other CLIs follow-up)
-
-Every invocation prints to stderr:
-
-```
-▶ kctl-dokploy
-  profile : idtpp-tpp-odoo-erp  ←  idtpp
-  target  : https://dokploy.idtpp.com
-```
-
-Suppressed by `--quiet` and `--json`.
-
-### kctl-profiles meta-CLI
-
-Installed automatically with kctl-lib; no extra package.
-
-| Command | Purpose |
-|---------|---------|
-| `kctl-profiles list` | Tabular list of all profiles + services |
-| `kctl-profiles show <profile> [--reveal]` | Resolved view with inheritance; secrets masked (`first4****last4`) unless `--reveal` |
-| `kctl-profiles current [-p <profile>]` | Active profile + source |
-| `kctl-profiles migrate [--config <path>] [--yes]` | Stage A config rewrite (preview by default; `--yes` applies, backs up first) |
-
-> `scripts/migrate_profiles.py` is **DEPRECATED** — use `kctl-profiles migrate` instead.
-> `~/.config/kodemeio/config.yaml` is already migrated: 21 profiles (4 platform + 17 app).
-
-### Test isolation
-
-`packages/kctl-lib/tests/conftest.py` autouse fixture monkeypatches `CONFIG_FILE` to `tmp_path` for every test. Opt-out: `@pytest.mark.real_config`.
-
-## CLI Standards
-
-### Global Options (all CLIs)
-`--json`, `--quiet/-q`, `--format/-f` (pretty/json/csv/yaml), `--no-header`, `--profile/-p`, `--version/-V`
-
-### Config Subcommands (all CLIs)
-init, add, use, show, validate, remove, set, profiles, current
-
-> **kctl-lib 0.5+:** `-p/--profile` or `KCTL_{SERVICE}_PROFILE` env var is required — no silent default. Missing profile raises `ValueError` listing available profiles.
-
-### Standard Commands (all 28 CLIs, since Quality Sweep 2026-04-18)
-| Command | Purpose |
-|---------|---------|
-| `config init` | Interactive profile setup |
-| `doctor` | Diagnostic checks (API/SSH connectivity, auth, config) |
-| `self-update` | Check PyPI for updates and upgrade via `uv tool` |
-| `completions [zsh\|bash\|fish] [--install]` | Generate/install shell completions |
-| `skill generate` | Auto-generate SKILL.md from Typer introspection |
-
-### Command Naming
-| Concern | Name |
-|---------|------|
-| Code generation | `scaffold` |
-| Diagnostics | `doctor` |
-| Cleanup | `clean` |
-
-### Quality Baseline (all CLIs)
-- README.md ≥ 60 lines (proportional to CLI size)
-- SKILL.md present in `skills/<name>-admin/`
-- conftest.py with standard fixtures (runner, mock_client, mock_config, mock_output, mock_context)
-- Lint + format + tests pass; in CI matrix; coverage ≥ 0.3 tests per command
-- Objective score computed via `scripts/audit-platform.py`; 9+/10 is the bar
-
-### Audit & Ratchet
-
-```bash
-# Full scored table (runs lint/format/pytest/mypy per package — ~15min)
-uv run python scripts/audit-platform.py
-
-# Only packages below 9/10, with reasons
-uv run python scripts/audit-platform.py --fix-list
-
-# Machine-readable for CI hooks
-uv run python scripts/audit-platform.py --json
-```
-
-Current state (2026-04-18): **29/29 packages at 9+/10, average 9.7**. Mypy
-strict remains a cross-cutting debt area (26/27 CLIs have type debt) tracked
-as a separate ratchet, not in the score.
-- E2E scaffolding for 5 critical CLIs: odoo, dokploy, react, pg, ak
 
 ## Deploy Manifest Naming
 
@@ -437,60 +173,9 @@ Dokploy projects use tenant codes: `mac`, `tpp`, `kod`, `tgw`, `tkz`, `pro`, `ki
 
 Each Dokploy project has environments (production + staging). Services keep the same name across environments — the Dokploy environment provides separation.
 
-## E2E Testing (Playwright)
+## Env File Conventions
 
-kctl-odoo and kctl-react both support Playwright-based E2E browser testing.
-
-### kctl-odoo E2E (`packages/kctl-odoo/e2e/`)
-
-```bash
-kctl-odoo e2e install                     # Install Playwright + browsers
-kctl-odoo e2e test                        # Run all E2E tests
-kctl-odoo e2e test login                  # Run login scenario only
-kctl-odoo e2e test --smoke                # Smoke test: visit all menus
-kctl-odoo e2e test --module sale --headed # Sales tests, visible browser
-kctl-odoo e2e test --mobile               # Mobile viewport
-kctl-odoo e2e test --screenshots --video  # Capture evidence
-kctl-odoo e2e test --grep "Invoice"       # Filter by pattern
-kctl-odoo e2e test --ui                   # Playwright UI mode
-kctl-odoo e2e list                        # List all tests
-kctl-odoo e2e report                      # Open HTML report
-kctl-odoo e2e screenshots                 # Screenshot all menus
-kctl-odoo e2e discover                    # Generate menu registry from live Odoo
-```
-
-Structure:
-```
-packages/kctl-odoo/e2e/
-├── playwright.config.ts    # Multi-project: setup → desktop/mobile
-├── fixtures/
-│   ├── odoo-auth.ts        # Login helpers (form + RPC)
-│   ├── odoo-helpers.ts     # Navigation, form fields, wait helpers
-│   └── odoo-test.ts        # Extended test fixture with odoo helpers
-├── tests/
-│   ├── global-setup.ts     # Authenticate once, save session
-│   ├── scenarios/          # Business flow tests (login, sales-order, etc.)
-│   ├── smoke/              # All-menus smoke test
-│   └── shared/             # Common UI tests (navbar, settings)
-└── odoo-menu-registry.json # Auto-generated by `e2e discover`
-```
-
-Connection uses the active kctl-odoo profile (ODOO_URL, ODOO_DATABASE, ODOO_API_KEY).
-
-### kctl-react E2E (`packages/kctl-react/ → e2e/`)
-
-```bash
-kctl-react e2e test [app]     # Run per-app Playwright tests
-kctl-react e2e test --mobile  # Mobile viewport
-kctl-react e2e discover       # Auto-discover app configs → app-registry.ts
-kctl-react e2e screenshots    # Capture all app pages
-```
-
-## Conventions
-
-- Python 3.12+, Typer + Rich + Pydantic 2 + PyYAML
-- Hatchling build system, uv for package management
-- Ruff for linting, mypy strict for type checking
-- Conventional commits with commitizen
-- Tests with pytest
-- E2E tests with Playwright (TypeScript, `@playwright/test`)
+- Production: `deploys/env/production/.env.<service-name>` (gitignored)
+- Staging: `deploys/env/staging/.env.<service-name>` (gitignored)
+- Every `.env` file must have a corresponding `.env.example` (sanitized, committed)
+- Never commit secrets — use environment variables or 1Password

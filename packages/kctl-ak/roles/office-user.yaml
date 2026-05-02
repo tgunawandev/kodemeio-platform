@@ -1,6 +1,0 @@
-name: Office User
-description: Office worker with Mattermost and Grafana view access
-groups:
-  - ak-role-office
-  - ak-app-mattermost-all
-  - ak-app-grafana-all

@@ -1,0 +1,105 @@
+{
+  "cookies": [
+    {
+      "name": "color_scheme",
+      "value": "light",
+      "domain": "tpp-odoo-erp-stg.idtpp.com",
+      "path": "/",
+      "expires": 1808908558.266935,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "tz",
+      "value": "Asia/Jakarta",
+      "domain": "tpp-odoo-erp-stg.idtpp.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "frontend_lang",
+      "value": "en_US",
+      "domain": "tpp-odoo-erp-stg.idtpp.com",
+      "path": "/",
+      "expires": 1808908562.95049,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "session_id",
+      "value": "36dfc3feba636836c7999d106de96eec300384bb",
+      "domain": "tpp-odoo-erp-stg.idtpp.com",
+      "path": "/",
+      "expires": 1777977364.486342,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "cids",
+      "value": "1",
+      "domain": "tpp-odoo-erp-stg.idtpp.com",
+      "path": "/",
+      "expires": 1808908574.75871,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://tpp-odoo-erp-stg.idtpp.com",
+      "localStorage": [
+        {
+          "name": "multi_tab.https_tpp-odoo-erp-stg.idtpp.com.main",
+          "value": "true"
+        },
+        {
+          "name": "current_tour",
+          "value": "crm_tour"
+        },
+        {
+          "name": "current_tour.config",
+          "value": "{\"delayToCheckUndeterminisms\":0,\"stepDelay\":0,\"keepWatchBrowser\":false,\"mode\":\"manual\",\"showPointerDuration\":0,\"debug\":false,\"redirect\":false,\"rainbowManMessage\":\"<p>Congrats, best of luck catching such big fish! :)</p>\"}"
+        },
+        {
+          "name": "web.lastConnectedUser",
+          "value": "[{\"login\":\"admin\",\"name\":\"Administrator\",\"partnerId\":3,\"partnerWriteDate\":\"2026-04-28 03:56:07\",\"userId\":2}]"
+        },
+        {
+          "name": "multi_tab.https_tpp-odoo-erp-stg.idtpp.com.heartbeat",
+          "value": "1777372574468"
+        },
+        {
+          "name": "redirect_menuId",
+          "value": ""
+        },
+        {
+          "name": "presence.focus",
+          "value": "true"
+        },
+        {
+          "name": "presence.lastPresence",
+          "value": "1777372563359"
+        },
+        {
+          "name": "current_tour.index",
+          "value": "1"
+        },
+        {
+          "name": "reportManagement.expandedState",
+          "value": "{}"
+        },
+        {
+          "name": "multi_tab.https_tpp-odoo-erp-stg.idtpp.com.lastPresenceByTab",
+          "value": "{}"
+        }
+      ]
+    }
+  ]
+}

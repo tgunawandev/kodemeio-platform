@@ -12,17 +12,22 @@ infra/                          ← you are here (root module)
 ├── .gitignore                  ← excludes .terraform/, *.tfstate, *.tfvars
 └── README.md                   ← this file
 
-packages/kctl-cf/terraform/     ← Cloudflare module (13 .tf files)
-packages/kctl-hz/infra/hetzner/ ← Hetzner Cloud module (11 .tf files)
+modules/cloudflare/             ← Cloudflare module (referenced via source path)
+modules/hetzner/                ← Hetzner Cloud module (referenced via source path)
 ```
 
-The `.tf` files in the package directories are never duplicated here — the root module references them via relative `source` paths.
+The `.tf` files in the module directories are never duplicated here — the root module references them via relative `source` paths.
+
+> **Note:** Terraform modules were previously located under `packages/kctl-cf/terraform/` and
+> `packages/kctl-hz/infra/hetzner/`. Those packages have moved to
+> [kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli). Update `source` paths in
+> `main.tf` if the modules are still referenced from the old locations.
 
 ---
 
 ## Modules
 
-### Cloudflare (`../packages/kctl-cf/terraform/`)
+### Cloudflare
 
 Manages all Cloudflare resources across the platform's domains:
 
@@ -41,7 +46,7 @@ Manages all Cloudflare resources across the platform's domains:
 
 Provider: `cloudflare/cloudflare ~> 4.0`
 
-### Hetzner Cloud (`../packages/kctl-hz/infra/hetzner/`)
+### Hetzner Cloud
 
 Manages all Hetzner Cloud compute resources:
 
@@ -155,19 +160,7 @@ State locking is not available on Hetzner Object Storage (no DynamoDB equivalent
 
 ### Per-Module State (Advanced)
 
-Each package module can be operated independently with its own backend:
-
-```bash
-# Cloudflare only
-cd packages/kctl-cf/terraform/
-terraform init && terraform plan
-
-# Hetzner only
-cd packages/kctl-hz/infra/hetzner/
-terraform init && terraform plan
-```
-
-Use this approach when the modules have independent release cadences (e.g., DNS changes should never require a Hetzner plan).
+Each module can be operated independently with its own backend if needed. Use this approach when modules have independent release cadences (e.g., DNS changes should never require a Hetzner plan).
 
 ---
 

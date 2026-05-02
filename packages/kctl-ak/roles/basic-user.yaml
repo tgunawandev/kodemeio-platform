@@ -1,5 +1,0 @@
-name: Basic User
-description: Standard employee access (Mattermost chat)
-groups:
-  - ak-role-basic
-  - ak-app-mattermost-all
