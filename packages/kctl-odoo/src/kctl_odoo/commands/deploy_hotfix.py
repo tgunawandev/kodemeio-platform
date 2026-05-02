@@ -103,7 +103,7 @@ def _resolve_compose(base_url: str, api_key: str, compose_id: str) -> tuple[str,
         console.print("[red]Could not resolve server IP from Dokploy[/red]")
         raise typer.Exit(1)
 
-    ssh_host = f"{user}@{ip}" if user != "root" else ip
+    ssh_host = f"{user}@{ip}"
     return ssh_host, app_name, compose_name
 
 
@@ -334,7 +334,7 @@ def hotfix(
     console.print(f"[cyan]Step 2/4:[/cyan] Running odoo -u {module}...")
     upgrade_result = _ssh_run(
         ssh_host,
-        f"docker exec {web_container} odoo -u {module} -d $PGDATABASE --stop-after-init -c /etc/odoo/odoo.conf",
+        f'docker exec {web_container} sh -c "odoo -u {module} -d \\$PGDATABASE --stop-after-init --no-http -c /etc/odoo/odoo.conf"',
         check=False,
     )
     if upgrade_result.returncode != 0:
