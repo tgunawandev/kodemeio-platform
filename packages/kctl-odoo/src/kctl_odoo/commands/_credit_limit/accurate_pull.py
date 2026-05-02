@@ -239,6 +239,9 @@ def pull_customer_details(client: AccurateClient, customer_ids: list[int]) -> di
             continue
         result[cid] = {
             "current_credit_limit": _money(d.get("customerLimitAmountValue")),
+            "term_name": (d.get("term") or {}).get("name", "") if isinstance(d.get("term"), dict) else "",
+            "term_net_days": int((d.get("term") or {}).get("netDays") or 0) if isinstance(d.get("term"), dict) else 0,
+            "max_invoice_age": int(d.get("maxInvoiceAge") or 0),
             "billing_street": d.get("billStreet") or "",
             "billing_city": d.get("billCity") or "",
             "billing_province": d.get("billProvince") or "",
@@ -332,6 +335,33 @@ def _build_last_payment_lookup(
     return last_payment
 
 
+def _build_paid_amount_lookup(receipts_raw: list[dict[str, Any]]) -> dict[int, float]:
+    """Sum cumulative paid amount per invoice id from receipts' detailInvoice lines.
+
+    Accurate's invoice ``outstanding`` field is a BOOLEAN (True if any balance
+    remains, False if paid). It is NOT the residual amount. To get the real
+    AR residual we sum ``invoicePayment`` (or ``paymentAmount``) across all
+    receipts that reference each invoice.
+
+    Returns ``{invoice_id: total_paid_idr}``.
+    """
+    paid: dict[int, float] = {}
+    for raw in receipts_raw:
+        for entry in raw.get("detailInvoice") or []:
+            inv_ref = entry.get("invoice")
+            if not isinstance(inv_ref, dict):
+                continue
+            inv_id_raw = inv_ref.get("id")
+            try:
+                inv_id = int(inv_id_raw)
+            except (TypeError, ValueError):
+                continue
+            amt = _money(entry.get("invoicePayment") or entry.get("paymentAmount"))
+            if amt > 0:
+                paid[inv_id] = paid.get(inv_id, 0.0) + amt
+    return paid
+
+
 def pull_sales_invoices_and_payments_accurate(
     client: AccurateClient,
     *,
@@ -360,6 +390,10 @@ def pull_sales_invoices_and_payments_accurate(
         "/accurate/api/sales-invoice/detail.do",
         invoice_ids,
     )
+    # Pull receipts ONCE to build the paid-amount lookup. ``outstanding`` on
+    # the invoice detail is a BOOLEAN, not a number — we must sum receipts.
+    receipts_raw = client.sales_receipts.list_raw(fields="id,transDate,detailInvoice,customer")
+    paid_by_invoice = _build_paid_amount_lookup(receipts_raw)
 
     by_customer: dict[int, list[dict[str, Any]]] = {}
     for d in detail_records:
@@ -378,22 +412,32 @@ def pull_sales_invoices_and_payments_accurate(
 
         # Authoritative numbers from detail endpoint
         amount_total = _money(d.get("totalAmount"))
-        # Accurate detail returns BOTH outstanding (residual amount) and
-        # paidOverTotal (cumulative paid)
-        amount_residual = _money(d.get("outstanding"))
+        # Compute residual = totalAmount - sum of receipt payments against this invoice.
+        # Don't use ``outstanding`` (boolean) or ``paidOverTotal`` (boolean) directly.
+        total_paid = paid_by_invoice.get(invoice_id, 0.0)
+        amount_residual = max(0.0, amount_total - total_paid)
         last_payment_date = _parse_accurate_date(d.get("lastPaymentDate"))
 
-        # payment_state from authoritative numbers
-        if amount_residual <= 0 and amount_total > 0:
+        # Map Indonesian statusName to compute-layer payment_state (most reliable signal)
+        status_name = d.get("statusName") or ""
+        if status_name == "Lunas":
             payment_state = "paid"
-        elif 0 < amount_residual < amount_total:
+            amount_residual = 0.0  # statusName=Lunas is authoritative
+        elif status_name == "Sebagian":
             payment_state = "partial"
-        elif amount_residual >= amount_total > 0:
+        elif status_name == "Belum Lunas":
             payment_state = "not_paid"
-        elif amount_total == 0:
-            payment_state = "paid"
+            # If receipts didn't contribute (no partial payment), residual = full
+            if total_paid == 0:
+                amount_residual = amount_total
         else:
-            payment_state = "not_paid"
+            # Fallback when status string is missing
+            if amount_residual <= 0:
+                payment_state = "paid"
+            elif amount_residual < amount_total:
+                payment_state = "partial"
+            else:
+                payment_state = "not_paid"
 
         invoice_dict: dict[str, Any] = {
             # Compute-layer required keys

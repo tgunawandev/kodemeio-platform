@@ -82,18 +82,18 @@ def _compute_avg_dso(invoices: list[dict[str, Any]]) -> float | None:
 
 
 def _label_dso(avg_dso: float | None) -> str:
-    """Bucket label per spec §7.
+    """Bucket label tuned for Indonesian fresh-produce credit (typical net-7 to net-14).
 
-    Good   if avg_DSO ≤ 30.0
-    Slow   if 30.0 < avg_DSO ≤ 90.0
-    Bad    if avg_DSO > 90.0
+    Good   if avg_DSO ≤ 14.0    (Bagus — pays within 2 weeks)
+    Slow   if 14.0 < avg_DSO ≤ 30.0   (Lambat — within 1 month)
+    Bad    if avg_DSO > 30.0    (Buruk — beyond 1 month)
     Unknown if avg_DSO is None
     """
     if avg_dso is None:
         return "Unknown"
-    if avg_dso <= 30.0:
+    if avg_dso <= 14.0:
         return "Good"
-    if avg_dso <= 90.0:
+    if avg_dso <= 30.0:
         return "Slow"
     return "Bad"
 

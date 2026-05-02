@@ -213,10 +213,30 @@ def payment_term_create(
 
 
 @app.command("pricelists")
-def pricelists(ctx: typer.Context) -> None:
-    """List pricelists."""
+def pricelists(
+    ctx: typer.Context,
+    prefix: Annotated[str | None, typer.Option("--prefix", help="Filter by name prefix (e.g. 'TLN-')")] = None,
+    limit: Annotated[int, typer.Option("--limit", "-l", help="Max results")] = 50,
+) -> None:
+    """List pricelists.
+
+    Examples:
+        kctl-odoo master-data pricelists
+        kctl-odoo master-data pricelists --prefix TLN-
+        kctl-odoo master-data pricelists --prefix TLN- --limit 200
+    """
     actx: AppContext = ctx.obj
-    _list_records(actx.client, actx.output, actx, "product.pricelist", "Pricelists", ["id", "name", "currency_id"])
+    domain = [("name", "=like", f"{prefix}%")] if prefix else None
+    _list_records(
+        actx.client,
+        actx.output,
+        actx,
+        "product.pricelist",
+        "Pricelists",
+        ["id", "name", "currency_id"],
+        domain=domain,
+        limit=limit,
+    )
 
 
 @app.command("create-pricelist")

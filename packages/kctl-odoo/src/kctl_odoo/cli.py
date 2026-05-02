@@ -25,6 +25,7 @@ from kctl_odoo.commands.compliance_cmd import app as compliance_app
 from kctl_odoo.commands.config_cmd import app as config_app
 from kctl_odoo.commands.config_server import app as config_server_app
 from kctl_odoo.commands.configure import app as configure_app
+from kctl_odoo.commands.pricelist_cmd import app as pricelist_app
 from kctl_odoo.commands.crm_cmd import app as crm_app
 from kctl_odoo.commands.cron import app as cron_app
 from kctl_odoo.commands.currency_cmd import app as currency_app
@@ -280,6 +281,7 @@ app.add_typer(pipeline_app, name="pipeline", rich_help_panel=_P_INSTANCE)
 app.add_typer(diff_app, name="diff", rich_help_panel=_P_INSTANCE)
 app.add_typer(config_server_app, name="server", rich_help_panel=_P_INSTANCE)
 app.add_typer(configure_app, name="master-data", rich_help_panel=_P_INSTANCE)
+app.add_typer(pricelist_app, name="pricelist", rich_help_panel=_P_BIZ)
 app.add_typer(automation_app, name="automation", rich_help_panel=_P_INSTANCE)
 app.add_typer(sequences_app, name="sequences", rich_help_panel=_P_INSTANCE)
 app.add_typer(periods_app, name="periods", rich_help_panel=_P_INSTANCE)

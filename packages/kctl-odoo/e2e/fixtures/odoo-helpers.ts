@@ -309,13 +309,18 @@ export async function clickSearchBar(page: Page): Promise<void> {
 
 /** Dismiss Odoo onboarding banners and sample data overlays. */
 export async function dismissBanners(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document
-      .querySelectorAll(
-        '.o_onboarding_container, [class*="sample_data_message"], .o_view_sample_data .o_sample_data_message',
-      )
-      .forEach((el: any) => (el.style.display = "none"));
-  });
+  // Tolerant of navigation race conditions
+  try {
+    await page.evaluate(() => {
+      document
+        .querySelectorAll(
+          '.o_onboarding_container, [class*="sample_data_message"], .o_view_sample_data .o_sample_data_message',
+        )
+        .forEach((el: any) => (el.style.display = "none"));
+    });
+  } catch {
+    // Page navigated mid-evaluate — banner removal is best-effort
+  }
 }
 
 /** Switch view type (list, kanban, pivot, calendar, graph, map, activity). */
@@ -335,7 +340,13 @@ export async function switchView(page: Page, viewType: string): Promise<void> {
 export async function takeScreenshot(page: Page, name: string): Promise<void> {
   const dir = process.env.ODOO_E2E_SCREENSHOT_DIR || "screenshots";
   await dismissBanners(page);
-  await page.screenshot({ path: `${dir}/${name}.png`, fullPage: false });
+  try {
+    await page.screenshot({ path: `${dir}/${name}.png`, fullPage: false });
+  } catch (e) {
+    console.log(`Screenshot ${name} failed, retrying:`, e);
+    await page.waitForTimeout(2000);
+    await page.screenshot({ path: `${dir}/${name}.png`, fullPage: false });
+  }
 }
 
 /** Take screenshot with a specific viewport crop (not full page). */

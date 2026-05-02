@@ -110,18 +110,19 @@ def test_compute_avg_dso_excludes_unsettled() -> None:
 
 def test_label_dso_good() -> None:
     assert _label_dso(0) == "Good"
-    assert _label_dso(15.0) == "Good"
-    assert _label_dso(30.0) == "Good"
+    assert _label_dso(7.0) == "Good"
+    assert _label_dso(14.0) == "Good"
 
 
 def test_label_dso_slow() -> None:
-    assert _label_dso(30.1) == "Slow"
-    assert _label_dso(60.0) == "Slow"
-    assert _label_dso(90.0) == "Slow"
+    assert _label_dso(14.1) == "Slow"
+    assert _label_dso(22.0) == "Slow"
+    assert _label_dso(30.0) == "Slow"
 
 
 def test_label_dso_bad() -> None:
-    assert _label_dso(90.1) == "Bad"
+    assert _label_dso(30.1) == "Bad"
+    assert _label_dso(60.0) == "Bad"
     assert _label_dso(180.0) == "Bad"
 
 

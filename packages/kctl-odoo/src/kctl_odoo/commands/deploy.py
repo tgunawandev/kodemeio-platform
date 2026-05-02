@@ -334,8 +334,10 @@ def env_(
     )
 
 
-from kctl_odoo.commands.deploy_hotfix import hotfix, hotfix_rollback, hotfix_status
+from kctl_odoo.commands.deploy_hotfix import hotfix, hotfix_rollback, hotfix_status  # noqa: E402
+from kctl_odoo.commands.deploy_upgrade import upgrade  # noqa: E402
 
 app.command("hotfix")(hotfix)
 app.command("hotfix-status")(hotfix_status)
 app.command("hotfix-rollback")(hotfix_rollback)
+app.command("upgrade")(upgrade)
