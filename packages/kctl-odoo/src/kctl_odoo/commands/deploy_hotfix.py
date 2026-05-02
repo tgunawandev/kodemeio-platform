@@ -308,7 +308,7 @@ def hotfix(
         _ssh_run(ssh_host, f"docker restart {cron_container}", check=False)
     console.print("  Containers restarted")
 
-    # Step 4: Track hotfix
+    # Step 4: Track hotfix (wait for web to be ready after restart)
     console.print("[cyan]Step 4/4:[/cyan] Recording hotfix...")
     now = datetime.now(UTC)
     record = json.dumps(
@@ -324,6 +324,10 @@ def hotfix(
     param_key = f"{HOTFIX_PARAM_PREFIX}{module}.{now.strftime('%Y%m%d%H%M%S')}"
 
     if client:
+        import time
+
+        console.print("  Waiting 15s for web server to start...")
+        time.sleep(15)
         _set_hotfix_record(client, param_key, record)
         console.print(f"  Tracked: {param_key}")
     else:
