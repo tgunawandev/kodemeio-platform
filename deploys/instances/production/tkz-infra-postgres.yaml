@@ -1,0 +1,19 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tkz-infra-postgres
+  description: "TeraKidz dedicated PostgreSQL 16 + PgBouncer"
+
+project: tkz
+environment: production
+server: kod-prod-02
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-postgres
+  branch: main
+  compose_path: ./docker-compose.prod.yml
+
+env_file: ../../env/production/.env.tkz-infra-postgres

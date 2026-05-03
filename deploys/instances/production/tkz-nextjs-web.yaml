@@ -7,7 +7,7 @@ instance:
 
 source_overrides:
   repo: terakidz-react
-  branch: master
+  branch: main
   compose_path: compose/docker-compose.web.yml
 
 project: tkz

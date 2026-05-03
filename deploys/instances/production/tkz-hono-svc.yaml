@@ -7,7 +7,7 @@ instance:
 
 source_overrides:
   repo: terakidz-react
-  branch: master
+  branch: main
   compose_path: compose/docker-compose.svc.yml
 
 project: tkz
@@ -37,4 +37,6 @@ env_file: ../../env/production/.env.tkz-hono-svc
 env_overrides:
   NODE_ENV: production
   PORT: "3100"
-  SUPABASE_URL: "https://supa.terakidz.com"
+  DATABASE_URL: "postgresql://terakidz:${TKZ_PG_PASSWORD}@tkz-postgres:6432/terakidz"
+  BETTER_AUTH_SECRET: "${TKZ_AUTH_SECRET}"
+  BETTER_AUTH_URL: "https://api-svc.terakidz.com"

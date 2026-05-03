@@ -7,7 +7,7 @@ instance:
 
 source_overrides:
   repo: terakidz-react
-  branch: master
+  branch: main
   compose_path: compose/docker-compose.dev.learn.yml
 
 project: tkz
@@ -16,10 +16,10 @@ server: kod-prod-02
 
 dns:
   zone: terakidz.com
-  name: learn
+  name: app
 
 domain:
-  host: learn.terakidz.com
+  host: app.terakidz.com
   port: 80
   service: learn
   https: true
@@ -36,5 +36,4 @@ env_file: ../../env/production/.env.tkz-react-learn
 
 env_overrides:
   VITE_APP_NAME: "Terakidz Learn"
-  VITE_SUPABASE_URL: "https://supa.terakidz.com"
-  VITE_AUTH_MODE: "supabase"
+  VITE_API_URL: "https://api-svc.terakidz.com"
