@@ -36,4 +36,4 @@ env_file: ../../env/production/.env.tkz-react-learn
 
 env_overrides:
   VITE_APP_NAME: "Terakidz Learn"
-  VITE_API_URL: "https://api-svc.terakidz.com"
+  VITE_API_URL: "https://api.terakidz.com"
