@@ -32,9 +32,9 @@ services:
     domain: terakidz.com
     port: 80
 
-  hono-svc:
-    description: "TeraKidz Hono API service (auth, curriculum, journal, insights, payments)"
+  hono-api:
+    description: "TeraKidz Hono API (auth, curriculum, journal, insights, payments)"
     compose_repo: terakidz-react
-    compose_file: compose/docker-compose.svc.yml
-    domain: api-svc.terakidz.com
+    compose_file: compose/docker-compose.api.yml
+    domain: api.terakidz.com
     port: 3100
