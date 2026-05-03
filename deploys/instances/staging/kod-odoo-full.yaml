@@ -2,7 +2,7 @@
 kind: instance
 extends: ../../bases/odoo.yaml
 instance:
-  name: kod-odoo-full
+  name: kod-odoo-full-stg
   description: KOD — Full Odoo (all modules, all PWA apps)
 project: kod
 environment: staging

@@ -2,7 +2,7 @@
 kind: instance
 extends: ../../bases/odoo.yaml
 instance:
-  name: tpp-odoo-hrms
+  name: tpp-odoo-hrms-stg
   description: Pakerti — HRMS (employees, attendance, payroll, leaves, expenses)
 project: tpp
 environment: staging

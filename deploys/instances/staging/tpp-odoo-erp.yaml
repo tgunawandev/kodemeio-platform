@@ -2,7 +2,7 @@
 kind: instance
 extends: ../../bases/odoo.yaml
 instance:
-  name: tpp-odoo-erp
+  name: tpp-odoo-erp-stg
   description: Pakerti — ERP — Import + Trading + Distribution (multi-company, 43
     CVs)
 project: tpp

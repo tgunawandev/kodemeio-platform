@@ -2,7 +2,7 @@
 kind: instance
 extends: ../../bases/odoo.yaml
 instance:
-  name: mac-odoo-erp
+  name: mac-odoo-erp-stg
   description: MAC — ERP (accounting, sales, purchase, inventory, BI)
 project: mac
 environment: staging

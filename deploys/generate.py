@@ -75,9 +75,7 @@ def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
     profiles they replace) so old tenant YAMLs keep working during rollout.
     """
     if recipe_or_profile not in ODOO_RECIPES:
-        raise ValueError(
-            f"Unknown odoo recipe {recipe_or_profile!r}. Valid: {sorted(ODOO_RECIPES.keys())}"
-        )
+        raise ValueError(f"Unknown odoo recipe {recipe_or_profile!r}. Valid: {sorted(ODOO_RECIPES.keys())}")
     return ODOO_RECIPES[recipe_or_profile]
 
 
@@ -97,9 +95,7 @@ def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
 
 
 def yaml_dump(data: dict) -> str:
-    return yaml.dump(
-        data, default_flow_style=False, sort_keys=False, allow_unicode=True
-    )
+    return yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
 
 def load_tenant(path: Path) -> dict:
@@ -226,7 +222,7 @@ def gen_odoo(
         "kind": "instance",
         "extends": "../../bases/odoo.yaml",
         "instance": {
-            "name": f"{code}-odoo-{short}",
+            "name": f"{code}-odoo-{short}{dns_suffix}",
             "description": f"{display} — {description}",
         },
         "project": code,
@@ -399,9 +395,7 @@ def gen_nextjs_corporate(
         }
     )
 
-    env_content = (
-        f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{host}\nTZ=Asia/Jakarta\n"
-    )
+    env_content = f"NODE_ENV=production\nNEXT_PUBLIC_SITE_URL=https://{host}\nTZ=Asia/Jakarta\n"
 
     return yaml_filename, yaml_dump(instance), env_filename, env_content
 
@@ -527,11 +521,7 @@ def gen_accurate_sync(
     import secrets as _secrets
 
     _target_env_path = ENV_DIR / env_name / f".env.{code}-accurate-sync"
-    _existing_secret = (
-        _read_env_var(_target_env_path, "TRIGGER_SECRET")
-        if _target_env_path.exists()
-        else None
-    )
+    _existing_secret = _read_env_var(_target_env_path, "TRIGGER_SECRET") if _target_env_path.exists() else None
     trigger_secret = _existing_secret or _secrets.token_hex(32)
 
     # Bridge the secret into the sibling Odoo container's env so the
@@ -777,9 +767,7 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         # --- React PWAs + Odoo instances ---
         for odoo_entry in raw.get("odoo", []):
             # Odoo instance
-            y_name, y_content, e_name, e_content = gen_odoo(
-                t, odoo_entry, env_name, server, dns_suffix, db_suffix
-            )
+            y_name, y_content, e_name, e_content = gen_odoo(t, odoo_entry, env_name, server, dns_suffix, db_suffix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -795,17 +783,13 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         web = raw.get("web", {})
         if "corporate" in web:
             t["_web_corporate_brand"] = web["corporate"]["compose_brand"]
-            y_name, y_content, e_name, e_content = gen_nextjs_corporate(
-                t, env_name, server, dns_suffix
-            )
+            y_name, y_content, e_name, e_content = gen_nextjs_corporate(t, env_name, server, dns_suffix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
         # --- Next.js careers ---
         if web.get("careers"):
-            y_name, y_content, e_name, e_content = gen_nextjs_careers(
-                t, env_name, server, dns_suffix
-            )
+            y_name, y_content, e_name, e_content = gen_nextjs_careers(t, env_name, server, dns_suffix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -814,9 +798,7 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         if accurate_cfg and accurate_cfg.get("enabled"):
             ref_short = accurate_cfg["odoo_ref"]
             try:
-                odoo_entry = next(
-                    e for e in raw.get("odoo", []) if e["short"] == ref_short
-                )
+                odoo_entry = next(e for e in raw.get("odoo", []) if e["short"] == ref_short)
             except StopIteration:
                 raise ValueError(
                     f"accurate_sync.odoo_ref={ref_short!r} does not match any odoo[] entry in tenants/{code}.yaml"
@@ -838,9 +820,7 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
             notify_server = server
             if isinstance(notify_cfg, dict):
                 notify_server = notify_cfg.get("server", server)
-            y_name, y_content, e_name, e_content = gen_notify(
-                t, env_name, notify_server, dns_suffix
-            )
+            y_name, y_content, e_name, e_content = gen_notify(t, env_name, notify_server, dns_suffix)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
@@ -857,24 +837,14 @@ def is_secret_env(path: Path) -> bool:
     instance it targets (no drift, no manual resync).
     """
     name = path.name
-    return name.startswith(".env.") and (
-        "-odoo-" in name or "-hono-notify" in name or "-react-" in name
-    )
+    return name.startswith(".env.") and ("-odoo-" in name or "-hono-notify" in name or "-react-" in name)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate deploy instances from tenant manifests"
-    )
-    parser.add_argument(
-        "--tenant", "-t", help="Generate for a single tenant (e.g., mac)"
-    )
-    parser.add_argument(
-        "--dry-run", "-n", action="store_true", help="Preview without writing"
-    )
-    parser.add_argument(
-        "--diff", "-d", action="store_true", help="Show diff vs existing files"
-    )
+    parser = argparse.ArgumentParser(description="Generate deploy instances from tenant manifests")
+    parser.add_argument("--tenant", "-t", help="Generate for a single tenant (e.g., mac)")
+    parser.add_argument("--dry-run", "-n", action="store_true", help="Preview without writing")
+    parser.add_argument("--diff", "-d", action="store_true", help="Show diff vs existing files")
     args = parser.parse_args()
 
     if args.tenant:
@@ -908,9 +878,7 @@ def main() -> None:
             if args.diff and example_path.exists():
                 old = example_path.read_text().splitlines(keepends=True)
                 new = content.splitlines(keepends=True)
-                diff = difflib.unified_diff(
-                    old, new, fromfile=str(example_path), tofile=str(example_path)
-                )
+                diff = difflib.unified_diff(old, new, fromfile=str(example_path), tofile=str(example_path))
                 sys.stdout.writelines(diff)
             if not args.dry_run:
                 example_path.write_text(content)
@@ -926,9 +894,7 @@ def main() -> None:
             if args.diff:
                 old = existing.splitlines(keepends=True)
                 new = content.splitlines(keepends=True)
-                diff = difflib.unified_diff(
-                    old, new, fromfile=str(path), tofile=str(path)
-                )
+                diff = difflib.unified_diff(old, new, fromfile=str(path), tofile=str(path))
                 sys.stdout.writelines(diff)
 
         if args.dry_run:
@@ -939,9 +905,7 @@ def main() -> None:
         wrote += 1
 
     action = "Would write" if args.dry_run else "Wrote"
-    print(
-        f"\nDone. {action}: {wrote}, Skipped (secrets): {skipped}, Unchanged: {unchanged}"
-    )
+    print(f"\nDone. {action}: {wrote}, Skipped (secrets): {skipped}, Unchanged: {unchanged}")
 
 
 if __name__ == "__main__":
