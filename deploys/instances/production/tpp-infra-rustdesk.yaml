@@ -1,0 +1,38 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-rustdesk
+  description: "TPP RustDesk remote desktop server"
+
+project: tpp
+environment: production
+server: tpp-prod-03
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-rustdesk
+  branch: main
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: rd
+
+# No domain/Traefik route — RustDesk uses direct TCP/UDP ports, not HTTP.
+# Clients connect to rd.idtpp.com:31116 (ID) and rd.idtpp.com:31117 (relay).
+
+env_file: ../../env/production/.env.tpp-infra-rustdesk
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-rustdesk
+  TENANT: tpp
+  DOMAIN: rd.idtpp.com
+  RUSTDESK_RELAY_DOMAIN: rd.idtpp.com
+  HBBS_PORT_NAT: "31115"
+  HBBS_PORT_ID: "31116"
+  HBBR_PORT_RELAY: "31117"
+  HBBS_PORT_WS: "31118"
+  HBBR_PORT_WS: "31119"
+  TZ: Asia/Jakarta
