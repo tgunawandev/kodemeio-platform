@@ -39,6 +39,11 @@ accurate_sync:
   tenants: [tpp]           # ACCURATE_TENANTS comma-joined at render
   # server: (defaults to the tpp-odoo-erp server, tpp-prod-03)
 
+schedulers:
+  - name: maintenance
+    schedule_file: tpp-maintenance.ini
+    server: tpp-prod-01
+
 services:
   notify:
     # Pin notify to tpp-prod-01 alongside the rest of the tpp-infra-* stack

@@ -1,0 +1,35 @@
+kind: base
+type: prefect
+
+source:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-prefect
+  branch: main
+  compose_path: docker-compose.prod.yml
+
+server: kodeme-service
+project: kod
+
+healthcheck:
+  path: /api/health
+  port: 4200
+  expected_status: 200
+  timeout: 300
+  interval: 30
+
+env_defaults:
+  TZ: "Asia/Jakarta"
+  PREFECT_SERVER_API_HOST: "0.0.0.0"
+  PREFECT_SERVER_API_PORT: "4200"
+  SERVER_CPU_LIMIT: "1.0"
+  SERVER_MEMORY_LIMIT: "1G"
+  WORKER_CPU_LIMIT: "2.0"
+  WORKER_MEMORY_LIMIT: "2G"
+
+backup:
+  destination: kodemeio-s3-backups
+  type: postgres
+  schedule: "0 3 * * *"
+  prefix_template: "prefect-{instance_name}"
+  keep_latest: 30

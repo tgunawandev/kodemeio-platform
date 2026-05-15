@@ -27,3 +27,5 @@ deploys/env/local/.env.*
 .coverage
 .coverage.*
 htmlcov/
+logs/
+logs/

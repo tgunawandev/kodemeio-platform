@@ -1,0 +1,46 @@
+# =============================================================================
+# ofelia base template
+# =============================================================================
+# Produces:
+#   instances/{env}/{tenant}-ofelia-{name}.yaml   — Dokploy binding manifest
+#   env/{env}/.env.{tenant}-ofelia-{name}         — gitignored, has secrets
+#   env/{env}/.env.{tenant}-ofelia-{name}.example  — committed reference
+#
+# Naming convention (fixed):
+#   File:     {tenant}-ofelia-{name}.yaml
+#   Instance: {tenant}-ofelia-{name}
+#   Env file: .env.{tenant}-ofelia-{name}
+#
+# Tenant fields consumed (tenants/<slug>.yaml → schedulers:[]):
+#   name            (str,  required) — scheduler app name (e.g. "maintenance")
+#   schedule_file   (str,  required) — INI filename in schedules/ dir
+#   server          (str,  optional) — deploy host override
+#
+# Each scheduler app is an independent Ofelia instance with its own INI config.
+# Jobs use `job-run` to create ephemeral kodemeio-cli containers.
+# =============================================================================
+
+kind: base
+type: ofelia
+
+source:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-ofelia
+  branch: main
+  compose_path: compose/ofelia.yml
+
+server: kodeme-service
+project: kod
+
+healthcheck:
+  test: ["CMD", "sh", "-c", "pidof ofelia || exit 1"]
+  port: 0
+  timeout: 30
+  interval: 60
+  start_period: 15
+
+env_defaults:
+  TZ: "Asia/Jakarta"
+  OFELIA_TAG: "latest"
+  KODEMEIO_CONFIG_HOST: "/opt/kodemeio/config.yaml"

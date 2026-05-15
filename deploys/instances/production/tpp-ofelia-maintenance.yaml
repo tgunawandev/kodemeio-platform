@@ -1,0 +1,13 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/ofelia.yaml
+instance:
+  name: tpp-ofelia-maintenance
+  description: Pakerti — Ofelia scheduler (maintenance)
+project: tpp
+environment: production
+server: tpp-prod-01
+env_file: ../../env/production/.env.tpp-ofelia-maintenance
+env_overrides:
+  SCHEDULE_FILE: tpp-maintenance.ini
+  CONTAINER_NAME: tpp-ofelia-maintenance

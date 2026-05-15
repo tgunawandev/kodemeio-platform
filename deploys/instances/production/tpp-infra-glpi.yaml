@@ -1,0 +1,27 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-glpi
+  description: "GLPI IT Service Management"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  repo: kodemeio-glpi
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: glpi
+
+domain:
+  host: glpi.idtpp.com
+  port: 80
+  service: glpi
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-glpi
