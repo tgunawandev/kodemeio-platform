@@ -1,0 +1,36 @@
+kind: instance
+extends: ../../bases/n8n.yaml
+
+instance:
+  name: tpp-infra-n8n
+  description: "TPP n8n workflow automation (Pakerti)"
+
+project: tpp
+environment: production
+server: tpp-prod-01
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-n8n-workflow
+  branch: main
+  compose_path: ./docker-compose.yml
+
+dns:
+  zone: idtpp.com
+  name: n8n
+
+domain:
+  host: n8n.idtpp.com
+  port: 5678
+  service: n8n
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-n8n
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-n8n
+  N8N_HOST: n8n.idtpp.com
+  WEBHOOK_URL: https://n8n.idtpp.com/
+  TZ: Asia/Jakarta
