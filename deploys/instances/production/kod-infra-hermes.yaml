@@ -6,6 +6,7 @@ instance:
   description: "Hermes Agent (kod) — Codex OAuth, Telegram inbound, MCP outbound"
 
 project: kod
+server: kod-prod-04-claude
 
 # No public domain in v1 — Telegram is outbound long-polling.
 # Phase 2 adds: domain: { host: hermes.kodeme.io, https: true, cert: letsencrypt }
