@@ -31,7 +31,7 @@ env_defaults:
   HERMES_LOG_LEVEL: "info"
   HERMES_UID: "10000"
   HERMES_GID: "10000"
-  HERMES_UPSTREAM_REF: "v0.14.0"
+  HERMES_UPSTREAM_REF: "v2026.5.16"
 
 backup:
   destination: kodemeio-s3-backups
