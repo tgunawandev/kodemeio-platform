@@ -1,0 +1,42 @@
+# Naming convention for instances:
+#   File:     {tenant}-infra-hermes.yaml
+#   Instance: {tenant}-infra-hermes
+#   Env file: .env.{tenant}-infra-hermes
+#
+# Mirrors the shape of bases/infra.yaml. Source repo holds the compose file,
+# Dokploy builds the image via BuildKit remote git context per-deploy.
+
+kind: base
+type: infrastructure
+
+source:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-hermes
+  branch: main
+  compose_path: docker-compose.prod.yml
+
+server: kodeme-service
+project: kod
+
+healthcheck:
+  test: ["CMD-SHELL", "pgrep -f 'gateway run' >/dev/null && test -f /opt/data/mcp.yaml"]
+  port: 0
+  timeout: 10
+  interval: 60
+  start_period: 180
+
+env_defaults:
+  TZ: "Asia/Jakarta"
+  HERMES_LOG_LEVEL: "info"
+  HERMES_UID: "10000"
+  HERMES_GID: "10000"
+  HERMES_UPSTREAM_REF: "v0.14.0"
+
+backup:
+  destination: kodemeio-s3-backups
+  type: volume
+  source: hermes-state
+  schedule: "0 4 * * *"
+  prefix_template: "{instance_name}"
+  keep_latest: 14
