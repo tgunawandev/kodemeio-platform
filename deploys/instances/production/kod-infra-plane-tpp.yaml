@@ -1,0 +1,32 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-plane-tpp
+  description: "Plane PM (TPP-facing at plane.idtpp.com) with bundled Postgres + OIDC SSO via auth.idtpp.com"
+
+project: kod
+server: kod-prod-05-app
+
+source_overrides:
+  repo: kodemeio-plane
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: plane
+
+domain:
+  host: plane.idtpp.com
+  port: 80
+  service: proxy
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-plane-tpp
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: kod-infra-plane-tpp
+  COMPOSE_PROFILES: bundled-db
+  TENANT: tpp
+  TZ: Asia/Jakarta
