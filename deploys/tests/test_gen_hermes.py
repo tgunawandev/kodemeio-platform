@@ -166,3 +166,31 @@ def test_gen_hermes_mattermost_requires_url():
 
     with pytest.raises(ValueError, match="mattermost.url is required"):
         gen_hermes(tenant, hermes, "production")
+
+
+def test_gen_hermes_backup_gap_comment_on_tpp_prod():
+    """Servers matching ^tpp-prod-\\d+$ → backup-gap comment appended."""
+    tenant = {"code": "tpp", "short_name": "TPP", "domain": "idtpp.com"}
+    hermes = {
+        "enabled": True,
+        "server": "tpp-prod-01",
+        "inbound": {"mattermost": {"enabled": True, "url": "https://mm.idtpp.com"}},
+        "memory": {"honcho": {"enabled": False}},
+    }
+    _, y_content, _, _ = gen_hermes(tenant, hermes, "production")
+
+    assert "kodemeio-s3-backups" in y_content
+    assert "dokploy.idtpp.com" in y_content
+
+
+def test_gen_hermes_no_backup_gap_comment_on_kod_prod():
+    tenant = {"code": "kod", "short_name": "KOD", "domain": "kodeme.io"}
+    hermes = {
+        "enabled": True,
+        "server": "kod-prod-04-claude",
+        "inbound": {"telegram": {"enabled": True}},
+        "memory": {"honcho": {"enabled": False}},
+    }
+    _, y_content, _, _ = gen_hermes(tenant, hermes, "production")
+
+    assert "kodemeio-s3-backups" not in y_content

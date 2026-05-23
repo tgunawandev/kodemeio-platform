@@ -949,7 +949,17 @@ def gen_hermes(
     ]
     env_example = "\n".join(lines) + "\n"
 
-    return yaml_filename, yaml_dump(instance), env_example_filename, env_example
+    import re
+
+    rendered = yaml_dump(instance)
+    if re.match(r"^tpp-prod-\d+$", server):
+        rendered += (
+            "\n"
+            "# bases/hermes.yaml's backup block targets 'kodemeio-s3-backups' which\n"
+            "# exists on dokploy.kodeme.io but NOT on dokploy.idtpp.com. Backup phase\n"
+            "# fails cosmetically during `deploy apply`; the actual deploy still succeeds.\n"
+        )
+    return yaml_filename, rendered, env_example_filename, env_example
 
 
 # ---------------------------------------------------------------------------
