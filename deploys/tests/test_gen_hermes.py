@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
+from generate import gen_hermes
+
 
 def test_gen_hermes_kod_telegram_only():
     """kod-shape tenant (Telegram only, no Honcho) → kod-infra-hermes.yaml + env example."""
-    from generate import gen_hermes
-
     tenant = {
         "code": "kod",
         "name": "Kodemeio",
