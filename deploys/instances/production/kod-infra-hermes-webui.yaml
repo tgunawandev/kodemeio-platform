@@ -1,0 +1,39 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-hermes-webui
+  description: "Hermes Web UI (kod) — nesquena/hermes-webui single-container (own bundled agent)"
+
+project: kod
+environment: production
+server: kod-prod-03-data    # moved from kod-prod-04-claude — that server has no Traefik; kod-prod-03-data is the proven HTTPS host (Honcho lives there too)
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-hermes-webui
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+dns:
+  zone: kodeme.io
+  name: hermes
+
+domain:
+  host: hermes.kodeme.io
+  port: 8787
+  service: webui
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-hermes-webui
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: kod-infra-hermes-webui
+
+healthcheck:
+  path: /
+  port: 8787
+  expected_status: 200
+  timeout: 60
+  interval: 30
