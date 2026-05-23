@@ -39,7 +39,9 @@ def test_gen_hermes_kod_telegram_only():
 
     # Env example content
     assert "TELEGRAM_BOT_TOKEN=CHANGE_ME" in e_content
-    assert "MATTERMOST_URL=" not in e_content  # mattermost block omitted
+    assert (
+        "MATTERMOST_TOKEN=CHANGE_ME" not in e_content
+    )  # mattermost inbound block omitted
     assert "HONCHO_API_KEY=" not in e_content  # honcho block omitted
     assert (
         "GATEWAY_ALLOW_ALL_USERS=true" not in e_content

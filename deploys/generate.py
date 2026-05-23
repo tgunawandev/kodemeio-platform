@@ -795,6 +795,163 @@ def gen_notify(
     return yaml_filename, yaml_dump(instance), env_example_filename, env_example
 
 
+def gen_hermes(
+    tenant: dict,
+    hermes: dict,
+    env_name: str = "production",
+) -> tuple[str, str, str, str]:
+    """Generate the per-tenant Hermes Dokploy manifest + env.example.
+
+    See kodemeio-hermes/docs/superpowers/specs/2026-05-23-hermes-generator-design.md.
+
+    Returns (yaml_filename, yaml_content, env_example_filename, env_example_content)
+    in the same shape as gen_notify et al. The HEADER ('# GENERATED FROM ...')
+    is prepended by generate_tenant() — gen_hermes returns content WITHOUT header.
+    """
+    code = tenant["code"]
+    short = tenant.get("short_name", code.upper())
+
+    server = hermes.get("server")
+    if not server:
+        raise ValueError(
+            f"tenants/{code}.yaml: hermes.enabled is true but hermes.server is "
+            f"required (no implicit default — must declare server explicitly)"
+        )
+
+    inbound = hermes.get("inbound", {})
+    telegram_on = bool(inbound.get("telegram", {}).get("enabled"))
+    mm_block = inbound.get("mattermost", {})
+    mattermost_on = bool(mm_block.get("enabled"))
+
+    if not (telegram_on or mattermost_on):
+        raise ValueError(
+            f"tenants/{code}.yaml: hermes is enabled but no inbound adapter is "
+            f"enabled — need telegram or mattermost. (Hermes is useless without "
+            f"an inbound; matches the Phase 1 init-script guard.)"
+        )
+
+    if mattermost_on and not mm_block.get("url"):
+        raise ValueError(
+            f"tenants/{code}.yaml: hermes.inbound.mattermost.enabled is true but "
+            f"hermes.inbound.mattermost.url is required"
+        )
+
+    honcho_block = hermes.get("memory", {}).get("honcho", {})
+    honcho_on = bool(honcho_block.get("enabled"))
+    workspace = honcho_block.get("workspace", f"{code}-hermes") if honcho_on else None
+
+    # Build description from active surfaces
+    desc_parts = []
+    if telegram_on and mattermost_on:
+        desc_parts.append("Telegram + Mattermost inbound")
+    elif telegram_on:
+        desc_parts.append("Telegram inbound")
+    elif mattermost_on:
+        mm_host = mm_block["url"].replace("https://", "").replace("http://", "")
+        desc_parts.append(f"Mattermost inbound ({mm_host})")
+    desc_parts.append("MCP outbound")
+    if honcho_on:
+        desc_parts.append(f"Honcho memory ({workspace})")
+    description = f"Hermes Agent ({short}) — " + ", ".join(desc_parts)
+
+    yaml_filename = f"{code}-infra-hermes.yaml"
+    env_example_filename = f".env.{code}-infra-hermes.example"
+
+    # Build manifest dict (yaml_dump preserves order)
+    instance: dict = {
+        "kind": "instance",
+        "extends": "../../bases/hermes.yaml",
+        "instance": {
+            "name": f"{code}-infra-hermes",
+            "description": description,
+        },
+        "project": code,
+        "server": server,
+        "env_file": f"../../env/{env_name}/.env.{code}-infra-hermes",
+    }
+
+    # Compose env.example block-by-block based on enabled adapters
+    lines: list[str] = [
+        f"# Real values live in .env.{code}-infra-hermes (gitignored, operator-managed).",
+        "# This file documents the env contract; never commit secrets here.",
+        "",
+        "# === Upstream image + identity ===",
+        "HERMES_UPSTREAM_REF=v2026.5.16",
+        "HERMES_LOG_LEVEL=info",
+        "HERMES_UID=10000",
+        "HERMES_GID=10000",
+        "TZ=Asia/Jakarta",
+        "",
+    ]
+
+    if telegram_on:
+        lines += [
+            "# === Telegram inbound ===",
+            "TELEGRAM_BOT_TOKEN=CHANGE_ME",
+            "TELEGRAM_ALLOWED_USERS=",
+            "",
+        ]
+
+    if mattermost_on:
+        allowed = ",".join(mm_block.get("allowed_channels") or [])
+        reply_mode = mm_block.get("reply_mode", "thread")
+        require_mention = str(mm_block.get("require_mention", True)).lower()
+        lines += [
+            "# === Mattermost INBOUND adapter ===",
+            f"MATTERMOST_URL={mm_block['url']}",
+            "MATTERMOST_TOKEN=CHANGE_ME",
+            f"MATTERMOST_REPLY_MODE={reply_mode}",
+            f"MATTERMOST_REQUIRE_MENTION={require_mention}",
+            f"MATTERMOST_ALLOWED_CHANNELS={allowed}",
+            "",
+        ]
+
+    # GATEWAY_ALLOW_ALL_USERS only when Mattermost is the ONLY inbound
+    if mattermost_on and not telegram_on:
+        lines += [
+            "# === Gateway-level allowlist ===",
+            "# Mattermost-only deployments: Mattermost-side scoping is the trust",
+            "# boundary; upstream's MATTERMOST_ALLOWED_USERS env is unenforced.",
+            "GATEWAY_ALLOW_ALL_USERS=true",
+            "",
+        ]
+
+    if honcho_on:
+        base_url = honcho_block.get("base_url", "https://honcho.kodeme.io")
+        lines += [
+            "# === Honcho memory ===",
+            "HONCHO_API_KEY=CHANGE_ME",
+            f"HONCHO_BASE_URL={base_url}",
+            f"HONCHO_WORKSPACE={workspace}",
+            "",
+        ]
+
+    # MCP outbound block — always present
+    lines += [
+        "# === MCP outbound (always; per-service opt-in via real .env) ===",
+        "MCP_ODOO_URL=",
+        "MCP_ODOO_AUTH_TOKEN=",
+        "MATTERMOST_BASE_URL=",
+        "MATTERMOST_BOT_TOKEN=",
+        "MATTERMOST_TEAM_ID=",
+        "MCP_MATTERMOST_URL=",
+        "MCP_MATTERMOST_AUTH_TOKEN=",
+        "MAILCOW_BASE_URL=",
+        "MAILCOW_API_KEY=",
+        "MAILCOW_API_KEY_TYPE=",
+        "MCP_MAILCOW_URL=",
+        "MCP_MAILCOW_AUTH_TOKEN=",
+        "WAHA_BASE_URL=",
+        "WAHA_API_KEY=",
+        "WAHA_HMAC_KEY=",
+        "MCP_WAHA_URL=",
+        "MCP_WAHA_AUTH_TOKEN=",
+    ]
+    env_example = "\n".join(lines) + "\n"
+
+    return yaml_filename, yaml_dump(instance), env_example_filename, env_example
+
+
 # ---------------------------------------------------------------------------
 # Main generator
 # ---------------------------------------------------------------------------
