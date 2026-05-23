@@ -37,3 +37,24 @@ services:
   # notify: shared via kod-infra-notify (notify.kodeme.io). MAC origins are
   # registered in env/production/.env.kod-infra-notify ALLOWED_ORIGINS.
   redis: true
+
+# Hermes — agent on tpp-prod-05, co-located with mac-mm.idtpp.com. Mattermost
+# inbound only. mac-mm.idtpp.com actually resolves to 178.104.171.122 (tpp-prod-05),
+# not tpp-stg-01 as the mac-infra-mattermost.yaml manifest claims. Honcho disabled
+# until Phase D of the 2026-05-23 Honcho rollout.
+hermes:
+  enabled: true
+  server: tpp-prod-05
+  inbound:
+    telegram:
+      enabled: false
+    mattermost:
+      enabled: true
+      url: https://mac-mm.idtpp.com
+      reply_mode: thread
+      require_mention: true
+      allowed_channels:
+        - bnms3rw37iya5b8g1fdyg3edph
+  memory:
+    honcho:
+      enabled: false
