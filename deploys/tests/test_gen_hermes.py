@@ -46,3 +46,49 @@ def test_gen_hermes_kod_telegram_only():
     assert (
         "GATEWAY_ALLOW_ALL_USERS=true" not in e_content
     )  # only set when Mattermost-only
+
+
+def test_gen_hermes_tpp_mattermost_only():
+    """tpp-shape (Mattermost only) → GATEWAY_ALLOW_ALL_USERS=true present."""
+    tenant = {
+        "code": "tpp",
+        "name": "TPP",
+        "short_name": "TPP",
+        "domain": "idtpp.com",
+    }
+    hermes = {
+        "enabled": True,
+        "server": "tpp-prod-01",
+        "inbound": {
+            "telegram": {"enabled": False},
+            "mattermost": {
+                "enabled": True,
+                "url": "https://mm.idtpp.com",
+                "reply_mode": "thread",
+                "require_mention": True,
+                "allowed_channels": ["nxe8gt7xyfbp9rxqdqso5m17dr"],
+            },
+        },
+        "memory": {"honcho": {"enabled": False}},
+    }
+
+    y_name, y_content, e_name, e_content = gen_hermes(tenant, hermes, "production")
+
+    assert y_name == "tpp-infra-hermes.yaml"
+    assert "server: tpp-prod-01" in y_content
+    assert "Mattermost inbound (mm.idtpp.com)" in y_content
+    assert "MCP outbound" in y_content
+
+    # env.example: Mattermost block present
+    assert "MATTERMOST_URL=https://mm.idtpp.com" in e_content
+    assert "MATTERMOST_TOKEN=CHANGE_ME" in e_content
+    assert "MATTERMOST_REPLY_MODE=thread" in e_content
+    assert "MATTERMOST_REQUIRE_MENTION=true" in e_content
+    assert "MATTERMOST_ALLOWED_CHANNELS=nxe8gt7xyfbp9rxqdqso5m17dr" in e_content
+
+    # Telegram and Honcho blocks omitted
+    assert "TELEGRAM_BOT_TOKEN" not in e_content
+    assert "HONCHO_API_KEY" not in e_content
+
+    # GATEWAY_ALLOW_ALL_USERS set because Mattermost is the ONLY inbound
+    assert "GATEWAY_ALLOW_ALL_USERS=true" in e_content
