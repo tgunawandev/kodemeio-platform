@@ -122,3 +122,47 @@ def test_gen_hermes_mac_with_honcho():
     assert "HONCHO_API_KEY=CHANGE_ME" in e_content
     assert "HONCHO_BASE_URL=https://honcho.kodeme.io" in e_content
     assert "HONCHO_WORKSPACE=mac-hermes" in e_content
+
+
+def test_gen_hermes_requires_server():
+    tenant = {"code": "tpp", "short_name": "TPP", "domain": "idtpp.com"}
+    hermes = {
+        "enabled": True,
+        # server missing
+        "inbound": {"mattermost": {"enabled": True, "url": "https://mm.idtpp.com"}},
+        "memory": {"honcho": {"enabled": False}},
+    }
+
+    with pytest.raises(ValueError, match="hermes.server is required"):
+        gen_hermes(tenant, hermes, "production")
+
+
+def test_gen_hermes_requires_at_least_one_inbound():
+    tenant = {"code": "tpp", "short_name": "TPP", "domain": "idtpp.com"}
+    hermes = {
+        "enabled": True,
+        "server": "tpp-prod-01",
+        "inbound": {
+            "telegram": {"enabled": False},
+            "mattermost": {"enabled": False},
+        },
+        "memory": {"honcho": {"enabled": False}},
+    }
+
+    with pytest.raises(ValueError, match="no inbound adapter is enabled"):
+        gen_hermes(tenant, hermes, "production")
+
+
+def test_gen_hermes_mattermost_requires_url():
+    tenant = {"code": "tpp", "short_name": "TPP", "domain": "idtpp.com"}
+    hermes = {
+        "enabled": True,
+        "server": "tpp-prod-01",
+        "inbound": {
+            "mattermost": {"enabled": True},  # url missing
+        },
+        "memory": {"honcho": {"enabled": False}},
+    }
+
+    with pytest.raises(ValueError, match="mattermost.url is required"):
+        gen_hermes(tenant, hermes, "production")
