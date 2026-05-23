@@ -1113,6 +1113,12 @@ def main() -> None:
     parser.add_argument(
         "--diff", "-d", action="store_true", help="Show diff vs existing files"
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite hand-authored files (those without a GENERATED FROM marker). "
+        "Required only for the first retrofit of files that pre-date the generator.",
+    )
     args = parser.parse_args()
 
     if args.tenant:
@@ -1158,6 +1164,24 @@ def main() -> None:
 
         if path.exists():
             existing = path.read_text()
+            # Guard: refuse to overwrite hand-authored files unless --force.
+            # A file is considered hand-authored if it exists but lacks our
+            # GENERATED FROM marker. After the first --force retrofit the
+            # marker is present, and subsequent regenerations proceed normally.
+            existing_first_line = existing.splitlines()[0] if existing else ""
+            is_generated = existing_first_line.startswith("# GENERATED FROM")
+            if (
+                not is_generated
+                and not args.force
+                and not args.dry_run
+                and not args.diff
+            ):
+                print(
+                    f"  REFUSED: {path.relative_to(DEPLOY_DIR)} exists without "
+                    f"GENERATED FROM marker. Pass --force to overwrite."
+                )
+                skipped += 1
+                continue
             if existing == content:
                 unchanged += 1
                 continue
