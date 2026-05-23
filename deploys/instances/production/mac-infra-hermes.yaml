@@ -17,3 +17,8 @@ server: tpp-prod-05
 # container). Telegram intentionally omitted; that runs only on kod-infra-hermes.
 
 env_file: ../../env/production/.env.mac-infra-hermes
+
+# bases/hermes.yaml's backup block targets the 'kodemeio-s3-backups' destination
+# which doesn't exist on dokploy.idtpp.com. Backup phase fails cosmetically
+# during `deploy apply` (does not block the compose deploy). Follow-up: register
+# a TPP-side S3 destination on dokploy.idtpp.com and override backup.destination.
