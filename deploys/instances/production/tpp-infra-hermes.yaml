@@ -1,0 +1,14 @@
+kind: instance
+extends: ../../bases/hermes.yaml
+
+instance:
+  name: tpp-infra-hermes
+  description: "Hermes Agent (TPP) — Mattermost inbound (mm.idtpp.com), MCP outbound"
+
+project: tpp
+server: tpp-prod-01
+
+# No public domain — Mattermost inbound is via WebSocket (outbound from this container).
+# Telegram is intentionally omitted; that runs only on kod-infra-hermes.
+
+env_file: ../../env/production/.env.tpp-infra-hermes
