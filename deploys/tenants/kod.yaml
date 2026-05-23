@@ -21,3 +21,18 @@ odoo:
     description: "Full Odoo (all modules, all PWA apps)"
     workers: 6
     apps: [bia, dms, eam, hrm, lfa, mrp, saas, sfa, shop, tms, tms-parent, tpm, wms]
+
+# Hermes — agent on kod-prod-04-claude. Telegram inbound. Honcho enabled
+# after Phase B of the 2026-05-23 Honcho rollout (currently false because
+# the deploy waits on the operator's OpenRouter key).
+hermes:
+  enabled: true
+  server: kod-prod-04-claude
+  inbound:
+    telegram:
+      enabled: true
+    mattermost:
+      enabled: false
+  memory:
+    honcho:
+      enabled: false

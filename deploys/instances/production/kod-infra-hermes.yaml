@@ -1,15 +1,9 @@
+# GENERATED FROM tenants/kod.yaml — DO NOT EDIT
 kind: instance
 extends: ../../bases/hermes.yaml
-
 instance:
   name: kod-infra-hermes
-  description: "Hermes Agent (kod) — Codex OAuth, Telegram inbound, MCP outbound"
-
+  description: Hermes Agent (KOD) — Telegram inbound, MCP outbound
 project: kod
 server: kod-prod-04-claude
-
-# No public domain in v1 — Telegram is outbound long-polling.
-# Phase 2 adds: domain: { host: hermes.kodeme.io, https: true, cert: letsencrypt }
-# once Mattermost/WAHA inbound webhooks are wired.
-
 env_file: ../../env/production/.env.kod-infra-hermes
