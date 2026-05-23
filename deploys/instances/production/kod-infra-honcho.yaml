@@ -1,0 +1,39 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-honcho
+  description: "Honcho — AI-native memory backing Hermes (kod/tpp/mac)"
+
+project: kod
+environment: production
+server: kod-prod-03-data
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-honcho
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+dns:
+  zone: kodeme.io
+  name: honcho
+
+domain:
+  host: honcho.kodeme.io
+  port: 8000
+  service: api
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-honcho
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: kod-infra-honcho
+
+healthcheck:
+  path: /health
+  port: 8000
+  expected_status: 200
+  timeout: 30
+  interval: 30
