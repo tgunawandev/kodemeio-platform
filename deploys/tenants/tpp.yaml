@@ -56,3 +56,23 @@ services:
     # colocate other services here. RTC call quality depends on isolated CPU
     # + UDP port availability (8443/8445).
     server: tpp-prod-04
+
+# Hermes — agent on tpp-prod-01, co-located with mm.idtpp.com. Mattermost
+# inbound only (Telegram intentionally omitted — that runs on kod-infra-hermes).
+# Honcho disabled until Phase C of the 2026-05-23 Honcho rollout.
+hermes:
+  enabled: true
+  server: tpp-prod-01
+  inbound:
+    telegram:
+      enabled: false
+    mattermost:
+      enabled: true
+      url: https://mm.idtpp.com
+      reply_mode: thread
+      require_mention: true
+      allowed_channels:
+        - nxe8gt7xyfbp9rxqdqso5m17dr
+  memory:
+    honcho:
+      enabled: false

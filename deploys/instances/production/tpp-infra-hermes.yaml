@@ -1,21 +1,13 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
 kind: instance
 extends: ../../bases/hermes.yaml
-
 instance:
   name: tpp-infra-hermes
-  description: "Hermes Agent (TPP) — Mattermost inbound (mm.idtpp.com), MCP outbound"
-
+  description: Hermes Agent (Pakerti) — Mattermost inbound (mm.idtpp.com), MCP outbound
 project: tpp
 server: tpp-prod-01
-
-# No public domain — Mattermost inbound is via WebSocket (outbound from this container).
-# Telegram is intentionally omitted; that runs only on kod-infra-hermes.
-
 env_file: ../../env/production/.env.tpp-infra-hermes
 
-# bases/hermes.yaml's backup block targets the 'kodemeio-s3-backups' destination
-# which exists on dokploy.kodeme.io but NOT on dokploy.idtpp.com. The backup
-# phase will fail cosmetically during `deploy apply` (does not block the actual
-# compose deploy). State volume can be recreated from upstream image + env file
-# if needed. Follow-up: register a TPP-side S3 destination on dokploy.idtpp.com
-# and override backup.destination here.
+# bases/hermes.yaml's backup block targets 'kodemeio-s3-backups' which
+# exists on dokploy.kodeme.io but NOT on dokploy.idtpp.com. Backup phase
+# fails cosmetically during `deploy apply`; the actual deploy still succeeds.
