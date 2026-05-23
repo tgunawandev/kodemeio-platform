@@ -1,0 +1,19 @@
+kind: instance
+extends: ../../bases/hermes.yaml
+
+instance:
+  name: mac-infra-hermes
+  description: "Hermes Agent (MAC) — Mattermost inbound (mac-mm.idtpp.com), MCP outbound"
+
+project: mac
+server: tpp-prod-05
+
+# mac-infra-mattermost actually runs on tpp-prod-05 (not tpp-stg-01 as the
+# mac-infra-mattermost.yaml manifest claims — discovered via Cloudflare DNS
+# lookup during the 2026-05-23 rollout). Co-located with the MAC Mattermost
+# container.
+#
+# No public domain. Mattermost inbound is via WebSocket (outbound from this
+# container). Telegram intentionally omitted; that runs only on kod-infra-hermes.
+
+env_file: ../../env/production/.env.mac-infra-hermes
