@@ -895,7 +895,7 @@ def gen_hermes(
     if mattermost_on:
         allowed = ",".join(mm_block.get("allowed_channels") or [])
         reply_mode = mm_block.get("reply_mode", "thread")
-        require_mention = str(mm_block.get("require_mention", True)).lower()
+        require_mention = "true" if mm_block.get("require_mention", True) else "false"
         lines += [
             "# === Mattermost INBOUND adapter ===",
             f"MATTERMOST_URL={mm_block['url']}",
