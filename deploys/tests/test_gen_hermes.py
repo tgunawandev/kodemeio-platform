@@ -194,3 +194,18 @@ def test_gen_hermes_no_backup_gap_comment_on_kod_prod():
     _, y_content, _, _ = gen_hermes(tenant, hermes, "production")
 
     assert "kodemeio-s3-backups" not in y_content
+
+
+def test_gen_hermes_idempotent():
+    """Two consecutive calls produce identical output."""
+    tenant = {"code": "tpp", "short_name": "TPP", "domain": "idtpp.com"}
+    hermes = {
+        "enabled": True,
+        "server": "tpp-prod-01",
+        "inbound": {"mattermost": {"enabled": True, "url": "https://mm.idtpp.com"}},
+        "memory": {"honcho": {"enabled": False}},
+    }
+
+    out1 = gen_hermes(tenant, hermes, "production")
+    out2 = gen_hermes(tenant, hermes, "production")
+    assert out1 == out2
