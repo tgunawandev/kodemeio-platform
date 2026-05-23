@@ -1076,8 +1076,11 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
             files.append((env_dir / e_name, e_content))
 
         # --- Hermes (per-tenant agent: Telegram/Mattermost inbound, Honcho memory) ---
+        # Production-only per v1 spec. Staging support is a documented
+        # out-of-scope follow-up; the hermes: block is currently tenant-level
+        # (not per-env), so generating staging would produce nonsense values.
         hermes = raw.get("hermes", {})
-        if hermes.get("enabled"):
+        if hermes.get("enabled") and env_name == "production":
             y_name, y_content, e_name, e_content = gen_hermes(t, hermes, env_name)
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
