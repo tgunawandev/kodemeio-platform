@@ -19,8 +19,11 @@ source:
 server: kodeme-service
 project: kod
 
+# Must match docker-compose.prod.yml's healthcheck. /opt/data/mcp.yaml is the
+# LEGACY render-script output (removed) — hermes never read it, so checking it
+# marked every container unhealthy. config.yaml is the real state file.
 healthcheck:
-  test: ["CMD-SHELL", "pgrep -f 'gateway run' >/dev/null && test -f /opt/data/mcp.yaml"]
+  test: ["CMD-SHELL", "pgrep -f 'gateway run' >/dev/null && test -f /opt/data/config.yaml"]
   port: 0
   timeout: 10
   interval: 60
