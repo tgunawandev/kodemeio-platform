@@ -7,3 +7,8 @@ instance:
 project: kod
 server: kod-prod-04-claude
 env_file: ../../env/production/.env.kod-infra-hermes
+env_overrides:
+  HERMES_EDITION: superuser
+  HERMES_CPU_LIMIT: '4.0'
+  HERMES_MEM_LIMIT: 6G
+  HERMES_MEM_RESERVATION: 1G
