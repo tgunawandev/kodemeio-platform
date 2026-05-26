@@ -44,6 +44,7 @@ services:
 # until Phase D of the 2026-05-23 Honcho rollout.
 hermes:
   enabled: true
+  edition: business
   server: tpp-prod-05
   inbound:
     telegram:

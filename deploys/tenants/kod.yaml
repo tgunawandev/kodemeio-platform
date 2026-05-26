@@ -27,6 +27,7 @@ odoo:
 # the deploy waits on the operator's OpenRouter key).
 hermes:
   enabled: true
+  edition: superuser
   server: kod-prod-04-claude
   inbound:
     telegram:
