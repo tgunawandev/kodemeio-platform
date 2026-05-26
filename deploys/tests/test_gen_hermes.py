@@ -252,9 +252,9 @@ def test_gen_hermes_superuser_emits_overrides_and_pat():
     _, y, _, e = gen_hermes(tenant, hermes, "production")
     assert "env_overrides:" in y
     assert "HERMES_EDITION: superuser" in y
-    assert "HERMES_CPU_LIMIT" in y and "4.0" in y
-    assert "HERMES_MEM_LIMIT" in y and "6G" in y
-    assert "HERMES_MEM_RESERVATION" in y and "1G" in y
+    assert "HERMES_CPU_LIMIT: '4.0'" in y
+    assert "HERMES_MEM_LIMIT: 6G" in y
+    assert "HERMES_MEM_RESERVATION: 1G" in y
     assert "HERMES_EDITION=superuser" in e
     assert "HERMES_WORKSPACE_GH_PAT=CHANGE_ME" in e
 
@@ -263,8 +263,9 @@ def test_gen_hermes_business_no_pat():
     tenant, hermes = _tpp_business()
     _, y, _, e = gen_hermes(tenant, hermes, "production")
     assert "HERMES_EDITION: business" in y
-    assert "HERMES_MEM_LIMIT" in y and "2G" in y
-    assert "HERMES_MEM_RESERVATION" in y and "512M" in y
+    assert "HERMES_CPU_LIMIT: '2.0'" in y
+    assert "HERMES_MEM_LIMIT: 2G" in y
+    assert "HERMES_MEM_RESERVATION: 512M" in y
     assert "HERMES_EDITION=business" in e
     assert "HERMES_WORKSPACE_GH_PAT" not in e
 
@@ -274,6 +275,7 @@ def test_gen_hermes_edition_defaults_to_business():
     del hermes["edition"]
     _, y, _, e = gen_hermes(tenant, hermes, "production")
     assert "HERMES_EDITION: business" in y
+    assert "HERMES_MEM_LIMIT: 2G" in y
     assert "HERMES_WORKSPACE_GH_PAT" not in e
 
 

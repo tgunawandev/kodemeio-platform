@@ -65,6 +65,21 @@ ODOO_RECIPES: dict[str, tuple[str, str]] = {
     ),
 }
 
+# Per-edition container resource limits. business == docker-compose.prod.yml
+# defaults; superuser is raised (coding agents run Node/builds and OOM at 2G).
+HERMES_EDITION_RESOURCES: dict[str, dict[str, str]] = {
+    "superuser": {
+        "HERMES_CPU_LIMIT": "4.0",
+        "HERMES_MEM_LIMIT": "6G",
+        "HERMES_MEM_RESERVATION": "1G",
+    },
+    "business": {
+        "HERMES_CPU_LIMIT": "2.0",
+        "HERMES_MEM_LIMIT": "2G",
+        "HERMES_MEM_RESERVATION": "512M",
+    },
+}
+
 
 def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
     """Resolve a tenant `recipe:` (preferred) or legacy `profile:` value to
@@ -793,22 +808,6 @@ def gen_notify(
     )
 
     return yaml_filename, yaml_dump(instance), env_example_filename, env_example
-
-
-# Per-edition container resource limits. business == docker-compose.prod.yml
-# defaults; superuser is raised (coding agents run Node/builds and OOM at 2G).
-HERMES_EDITION_RESOURCES: dict[str, dict[str, str]] = {
-    "superuser": {
-        "HERMES_CPU_LIMIT": "4.0",
-        "HERMES_MEM_LIMIT": "6G",
-        "HERMES_MEM_RESERVATION": "1G",
-    },
-    "business": {
-        "HERMES_CPU_LIMIT": "2.0",
-        "HERMES_MEM_LIMIT": "2G",
-        "HERMES_MEM_RESERVATION": "512M",
-    },
-}
 
 
 def gen_hermes(
