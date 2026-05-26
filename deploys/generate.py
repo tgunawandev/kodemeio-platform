@@ -795,6 +795,22 @@ def gen_notify(
     return yaml_filename, yaml_dump(instance), env_example_filename, env_example
 
 
+# Per-edition container resource limits. business == docker-compose.prod.yml
+# defaults; superuser is raised (coding agents run Node/builds and OOM at 2G).
+HERMES_EDITION_RESOURCES: dict[str, dict[str, str]] = {
+    "superuser": {
+        "HERMES_CPU_LIMIT": "4.0",
+        "HERMES_MEM_LIMIT": "6G",
+        "HERMES_MEM_RESERVATION": "1G",
+    },
+    "business": {
+        "HERMES_CPU_LIMIT": "2.0",
+        "HERMES_MEM_LIMIT": "2G",
+        "HERMES_MEM_RESERVATION": "512M",
+    },
+}
+
+
 def gen_hermes(
     tenant: dict,
     hermes: dict,
@@ -816,6 +832,13 @@ def gen_hermes(
         raise ValueError(
             f"tenants/{code}.yaml: hermes.enabled is true but hermes.server is "
             f"required (no implicit default — must declare server explicitly)"
+        )
+
+    edition = hermes.get("edition", "business")
+    if edition not in ("superuser", "business"):
+        raise ValueError(
+            f"tenants/{code}.yaml: hermes.edition must be 'superuser' or 'business', "
+            f"got {edition!r}"
         )
 
     inbound = hermes.get("inbound", {})
@@ -868,6 +891,10 @@ def gen_hermes(
         "project": code,
         "server": server,
         "env_file": f"../../env/{env_name}/.env.{code}-infra-hermes",
+        "env_overrides": {
+            "HERMES_EDITION": edition,
+            **HERMES_EDITION_RESOURCES[edition],
+        },
     }
 
     # Compose env.example block-by-block based on enabled adapters
@@ -876,6 +903,7 @@ def gen_hermes(
         "# This file documents the env contract; never commit secrets here.",
         "",
         "# === Upstream image + identity ===",
+        f"HERMES_EDITION={edition}",
         "HERMES_UPSTREAM_REF=v2026.5.16",
         "HERMES_LOG_LEVEL=info",
         "HERMES_UID=10000",
@@ -883,6 +911,15 @@ def gen_hermes(
         "TZ=Asia/Jakarta",
         "",
     ]
+
+    if edition == "superuser":
+        lines += [
+            "# === Coding-agent workspace (superuser only) ===",
+            "# Fine-grained GitHub PAT (Contents+PRs RW). Set yourself; never paste in chat.",
+            "# OAuth (Claude/ChatGPT) bootstrapped once via scripts/bootstrap-coding-agents.sh.",
+            "HERMES_WORKSPACE_GH_PAT=CHANGE_ME",
+            "",
+        ]
 
     if telegram_on:
         lines += [

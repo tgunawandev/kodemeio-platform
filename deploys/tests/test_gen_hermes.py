@@ -209,3 +209,76 @@ def test_gen_hermes_idempotent():
     out1 = gen_hermes(tenant, hermes, "production")
     out2 = gen_hermes(tenant, hermes, "production")
     assert out1 == out2
+
+
+def _kod_superuser():
+    tenant = {
+        "code": "kod",
+        "name": "Kodemeio",
+        "short_name": "KOD",
+        "domain": "kodeme.io",
+    }
+    hermes = {
+        "enabled": True,
+        "server": "kod-prod-04-claude",
+        "inbound": {"telegram": {"enabled": True}, "mattermost": {"enabled": False}},
+        "memory": {"honcho": {"enabled": False}},
+        "edition": "superuser",
+    }
+    return tenant, hermes
+
+
+def _tpp_business():
+    tenant = {"code": "tpp", "name": "TPP", "short_name": "TPP", "domain": "idtpp.com"}
+    hermes = {
+        "enabled": True,
+        "server": "tpp-prod-01",
+        "inbound": {
+            "telegram": {"enabled": False},
+            "mattermost": {
+                "enabled": True,
+                "url": "https://mm.idtpp.com",
+                "allowed_channels": ["c1"],
+            },
+        },
+        "memory": {"honcho": {"enabled": False}},
+        "edition": "business",
+    }
+    return tenant, hermes
+
+
+def test_gen_hermes_superuser_emits_overrides_and_pat():
+    tenant, hermes = _kod_superuser()
+    _, y, _, e = gen_hermes(tenant, hermes, "production")
+    assert "env_overrides:" in y
+    assert "HERMES_EDITION: superuser" in y
+    assert "HERMES_CPU_LIMIT" in y and "4.0" in y
+    assert "HERMES_MEM_LIMIT" in y and "6G" in y
+    assert "HERMES_MEM_RESERVATION" in y and "1G" in y
+    assert "HERMES_EDITION=superuser" in e
+    assert "HERMES_WORKSPACE_GH_PAT=CHANGE_ME" in e
+
+
+def test_gen_hermes_business_no_pat():
+    tenant, hermes = _tpp_business()
+    _, y, _, e = gen_hermes(tenant, hermes, "production")
+    assert "HERMES_EDITION: business" in y
+    assert "HERMES_MEM_LIMIT" in y and "2G" in y
+    assert "HERMES_MEM_RESERVATION" in y and "512M" in y
+    assert "HERMES_EDITION=business" in e
+    assert "HERMES_WORKSPACE_GH_PAT" not in e
+
+
+def test_gen_hermes_edition_defaults_to_business():
+    tenant, hermes = _tpp_business()
+    del hermes["edition"]
+    _, y, _, e = gen_hermes(tenant, hermes, "production")
+    assert "HERMES_EDITION: business" in y
+    assert "HERMES_WORKSPACE_GH_PAT" not in e
+
+
+def test_gen_hermes_invalid_edition_raises():
+    tenant, hermes = _tpp_business()
+    hermes["edition"] = "admin"
+    with pytest.raises(ValueError, match="edition"):
+        gen_hermes(tenant, hermes, "production")
