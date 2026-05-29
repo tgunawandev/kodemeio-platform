@@ -43,6 +43,9 @@ schedulers:
   - name: maintenance
     schedule_file: tpp-maintenance.ini
     server: tpp-prod-01
+  - name: reports
+    schedule_file: tpp-reports.ini
+    server: tpp-prod-01
 
 services:
   notify:

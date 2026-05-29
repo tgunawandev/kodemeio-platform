@@ -1,0 +1,13 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/ofelia.yaml
+instance:
+  name: tpp-ofelia-reports
+  description: Pakerti — Ofelia scheduler (reports)
+project: tpp
+environment: production
+server: tpp-prod-01
+env_file: ../../env/production/.env.tpp-ofelia-reports
+env_overrides:
+  SCHEDULE_FILE: tpp-reports.ini
+  CONTAINER_NAME: tpp-ofelia-reports
