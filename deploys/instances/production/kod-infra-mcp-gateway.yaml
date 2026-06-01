@@ -6,7 +6,7 @@ instance:
   description: "MCP proxy gateway — aggregates backend MCP servers behind mcp.kodeme.io"
 
 project: kod
-server: kod-prod-02
+server: kod-prod-04-claude
 
 source_overrides:
   repo: kodemeio-mcp
