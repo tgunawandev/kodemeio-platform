@@ -1,0 +1,22 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-mcp-gateway
+  description: "MCP proxy gateway — aggregates backend MCP servers behind mcp.kodeme.io"
+
+project: kod
+server: kod-prod-02
+
+source_overrides:
+  repo: kodemeio-mcp
+  compose_path: apps/mcp-gateway/docker-compose.prod.yml
+
+domain:
+  host: mcp.kodeme.io
+  port: 8080
+  service: mcp-gateway
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-mcp-gateway
