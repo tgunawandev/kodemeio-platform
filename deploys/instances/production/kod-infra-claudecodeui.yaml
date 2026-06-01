@@ -1,0 +1,40 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-claudecodeui
+  description: "Claude Code UI — web/mobile dev front-end for Claude Code + Codex (vendor-wrap of siteboon/claudecodeui)"
+
+project: kod
+environment: production
+server: kod-prod-03-data    # proven HTTPS host (Traefik present; Honcho + Hermes-WebUI live here)
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-claudecodeui
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+dns:
+  zone: kodeme.io
+  name: claudecodeui
+
+domain:
+  host: claudecodeui.kodeme.io
+  port: 3001
+  service: claudecodeui
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-claudecodeui
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: kod-infra-claudecodeui
+  DOMAIN: claudecodeui.kodeme.io
+
+healthcheck:
+  path: /health
+  port: 3001
+  expected_status: 200
+  timeout: 60
+  interval: 30
