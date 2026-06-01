@@ -1,0 +1,31 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-baserow
+  description: "Baserow no-code database (all-in-one, TPP-facing at br.idtpp.com)"
+
+project: kod
+server: kod-prod-05-app
+
+source_overrides:
+  repo: kodemeio-baserow
+  compose_path: ./docker-compose.prod.yml
+
+dns:
+  zone: idtpp.com
+  name: br
+
+domain:
+  host: br.idtpp.com
+  port: 80
+  service: baserow
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.kod-infra-baserow
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: kodemeio-baserow
+  TENANT: kodemeio
+  TZ: Asia/Jakarta
