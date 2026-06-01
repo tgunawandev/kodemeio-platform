@@ -6,7 +6,7 @@ instance:
   description: "MCP proxy gateway — aggregates backend MCP servers behind mcp.kodeme.io"
 
 project: kod
-server: kod-prod-04-claude
+server: kod-prod-03-data
 
 source_overrides:
   owner: tgunawandev
