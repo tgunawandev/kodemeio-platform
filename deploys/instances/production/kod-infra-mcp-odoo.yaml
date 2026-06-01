@@ -1,0 +1,19 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: kod-infra-mcp-odoo
+  description: "Community Odoo MCP (tuanle96/mcp-odoo) — internal backend proxied by mcp.kodeme.io"
+
+project: kod
+# Colocate with the gateway so they share dokploy-network on the same host.
+server: kod-prod-03-data
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-mcp
+  branch: main
+  compose_path: apps/mcp-odoo/docker-compose.prod.yml
+
+# Internal backend — no domain block (reached only via dokploy-network alias kod-mcp-odoo).
+env_file: ../../env/production/.env.kod-infra-mcp-odoo
