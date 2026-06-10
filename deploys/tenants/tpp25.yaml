@@ -1,0 +1,24 @@
+tenant:
+  code: tpp25
+  name: "Pakerti 2025"
+  short_name: "Pakerti 2025"
+  domain: idtpp.com
+
+# Exact copy of tpp-odoo-erp (import recipe / profile-erp / 4 workers), deployed
+# on tpp-prod-05. Database tpp25_odoo_erp lives on the shared postgres (10.0.0.2,
+# tpp-prod-01) — same topology as tpp-odoo-erp; the Odoo container runs on
+# tpp-prod-05 and connects over the private network. Production-only; no staging,
+# no React PWAs, no satellites (single ERP instance by design).
+
+environments:
+  production:
+    server: tpp-prod-05
+    dns_prefix: ""
+    db_prefix: ""
+    auto_deploy: false
+
+odoo:
+  - recipe: import
+    short: erp
+    description: "ERP — Import + Trading + Distribution (multi-company, 43 CVs)"
+    workers: 4

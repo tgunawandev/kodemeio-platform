@@ -1,0 +1,35 @@
+# GENERATED FROM tenants/tpp25.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/odoo.yaml
+instance:
+  name: tpp25-odoo-erp
+  description: Pakerti 2025 — ERP — Import + Trading + Distribution (multi-company,
+    43 CVs)
+project: tpp25
+environment: production
+server: tpp-prod-05
+dns:
+  zone: idtpp.com
+  name: tpp25-odoo-erp
+domain:
+  host: tpp25-odoo-erp.idtpp.com
+  port: 8069
+  service: odoo-web
+  https: true
+  cert: letsencrypt
+database:
+  name: tpp25_odoo_erp
+  user: odoo
+env_file: ../../env/production/.env.tpp25-odoo-erp
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp25-odoo-erp
+  TENANT: tpp25
+  PGDATABASE: tpp25_odoo_erp
+  PGUSER: odoo
+  ODOO_DB_FILTER: ^tpp25_odoo_erp$
+  DOMAIN: tpp25-odoo-erp.idtpp.com
+  ODOO_WORKERS: '4'
+post_deploy:
+  odoo_profile: profile-erp
+  odoo_install_bundle: ''
+  recipe: import
