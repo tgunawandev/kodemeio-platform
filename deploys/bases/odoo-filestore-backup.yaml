@@ -1,0 +1,46 @@
+# Naming convention for instances:
+#   File:     {tenant}-odoo-filestore-backup.yaml
+#   Instance: {tenant}-odoo-filestore-backup
+#   Env file: .env.{tenant}-odoo-filestore-backup
+#
+# A standalone restic stack that snapshots one Odoo instance's filestore
+# volume to S3. It mounts that volume external + READ-ONLY and is deployed on
+# the SAME server as the Odoo instance. It never touches the Odoo compose:
+# no shared image, no shared compose, no redeploy, no restart.
+#
+# FILESTORE_VOLUME must be the exact docker volume name on the host. Dokploy
+# names compose volumes {appName}_{volume} and ignores COMPOSE_PROJECT_NAME,
+# so small decoy volumes (e.g. tpp-odoo-erp_odoo-filestore, 6.2 MB) sit beside
+# the live one. bin/filestore-backup's guard refuses to snapshot when the
+# expected database directory is missing or the file count collapses, so a
+# wrong volume fails loudly instead of backing up nothing.
+#
+# Production only — staging filestores are disposable clones.
+#
+# All cron expressions are UTC; production hosts run Etc/UTC.
+
+kind: base
+type: infrastructure
+
+source:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-odoo
+  branch: "18.0"
+  compose_path: ./compose/odoo.filestore-backup.yml
+
+server: kodeme-service
+project: kod
+
+healthcheck:
+  test: ["CMD-SHELL", "pidof crond >/dev/null"]
+  port: 0
+  timeout: 10
+  interval: 60
+  start_period: 30
+
+env_defaults:
+  BACKUP_IMAGE_TAG: "latest"
+  BACKUP_CRON: "7 */2 * * *"
+  BACKUP_CRON_MAINT: "40 4 * * 0"
+  BACKUP_KEEP: "--keep-hourly 48 --keep-daily 14 --keep-weekly 8 --keep-monthly 12"

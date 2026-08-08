@@ -80,3 +80,21 @@ hermes:
   memory:
     honcho:
       enabled: false
+
+# Filestore (attachment) backups — production only.
+#
+# volume MUST be the exact docker volume name on the host: Dokploy names
+# compose volumes {appName}_{volume} and ignores COMPOSE_PROJECT_NAME, so
+# tpp-odoo-erp_odoo-filestore (6.2 MB) is a DECOY sitting beside the live one.
+# Measured 2026-08-08: 40,927 files / 21 GB on tpp-prod-03.
+#
+# pinned_cron runs 15 min after the 02:35 UTC pg_dump, so there is always a
+# filestore snapshot NEWER than the database dump it will be restored with.
+filestore_backups:
+  - short: erp
+    volume: compose-quantify-cross-platform-panel-898kcx_odoo-filestore
+    database: tpp_odoo_erp
+    min_files: 36000
+    pinned_cron: "50 2 * * *"
+    bucket: hz-tpp-odoo-filestore
+    server: tpp-prod-03

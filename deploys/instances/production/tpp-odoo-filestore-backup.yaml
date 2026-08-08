@@ -1,0 +1,18 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/odoo-filestore-backup.yaml
+instance:
+  name: tpp-odoo-filestore-backup
+  description: Pakerti — filestore backup (erp) → hz-tpp-odoo-filestore
+project: tpp
+environment: production
+server: tpp-prod-03
+env_file: ../../env/production/.env.tpp-odoo-filestore-backup
+env_overrides:
+  TENANT: tpp
+  FILESTORE_VOLUME: compose-quantify-cross-platform-panel-898kcx_odoo-filestore
+  FILESTORE_DB: tpp_odoo_erp
+  FILESTORE_MIN_FILES: '36000'
+  BACKUP_TAG: tpp-odoo-erp
+  BACKUP_CRON_PINNED: 50 2 * * *
+  RESTIC_REPOSITORY: s3:https://fsn1.your-objectstorage.com/hz-tpp-odoo-filestore/tpp-odoo-erp
