@@ -98,3 +98,20 @@ filestore_backups:
     pinned_cron: "50 2 * * *"
     bucket: hz-tpp-odoo-filestore
     server: tpp-prod-03
+
+  # Staging canary — proves the whole cycle (seed, guard, restore) on a real
+  # Odoo filestore before production is touched. Own restic repo, so a staging
+  # retention run can never prune production history.
+  #
+  # server is pinned to tpp-prod-07 because that is where tpp-odoo-erp-stg
+  # ACTUALLY runs; the staging manifests claim tpp-stg-01, which is not a
+  # server Dokploy knows about.
+  # Measured 2026-08-08: 548 files / 160 MB.
+  - short: erp
+    environment: staging
+    volume: compose-compress-virtual-program-t5pjl6_odoo-filestore
+    database: tpp_odoo_erp_stg
+    min_files: 490
+    pinned_cron: ""
+    bucket: hz-tpp-odoo-filestore
+    server: tpp-prod-07

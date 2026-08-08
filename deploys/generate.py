@@ -714,6 +714,7 @@ def gen_filestore_backup(
     entry: dict,
     env_name: str = "production",
     server: str = "",
+    suffix: str = "",
 ) -> tuple[str, str, str, str]:
     """Generate a filestore backup instance YAML + env.example.
 
@@ -728,8 +729,10 @@ def gen_filestore_backup(
     code = tenant["code"]
     name = tenant["name"]
     short = entry["short"]
-    instance_name = f"{code}-odoo-filestore-backup"
-    repo_prefix = f"{code}-odoo-{short}"
+    # The suffix keeps staging in its OWN restic repository — sharing one with
+    # production would let a staging run's retention prune production history.
+    instance_name = f"{code}-odoo-filestore-backup{suffix}"
+    repo_prefix = f"{code}-odoo-{short}{suffix}"
     bucket = entry["bucket"]
     endpoint = "https://fsn1.your-objectstorage.com"
 
@@ -1139,15 +1142,18 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
             files.append((inst_dir / y_name, header + y_content))
             files.append((env_dir / e_name, e_content))
 
-        # --- Filestore backups (production only) ---
-        # Staging filestores are disposable clones, and the pinned volume names
-        # below are production volumes on specific hosts.
-        if env_name == "production":
-            for fsb in raw.get("filestore_backups", []):
-                fsb_server = fsb.get("server", server)
-                y_name, y_content, e_name, e_content = gen_filestore_backup(t, fsb, env_name, fsb_server)
-                files.append((inst_dir / y_name, header + y_content))
-                files.append((env_dir / e_name, e_content))
+        # --- Filestore backups ---
+        # Each entry names an EXACT docker volume on an EXACT host, so it is
+        # tied to one environment; entries declare which (default production).
+        # dns_suffix keeps staging in its own restic repository — sharing one
+        # with production would let a staging retention run prune prod history.
+        for fsb in raw.get("filestore_backups", []):
+            if fsb.get("environment", "production") != env_name:
+                continue
+            fsb_server = fsb.get("server", server)
+            y_name, y_content, e_name, e_content = gen_filestore_backup(t, fsb, env_name, fsb_server, dns_suffix)
+            files.append((inst_dir / y_name, header + y_content))
+            files.append((env_dir / e_name, e_content))
 
         # --- Notify ---
         services = raw.get("services", {})

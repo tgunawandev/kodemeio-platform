@@ -56,6 +56,46 @@ def test_pinned_cron_is_carried_through():
     assert "BACKUP_CRON_PINNED: 50 2 * * *" in y_content
 
 
+STAGING_ENTRY = {
+    "short": "erp",
+    "environment": "staging",
+    "volume": "compose-compress-virtual-program-t5pjl6_odoo-filestore",
+    "database": "tpp_odoo_erp_stg",
+    "min_files": 490,
+    "bucket": "hz-tpp-odoo-filestore",
+    "server": "tpp-prod-07",
+}
+
+
+def test_staging_entry_gets_a_suffixed_name_and_its_own_repo():
+    """Staging must never share a restic repository with production."""
+    from generate import gen_filestore_backup
+
+    y_name, y_content, e_name, _ = gen_filestore_backup(TENANT, STAGING_ENTRY, "staging", "tpp-prod-07", suffix="-stg")
+
+    assert y_name == "tpp-odoo-filestore-backup-stg.yaml"
+    assert "name: tpp-odoo-filestore-backup-stg" in y_content
+    assert "hz-tpp-odoo-filestore/tpp-odoo-erp-stg" in y_content
+    assert "FILESTORE_DB: tpp_odoo_erp_stg" in y_content
+    assert "compose-compress-virtual-program-t5pjl6_odoo-filestore" in y_content
+    assert e_name == ".env.tpp-odoo-filestore-backup-stg.example"
+
+
+def test_staging_repo_differs_from_production_repo():
+    from generate import gen_filestore_backup
+
+    _, prod, _, _ = gen_filestore_backup(TENANT, ENTRY, "production", "tpp-prod-03")
+    _, stg, _, _ = gen_filestore_backup(TENANT, STAGING_ENTRY, "staging", "tpp-prod-07", suffix="-stg")
+
+    def repo(text):
+        for line in text.splitlines():
+            if "RESTIC_REPOSITORY:" in line:
+                return line.split("RESTIC_REPOSITORY:", 1)[1].strip()
+        raise AssertionError("no RESTIC_REPOSITORY")
+
+    assert repo(prod) != repo(stg)
+
+
 def test_env_example_never_carries_a_real_password():
     from generate import gen_filestore_backup
 
