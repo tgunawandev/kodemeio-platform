@@ -12,7 +12,7 @@ tenant:
 
 environments:
   production:
-    server: tpp-prod-05
+    server: tpp-prod-07
     dns_prefix: ""
     db_prefix: ""
     auto_deploy: false
@@ -22,3 +22,20 @@ odoo:
     short: erp
     description: "ERP — Import + Trading + Distribution (multi-company, 43 CVs)"
     workers: 4
+
+# Filestore (attachment) backups — production only.
+#
+# volume MUST be the exact docker volume name on the host; tpp-prod-07 carries
+# SIX *_odoo-filestore volumes and only this one is live.
+# Measured 2026-08-08: 21,336 files / 6.5 GB.
+#
+# pinned_cron runs 15 min after the 03:05 UTC pg_dump, so there is always a
+# filestore snapshot NEWER than the database dump it will be restored with.
+filestore_backups:
+  - short: erp
+    volume: compose-index-back-end-bus-xbznq4_odoo-filestore
+    database: tpp25_odoo_erp
+    min_files: 19000
+    pinned_cron: "20 3 * * *"
+    bucket: hz-tpp-odoo-filestore
+    server: tpp-prod-07
