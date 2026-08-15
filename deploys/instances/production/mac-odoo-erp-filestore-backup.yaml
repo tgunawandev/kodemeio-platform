@@ -12,7 +12,7 @@ env_overrides:
   TENANT: mac
   FILESTORE_VOLUME: compose-calculate-neural-matrix-phtlsl_odoo-filestore
   FILESTORE_DB: mac_odoo_erp
-  FILESTORE_MIN_FILES: '1500'
+  FILESTORE_MIN_FILES: '1732'
   BACKUP_TAG: mac-odoo-erp
   BACKUP_CRON_PINNED: 20 1 * * *
   RESTIC_REPOSITORY: s3:https://fsn1.your-objectstorage.com/hz-mac-odoo-filestore/mac-odoo-erp

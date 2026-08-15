@@ -12,7 +12,7 @@ env_overrides:
   TENANT: mac
   FILESTORE_VOLUME: compose-bypass-cross-platform-interface-j4al4h_odoo-filestore
   FILESTORE_DB: mac_odoo_hrms
-  FILESTORE_MIN_FILES: '650'
+  FILESTORE_MIN_FILES: '216'
   BACKUP_TAG: mac-odoo-hrms
   BACKUP_CRON_PINNED: 25 1 * * *
   RESTIC_REPOSITORY: s3:https://fsn1.your-objectstorage.com/hz-mac-odoo-filestore/mac-odoo-hrms

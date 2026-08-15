@@ -68,12 +68,20 @@ hermes:
 # filestore backups, and without it both entries generate the same instance and
 # env filename (see deploys/tests/test_gen_filestore_backup.py).
 #
-# min_files is PROVISIONAL. There is no sanctioned way to count files on the
-# host (no kctl-dokploy exec/ssh; RPC reaches ORM methods only; direct SSH to
-# prod is forbidden), so these are derived from ir_attachment distinct blobs
-# (erp 1,900 / hrms 852) discounted ~20% -- distinct blobs are NOT a safe lower
-# bound, tpp had 42,717 blobs against 40,927 files on disk. Tighten to 90% of
-# the real files=N once the first snapshot reports it.
+# min_files MEASURED 2026-08-15 from the first snapshot of each volume, which is
+# the only way to learn it (no kctl-dokploy exec/ssh; RPC reaches ORM methods
+# only; direct SSH to prod is forbidden). Set to 90% of the real count.
+#   erp  : 1925 files -> 1732
+#   hrms :  241 files ->  216
+#
+# The provisional guesses (1500 / 650) were derived from ir_attachment distinct
+# blobs and the hrms one was WRONG -- the guard refused the first hrms snapshot
+# with "241 files, floor is 650", which is the guard working as designed.
+# hrms holds 241 files against 852 DB-referenced blobs; that is NOT missing data:
+# 852 distinct blobs total 40 MB while the volume holds 45 MB, so the big objects
+# (20 ir.ui.view asset bundles = 24 MB) are present and the ~611 absent ones are
+# overwhelmingly module-shipped payment.method icons at ~2 kB each (374 blobs =
+# 723 kB total). Never raise a floor to make a guard pass -- measure, then set.
 #
 # pinned_cron runs after each nightly pg_dump (mac_odoo_erp 01:05,
 # mac_odoo_hrms 01:10 UTC) so a filestore snapshot is always NEWER than the
@@ -83,7 +91,7 @@ filestore_backups:
     instance_short: erp
     volume: compose-calculate-neural-matrix-phtlsl_odoo-filestore
     database: mac_odoo_erp
-    min_files: 1500
+    min_files: 1732
     pinned_cron: "20 1 * * *"
     bucket: hz-mac-odoo-filestore
     server: tpp-prod-02
@@ -92,7 +100,7 @@ filestore_backups:
     instance_short: hrms
     volume: compose-bypass-cross-platform-interface-j4al4h_odoo-filestore
     database: mac_odoo_hrms
-    min_files: 650
+    min_files: 216
     pinned_cron: "25 1 * * *"
     bucket: hz-mac-odoo-filestore
     server: tpp-prod-02
