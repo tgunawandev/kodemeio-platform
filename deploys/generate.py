@@ -731,7 +731,18 @@ def gen_filestore_backup(
     short = entry["short"]
     # The suffix keeps staging in its OWN restic repository — sharing one with
     # production would let a staging run's retention prune production history.
-    instance_name = f"{code}-odoo-filestore-backup{suffix}"
+    #
+    # A tenant with MORE THAN ONE filestore backup in the same environment must
+    # disambiguate the instance name, or both entries generate the same YAML and
+    # env filename and the write loop in main() silently keeps only the last —
+    # one repository would never exist while the deploy reported success. tpp and
+    # tpp25 have a single production entry each and omit this, so their live
+    # compose and already-seeded repo names are unchanged.
+    instance_short = entry.get("instance_short", "")
+    if instance_short:
+        instance_name = f"{code}-odoo-{instance_short}-filestore-backup{suffix}"
+    else:
+        instance_name = f"{code}-odoo-filestore-backup{suffix}"
     repo_prefix = f"{code}-odoo-{short}{suffix}"
     bucket = entry["bucket"]
     endpoint = "https://fsn1.your-objectstorage.com"

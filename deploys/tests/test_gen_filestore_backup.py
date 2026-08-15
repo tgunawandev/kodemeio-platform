@@ -106,3 +106,64 @@ def test_env_example_never_carries_a_real_password():
     assert "AWS_ACCESS_KEY_ID=CHANGEME" in e_content
     # the operator must be told where the real one lives
     assert "1Password" in e_content
+
+
+MAC = {"code": "mac", "name": "Mandiri Agro", "domain": "idtpp.com"}
+MAC_ERP = {
+    "short": "erp",
+    "instance_short": "erp",
+    "volume": "compose-calculate-neural-matrix-phtlsl_odoo-filestore",
+    "database": "mac_odoo_erp",
+    "min_files": 1000,
+    "pinned_cron": "20 1 * * *",
+    "bucket": "hz-mac-odoo-filestore",
+    "server": "tpp-prod-02",
+}
+MAC_HRMS = {
+    "short": "hrms",
+    "instance_short": "hrms",
+    "volume": "compose-bypass-cross-platform-interface-j4al4h_odoo-filestore",
+    "database": "mac_odoo_hrms",
+    "min_files": 500,
+    "pinned_cron": "25 1 * * *",
+    "bucket": "hz-mac-odoo-filestore",
+    "server": "tpp-prod-02",
+}
+
+
+def test_two_production_entries_do_not_collide():
+    """mac is the first tenant with two production filestore backups. Without
+    instance_short both would generate mac-odoo-filestore-backup.yaml and the
+    same env filename, and the write loop in main() would keep only the last --
+    leaving one repository that silently never exists while the deploy reports
+    success."""
+    from generate import gen_filestore_backup
+
+    erp_yaml, _, erp_env, _ = gen_filestore_backup(MAC, MAC_ERP, "production", "tpp-prod-02")
+    hrms_yaml, _, hrms_env, _ = gen_filestore_backup(MAC, MAC_HRMS, "production", "tpp-prod-02")
+
+    assert erp_yaml == "mac-odoo-erp-filestore-backup.yaml"
+    assert hrms_yaml == "mac-odoo-hrms-filestore-backup.yaml"
+    assert erp_yaml != hrms_yaml
+    assert erp_env != hrms_env
+
+
+def test_instance_short_absent_keeps_the_existing_name():
+    """tpp and tpp25 must not be renamed -- a rename would orphan their live
+    Dokploy composes and their already-seeded restic repositories."""
+    from generate import gen_filestore_backup
+
+    y_name, _, e_name, _ = gen_filestore_backup(TENANT, ENTRY, "production", "tpp-prod-03")
+
+    assert y_name == "tpp-odoo-filestore-backup.yaml"
+    assert e_name == ".env.tpp-odoo-filestore-backup.example"
+
+
+def test_mac_entries_get_separate_repositories():
+    from generate import gen_filestore_backup
+
+    _, erp_content, _, _ = gen_filestore_backup(MAC, MAC_ERP, "production", "tpp-prod-02")
+    _, hrms_content, _, _ = gen_filestore_backup(MAC, MAC_HRMS, "production", "tpp-prod-02")
+
+    assert "hz-mac-odoo-filestore/mac-odoo-erp" in erp_content
+    assert "hz-mac-odoo-filestore/mac-odoo-hrms" in hrms_content
