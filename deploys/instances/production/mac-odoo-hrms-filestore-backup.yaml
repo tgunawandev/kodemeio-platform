@@ -1,0 +1,18 @@
+# GENERATED FROM tenants/mac.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/odoo-filestore-backup.yaml
+instance:
+  name: mac-odoo-hrms-filestore-backup
+  description: Mandiri Agro — filestore backup (hrms) → hz-mac-odoo-filestore
+project: mac
+environment: production
+server: tpp-prod-02
+env_file: ../../env/production/.env.mac-odoo-hrms-filestore-backup
+env_overrides:
+  TENANT: mac
+  FILESTORE_VOLUME: compose-bypass-cross-platform-interface-j4al4h_odoo-filestore
+  FILESTORE_DB: mac_odoo_hrms
+  FILESTORE_MIN_FILES: '650'
+  BACKUP_TAG: mac-odoo-hrms
+  BACKUP_CRON_PINNED: 25 1 * * *
+  RESTIC_REPOSITORY: s3:https://fsn1.your-objectstorage.com/hz-mac-odoo-filestore/mac-odoo-hrms

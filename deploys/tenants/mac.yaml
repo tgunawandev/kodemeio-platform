@@ -59,3 +59,40 @@ hermes:
   memory:
     honcho:
       enabled: false
+
+# volume MUST be the exact docker volume name on tpp-prod-02: Dokploy names
+# compose volumes {appName}_{volume} and ignores COMPOSE_PROJECT_NAME, so decoy
+# filestore volumes sit beside the live ones. Read off Dokploy appName 2026-08-15.
+#
+# instance_short is REQUIRED here: mac is the first tenant with two production
+# filestore backups, and without it both entries generate the same instance and
+# env filename (see deploys/tests/test_gen_filestore_backup.py).
+#
+# min_files is PROVISIONAL. There is no sanctioned way to count files on the
+# host (no kctl-dokploy exec/ssh; RPC reaches ORM methods only; direct SSH to
+# prod is forbidden), so these are derived from ir_attachment distinct blobs
+# (erp 1,900 / hrms 852) discounted ~20% -- distinct blobs are NOT a safe lower
+# bound, tpp had 42,717 blobs against 40,927 files on disk. Tighten to 90% of
+# the real files=N once the first snapshot reports it.
+#
+# pinned_cron runs after each nightly pg_dump (mac_odoo_erp 01:05,
+# mac_odoo_hrms 01:10 UTC) so a filestore snapshot is always NEWER than the
+# database dump it will be restored alongside, never older.
+filestore_backups:
+  - short: erp
+    instance_short: erp
+    volume: compose-calculate-neural-matrix-phtlsl_odoo-filestore
+    database: mac_odoo_erp
+    min_files: 1500
+    pinned_cron: "20 1 * * *"
+    bucket: hz-mac-odoo-filestore
+    server: tpp-prod-02
+
+  - short: hrms
+    instance_short: hrms
+    volume: compose-bypass-cross-platform-interface-j4al4h_odoo-filestore
+    database: mac_odoo_hrms
+    min_files: 650
+    pinned_cron: "25 1 * * *"
+    bucket: hz-mac-odoo-filestore
+    server: tpp-prod-02
