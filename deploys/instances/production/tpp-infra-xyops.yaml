@@ -1,0 +1,80 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-xyops
+  description: "xyOps conductor — job scheduling, monitoring, alerting (replaces Ofelia)"
+
+project: tpp
+environment: production
+
+# tpp-prod-04 was reserved for Mattermost + RTC. Production Mattermost moved to
+# tpp-prod-06 (Singapore), leaving this host running only Traefik at 0.00 load.
+# It is the only host in the estate with no production co-tenancy, which is why
+# the ops control plane lands here rather than on the already-concentrated
+# tpp-prod-01. Reservation released 2026-08-15.
+server: tpp-prod-04
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-xyops
+  branch: main
+  compose_path: compose/xyops.yml
+
+dns:
+  zone: idtpp.com
+  name: xyops
+
+domain:
+  host: xyops.idtpp.com
+  port: 5522
+  service: xyops
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-xyops
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-xyops
+  TZ: Asia/Jakarta
+
+# The infra base's `backup:` block targets postgres; xyOps has no database
+# service — its state is the xyops-data volume (SQLite + files). Disable the
+# inherited phase so it stops failing every deploy, and back the volume up
+# with the restic pattern already used for the Odoo filestores instead.
+#
+# NOTE: Dokploy prefixes compose volume names with its generated appName, so
+# the on-host volume is NOT `xyops-data`. As of 2026-08-15 it is
+# `compose-synthesize-auxiliary-feed-1ise1r_xyops-data` — resolve it with
+# `docker volume ls | grep xyops` on tpp-prod-04 before configuring a backup,
+# or the backup will silently archive nothing.
+# `backup: enabled: false` does NOT work — the deployer's phase_backup skips
+# only when the resolved backup config is null (orchestrator.py `if backup is
+# None`), so `enabled: false` merely blanks the destination and the phase still
+# fails. An explicit null is what actually disables it.
+# (kod-infra-notify.yaml uses the non-working `enabled: false` form and is
+# presumably failing this phase on every deploy too.)
+backup: {}
+
+# Task 3: the real backup. xyOps' entire state is the xyops-data volume
+# (SQLite + files), so a volume backup is the correct mechanism, not the
+# base's postgres dump.
+#
+# `volume` MUST be the exact on-host docker volume name. Dokploy prefixes
+# compose volumes with its generated appName, so this is NOT `xyops-data`.
+# Re-resolve it with `docker volume ls | grep xyops` on tpp-prod-04 if the
+# compose is ever recreated — a wrong name backs up nothing, silently.
+#
+# turn_off is false so the scheduler keeps running during the backup window.
+# That copies SQLite hot, which is why the restore MUST be proven rather than
+# assumed; if a restore ever shows a torn database, switch turn_off to true
+# and accept the brief scheduler outage (report events have catchup enabled).
+volume_backups:
+  - service: xyops
+    volume: compose-synthesize-auxiliary-feed-1ise1r_xyops-data
+    destination: hz-tpp-odoo-filestore
+    cron_schedule: "0 3 * * *"
+    prefix: xyops/
+    keep_latest: 14
+    turn_off: false
