@@ -28,6 +28,7 @@ env_overrides:
   ODOO_DB_FILTER: ^kod_odoo_full_stg$
   DOMAIN: kod-odoo-full-stg.kodeme.io
   ODOO_WORKERS: '6'
+  ODOO_MAX_CRON_THREADS: '0'
 post_deploy:
   odoo_profile: profile-erp
   odoo_install_bundle: core-hr,core-maintenance,core-fleet,oca-report,oca-hr,oca-maintenance,oca-pos,oca-saas,private-finance-hr,private-form,private-sfa,private-lfa,private-mrp,private-hrm,private-desktop-apps,private-retail,private-analytics,private-asset,private-recruitment,private-saas

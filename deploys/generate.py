@@ -271,6 +271,22 @@ def gen_odoo(
                 "ODOO_DB_FILTER": f"^{db_name}$",
                 "DOMAIN": host,
                 "ODOO_WORKERS": str(workers),
+                # 🔴 Staging runs ZERO cron threads.
+                #
+                # A staging instance is a restored production dump. backups pull
+                # neutralises it (ir_cron.active=false, mail off, uuid scrambled)
+                # and then the redeploy runs `-u`, which reloads each module's
+                # ir.cron XML and sets active back to True. Measured on
+                # mac-odoo-erp-stg 2026-08-15: 13 crons active again right after
+                # a clean neutralisation, all module-provided, nextcall stamped
+                # at the minute the module update ran -- including writers (SVL
+                # /GL invariant monitor, bank-reconciliation drift, fleet
+                # document-number reconciliation).
+                #
+                # Disabling the RECORDS cannot win that race. Removing the
+                # THREADS does: the odoo-cron container starts and stays idle, so
+                # an active ir_cron row is inert. Production is untouched.
+                **({"ODOO_MAX_CRON_THREADS": "0"} if env_name == "staging" else {}),
             },
             "post_deploy": {
                 "odoo_profile": f"profile-{deploy_profile}",
