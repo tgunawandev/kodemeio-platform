@@ -1,0 +1,43 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: mac-infra-mattermost-sg-prod
+  description: "MAC Mattermost — PRODUCTION on Singapore (tpp-prod-06). Migration target for mac-mm.idtpp.com. DNS flips at cutover; until then live prod stays on tpp-prod-05."
+
+project: mac
+environment: production
+server: tpp-prod-06          # Singapore (ap-southeast), 5.223.69.142
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-mattermost
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+dns:
+  zone: idtpp.com
+  name: mac-mm
+
+domain:
+  host: mac-mm.idtpp.com
+  port: 8065
+  service: mattermost
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.mac-infra-mattermost-sg-prod
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: mac-infra-mattermost-sg-prod
+  MM_DOMAIN: mac-mm.idtpp.com
+  MM_CALLS_PORT: "8467"
+  TENANT: mac
+  TZ: Asia/Jakarta
+
+healthcheck:
+  path: /api/v4/system/ping
+  port: 8065
+  expected_status: 200
+  timeout: 120
+  interval: 30

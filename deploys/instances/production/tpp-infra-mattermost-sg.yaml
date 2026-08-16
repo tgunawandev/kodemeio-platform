@@ -1,0 +1,42 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-mattermost-sg
+  description: "TPP Mattermost — Singapore LATENCY TEST (tpp-prod-06). Isolated from prod mm.idtpp.com; do NOT route real users here until validated."
+
+project: tpp
+environment: production
+server: tpp-prod-06          # Singapore (ap-southeast), 5.223.69.142
+
+source_overrides:
+  owner: tgunawandev
+  repo: kodemeio-mattermost
+  compose_path: ./docker-compose.prod.yml
+  branch: main
+
+dns:
+  zone: idtpp.com
+  name: sg-mm
+
+domain:
+  host: sg-mm.idtpp.com
+  port: 8065
+  service: mattermost
+  https: true
+  cert: letsencrypt
+
+env_file: ../../env/production/.env.tpp-infra-mattermost-sg
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-mattermost-sg
+  MM_DOMAIN: sg-mm.idtpp.com
+  TENANT: tpp
+  TZ: Asia/Jakarta
+
+healthcheck:
+  path: /api/v4/system/ping
+  port: 8065
+  expected_status: 200
+  timeout: 120
+  interval: 30
