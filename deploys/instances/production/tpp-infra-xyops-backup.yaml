@@ -1,0 +1,40 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-xyops-backup
+  description: "restic backup of the xyOps conductor data volume → Hetzner S3"
+
+project: tpp
+environment: production
+server: tpp-prod-04
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-xyops
+  branch: main
+  compose_path: compose/backup.yml
+
+env_file: ../../env/production/.env.tpp-infra-xyops-backup
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-xyops-backup
+  TZ: Asia/Jakarta
+
+# Replaces Dokploy's NATIVE volume backup, which was found silently
+# non-functional on 2026-08-15: `volume-backups run` returned "OK Volume backup
+# triggered" while producing zero objects in S3 and never starting a container.
+# Its own record showed `enabled: null` and `--enabled` was rejected with a 400.
+# Do not re-add it believing it works.
+#
+# XYOPS_DATA_VOLUME must be the EXACT on-host docker volume name. Dokploy
+# prefixes compose volumes with its generated appName, so it is NOT `xyops-data`.
+# Re-resolve with `docker volume ls | grep xyops` on tpp-prod-04 if the
+# conductor compose is ever recreated — a wrong-but-existing name backs up
+# nothing, silently.
+#
+# The infra base's postgres `backup:` phase cannot be disabled from an instance
+# manifest (`enabled: false` is ignored, `null` falls back to the base), so this
+# deploy reports one failed phase. That is expected noise, not a failure.
+backup: {}

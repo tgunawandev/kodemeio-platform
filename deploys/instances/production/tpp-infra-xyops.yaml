@@ -57,7 +57,11 @@ env_overrides:
 # presumably failing this phase on every deploy too.)
 backup: {}
 
-# Task 3: the real backup. xyOps' entire state is the xyops-data volume
+# Task 3 SUPERSEDED: Dokploy's native volume_backups was found silently
+# non-functional here (see below); the real backup is now
+# tpp-infra-xyops-backup.yaml — a self-contained restic stack whose
+# restore has been PROVEN (PRAGMA integrity_check ok on 2026-08-15).
+# Historical note on the original approach: xyOps' entire state is the xyops-data volume
 # (SQLite + files), so a volume backup is the correct mechanism, not the
 # base's postgres dump.
 #
@@ -70,11 +74,3 @@ backup: {}
 # That copies SQLite hot, which is why the restore MUST be proven rather than
 # assumed; if a restore ever shows a torn database, switch turn_off to true
 # and accept the brief scheduler outage (report events have catchup enabled).
-volume_backups:
-  - service: xyops
-    volume: compose-synthesize-auxiliary-feed-1ise1r_xyops-data
-    destination: hz-tpp-odoo-filestore
-    cron_schedule: "0 3 * * *"
-    prefix: xyops/
-    keep_latest: 14
-    turn_off: false
