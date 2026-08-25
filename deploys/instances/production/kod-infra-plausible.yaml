@@ -1,4 +1,4 @@
-# kodemeio-platform/deploys/instances/production/kod-infra-plausible.yaml
+# kodemeio-dokploy/deploys/instances/production/kod-infra-plausible.yaml
 kind: instance
 extends: ../../bases/plausible.yaml
 

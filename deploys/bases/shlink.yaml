@@ -1,4 +1,4 @@
-# kodemeio-platform/deploys/bases/shlink.yaml
+# kodemeio-dokploy/deploys/bases/shlink.yaml
 kind: base
 type: infrastructure
 

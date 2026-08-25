@@ -4,7 +4,6 @@
 
 # Local .terraform directory (provider plugins, module downloads)
 .terraform/
-.terraform.lock.hcl
 
 # State files — never commit these; use remote state (see backend.tf)
 *.tfstate

@@ -1,9 +1,13 @@
 # infra/ — Unified Infrastructure Entry Point
 
-This directory is the **root Terraform configuration** for the kodemeio platform. It aggregates the two infrastructure modules as a thin wrapper, delegating all resource definitions to the package directories.
+This directory is the **root Terraform configuration** supporting the Kodemeio
+Dokploy fleet. It aggregates locally owned Cloudflare and Hetzner modules.
 
 ```
 infra/                          ← you are here (root module)
+├── modules/
+│   ├── cloudflare/             ← DNS, TLS, edge, and storage resources
+│   └── hetzner/                ← servers, networks, firewalls, and volumes
 ├── main.tf                     ← wires cloudflare + hetzner modules
 ├── variables.tf                ← all variables for both modules
 ├── outputs.tf                  ← key outputs (IPs, zone IDs, network IDs)
@@ -12,16 +16,15 @@ infra/                          ← you are here (root module)
 ├── .gitignore                  ← excludes .terraform/, *.tfstate, *.tfvars
 └── README.md                   ← this file
 
-modules/cloudflare/             ← Cloudflare module (referenced via source path)
-modules/hetzner/                ← Hetzner Cloud module (referenced via source path)
+modules/cloudflare/             ← Cloudflare module (local source)
+modules/hetzner/                ← Hetzner Cloud module (local source)
 ```
 
-The `.tf` files in the module directories are never duplicated here — the root module references them via relative `source` paths.
-
-> **Note:** Terraform modules were previously located under `packages/kctl-cf/terraform/` and
-> `packages/kctl-hz/infra/hetzner/`. Those packages have moved to
-> [kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli). Update `source` paths in
-> `main.tf` if the modules are still referenced from the old locations.
+The root module references these modules with stable local paths. They were
+vendored from `kodemeio-cli` commit
+`7528f3e7dc8a22a08cbadd36e1d7f0ac0c0cecc1` during the Dokploy repository
+consolidation. Infrastructure modules are now owned here; CLI code remains in
+`kodemeio-cli`.
 
 ---
 

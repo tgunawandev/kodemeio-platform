@@ -1,35 +1,32 @@
 ## Summary
 
-<!-- 1-3 bullet points describing what this PR does -->
-
 -
 
-## Type of Change
+## Area
 
-- [ ] feat: New feature
-- [ ] fix: Bug fix
-- [ ] refactor: Code refactoring (no behavior change)
-- [ ] test: Adding/updating tests
-- [ ] docs: Documentation only
-- [ ] chore: Build/CI/tooling changes
+- [ ] Deployment manifest or base
+- [ ] Tenant or environment contract
+- [ ] Dokploy/Traefik bootstrap
+- [ ] Infrastructure
+- [ ] Monitoring or runbook
+- [ ] Repository tooling/documentation
 
-## Packages Affected
+## Deployment impact
 
-<!-- List the kctl-* packages modified -->
-
-- [ ] kctl-lib (shared library)
-- [ ] Other: <!-- list packages -->
+- Target environment:
+- Manifest(s):
+- Dokploy profile:
+- Rollback:
 
 ## Checklist
 
-- [ ] Tests pass: `just test-pkg <package>`
-- [ ] Lint passes: `just lint-pkg <package>`
-- [ ] Integration tests pass: `just test-integration`
-- [ ] No secrets committed
-- [ ] Conventional commit messages used
+- [ ] `just check` passes
+- [ ] Changed manifests pass `kctl-dokploy -p <profile> deploy validate`
+- [ ] Live-facing changes were previewed with `--dry-run`
+- [ ] No real environment files, credentials, or Terraform state are committed
+- [ ] HTTP services use `dokploy-network` and Traefik routing
+- [ ] Production rollback steps are documented
 
-## Test Plan
-
-<!-- How to verify this change works -->
+## Test plan
 
 -

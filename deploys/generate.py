@@ -146,10 +146,7 @@ def gen_react_pwa(
     # /api/v1/{module}/... directly at the Odoo root, so its base URL is the
     # host without a path prefix. Per-app legacy PWAs embed /{app}/api.
     odoo_host = f"{code}-odoo-{short}{dns_suffix}.{domain}"
-    if app == "erp":
-        api_base_url = f"https://{odoo_host}"
-    else:
-        api_base_url = f"https://{odoo_host}/{app}/api"
+    api_base_url = f"https://{odoo_host}" if app == "erp" else f"https://{odoo_host}/{app}/api"
 
     yaml_filename = f"{code}-react-{app}.yaml"
     env_filename = f".env.{code}-react-{app}"
@@ -1151,10 +1148,10 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
             ref_short = accurate_cfg["odoo_ref"]
             try:
                 odoo_entry = next(e for e in raw.get("odoo", []) if e["short"] == ref_short)
-            except StopIteration:
+            except StopIteration as exc:
                 raise ValueError(
                     f"accurate_sync.odoo_ref={ref_short!r} does not match any odoo[] entry in tenants/{code}.yaml"
-                )
+                ) from exc
             acc_server = accurate_cfg.get("server", server)
             y_name, y_content, e_name, e_content = gen_accurate_sync(
                 t, accurate_cfg, odoo_entry, env_name, acc_server, dns_suffix, db_suffix

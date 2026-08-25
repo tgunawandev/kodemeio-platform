@@ -1,4 +1,4 @@
-# kodemeio-platform/deploys/bases/n8n.yaml
+# kodemeio-dokploy/deploys/bases/n8n.yaml
 kind: base
 type: infrastructure
 

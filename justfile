@@ -1,159 +1,76 @@
-# Kodemeio Platform — Common Commands
-# Install: brew install just | cargo install just | apt install just
-# Usage:  just <recipe>      List: just --list
+# Kodemeio Dokploy — common operations
 
 set dotenv-load := false
 
-# Default: show available recipes
 default:
     @just --list
 
-# ---------------------------------------------------------------------------
-# Development
-# ---------------------------------------------------------------------------
-
-# Install all workspace dependencies
+# Install repository-only Python dependencies.
 install:
-    uv sync --all-extras --all-packages
+    uv sync
 
-# Run kctl-lib tests (fast gate)
+# Run generator and manifest unit tests.
 test:
-    uv run pytest packages/kctl-lib/tests/ -v --tb=short
+    uv run pytest deploys/tests -q
 
-# Run tests for a specific package
-test-pkg pkg:
-    uv run pytest packages/{{pkg}}/tests/ -v --tb=short
-
-# Run ALL package tests sequentially
-test-all:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    failed=()
-    for pkg in packages/kctl-*/; do
-        name=$(basename "$pkg")
-        if [ -d "$pkg/tests" ] && ls "$pkg"/tests/test_*.py >/dev/null 2>&1; then
-            echo "=== $name ==="
-            uv run pytest "$pkg/tests/" -v --tb=short || failed+=("$name")
-        fi
-    done
-    echo "=== integration ==="
-    uv run pytest tests/test_integration.py -v --tb=short || failed+=("integration")
-    if [ ${#failed[@]} -gt 0 ]; then
-        echo "FAILED: ${failed[*]}"
-        exit 1
-    fi
-    echo "All tests passed."
-
-# Run integration tests only
-test-integration:
-    uv run pytest tests/test_integration.py -v --tb=short
-
-# ---------------------------------------------------------------------------
-# Code Quality
-# ---------------------------------------------------------------------------
-
-# Lint all packages
+# Lint repository Python.
 lint:
-    uv run ruff check packages/*/src/
+    uv run ruff check deploys ops/scripts
 
-# Lint a specific package
-lint-pkg pkg:
-    uv run ruff check packages/{{pkg}}/src/ packages/{{pkg}}/tests/
-
-# Format check all packages
+# Check repository Python formatting.
 fmt-check:
-    uv run ruff format --check packages/*/src/
+    uv run ruff format --check deploys ops/scripts
 
-# Auto-format all packages
+# Format repository Python.
 fmt:
-    uv run ruff format packages/*/src/ packages/*/tests/
+    uv run ruff format deploys ops/scripts
 
-# Type-check a specific package
-typecheck pkg:
-    uv run mypy packages/{{pkg}}/src/
+# Run the local quality gate.
+check: test lint fmt-check terraform-validate
 
-# Full quality gate (lint + format + test)
-check: lint fmt-check test
+# Validate one manifest using an explicit Dokploy profile.
+deploy-validate profile file:
+    kctl-dokploy -p {{profile}} deploy validate -f {{file}}
 
-# ---------------------------------------------------------------------------
-# Documentation
-# ---------------------------------------------------------------------------
-
-# Regenerate CLI reference docs for all 22 CLIs
-docs:
-    uv run python scripts/generate-cli-docs.py
-
-# ---------------------------------------------------------------------------
-# Deployment
-# ---------------------------------------------------------------------------
-
-# Validate a deploy manifest
-deploy-validate file:
-    uv run kctl-dokploy deploy validate -f {{file}}
-
-# Validate ALL deploy manifests
-deploy-validate-all:
+# Validate all checked-in instance manifests.
+deploy-validate-all profile:
     #!/usr/bin/env bash
     set -euo pipefail
     failed=()
-    for f in deploys/instances/*.yaml; do
-        echo "--- $(basename $f) ---"
-        uv run kctl-dokploy deploy validate -f "$f" || failed+=("$(basename $f)")
-    done
+    while IFS= read -r file; do
+        echo "--- $file ---"
+        kctl-dokploy -p "{{profile}}" deploy validate -f "$file" || failed+=("$file")
+    done < <(find deploys/instances -type f \( -name '*.yaml' -o -name '*.yml' \) | sort)
     if [ ${#failed[@]} -gt 0 ]; then
         echo "FAILED: ${failed[*]}"
         exit 1
     fi
-    echo "All manifests valid."
 
-# Show deploy status for a manifest
-deploy-status file:
-    uv run kctl-dokploy deploy status -f {{file}}
+# Preview a manifest without changing live state.
+deploy-plan profile file:
+    kctl-dokploy -p {{profile}} deploy apply -f {{file}} --dry-run
 
-# ---------------------------------------------------------------------------
-# Backup & Monitoring
-# ---------------------------------------------------------------------------
+# Show deployment state for a manifest.
+deploy-status profile file:
+    kctl-dokploy -p {{profile}} deploy status -f {{file}}
 
-# Verify backups for all instances
-verify-backups:
-    uv run python scripts/verify-backups.py
+# Verify backup freshness.
+verify-backups profile:
+    uv run python ops/scripts/verify-backups.py --profile {{profile}}
 
-# Check environment variable parity across instances
+# Check environment example parity.
 check-env:
-    uv run python scripts/check-env-parity.py
+    uv run python ops/scripts/check-env-parity.py
 
-# ---------------------------------------------------------------------------
-# Scaffolding
-# ---------------------------------------------------------------------------
-
-# Scaffold a new kctl-* CLI package
-new-cli name:
-    copier copy templates/kctl-cli/ packages/{{name}}/
-
-# ---------------------------------------------------------------------------
-# Inventory
-# ---------------------------------------------------------------------------
-
-# Generate resource inventory report
+# Generate a sanitized resource inventory.
 inventory:
-    uv run python scripts/inventory.py
+    uv run python ops/scripts/inventory.py
 
-# Generate resource inventory as JSON
 inventory-json:
-    uv run python scripts/inventory.py --json
+    uv run python ops/scripts/inventory.py --json
 
-# ---------------------------------------------------------------------------
-# Maintenance
-# ---------------------------------------------------------------------------
-
-# Update uv lock file
-lock:
-    uv lock
-
-# Clean build artifacts
-clean:
-    find packages -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-    find packages -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
-    find packages -type d -name .mypy_cache -exec rm -rf {} + 2>/dev/null || true
-    find packages -type d -name .ruff_cache -exec rm -rf {} + 2>/dev/null || true
-    find packages -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+# Validate Terraform without configuring a remote backend.
+terraform-validate:
+    terraform -chdir=infra fmt -check -recursive
+    terraform -chdir=infra init -backend=false
+    terraform -chdir=infra validate

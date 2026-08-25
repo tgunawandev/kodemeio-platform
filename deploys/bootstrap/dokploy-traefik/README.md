@@ -1,7 +1,7 @@
 # dokploy-traefik — local domains bootstrap
 
 One-time setup to enable `https://<service>.local.kodeme.io` on this workstation.
-Spec: [`docs/superpowers/specs/2026-04-18-dokploy-local-domains-design.md`](../../../docs/superpowers/specs/2026-04-18-dokploy-local-domains-design.md).
+Spec: [archived local-domains design](../../../docs/archive/superpowers/specs/2026-04-18-dokploy-local-domains-design.md).
 
 ## Prerequisites
 
@@ -84,7 +84,7 @@ for name in '*.local.kodeme.io' 'local.kodeme.io'; do
 done
 ```
 
-Or: run `kctl-dokploy deploy apply-local <any-local-manifest>` — its DNS reconcile step detects drift.
+Or: run `kctl-dokploy -p <profile> deploy apply-local <any-local-manifest>` — its DNS reconcile step detects drift.
 
 ## Gotchas / caveats (seen during first bootstrap)
 

@@ -1,55 +1,47 @@
-# Contributing to kodemeio-platform
+# Contributing to kodemeio-dokploy
 
 ## Scope
 
-This repository contains **infrastructure only**: deployment manifests, environment configs, server mapping, and operational tooling.
+This repository owns Dokploy deployment desired state, supporting
+infrastructure, monitoring, and operational documentation. CLI implementation
+belongs in [kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli).
 
-For CLI tool development (kctl-*), see [kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli).
-
-## Quick Start
-
-```bash
-git clone https://github.com/tgunawandev/kodemeio-platform.git
-cd kodemeio-platform
-```
-
-## Development Workflow
-
-### 1. Create a branch
+## Setup
 
 ```bash
-git checkout -b feat/my-feature    # feat/, fix/, chore/, refactor/
+git clone https://github.com/tgunawandev/kodemeio-dokploy.git
+cd kodemeio-dokploy
+uv sync
 ```
 
-Branch naming must match commit type prefix.
+Install the pinned deployment client separately:
 
-### 2. Make changes
-
-- Edit deployment manifests in `deploys/instances/`
-- Add new base templates in `deploys/bases/`
-- Update tenant definitions in `deploys/tenants/`
-- Add runbooks in `runbooks/`
-
-### 3. Commit
-
-Use [Conventional Commits](https://www.conventionalcommits.org/):
-
+```bash
+uv tool install "kctl-dokploy==0.16.6"
 ```
+
+## Workflow
+
+1. Create a `feat/`, `fix/`, `docs/`, or `chore/` branch.
+2. Change manifests, bases, tenant definitions, infrastructure, or operations.
+3. Run `just check`.
+4. Preview live-facing changes with an explicit profile and `--dry-run`.
+5. Open a pull request and review the generated deployment plan.
+
+Use Conventional Commits, for example:
+
+```text
 feat(deploys): add staging manifest for mac-react-sfa
-fix(deploys): correct postgres port in tpp-odoo-erp manifest
-chore(infra): update monitoring configs
-docs: update architecture.md
+fix(infra): correct Dokploy server firewall rules
+docs(runbooks): document PostgreSQL failover
 ```
 
-### 4. Push and create PR
+## Safety
 
-```bash
-git push -u origin feat/my-feature
-gh pr create
-```
-
-## What NOT to Do
-
-- Never commit `.env` files, API keys, or secrets
-- Never use `docker run` directly — use Docker Compose via Dokploy
-- Never skip pre-commit hooks (`--no-verify`)
+- Never commit real `.env` files, credentials, API keys, Terraform state, or
+  deployment output containing secrets.
+- Never use `--skip-preflight` in routine operation.
+- Never stop or remove the `dokploy` or `traefik` platform containers.
+- Keep standard HTTP services on the external `dokploy-network` and route them
+  through Traefik.
+- Production changes require the protected GitHub environment.

@@ -23,17 +23,17 @@
 
 ```bash
 # 1. Dry-run first
-kctl-dokploy deploy apply -f deploys/instances/{manifest}.yaml --dry-run
+kctl-dokploy -p <profile> deploy apply -f deploys/instances/{manifest}.yaml --dry-run
 
 # 2. Deploy Odoo first (takes 5-10 min for init)
-kctl-dokploy deploy apply -f deploys/instances/{customer}-odoo-{profile}.yaml
+kctl-dokploy -p <profile> deploy apply -f deploys/instances/{customer}-odoo-{profile}.yaml
 
 # 3. Deploy React apps (after Odoo is healthy)
-kctl-dokploy deploy apply -f deploys/instances/{customer}-react-{app}.yaml
+kctl-dokploy -p <profile> deploy apply -f deploys/instances/{customer}-react-{app}.yaml
 
 # 4. If env vars changed, prune Docker cache and redeploy
 ssh root@{server} docker builder prune -f
-kctl-dokploy compose redeploy {compose-id}
+kctl-dokploy -p <profile> compose redeploy {compose-id}
 ```
 
 ## After Deploy

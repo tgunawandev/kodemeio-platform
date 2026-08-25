@@ -263,6 +263,7 @@ variable "origin_certificates" {
   description = "Cloudflare Origin CA certificates"
   type = map(object({
     zone_name          = string
+    csr                = string
     hostnames          = list(string)
     request_type       = optional(string, "origin-rsa")
     requested_validity = optional(number, 5475)
@@ -353,9 +354,9 @@ variable "page_rules" {
 variable "workers" {
   description = "Cloudflare Worker scripts"
   type = map(object({
-    content  = string
-    module   = optional(bool, false)
-    logpush  = optional(bool, false)
+    content = string
+    module  = optional(bool, false)
+    logpush = optional(bool, false)
     bindings = optional(list(object({
       name = string
       type = string

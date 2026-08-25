@@ -1,4 +1,4 @@
-# kodemeio-platform/deploys/bases/plausible.yaml
+# kodemeio-dokploy/deploys/bases/plausible.yaml
 kind: base
 type: infrastructure
 

@@ -94,7 +94,8 @@ graph TB
 
 **Not affected:** Traefik, Gatus (static config), WAHA (in-memory), RustDesk (relay-only), static websites
 
-**Recovery:** See `runbooks/db-recovery.md`
+**Recovery:** Follow [incident response](../ops/runbooks/incident-response.md)
+and the reviewed database restore procedure.
 
 ---
 
@@ -107,7 +108,8 @@ graph TB
 
 **Not affected:** PostgreSQL, Mailcow, Gatus, GlitchTip, RMM, RustDesk, WAHA
 
-**Recovery:** See `runbooks/authentik-recovery.md`
+**Recovery:** Follow [incident response](../ops/runbooks/incident-response.md)
+and verify PostgreSQL before changing Authentik.
 
 ---
 

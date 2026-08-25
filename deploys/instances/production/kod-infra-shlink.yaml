@@ -1,4 +1,4 @@
-# kodemeio-platform/deploys/instances/production/kod-infra-shlink.yaml
+# kodemeio-dokploy/deploys/instances/production/kod-infra-shlink.yaml
 kind: instance
 extends: ../../bases/shlink.yaml
 

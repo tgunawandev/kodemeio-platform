@@ -1,0 +1,47 @@
+name: Drift Check
+
+on:
+  schedule:
+    - cron: "23 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      KCTL_CONFIG_YAML: ${{ secrets.KCTL_CONFIG_YAML }}
+      PROFILE: ${{ vars.KCTL_DOKPLOY_PROFILE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Skip until production credentials are configured
+        if: ${{ env.KCTL_CONFIG_YAML == '' || env.PROFILE == '' }}
+        run: echo "Drift check skipped; configure KCTL_CONFIG_YAML and KCTL_DOKPLOY_PROFILE."
+
+      - name: Install pinned deployment client
+        if: ${{ env.KCTL_CONFIG_YAML != '' && env.PROFILE != '' }}
+        run: uv tool install "kctl-dokploy==0.16.6"
+
+      - name: Configure kctl
+        if: ${{ env.KCTL_CONFIG_YAML != '' && env.PROFILE != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.config/kodemeio"
+          install -m 600 /dev/null "$HOME/.config/kodemeio/config.yaml"
+          printf '%s' "$KCTL_CONFIG_YAML" > "$HOME/.config/kodemeio/config.yaml"
+
+      - name: Check production drift
+        if: ${{ env.KCTL_CONFIG_YAML != '' && env.PROFILE != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r file; do
+            kctl-dokploy -p "$PROFILE" deploy drift -f "$file"
+          done < <(find deploys/instances/production -type f \( -name '*.yaml' -o -name '*.yml' \) | sort)
