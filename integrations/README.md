@@ -9,7 +9,7 @@ The actual implementation lives in the source repositories listed below.
 | Repo | Integrations |
 |------|--------------|
 | `kodemeio-odoo` | FastAPI webhook apps (`odoo-mm`, `plane-mm`, `webhook-github`, `webhook-chatwoot`, `events-sync`); Odoo addons (`base_webhook`, `mattermost_integration`, `telegram_integration`, `whatsapp_integration`) |
-| `kodemeio-platform` | kctl-* CLIs that drive service orchestration |
+| `kodemeio-dokploy` | kctl-* CLIs that drive service orchestration |
 
 ---
 

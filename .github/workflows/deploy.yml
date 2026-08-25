@@ -1,25 +1,99 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'deploys/instances/**'
+  workflow_dispatch:
+    inputs:
+      manifest:
+        description: "Manifest path under deploys/instances/<environment>/"
+        required: true
+        type: string
+      profile:
+        description: "Explicit kctl profile"
+        required: true
+        type: string
+      environment:
+        description: "GitHub and Dokploy environment"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      execute:
+        description: "Apply after validation and dry-run"
+        required: true
+        default: false
+        type: boolean
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+permissions:
+  contents: read
+
+concurrency:
+  group: dokploy-${{ inputs.environment }}
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
-      - name: Deploy changed manifests
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Validate workflow inputs
+        env:
+          MANIFEST: ${{ inputs.manifest }}
+          TARGET_ENV: ${{ inputs.environment }}
+        shell: bash
         run: |
-          echo "Changed manifests:"
-          git diff --name-only HEAD~1 HEAD -- deploys/instances/ || true
-          echo ""
-          echo "Manual deploy required: kctl-dokploy deploy apply -f <manifest>"
+          set -euo pipefail
+          expected_prefix="deploys/instances/${TARGET_ENV}/"
+          case "$MANIFEST" in
+            "$expected_prefix"*.yaml|"$expected_prefix"*.yml) ;;
+            *)
+              echo "Manifest must be inside $expected_prefix" >&2
+              exit 2
+              ;;
+          esac
+          test -f "$MANIFEST"
+
+      - name: Install pinned deployment client
+        run: uv tool install "kctl-dokploy==0.16.6"
+
+      - name: Configure kctl
+        env:
+          KCTL_CONFIG_YAML: ${{ secrets.KCTL_CONFIG_YAML }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$KCTL_CONFIG_YAML" ]]; then
+            echo "KCTL_CONFIG_YAML is not configured for this GitHub environment" >&2
+            exit 2
+          fi
+          install -d -m 700 "$HOME/.config/kodemeio"
+          install -m 600 /dev/null "$HOME/.config/kodemeio/config.yaml"
+          printf '%s' "$KCTL_CONFIG_YAML" > "$HOME/.config/kodemeio/config.yaml"
+
+      - name: Verify Dokploy connection
+        env:
+          PROFILE: ${{ inputs.profile }}
+        run: kctl-dokploy -p "$PROFILE" --json doctor ai-summary
+
+      - name: Validate manifest
+        env:
+          PROFILE: ${{ inputs.profile }}
+          MANIFEST: ${{ inputs.manifest }}
+        run: kctl-dokploy -p "$PROFILE" deploy validate -f "$MANIFEST"
+
+      - name: Deployment dry-run
+        env:
+          PROFILE: ${{ inputs.profile }}
+          MANIFEST: ${{ inputs.manifest }}
+        run: kctl-dokploy -p "$PROFILE" deploy apply -f "$MANIFEST" --dry-run
+
+      - name: Apply and verify
+        if: ${{ inputs.execute }}
+        env:
+          PROFILE: ${{ inputs.profile }}
+          MANIFEST: ${{ inputs.manifest }}
+        run: kctl-dokploy -p "$PROFILE" deploy apply -f "$MANIFEST"

@@ -4,10 +4,10 @@
 # Declarative, idempotent deployment for Dokploy compose services.
 #
 # Usage:
-#   kctl-dokploy deploy apply --file deploy.yaml          # Create or update
-#   kctl-dokploy deploy apply --file deploy.yaml --dry-run # Preview changes
-#   kctl-dokploy deploy status --file deploy.yaml          # Check current state
-#   kctl-dokploy deploy destroy --file deploy.yaml         # Tear down (careful!)
+#   kctl-dokploy -p <profile> deploy apply --file deploy.yaml          # Create or update
+#   kctl-dokploy -p <profile> deploy apply --file deploy.yaml --dry-run # Preview changes
+#   kctl-dokploy -p <profile> deploy status --file deploy.yaml          # Check current state
+#   kctl-dokploy -p <profile> deploy destroy --file deploy.yaml         # Tear down (careful!)
 #
 # All resources are idempotent — safe to re-run.
 # =============================================================================
@@ -51,7 +51,7 @@ database:
   # password: auto-generated and stored in 1Password if not exists
 
 # ---------------------------------------------------------------------------
-# Domains (via kctl-dokploy domains)
+# Domains (via kctl-dokploy -p <profile> domains)
 # ---------------------------------------------------------------------------
 domains:
   - host: odoo.kodeme.io
@@ -74,7 +74,7 @@ env:
   TZ: "Asia/Jakarta"
 
 # ---------------------------------------------------------------------------
-# Backups (via kctl-dokploy backups)
+# Backups (via kctl-dokploy -p <profile> backups)
 # ---------------------------------------------------------------------------
 backups:
   - destination: kodemeio-s3-backups
@@ -86,7 +86,7 @@ backups:
     keep_latest: 30
 
 # ---------------------------------------------------------------------------
-# Scheduled Tasks (via kctl-dokploy schedules)
+# Scheduled Tasks (via kctl-dokploy -p <profile> schedules)
 # ---------------------------------------------------------------------------
 schedules:
   - name: odoo-vacuum

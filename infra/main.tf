@@ -1,12 +1,12 @@
 # =============================================================================
-# kodemeio-platform — Root Infrastructure
+# kodemeio-dokploy — Root Infrastructure
 # =============================================================================
-# This is a thin aggregation layer. All resource definitions live in the
-# package directories; this file wires them together as Terraform modules.
+# This is a thin aggregation layer. All resource definitions live in local
+# module directories; this file wires them together.
 #
 # Package source paths (relative to this file):
-#   Cloudflare : ../packages/kctl-cf/terraform/
-#   Hetzner    : ../packages/kctl-hz/infra/hetzner/
+#   Cloudflare : ./modules/cloudflare/
+#   Hetzner    : ./modules/hetzner/
 #
 # Usage:
 #   terraform init
@@ -40,7 +40,7 @@ terraform {
 # =============================================================================
 
 module "cloudflare" {
-  source = "../packages/kctl-cf/terraform"
+  source = "./modules/cloudflare"
 
   # ── Credentials ─────────────────────────────────────────────────────────────
   cloudflare_api_token    = var.cloudflare_api_token
@@ -59,11 +59,11 @@ module "cloudflare" {
   tunnels = var.tunnels
 
   # ── SSL/TLS ─────────────────────────────────────────────────────────────────
-  origin_certificates            = var.origin_certificates
-  authenticated_origin_pulls     = var.authenticated_origin_pulls
+  origin_certificates        = var.origin_certificates
+  authenticated_origin_pulls = var.authenticated_origin_pulls
 
   # ── Firewall ────────────────────────────────────────────────────────────────
-  firewall_rules = var.firewall_rules
+  firewall_rules  = var.firewall_rules
   ip_access_rules = var.ip_access_rules
   rate_limits     = var.rate_limits
 
@@ -97,7 +97,7 @@ module "cloudflare" {
 # =============================================================================
 
 module "hetzner" {
-  source = "../packages/kctl-hz/infra/hetzner"
+  source = "./modules/hetzner"
 
   # ── Credentials ─────────────────────────────────────────────────────────────
   hcloud_token = var.hcloud_token

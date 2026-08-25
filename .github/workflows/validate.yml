@@ -1,0 +1,75 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  repository:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --locked
+
+      - name: Unit tests
+        run: uv run pytest deploys/tests -q
+
+      - name: Python lint
+        run: uv run ruff check deploys ops/scripts
+
+      - name: Python formatting
+        run: uv run ruff format --check deploys ops/scripts
+
+      - name: Generator dry-run
+        run: uv run python deploys/generate.py --dry-run
+
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install pinned deployment client
+        run: uv tool install "kctl-dokploy==0.16.6"
+
+      - name: Validate all manifests offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r file; do
+            echo "::group::$file"
+            kctl-dokploy --quiet \
+              -p ci \
+              --url http://127.0.0.1 \
+              --api-key ci \
+              deploy validate -f "$file"
+            echo "::endgroup::"
+          done < <(find deploys/instances -type f \( -name '*.yaml' -o -name '*.yml' \) | sort)
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform formatting
+        run: terraform -chdir=infra fmt -check -recursive
+
+      - name: Terraform initialization
+        run: terraform -chdir=infra init -backend=false
+
+      - name: Terraform validation
+        run: terraform -chdir=infra validate

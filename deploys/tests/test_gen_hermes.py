@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from generate import gen_hermes
 
 
@@ -39,13 +38,9 @@ def test_gen_hermes_kod_telegram_only():
 
     # Env example content
     assert "TELEGRAM_BOT_TOKEN=CHANGE_ME" in e_content
-    assert (
-        "MATTERMOST_TOKEN=CHANGE_ME" not in e_content
-    )  # mattermost inbound block omitted
+    assert "MATTERMOST_TOKEN=CHANGE_ME" not in e_content  # mattermost inbound block omitted
     assert "HONCHO_API_KEY=" not in e_content  # honcho block omitted
-    assert (
-        "GATEWAY_ALLOW_ALL_USERS=true" not in e_content
-    )  # only set when Mattermost-only
+    assert "GATEWAY_ALLOW_ALL_USERS=true" not in e_content  # only set when Mattermost-only
 
 
 def test_gen_hermes_tpp_mattermost_only():

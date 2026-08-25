@@ -17,8 +17,8 @@ source_overrides:
   compose_path: ./docker-compose.prod.yml
 
 # Primary domain (frontend). api-rmm.idtpp.com + mesh.idtpp.com
-# are added post-deploy via `kctl-dokploy domains create`, and the
-# NATS 4222 TCP port is added via `kctl-dokploy ports create`.
+# are added post-deploy via `kctl-dokploy -p <profile> domains create`, and the
+# NATS 4222 TCP port is added via `kctl-dokploy -p <profile> ports create`.
 dns:
   zone: idtpp.com
   name: rmm

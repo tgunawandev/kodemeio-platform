@@ -1,72 +1,107 @@
-# kodemeio-platform
+# kodemeio-dokploy
 
-Infrastructure repository for the Kodemeio ecosystem: deployment manifests, environment configs, server mapping, and operational tooling.
+Source of truth for Kodemeio services operated through Dokploy: deployment
+manifests, environment contracts, infrastructure, monitoring, and runbooks.
 
-## CLI Tools
+The executable CLI is maintained separately in
+[kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli). This repository
+consumes `kctl-dokploy`; it does not contain CLI implementation code.
 
-All 33 kctl-* CLI tools (kctl-lib, kctl-dokploy, kctl-odoo, etc.) have moved to [kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli).
+## Repository layout
 
-## What's Here
-
-```
+```text
 deploys/
-├── bases/                      # Reusable base templates (odoo, react-pwa, nextjs, fastapi, infra)
-├── instances/
-│   ├── production/             # Production manifests (35 services)
-│   └── staging/                # Staging manifests (17 services)
-├── env/
-│   ├── production/             # Production .env files (gitignored)
-│   └── staging/                # Staging .env files (gitignored)
-├── tenants/                    # Tenant definitions with environment config
-├── migrations/                 # Server migration manifests
-└── generate.py                 # Generate instances from tenant config
+├── bases/                  # Reusable manifest bases
+├── bootstrap/              # Dokploy and Traefik bootstrap assets
+├── env/                    # Gitignored values + committed .example contracts
+├── instances/              # local, staging, and production desired state
+├── migrations/             # Server/application migration manifests
+├── schema/                 # Manifest schema ownership notes
+├── setup/                  # Post-deployment company setup
+├── tenants/                # Tenant definitions used by the generator
+├── tests/                  # Offline generator and manifest tests
+└── generate.py
 
-docs/                           # Architecture and standards documentation
-runbooks/                       # Operational runbooks (postgres-restore, etc.)
-monitoring/                     # Monitoring configurations
-infra/                          # Infrastructure definitions
-templates/                      # Service templates
+infra/
+├── modules/                # Cloudflare and Hetzner Terraform modules
+└── *.tf                    # Root infrastructure configuration
+
+ops/
+├── monitoring/             # Alerts, Gatus, Grafana, and apply scripts
+├── onboarding/             # Local onboarding execution logs (gitignored)
+├── runbooks/               # Incident and recovery procedures
+└── scripts/                # Inventory, parity, backup, and refresh tools
+
+docs/
+├── adrs/                   # Architecture decisions
+├── architecture.md
+├── operations/
+└── archive/                # Historical CLI and implementation plans
+
+legacy/dk-shell/            # Pointer to the archived shell toolkit
 ```
 
-## Deployment
+## Tooling
 
-Declarative YAML-based deployment via `kctl-dokploy deploy`. Instance manifests extend base templates and support production + staging environments.
+Prerequisites:
+
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
+- `kctl-dokploy==0.16.6`
+- Terraform 1.5+ for infrastructure validation
+
+Install repository dependencies:
 
 ```bash
-# Deploy a single service
-kctl-dokploy deploy apply -f deploys/instances/production/mac-react-sfa.yaml
-
-# Batch deploy all production
-kctl-dokploy deploy apply-all -d deploys/instances/production/
-
-# Pre-deploy validation
-kctl-dokploy deploy preflight -f <manifest>
-
-# Generate manifests from tenant config
-cd deploys && python generate.py
+uv sync
+uv tool install "kctl-dokploy==0.16.6"
 ```
 
-### 13-Phase Pipeline
+Every Dokploy invocation must select an explicit profile:
 
-Preflight → DNS → Database → Registry → Compose → Environment → Domain → Deploy → Verify → Backup → Schedules → Post-deploy
+```bash
+kctl-dokploy -p <profile> doctor ai-summary
+kctl-dokploy -p <profile> deploy validate \
+  -f deploys/instances/production/mac-react-sfa.yaml
+kctl-dokploy -p <profile> deploy apply \
+  -f deploys/instances/production/mac-react-sfa.yaml --dry-run
+```
 
-Uses: kctl-cf (DNS), kctl-pg (DB), kctl-dokploy (compose/env/domain/deploy/preflight), kctl-odoo (post-deploy bundles)
+Run the local quality gate:
 
-### Manifest Naming
+```bash
+just check
+```
 
-`{tenant}-{stack}-{app}` — e.g., `mac-react-sfa`, `tpp-odoo-trad`, `kod-infra-grafana`
+## Deployment flow
 
-Tenant codes: `mac`, `tpp`, `kod`, `tgw`, `tkz`, `pro`, `kid`
+The declarative pipeline is:
 
-## CI/CD
+```text
+validate → preflight → DNS → database → registry → compose → environment
+→ domain → deploy → verify → backup → schedules → post-deploy
+```
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `deploy.yml` | Push to main (deploys/instances/**) | Detect changed manifests |
-| `secret-scan.yml` | Push/PR to main | Gitleaks secret scanning |
+Production execution is manual and environment-protected. Pull requests run
+offline validation; deployment requires an explicit manifest, profile, and
+GitHub environment.
+
+## Safety invariants
+
+- Never commit real `.env` files. Commit only sanitized `.env.*.example` files.
+- Standard HTTP services join the external `dokploy-network` and route through
+  Traefik domains.
+- Do not publish HTTP service ports directly unless a documented protocol
+  exception requires it.
+- Never stop or remove the `dokploy` or `traefik` platform containers through
+  repository automation.
+- Treat deployment submission as asynchronous and wait for verification before
+  reporting success.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — Platform architecture overview
-- [Migration SOP](docs/migration-sop.md) — Server migration runbook
-- [Postgres Restore](runbooks/postgres-restore.md) — Backup restore procedures
+- [Architecture](docs/architecture.md)
+- [Migration SOP](docs/migration-sop.md)
+- [PostgreSQL restore](ops/runbooks/postgres-restore.md)
+- [Repository consolidation ADR](docs/adrs/0001-dokploy-consolidation.md)
+- [Contributing](CONTRIBUTING.md)

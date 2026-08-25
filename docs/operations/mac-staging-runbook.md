@@ -3,8 +3,8 @@
 Operations guide for the MAC Odoo staging environment.
 
 **Last Updated:** 2026-04-10
-**Related spec:** [`docs/superpowers/specs/2026-04-10-mac-staging-clone-design.md`](../superpowers/specs/2026-04-10-mac-staging-clone-design.md)
-**Related plan:** [`docs/superpowers/plans/2026-04-10-mac-staging-clone.md`](../superpowers/plans/2026-04-10-mac-staging-clone.md)
+**Related spec:** [archived design](../archive/superpowers/specs/2026-04-10-mac-staging-clone-design.md)
+**Related plan:** [archived implementation plan](../archive/superpowers/plans/2026-04-10-mac-staging-clone.md)
 
 ---
 
@@ -31,8 +31,9 @@ Staging is a clone of production refreshed on demand. After each refresh, a neut
 Full refresh takes ~5 minutes end to end. Run:
 
 ```bash
-cd ~/code/kodemeio-platform
-./scripts/refresh-mac-staging.sh
+cd /path/to/kodemeio-dokploy
+export KCTL_DOKPLOY_PROFILE=your-staging-profile
+./ops/scripts/refresh-mac-staging.sh
 ```
 
 The script:
@@ -51,6 +52,7 @@ The script:
 - SSH key at `~/.ssh/id_ed25519` for `tpp-prod-01` and `tpp-prod-02`
 - `kctl-pg`, `kctl-dokploy`, `kctl-odoo`, `kctl-op` on PATH
 - 1Password authenticated via `op account`
+- `KCTL_DOKPLOY_PROFILE` set to the staging-capable Dokploy profile
 
 ---
 
@@ -67,16 +69,20 @@ Expected: HTTP 200 or 303.
 
 ### View logs
 
+Resolve the exact Dokploy compose IDs before lifecycle operations:
+
 ```bash
-kctl-dokploy compose logs mac-odoo-erp-stg --lines 100
-kctl-dokploy compose logs mac-odoo-hrms-stg --lines 100
+export ERP_COMPOSE_ID=$(kctl-dokploy -p "$KCTL_DOKPLOY_PROFILE" --quiet --json compose search --name mac-odoo-erp-stg | jq -er '[.[] | select(.name == "mac-odoo-erp-stg")] | if length == 1 then .[0].composeId else error("expected one exact match") end')
+export HRMS_COMPOSE_ID=$(kctl-dokploy -p "$KCTL_DOKPLOY_PROFILE" --quiet --json compose search --name mac-odoo-hrms-stg | jq -er '[.[] | select(.name == "mac-odoo-hrms-stg")] | if length == 1 then .[0].composeId else error("expected one exact match") end')
+kctl-dokploy -p "$KCTL_DOKPLOY_PROFILE" compose service-logs "$ERP_COMPOSE_ID" --tail 100
+kctl-dokploy -p "$KCTL_DOKPLOY_PROFILE" compose service-logs "$HRMS_COMPOSE_ID" --tail 100
 ```
 
 ### Restart staging
 
 ```bash
-kctl-dokploy compose redeploy mac-odoo-erp-stg
-kctl-dokploy compose redeploy mac-odoo-hrms-stg
+kctl-dokploy -p "$KCTL_DOKPLOY_PROFILE" compose redeploy "$ERP_COMPOSE_ID"
+kctl-dokploy -p "$KCTL_DOKPLOY_PROFILE" compose redeploy "$HRMS_COMPOSE_ID"
 ```
 
 ### Re-apply neutralization manually
@@ -111,8 +117,8 @@ The company name is prefixed with `[STG]` after neutralization, so you can visua
 | Problem | Likely Cause | Fix |
 |---|---|---|
 | HTTP 502 Bad Gateway | Container not ready after redeploy | Wait 60s and retry. Check logs. |
-| HTTP 503 | Traefik can't reach container | `kctl-dokploy compose logs mac-odoo-erp-stg` — look for startup errors |
-| "Database does not exist" error | Staging DB wasn't restored | Re-run `./scripts/refresh-mac-staging.sh` |
+| HTTP 503 | Traefik can't reach container | Resolve the compose ID as above, then inspect `compose service-logs` |
+| "Database does not exist" error | Staging DB wasn't restored | Re-run `./ops/scripts/refresh-mac-staging.sh` |
 | Emails going out from staging | Neutralization not applied | Run `kctl-odoo -p mac-erp-stg staging neutralize-staging` |
 | Payment provider sending real charges | Neutralization not applied | Same as above |
 | Login fails with correct password | Wrong admin password in 1Password | Check `op://kodemeio/mac-odoo/staging-admin-password` — may need to update after refresh |
@@ -129,15 +135,15 @@ If staging is broken beyond repair and you just want a clean slate:
 
 ```bash
 # Stop staging containers
-kctl-dokploy compose stop mac-odoo-erp-stg
-kctl-dokploy compose stop mac-odoo-hrms-stg
+kctl-dokploy -p "$KCTL_DOKPLOY_PROFILE" compose stop "$ERP_COMPOSE_ID"
+kctl-dokploy -p "$KCTL_DOKPLOY_PROFILE" compose stop "$HRMS_COMPOSE_ID"
 
 # Drop the databases
 kctl-pg db drop stg_mac_odoo_erp --force
 kctl-pg db drop stg_mac_odoo_hrms --force
 
 # Re-run the refresh script (recreates DBs + redeploys)
-./scripts/refresh-mac-staging.sh
+./ops/scripts/refresh-mac-staging.sh
 ```
 
 **Production is never at risk.** All operations use `stg_*` database names and `*-stg` compose service names. Nothing in this runbook touches production.
@@ -151,7 +157,7 @@ kctl-pg db drop stg_mac_odoo_hrms --force
 Refresh staging so trainees see current production data:
 
 ```bash
-./scripts/refresh-mac-staging.sh
+./ops/scripts/refresh-mac-staging.sh
 ```
 
 Allow ~5 minutes. Verify with a login check before training starts.
@@ -162,13 +168,13 @@ Test a module update against production-like data without risking prod:
 
 ```bash
 # Refresh staging from latest prod
-./scripts/refresh-mac-staging.sh
+./ops/scripts/refresh-mac-staging.sh
 
 # Test the module update
 kctl-odoo -p mac-erp-stg modules upgrade your_module
 
 # If it breaks, just re-refresh
-./scripts/refresh-mac-staging.sh
+./ops/scripts/refresh-mac-staging.sh
 ```
 
 ### Validating a bug report
@@ -219,9 +225,9 @@ Reproduce a bug against a clone of production:
 
 ## Related Documentation
 
-- **Spec:** [`docs/superpowers/specs/2026-04-10-mac-staging-clone-design.md`](../superpowers/specs/2026-04-10-mac-staging-clone-design.md) — design decisions and rationale
-- **Plan:** [`docs/superpowers/plans/2026-04-10-mac-staging-clone.md`](../superpowers/plans/2026-04-10-mac-staging-clone.md) — step-by-step implementation
-- **Script:** [`scripts/refresh-mac-staging.sh`](../../scripts/refresh-mac-staging.sh) — automated refresh
+- **Spec:** [archived design](../archive/superpowers/specs/2026-04-10-mac-staging-clone-design.md) — design decisions and rationale
+- **Plan:** [archived implementation plan](../archive/superpowers/plans/2026-04-10-mac-staging-clone.md) — step-by-step implementation
+- **Script:** [`ops/scripts/refresh-mac-staging.sh`](../../ops/scripts/refresh-mac-staging.sh) — automated refresh
 - **CLI command:** `kctl-odoo staging neutralize-staging --help`
 - **Tenant config:** [`deploys/tenants/mac.yaml`](../../deploys/tenants/mac.yaml)
 - **Staging instance configs:** [`deploys/instances/staging/mac-odoo-*.yaml`](../../deploys/instances/staging/)

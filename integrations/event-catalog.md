@@ -268,7 +268,7 @@ Events from GitHub via `webhook-github` FastAPI app.
   "ref": "refs/heads/main",
   "before": "abc123",
   "after": "def456",
-  "repository": { "full_name": "tgunawandev/kodemeio-platform" },
+  "repository": { "full_name": "tgunawandev/kodemeio-dokploy" },
   "pusher": { "name": "tgunawan" },
   "commits": [
     {
@@ -297,13 +297,13 @@ Events from GitHub via `webhook-github` FastAPI app.
   "number": 47,
   "pull_request": {
     "title": "feat: add webhook catalog",
-    "html_url": "https://github.com/tgunawandev/kodemeio-platform/pull/47",
+    "html_url": "https://github.com/tgunawandev/kodemeio-dokploy/pull/47",
     "state": "open",
     "user": { "login": "tgunawan" },
     "base": { "ref": "main" },
     "head": { "ref": "feat/webhook-catalog" }
   },
-  "repository": { "full_name": "tgunawandev/kodemeio-platform" }
+  "repository": { "full_name": "tgunawandev/kodemeio-dokploy" }
 }
 ```
 
@@ -327,7 +327,7 @@ Events from GitHub via `webhook-github` FastAPI app.
     "head_branch": "main",
     "run_number": 88
   },
-  "repository": { "full_name": "tgunawandev/kodemeio-platform" }
+  "repository": { "full_name": "tgunawandev/kodemeio-dokploy" }
 }
 ```
 

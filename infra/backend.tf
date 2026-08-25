@@ -48,7 +48,7 @@
 # =============================================================================
 # Module-level state note
 # =============================================================================
-# Each package module (kctl-cf/terraform, kctl-hz/infra/hetzner) can also be
+# Each local module (modules/cloudflare, modules/hetzner) can also be
 # operated independently with its own backend. When operating via this root
 # module, a single state file covers all resources. Choose one approach:
 #
@@ -59,5 +59,5 @@
 #   B) Per-module state (advanced, for independent lifecycle)
 #      - State file per module: cloudflare/terraform.tfstate, hetzner/terraform.tfstate
 #      - Requires terraform_remote_state data sources to share outputs across modules
-#      - Run terraform init/plan/apply separately in each package directory
+#      - Run terraform init/plan/apply separately in each module directory
 # =============================================================================
