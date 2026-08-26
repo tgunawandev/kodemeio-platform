@@ -38,6 +38,9 @@ ODOO_RECIPES: dict[str, tuple[str, str]] = {
     # recipe_name: (profile, extras_csv_for_ODOO_INSTALL_BUNDLE)
     "erp": ("erp", ""),
     "hrms": ("hrms", ""),
+    # Standalone service desk — no ERP underneath. A deployment SHAPE,
+    # like hrms, not a vertical composed on top of erp.
+    "helpdesk": ("helpdesk", ""),
     "import": ("erp", ""),
     "distribution": (
         "erp",
@@ -224,8 +227,23 @@ def gen_odoo(
     description = odoo_entry.get("description", recipe_name)
     workers = odoo_entry.get("workers", 4)
     db_name = f"{code}_odoo_{short}{db_suffix}"
-    dns_name = f"{code}-odoo-{short}{dns_suffix}"
-    host = f"{code}-odoo-{short}{dns_suffix}.{domain}"
+
+    # An odoo entry may claim a bare subdomain with `host:` (e.g.
+    # helpdesk.idtpp.com). Only the PUBLIC name moves — instance name,
+    # database, env filename, backup prefix and COMPOSE_PROJECT_NAME all keep
+    # the {code}-odoo-{short} convention, so every tool that resolves an
+    # instance by name keeps working.
+    #
+    # Deliberately ignored for suffixed environments: a staging twin of a bare
+    # subdomain would otherwise render the SAME host as production and quietly
+    # collide on the Traefik router.
+    host_override = odoo_entry.get("host")
+    if host_override and not dns_suffix:
+        host = host_override
+        dns_name = host_override.removesuffix(f".{domain}")
+    else:
+        dns_name = f"{code}-odoo-{short}{dns_suffix}"
+        host = f"{code}-odoo-{short}{dns_suffix}.{domain}"
 
     yaml_filename = f"{code}-odoo-{short}.yaml"
     env_example_filename = f".env.{code}-odoo-{short}.example"

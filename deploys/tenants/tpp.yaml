@@ -28,6 +28,24 @@ odoo:
     workers: 2
     apps: [hrm]
 
+  # IT service desk. `host:` claims a bare subdomain — the instance is still
+  # tpp-odoo-helpdesk (DB tpp_odoo_helpdesk, env .env.tpp-odoo-helpdesk), only
+  # the public name moves.
+  #
+  # No per-entry `server:` — gen_odoo does not read one, so it would be a
+  # silently ignored key. This lands on the tenant's production server,
+  # tpp-prod-03, which is where tpp-odoo-erp and tpp-odoo-hrms already run.
+  # That is deliberate: tpp-prod-03 has PROVEN private-network reach to
+  # PGHOST 10.0.0.3, whereas the emptier tpp-prod-05 has never hosted an Odoo
+  # instance and its reach is unverified. A 2-worker, 99-module desk is small
+  # enough that proven beats idle.
+  - recipe: helpdesk
+    short: helpdesk
+    host: helpdesk.idtpp.com
+    description: "IT Service Desk (OCA helpdesk, no ERP)"
+    workers: 2
+    apps: []
+
 web:
   corporate:
     compose_brand: idtpp

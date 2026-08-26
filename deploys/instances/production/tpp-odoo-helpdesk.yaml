@@ -1,0 +1,34 @@
+# GENERATED FROM tenants/tpp.yaml — DO NOT EDIT
+kind: instance
+extends: ../../bases/odoo.yaml
+instance:
+  name: tpp-odoo-helpdesk
+  description: Pakerti — IT Service Desk (OCA helpdesk, no ERP)
+project: tpp
+environment: production
+server: tpp-prod-03
+dns:
+  zone: idtpp.com
+  name: helpdesk
+domain:
+  host: helpdesk.idtpp.com
+  port: 8069
+  service: odoo-web
+  https: true
+  cert: letsencrypt
+database:
+  name: tpp_odoo_helpdesk
+  user: odoo
+env_file: ../../env/production/.env.tpp-odoo-helpdesk
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-odoo-helpdesk
+  TENANT: tpp
+  PGDATABASE: tpp_odoo_helpdesk
+  PGUSER: odoo
+  ODOO_DB_FILTER: ^tpp_odoo_helpdesk$
+  DOMAIN: helpdesk.idtpp.com
+  ODOO_WORKERS: '2'
+post_deploy:
+  odoo_profile: profile-helpdesk
+  odoo_install_bundle: ''
+  recipe: helpdesk
