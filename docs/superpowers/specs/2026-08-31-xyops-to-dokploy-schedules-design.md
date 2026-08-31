@@ -218,6 +218,92 @@ All four are in `kodemeio-skills`, all independent of this migration:
    --json` likewise prints the SMTP channel password. Both violate the
    standing "never display plaintext secrets — mask `first4****last4`" rule.
 
+### 3.5 Dokploy does not escape shell metacharacters in a command
+
+Discovered while executing the incident fix, and the single most important
+constraint on this design.
+
+Dokploy passes a schedule's `command` to a shell **without escaping**.
+Established by single-character bisection against live Dokploy on 2026-08-31:
+
+| Command | Result |
+|---|---|
+| `psql … -tAc "SELECT 1 WHERE 1 = 1"` | `done` |
+| `psql … -tAc "SELECT 1 WHERE 1 < 2"` | `error` |
+| `psql … -tAc "SELECT count(*) FROM …"` | `error` |
+| `psql … -c "… INTERVAL '7 days'"` | `error` |
+| `bash -lc "echo probe"` | `done` |
+
+**Forbidden: `'` `(` `)` `<` `>` `|` `&` `;` `$` and backtick.** Double quotes
+are safe. A command containing one dies *before* Dokploy logs its
+`Running command:` line, leaving a 22-byte log reading only
+`Initializing schedule` — no error text, and no alert, because of G1.
+
+**This invalidates the original job-command design.** Commands of the form
+
+    JOBRUN_REQUIRE='A B' jobrun backup-tpp kctl-hz -p idtpp s3 freshness …
+
+contain `'` and `$` and would have failed every single time, silently, on all
+17 jobs — reproducing the five-month incident on the alarms themselves.
+
+**Revised design: one script per job, baked into the toolbox image.** Every
+schedule's command becomes a bare, metacharacter-free token:
+
+    jobrun backup-tpp
+
+`jobrun` resolves the job name to `/opt/kctl/jobs/<name>.sh` in the image and
+runs it. All quoting, all secret guards, and all argument construction live in
+that script, where they are testable and where no shell-escaping layer can
+mangle them.
+
+This is not a novel pattern here — it is exactly what Ofelia already does.
+`/opt/kodemeio/run-report.sh` exists because Ofelia has the same limitation,
+and its INI carries the warning: *"NEVER wrap these in `sh -c "..."`. Ofelia
+splits `command` on whitespace and DROPS quotes."* Two schedulers, same
+constraint, same solution.
+
+### 3.6 Ofelia's real scope — two instances, only one in scope
+
+The estate runs **two** Ofelia containers on tpp-prod-01, not one:
+
+| Container | Jobs | In scope? |
+|---|---|---|
+| `tpp-ofelia-reports` | 3 live `job-run` jobs: daily, weekly, selfcheck. The 4 freshness alarms are already commented out, migrated to xyOps on 2026-08-16. | **Yes** |
+| `compose-…-ofelia-mailcow-1` (up 4 months) | Mailcow's own internal scheduler — `dovecot_maildir_gc`, `dovecot_quarantine`, `sogo_backup`, `phpfpm_ldap_sync`, etc., driven by container labels on the Mailcow stack. | **No — never migrate** |
+
+`ofelia-mailcow` ships as part of the upstream Mailcow compose stack and is
+vendor-managed. Migrating it would break Mailcow. It is not a Kodemeio
+scheduler and is out of scope by definition.
+
+So the migration's true scope is **17 distinct jobs**, all already represented
+in `kodemeio-xyops/events/`. Ofelia contributes no job that xyOps lacks — its
+3 live jobs are the same 3 reports.
+
+### 3.7 The reports are double-scheduled today, and the recipients differ
+
+Both schedulers currently run all three reports:
+
+| Report | Ofelia recipient | xyOps recipient |
+|---|---|---|
+| daily | `$OWNER` | `$REPORT_OWNER` (same person) |
+| selfcheck | `$OWNER` | `$REPORT_OWNER` (same person) |
+| **weekly** | **the team** — `filbert@idtpp.com`, `wilson@idtpp.com`, `sunrudytpp@gmail.com`, BCC `trigunawan.tpp@gmail.com` | `$REPORT_OWNER` only |
+
+Two consequences, both load-bearing:
+
+1. **The owner receives two copies** of the daily and selfcheck reports today.
+   That is existing duplication, not something this migration introduces, and
+   it ends when Ofelia is retired.
+2. **The team's weekly report comes from Ofelia, not xyOps.** The original
+   design deferred "the team-list switch" as out of scope, on the assumption
+   that both schedulers mailed the owner. That was wrong. Retiring Ofelia
+   without pointing the Dokploy weekly at the team list would **silently stop
+   the team's weekly report** — a migration that loses a business deliverable
+   while every dashboard stays green.
+
+   The Dokploy `report-weekly` job therefore targets the team list and the BCC
+   archive from the moment it goes live, matching Ofelia's behaviour exactly.
+
 ## 4. Architecture
 
 ```
@@ -231,7 +317,7 @@ kodemeio-dokploy (this repo)             kodemeio-skills
                 |
                 v   kctl-dokploy deploy apply -> phase_schedules
         Dokploy control plane (dokploy.idtpp.com)
-                |   cron -> docker exec <resolved container> sh -c "jobrun <name> <cmd>"
+                |   cron -> docker exec <resolved container> sh -c "jobrun <name>"
                 v
         tpp-prod-04 : container tpp-infra-kctl      (NO docker.sock)
                 |
@@ -290,11 +376,13 @@ Baked into `docker/Dockerfile.cli` at `/usr/local/bin/jobrun`, so it is covered
 by the image pin and versioned with the tools.
 
 ```
-jobrun <job-name> <cmd> [args...]
-  1. GUARD    every variable named in JOBRUN_REQUIRE is non-empty and
-              contains no literal "${"  ->  exit 78 before doing any work
-  2. RUN      timeout ${JOBRUN_TIMEOUT:-900} "$@", output captured and
-              capped at ${JOBRUN_LOG_MAX:-5242880} bytes
+jobrun <job-name>          # NOTHING else on the command line -- see 3.5
+  0. RESOLVE  /opt/kctl/jobs/<job-name>.sh, baked into the image.
+              An unknown job name is a hard error, never a silent no-op.
+  1. GUARD    every variable the job declares in its own REQUIRE= line is
+              non-empty and contains no literal "${"  ->  exit 78
+  2. RUN      timeout ${JOBRUN_TIMEOUT:-900} the job script, output captured
+              and capped at ${JOBRUN_LOG_MAX:-5242880} bytes
   3. ON FAIL  python3/smtplib -> SMTP_HOST as SMTP_USER
               To: $ALERT_TO
               Subject: [ALERT] <job-name> failed (exit N)
@@ -307,6 +395,10 @@ Design notes:
 - **Baked into the image, not bind-mounted.** A missing or broken mount would
   make every job exit 0 and alert nobody — the worst available failure mode for
   an alarm. Baking it in means the image tag covers it.
+- **The schedule command is a bare `jobrun <name>` and nothing more.** Per
+  §3.5, Dokploy mangles any command containing `'` `(` `)` `<` `>` `|` `&` `;`
+  or `$`. Arguments, quoting and secret lists therefore live inside
+  `/opt/kctl/jobs/<name>.sh`, never in the Dokploy command field.
 - **`timeout` and `python3` are both present** in the runtime stage
   (`python:3.12-slim`, Debian coreutils). No new dependency.
 - **The mail path is already proven twice** in production: the Ofelia watchdog
@@ -339,16 +431,22 @@ profile — note that `kctl-dokploy`/`kctl-cf` for `kod-*` targets require
 `deploys/env/production/.env.tpp-infra-kctl` (gitignored) with a committed
 sanitized `.env.tpp-infra-kctl.example`, per the repo's standing contract.
 
-**25 secret variables**, unchanged from what xyOps stores today:
+**26 variables** — the 25 xyOps stores today, plus `REPORT_TEAM`, which is
+new here because the team list currently lives hardcoded in Ofelia's
+`/opt/kodemeio/run-report.sh` rather than in any secret store (§3.7):
 
 | Group | Count | Names |
 |---|---|---|
-| Mail + recipients | 3 | `SMTP_PASS`, `REPORT_OWNER`, `REPORT_ARCHIVE` |
+| Mail + recipients | 4 | `SMTP_PASS`, `REPORT_OWNER`, `REPORT_TEAM`, `REPORT_ARCHIVE` |
 | Hetzner S3 | 2 | `IDTPP_S3_ACCESS_KEY`, `IDTPP_S3_SECRET_KEY` |
 | Accurate tenants | 20 | `<TENANT>_API_TOKEN` + `<TENANT>_SIGNATURE_SECRET` for the 10 tenants in `tpp-trading-active` |
 
 Plus non-secret env: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `MAIL_FROM`,
 `ALERT_TO`, `TZ`, `KCTL_HZ_PROFILE`, `COMPOSE_PROJECT_NAME`.
+
+`REPORT_TEAM` must be populated from Ofelia's `run-report.sh` before
+`report-weekly` goes live. Getting it wrong or leaving it empty means the team
+silently stops receiving the weekly report the moment Ofelia is retired.
 
 Unblocking the maintenance jobs adds postgres/odoo/mailcow/dokploy credentials
 to this file.
@@ -382,15 +480,19 @@ Names derive from the xyOps slug ids with the `xyo-` prefix dropped, so the
 mapping stays traceable during cutover.
 
 All schedules: `service: kctl`, `shell: sh`, `timezone: Asia/Jakarta` (set
-explicitly, never inherited from `TZ`).
+explicitly, never inherited from `TZ`), and a command of the form
+`jobrun <name>` with no other characters (§3.5).
 
 **Business reports** — from `events/reports.yaml`:
 
-| Name | Cron | WIB | Command (via `jobrun`) |
+Every Dokploy `command` is exactly `jobrun <name>` — no arguments, no quotes,
+no `$`. What each job actually runs lives in `/opt/kctl/jobs/<name>.sh`.
+
+| Name | Cron | WIB | What `/opt/kctl/jobs/<name>.sh` runs |
 |---|---|---|---|
 | `report-selfcheck` | `50 6 * * *` | 06:50 | `kctl-accurate reports sales-invoice-summary --profiles lumbung-yasa-dagang --from 2026-08-01 --to-today --email-to "$REPORT_OWNER" --out /tmp/selfcheck.xlsx` |
 | `report-daily` | `0 7 * * *` | 07:00 | `kctl-accurate reports sales-invoice-summary --group tpp-trading-active --from 2026-01-01 --to-today --email-to "$REPORT_OWNER" --out /tmp/trade_sales_summary.xlsx` |
-| `report-weekly` | `0 8 * * 1` | Mon 08:00 | as `report-daily`, plus `--email-bcc "$REPORT_ARCHIVE"` |
+| `report-weekly` | `0 8 * * 1` | Mon 08:00 | as `report-daily`, but `--email-to "$REPORT_TEAM" --email-bcc "$REPORT_ARCHIVE"` — **the team list, matching Ofelia** (§3.7) |
 
 **Backup freshness alarms** — from `events/backup-alarms.yaml`. All four run
 `kctl-hz -p idtpp s3 freshness <bucket> --prefix <prefix> --max-age-hours 4`:
@@ -601,11 +703,13 @@ but the volume is unrecoverable without the key.
 
 ## 10. Out of scope
 
-- **Ofelia's retirement.** `tpp-ofelia-reports` is still deployed and still owns
-  the business reports in parallel. Retiring xyOps alone takes the estate from
-  three schedulers to two, not one. Ofelia's decommissioning is tracked
-  separately but should be sequenced immediately after Phase 4, since the same
-  reports are involved.
+- **`ofelia-mailcow`** — Mailcow's own internal scheduler (§3.6). Vendor-managed,
+  part of the upstream Mailcow stack, and never to be migrated.
+
+`tpp-ofelia-reports` is NO LONGER out of scope. It owns the team's weekly
+report (§3.7), so retiring xyOps without retiring it would leave the estate on
+two schedulers and leave the team's report on the one being abandoned. Its
+three jobs are decommissioned as part of Phase 4's atomic swap.
 - **The four `kctl-dokploy` bugs** (§3.4) — real findings, fixed independently
   in `kodemeio-skills`. Only item 1 blocks a phase here.
 - Anything in the xyOps adoption beyond Project 1 (fleet-wide xySat, monitors,
