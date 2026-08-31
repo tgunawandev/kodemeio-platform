@@ -1,0 +1,55 @@
+# Detect divergence between the schedules declared in git and the ones live in
+# Dokploy. Replaces the drift workflow the xyOps conductor had via
+# `reconcile.py diff`.
+#
+# Without this, a schedule edited in the Dokploy UI is invisible: git says one
+# thing, the estate does another, and nobody finds out until an incident. That
+# is not hypothetical here -- 16 schedules ran broken for five months because
+# nothing compared intent against reality.
+name: Schedule drift
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploys/instances/production/tpp-infra-kctl.yaml'
+      - '.github/workflows/schedule-drift.yml'
+  pull_request:
+    paths:
+      - 'deploys/instances/production/tpp-infra-kctl.yaml'
+  schedule:
+    # Hourly, matching the cadence the xyOps drift check ran at.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install kctl-dokploy
+        run: uv tool install "kctl-dokploy>=0.17.0"
+
+      - name: Write the Dokploy profile
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_IDTPP_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_IDTPP_API_KEY }}
+        run: |
+          mkdir -p ~/.config/kodemeio
+          umask 077
+          cat > ~/.config/kodemeio/config.yaml <<EOF
+          profiles:
+            idtpp:
+              dokploy:
+                url: ${DOKPLOY_URL}
+                api_key: ${DOKPLOY_API_KEY}
+          EOF
+
+      - name: Check for schedule drift
+        run: |
+          kctl-dokploy -p idtpp deploy schedules-diff \
+            -f deploys/instances/production/tpp-infra-kctl.yaml
