@@ -1,0 +1,68 @@
+# Known-broken schedules, acknowledged so the watchdog does not page daily
+# about problems that are already tracked and owned.
+#
+# EVERY ack REQUIRES an `expires` date. On that date the schedule becomes a
+# paging problem again, whether or not anyone looked at it. Suppression without
+# a deadline is how a watchdog quietly becomes decorative -- and a decorative
+# watchdog is why 16 schedules failed for five months unnoticed.
+#
+# An ack silences ONE named schedule. It never silences a whole app, and it
+# never silences a schedule that starts failing for a different reason -- the
+# watchdog still reports the current status in its log, just not by email.
+
+acks:
+  # The 7 Odoo session-cleanup jobs invoke a script that ships in the Odoo
+  # image. They stay red until that image is rebuilt at or after
+  # kodemeio-odoo c7581b9 and the apps are redeployed.
+  # Tracked: docs/superpowers/plans/2026-08-31-fix-dokploy-schedule-failures.md
+  - name: mac-odoo-erp-session-cleanup
+    reason: "awaiting Odoo image rebuild (kodemeio-odoo c7581b9)"
+    expires: 2026-09-30
+  - name: mac-odoo-hrms-session-cleanup
+    reason: "awaiting Odoo image rebuild (kodemeio-odoo c7581b9)"
+    expires: 2026-09-30
+  - name: mac-odoo-erp-stg-session-cleanup
+    reason: "awaiting Odoo image rebuild (kodemeio-odoo c7581b9)"
+    expires: 2026-09-30
+  - name: mac-odoo-hrms-stg-session-cleanup
+    reason: "awaiting Odoo image rebuild (kodemeio-odoo c7581b9)"
+    expires: 2026-09-30
+  - name: tpp-odoo-erp-stg-session-cleanup
+    reason: "awaiting Odoo image rebuild (kodemeio-odoo c7581b9)"
+    expires: 2026-09-30
+  - name: tpp-odoo-hrms-stg-session-cleanup
+    reason: "awaiting Odoo image rebuild (kodemeio-odoo c7581b9)"
+    expires: 2026-09-30
+  - name: tpp-odoo-helpdesk-session-cleanup
+    reason: "awaiting Odoo image rebuild (kodemeio-odoo c7581b9)"
+    expires: 2026-09-30
+
+  # Debris from the Authentik rehost: two `* * * * *` schedules that have
+  # failed every minute since 2026-04-07 and two that never ran. Pending a
+  # decision to delete them, plus rotation of the credentials their command
+  # strings expose in cleartext.
+  - name: create-authentik-db
+    reason: "debris, pending deletion + credential rotation"
+    expires: 2026-09-15
+  - name: reset-akadmin-pw
+    reason: "debris, pending deletion + credential rotation"
+    expires: 2026-09-15
+  - name: dbg-v2
+    reason: "debris, pending deletion"
+    expires: 2026-09-15
+  - name: dbg-v3
+    reason: "debris, pending deletion"
+    expires: 2026-09-15
+
+  # Pre-existing before the migration: the same job was already failing on
+  # xyOps with last_exit=1. Stale Accurate token for lumbung-yasa-dagang.
+  - name: report-selfcheck
+    reason: "stale Accurate token for lumbung-yasa-dagang; failed on xyOps too"
+    expires: 2026-09-15
+
+  # Migrated 2026-08-31; its first firing on the real cron is Mon 2026-09-07
+  # 08:00 WIB. The expiry is deliberately the day AFTER that: if the first
+  # scheduled run does not happen, this pages instead of staying quiet.
+  - name: report-weekly
+    reason: "migrated 2026-08-31; first scheduled firing is Mon 2026-09-07 08:00 WIB"
+    expires: 2026-09-08
