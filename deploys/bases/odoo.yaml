@@ -68,17 +68,29 @@ backup:
   prefix_template: "odoo-{instance_name}"
   keep_latest: 30
 
+# NOTE: `service` MUST name a real compose service. compose/odoo.prod.yml
+# defines odoo-web / odoo-cron / odoo-gevent -- there has never been a service
+# called `odoo`. Dokploy resolves the target container as
+# {compose.appName}-{service}-1; an unmatched name yields an EMPTY string, so
+# it runs `docker exec  bash -c ...` and Docker reads `bash` as the container
+# name. That typo made these schedules fail 100% of the time from 2026-04-09
+# to 2026-08-31 with no alert, because Dokploy has no failure notification for
+# scheduled jobs. odoo-cron is chosen over odoo-web so maintenance never
+# competes with a user-facing worker.
 schedules:
   - name: "{instance_name}-vacuum"
     cron: "0 4 * * 0"
     command: "vacuumdb -U {db_user} -d {db_name} --analyze"
-    service: odoo
+    service: odoo-cron
     shell: bash
     timezone: Asia/Jakarta
+  # The table is http_sessions(sid, write_date, payload), created by the
+  # session_db server-wide module. `ir_sessions` does not exist in Odoo 18 --
+  # the previous command would have failed even with the service name fixed.
   - name: "{instance_name}-session-cleanup"
     cron: "0 3 * * *"
-    command: "psql -U {db_user} -d {db_name} -c \"DELETE FROM ir_sessions WHERE write_date < NOW() - INTERVAL '7 days'\""
-    service: odoo
+    command: "psql -U {db_user} -d {db_name} -c \"DELETE FROM http_sessions WHERE write_date < NOW() - INTERVAL '7 days'\""
+    service: odoo-cron
     shell: bash
     timezone: Asia/Jakarta
 
