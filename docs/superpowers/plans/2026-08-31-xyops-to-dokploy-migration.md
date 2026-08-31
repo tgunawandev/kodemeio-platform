@@ -65,8 +65,10 @@ jobs that never fire.
 
 ## Scope
 
-**17 jobs**, all defined in `kodemeio-xyops/events/`. Ofelia contributes no job
-xyOps lacks — its 3 live jobs are the same 3 reports.
+**7 jobs migrate** — the 4 backup alarms and 3 reports that actually run today.
+The 10 maintenance jobs are DEFERRED (see Task 4): every one invokes a command
+that does not exist, and they have never run. Ofelia contributes no job xyOps
+lacks — its 3 live jobs are the same 3 reports.
 
 | Dokploy `name` | Cron | WIB | xyOps | Ofelia |
 |---|---|---|---|---|
@@ -680,149 +682,51 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### Task 4: Migrate the 10 maintenance jobs
+### Task 4: The 10 maintenance jobs — DEFERRED, not migrated
 
-First on purpose: all 10 are disabled in xyOps and run nowhere today, so there
-is nothing to break. This is where the mechanics get learned at zero risk.
+**Status: deliberately out of this migration, decided 2026-08-31.**
 
-- [ ] **Step 1: Add the missing service blocks to the kctl config**
+This task was sequenced first because the 10 jobs are disabled in xyOps and run
+nowhere, so it looked like zero-risk practice. Investigation showed the
+opposite: it is the largest and least valuable piece of work in the plan.
 
-In `kodemeio-skills/config/kctl-config.yaml`, add `postgres`, `odoo` and
-`mailcow` blocks under `profiles.idtpp`, and a `profiles.kodemeio` with
-`postgres`, `odoo` and `dokploy`. Values are `${VAR}` placeholders only. Confirm
-each CLI's expected field names with `kctl-pg config --help`,
-`kctl-odoo config --help`, `kctl-mailcow config --help`,
-`kctl-dokploy config --help`.
+**Every one of the 10 invokes a command that does not exist.** Verified against
+the CLI actually installed in the toolbox image (kctl-pg 0.11.3, kctl-mailcow
+0.13.5 — the image is current; a misleading `0.1.0 → 0.11.3` self-update
+warning suggests otherwise and should be ignored):
 
-Add every new `${VAR}` to `.env.tpp-infra-kctl` and its `.example`, add the
-same names to each job script's `# REQUIRE:` line, then run
-`uv run python ops/scripts/check-env-parity.py`.
+| xyOps event command | Reality |
+|---|---|
+| `kctl-pg -p X health check` (×3) | `health` is an `@app.callback(invoke_without_command=True)` — the bare group IS the command; `check` is not a subcommand |
+| `kctl-pg -p X bloat check` (×2) | no `bloat` group; the real command is `kctl-pg indexes bloat` |
+| `kctl-pg -p idtpp backup check` | `backup` offers `dump` / `restore` / `list` — no `check` |
+| `kctl-mailcow -p idtpp health check` | same callback pattern — `check` is not a subcommand |
+| `kctl-mailcow -p idtpp quarantine cleanup --days 30` | `quarantine` offers `list` / `release` / `delete` — **no `cleanup` at all** |
+| `kctl-odoo -p X health check` (×2) | **kctl-odoo registers no `health` group whatsoever** |
+| `kctl-dokploy -p kodemeio health check` | no `health` group; the equivalents are `doctor` and `diagnose` |
 
-- [ ] **Step 2: Verify the four `kod-*` targets exist before scheduling them**
+They were authored and never validated, because they have been disabled since
+the day they were written. The `[BLOCKED: needs config block]` labels in
+`kodemeio-xyops/events/maintenance.yaml` understate the problem — the config
+block was never the real blocker.
 
-`kod-prod-02` was removed from the estate and manifests are known to reference
-hosts that no longer exist.
+**Three further config problems**, independent of the commands:
 
-```bash
-kctl-dokploy -p kodemeio servers list
-kctl-pg -p kodemeio health check
-kctl-odoo -p kodemeio health check
-kctl-dokploy -p kodemeio health check
-```
-Any target that cannot be reached is **left out of Step 3** and recorded as
-still blocked. A scheduled check that cannot reach its service reads as
-coverage while asserting nothing.
+- `idtpp.postgres` reaches a private `10.0.0.2` via `ssh_host` / `ssh_key`, so
+  the five postgres checks need an SSH private key mounted into the toolbox.
+  That is a security decision, not a config edit.
+- `idtpp.odoo` does not exist.
+- `kodemeio.odoo` is `project_root=/home/tgunawan/...` — a developer-machine
+  path, meaningless inside a container.
 
-- [ ] **Step 3: Add the maintenance schedules to the manifest**
+**Decision:** leave all 10 disabled in xyOps exactly as they are. Nothing is
+lost — they have never run. Migrating them is genuine design work (deciding
+what each check should assert, against the real CLI surface) plus a CLI feature
+project, and it must not block retiring two schedulers.
 
-Append to `deploys/instances/production/tpp-infra-kctl.yaml`, dropping any
-entry whose target failed Step 2. Every `command` is a bare `jobrun <name>`:
-
-```yaml
-schedules:
-  - {name: maint-tpp-pg-bloat,           cron: "0 2 * * *",  command: "jobrun maint-tpp-pg-bloat",           service: kctl, shell: sh, timezone: Asia/Jakarta}
-  - {name: maint-kod-pg-bloat,           cron: "0 2 * * *",  command: "jobrun maint-kod-pg-bloat",           service: kctl, shell: sh, timezone: Asia/Jakarta}
-  - {name: maint-tpp-pg-backup,          cron: "30 2 * * *", command: "jobrun maint-tpp-pg-backup",          service: kctl, shell: sh, timezone: Asia/Jakarta}
-  - {name: maint-tpp-mailcow-quarantine, cron: "0 3 * * 0",  command: "jobrun maint-tpp-mailcow-quarantine", service: kctl, shell: sh, timezone: Asia/Jakarta}
-  - {name: maint-tpp-pg-health,          cron: "0 4 * * *",  command: "jobrun maint-tpp-pg-health",          service: kctl, shell: sh, timezone: Asia/Jakarta}
-  - {name: maint-tpp-odoo-health,        cron: "15 4 * * *", command: "jobrun maint-tpp-odoo-health",        service: kctl, shell: sh, timezone: Asia/Jakarta}
-  - {name: maint-tpp-mailcow-health,     cron: "30 4 * * *", command: "jobrun maint-tpp-mailcow-health",     service: kctl, shell: sh, timezone: Asia/Jakarta}
-  - {name: maint-kod-pg-health,          cron: "45 4 * * *", command: "jobrun maint-kod-pg-health",          service: kctl, shell: sh, timezone: Asia/Jakarta}
-  - {name: maint-kod-odoo-health,        cron: "45 5 * * *", command: "jobrun maint-kod-odoo-health",        service: kctl, shell: sh, timezone: Asia/Jakarta}
-  - {name: maint-kod-dokploy-health,     cron: "50 5 * * *", command: "jobrun maint-kod-dokploy-health",     service: kctl, shell: sh, timezone: Asia/Jakarta}
-```
-
-- [ ] **Step 4: Guard the manifest against metacharacters**
-
-Create `deploys/tests/test_kctl_schedule_commands.py`:
-
-```python
-"""Every tpp-infra-kctl schedule command must be a bare `jobrun <name>`.
-
-Dokploy passes a schedule's command to a shell WITHOUT escaping. A command
-containing ' ( ) < > | & ; $ or a backtick dies before Dokploy logs its
-"Running command:" line, leaving a 22-byte log reading only "Initializing
-schedule" -- and no alert, because Dokploy has no failure notification for
-scheduled jobs. Verified by single-character bisection on 2026-08-31.
-"""
-
-from __future__ import annotations
-
-import re
-from pathlib import Path
-
-import yaml
-
-MANIFEST = Path(__file__).resolve().parents[1] / "instances" / "production" / "tpp-infra-kctl.yaml"
-FORBIDDEN = ["'", "(", ")", "<", ">", "|", "&", ";", "$", "`"]
-
-
-def _schedules() -> list[dict]:
-    return yaml.safe_load(MANIFEST.read_text()).get("schedules", [])
-
-
-def test_every_command_is_a_bare_jobrun_invocation():
-    for sched in _schedules():
-        assert re.fullmatch(r"jobrun [a-z0-9-]+", sched["command"]), (
-            f"{sched['name']}: command must be exactly `jobrun <name>`; "
-            f"arguments belong in the job script. Got: {sched['command']!r}"
-        )
-
-
-def test_no_command_contains_shell_metacharacters():
-    for sched in _schedules():
-        found = [c for c in FORBIDDEN if c in sched["command"]]
-        assert not found, f"{sched['name']}: contains {found}, which Dokploy mangles silently"
-
-
-def test_job_name_matches_schedule_name():
-    """A typo would resolve to a missing script; jobrun exits 2, but catch it here."""
-    for sched in _schedules():
-        assert sched["command"] == f"jobrun {sched['name']}", (
-            f"{sched['name']}: command invokes a different job: {sched['command']!r}"
-        )
-
-
-def test_every_schedule_targets_the_kctl_service():
-    for sched in _schedules():
-        assert sched["service"] == "kctl"
-        assert sched["timezone"] == "Asia/Jakarta"
-```
-
-Run: `uv run pytest deploys/tests/test_kctl_schedule_commands.py -q` → PASS
-
-- [ ] **Step 5: Deploy and verify every one reaches `status: done`**
-
-```bash
-kctl-dokploy -p idtpp deploy apply -f deploys/instances/production/tpp-infra-kctl.yaml
-uv run python ops/scripts/schedule-status.py --profile idtpp --json \
-  | python3 -c "
-import json,sys,subprocess
-for r in json.load(sys.stdin):
-    if r['name'].startswith('maint-'):
-        subprocess.run(['kctl-dokploy','-p','idtpp','schedules','run',r['schedule_id']], check=False)
-"
-sleep 60
-uv run python ops/scripts/schedule-status.py --profile idtpp
-```
-Expected: all `maint-*` rows `healthy=True`. Any `error` is a real bug — read
-the log under `/etc/dokploy/schedules/<appName>/` on tpp-prod-04. **Do not
-proceed to Task 5 with a red maintenance job.**
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add deploys/instances/production/tpp-infra-kctl.yaml deploys/tests/test_kctl_schedule_commands.py
-git commit -m "feat: migrate 10 maintenance jobs from xyOps to Dokploy schedules
-
-Blocked and disabled in xyOps because the deployed kctl config carried no
-postgres/odoo/mailcow/dokploy blocks; moving the config into git unblocked
-them. All verified reaching status: done, not merely created.
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-```
-
----
+**Follow-up, tracked separately:** map the 7 salvageable checks onto real
+commands, decide the SSH-key exposure for the postgres ones, and author
+`kctl-odoo health` and a mailcow quarantine cleanup if they are wanted.
 
 ### Task 5: Migrate the 4 backup alarms and prove alerting works
 
