@@ -1291,23 +1291,35 @@ In `core/deploy/orchestrator.py:1055`, replace the create-only loop. Key on
 enabled differ; delete orphans only under an explicit `--prune` flag. Record
 created/updated/pruned counts.
 
-- [ ] **Step 4: Fix the four bugs in spec §3.4** — repoint `schedules history`
+- [ ] **Step 4: Let a manifest opt out of `verify` and `backup`.**
+Two phases fail on every deploy of `tpp-infra-kctl`, and both are gaps rather
+than misconfiguration. `phase_verify` unconditionally polls
+`{scheme}://{host}{path}`, so an app with no HTTP surface always fails it —
+there is no port-0 or skip escape. And `merge_manifests` resolves
+`instance.backup if instance.backup is not None else base.backup`, so
+`backup: {}` becomes a `BackupConfig` with an empty destination that *wins*
+over the base instead of disabling the phase; `phase_backup` skips only on
+`None`. Add an explicit opt-out for both. Until then every deploy of a
+non-HTTP, stateless app reports two red phases — which is exactly the kind of
+expected-noise that trains people to ignore real failures.
+
+- [ ] **Step 5: Fix the four bugs in spec §3.4** — repoint `schedules history`
 at `/deployment.allByType`, send the required `id` in `deployments by-type`,
 read `logPath` in `deployments logs`, and mask secrets in JSON output.
 The `schedules history` fix is a **hard prerequisite for Task 7**.
 
-- [ ] **Step 5: Add a read-only drift check and wire it into CI.**
+- [ ] **Step 6: Add a read-only drift check and wire it into CI.**
 Add `kctl-dokploy deploy schedules-diff -f <manifest>`: report differences,
 exit non-zero on divergence, change nothing. Then create
 `.github/workflows/schedule-drift.yml` in this repo running it on push, pull
 request and hourly — replacing the xyOps drift workflow.
 
-- [ ] **Step 6: Prove drift is detected.**
+- [ ] **Step 7: Prove drift is detected.**
 Change one schedule's cron in the Dokploy UI, run the drift check, confirm
 non-zero and that the output names that schedule. Run `deploy apply`, confirm
 it returns to zero.
 
-- [ ] **Step 7: Commit** (in each repo, with a message explaining the
+- [ ] **Step 8: Commit** (in each repo, with a message explaining the
 create-only gap and the missing `--service` flag).
 
 ---

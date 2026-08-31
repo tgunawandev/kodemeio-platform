@@ -1,0 +1,64 @@
+kind: instance
+extends: ../../bases/infra.yaml
+
+instance:
+  name: tpp-infra-kctl
+  description: "kctl toolbox — execution host for all scheduled kctl-* jobs (replaces xyOps and Ofelia)"
+
+project: tpp
+environment: production
+# Same host as the xyOps conductor it replaces. tpp-prod-04 is the only host
+# in the estate with no production co-tenancy.
+server: tpp-prod-04
+
+source_overrides:
+  type: github
+  owner: tgunawandev
+  repo: kodemeio-skills
+  branch: main
+  compose_path: compose/toolbox.yml
+
+env_file: ../../env/production/.env.tpp-infra-kctl
+
+env_overrides:
+  COMPOSE_PROJECT_NAME: tpp-infra-kctl
+  TZ: Asia/Jakarta
+
+# No dns/domain block on purpose: the toolbox has no HTTP surface, publishes
+# no ports, and takes no Traefik route. Dokploy schedules reach it by
+# `docker exec`, not over the network.
+#
+# TWO PHASES FAIL ON EVERY DEPLOY OF THIS APP, BY DESIGN. Both are
+# kctl-dokploy gaps, not misconfiguration here, and both are tracked as fixes
+# in Task 8 of the migration plan. Recording them explicitly so nobody spends
+# an afternoon rediscovering it -- and so a NEW failure is still visible:
+#
+#   verify  "Healthcheck timed out: unexpected status 404"
+#           phase_verify unconditionally polls {scheme}://{host}{path}. With
+#           no domain block, host falls back to localhost, and this app serves
+#           no HTTP at all. There is no port-0 or skip escape in the phase.
+#
+#   backup  "Destination '' not found"
+#           merge_manifests does `instance.backup if instance.backup is not
+#           None else base.backup`, so `backup: {}` is a BackupConfig with an
+#           empty destination -- it WINS over the base rather than disabling
+#           the phase, and phase_backup only skips when the value is None.
+#           There is currently no way to disable an inherited backup config.
+#           (kodemeio-xyops carries the same comment claiming `{}` disables
+#           it; that is wrong -- its deploy reports the same failed phase.)
+#
+# This app genuinely needs no backup: its entire content is a pinned image
+# plus env, both reproducible from git.
+backup: {}
+
+# schedules: deliberately absent until Task 4 of
+# docs/superpowers/plans/2026-08-31-xyops-to-dokploy-migration.md.
+#
+# This deploy must prove the container comes up, `docker exec` resolves, and
+# jobrun sees its secrets BEFORE anything is scheduled against it. A schedule
+# pointing at a container Dokploy cannot resolve fails silently and forever --
+# that is exactly how 14 Odoo schedules stayed dead for five months.
+#
+# When they are added, every command must be a bare `jobrun <name>`: Dokploy
+# passes a schedule's command to a shell without escaping, so ' ( ) < > | & ;
+# and $ all kill the run before it produces any output.

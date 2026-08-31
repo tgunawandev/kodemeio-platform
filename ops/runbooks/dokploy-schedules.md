@@ -48,9 +48,15 @@ guards the Odoo base against regression.
 
 ## 3. `serviceName` must match a real compose service
 
-Dokploy resolves the target container as `{compose.appName}-{serviceName}-1`,
-where `appName` is Dokploy's own randomized name, not the manifest's. An
-unmatched name resolves to an **empty string**, producing:
+Dokploy resolves the target container by its **compose service label**
+(`com.docker.compose.service`), scoped to the app's compose project — not by
+container name. Verified on 2026-08-31: `tpp-infra-kctl` sets an explicit
+`container_name:` that overrides the generated `{project}-{service}-1` form,
+and Dokploy still resolved it correctly from the label alone.
+
+What matters is therefore that `serviceName` matches a service actually
+declared in the compose file. An unmatched name resolves to an **empty
+string**, producing:
 
 ```
 Running command: docker exec  bash -c 'vacuumdb -U odoo -d mac_odoo_erp --analyze'
@@ -61,7 +67,9 @@ That double space is the empty container name. `deploys/bases/odoo.yaml`
 declared `service: odoo` while the real services are `odoo-web` / `odoo-cron` /
 `odoo-gevent`, which is what broke 14 schedules for five months.
 
-Always check `docker ps` on the target host before trusting a new schedule.
+Check the service names in the compose file — or read them off the host with
+`docker inspect <container> --format '{{index .Config.Labels "com.docker.compose.service"}}'`
+— before trusting a new schedule. A container's *name* is not the answer.
 
 ## How to verify — never trust "created"
 
