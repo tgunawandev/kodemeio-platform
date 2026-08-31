@@ -51,7 +51,22 @@ env_overrides:
 # plus env, both reproducible from git.
 backup: {}
 
-# schedules: deliberately absent until Task 4 of
+# Every command is a bare `jobrun <name>`. Dokploy passes a schedule's command
+# to a shell WITHOUT escaping, so ' ( ) < > | & ; and $ kill the run before it
+# produces any output -- and no alert, because Dokploy has no failure
+# notification for scheduled jobs. Arguments, quoting and secret guards all
+# live in /opt/kctl/jobs/<name>.sh inside the pinned image.
+#
+# Alarm ordering is deliberate: these land BEFORE the 06:50/07:00 reports so a
+# stale backup is known before the business report goes out. Preserve it.
+schedules:
+  - {name: backup-tpp,      cron: "0 5 * * *",  command: "jobrun backup-tpp",      service: kctl, shell: sh, timezone: Asia/Jakarta}
+  - {name: backup-tpp25,    cron: "10 5 * * *", command: "jobrun backup-tpp25",    service: kctl, shell: sh, timezone: Asia/Jakarta}
+  - {name: backup-mac,      cron: "20 5 * * *", command: "jobrun backup-mac",      service: kctl, shell: sh, timezone: Asia/Jakarta}
+  - {name: backup-mac-hrms, cron: "30 5 * * *", command: "jobrun backup-mac-hrms", service: kctl, shell: sh, timezone: Asia/Jakarta}
+
+# The 10 maintenance jobs are NOT here: every one invokes a command that does
+# not exist. See Task 4 of
 # docs/superpowers/plans/2026-08-31-xyops-to-dokploy-migration.md.
 #
 # This deploy must prove the container comes up, `docker exec` resolves, and
