@@ -141,9 +141,28 @@ containers are named `compose-calculate-neural-matrix-phtlsl-odoo-web-1`. There
 has never been a service called `odoo`, so the lookup has always returned
 nothing.
 
-**Consequences.** No Odoo database has been vacuumed or analyzed since April.
-No `ir_sessions` cleanup has run on any of the 8 apps, so those tables have been
-growing unbounded for ~5 months. Both are correctness-adjacent, not cosmetic.
+**A second, independent bug in the same schedules.** `session-cleanup` runs
+`DELETE FROM ir_sessions ...`, but **there is no `ir_sessions` table**. Odoo 18
+here runs the `session_db` server-wide module, whose table is
+`http_sessions (sid, write_date, payload)`. Fixing `service:` alone therefore
+does NOT fix session-cleanup — it only changes the error from "no such
+container" to "relation does not exist". Both bugs must be fixed together.
+
+**Actual damage is low — the finding is the mechanism, not the harm.** Measured
+on `mac_odoo_erp` on 2026-08-31:
+
+- **Vacuum:** PostgreSQL autovacuum has been doing the work regardless — 159 of
+  1387 user tables autovacuumed, 224 analyzed, most recent 2026-08-31. The
+  weekly `vacuumdb --analyze` is belt-and-braces, and its absence caused no
+  measurable harm.
+- **Sessions:** `http_sessions` holds 31 rows / 688 kB. Nothing grew unbounded.
+
+This is worth stating plainly because it drives prioritization: the fix is
+**not** an emergency. What matters is that 16 schedules failed 100% of the time
+for five months and nothing anywhere reported it. The damage was low this time
+by luck — autovacuum happened to cover the gap. The same blindness applied to a
+backup-freshness alarm is the migration's central risk, which is exactly why
+§5.2 and §5.7 exist.
 
 **Two `* * * * *` schedules** (`reset-akadmin-pw`, `create-authentik-db`) fire
 and fail **every minute**. Both were created 2026-04-07 — roughly 146 days, so
@@ -155,13 +174,24 @@ bootstrap artifacts from the Authentik rehost, as do `dbg-v2` and `dbg-v3`
 
 **Required fixes, independent of this migration:**
 
-1. Change `service: odoo` to `service: odoo-cron` in `deploys/bases/odoo.yaml`,
-   then verify a run actually succeeds — do not assume. Confirm the image
-   actually ships `vacuumdb` and `psql`; if it does not, the command is wrong
-   too and should target the postgres service instead.
-2. Delete `reset-akadmin-pw`, `create-authentik-db`, `dbg-v2`, `dbg-v3`.
-3. Re-verify `tpp-infra-authentik`'s `serviceName: server` against real
+1. Change `service: odoo` to `service: odoo-cron` in `deploys/bases/odoo.yaml`
+   (the same manifests already use `service: odoo-web` correctly for their
+   domain block, which is how the mismatch survived review). `psql` and
+   `vacuumdb` are both confirmed present at `/usr/bin` in the Odoo image, and
+   `PGHOST`/`PGPASSWORD` are inherited from the container env — a `SELECT 1`
+   over that exact path succeeds — so no command change is needed for vacuum.
+2. Fix `session-cleanup` to target the real table:
+   `DELETE FROM http_sessions WHERE write_date < NOW() - INTERVAL '7 days'`.
+3. Verify a run reaches `status: done` via `/deployment.allByType` — do not
+   assume creation means success.
+4. Delete `reset-akadmin-pw`, `create-authentik-db`, `dbg-v2`, `dbg-v3`.
+5. Re-verify `tpp-infra-authentik`'s `serviceName: server` against real
    container names before assuming it shares the Odoo root cause.
+6. Close the coverage gap: `tpp-odoo-erp`, `tpp-odoo-hrms`, and `tpp25-odoo-erp`
+   — three **production** Odoo apps — have no schedules at all. `phase_schedules`
+   is create-only and skips apps whose schedules were never created, so adding
+   the block to the base never reached them. This is G4 (§3.1) showing up in
+   production, and it is fixed by the same reconciler.
 
 **What this proves for the migration.** The compose-exec mechanism itself is
 sound — it was pointed at a service name that does not exist. But it is direct
