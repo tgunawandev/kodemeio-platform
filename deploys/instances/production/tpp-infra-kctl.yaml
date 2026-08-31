@@ -65,6 +65,17 @@ schedules:
   - {name: backup-mac,      cron: "20 5 * * *", command: "jobrun backup-mac",      service: kctl, shell: sh, timezone: Asia/Jakarta}
   - {name: backup-mac-hrms, cron: "30 5 * * *", command: "jobrun backup-mac-hrms", service: kctl, shell: sh, timezone: Asia/Jakarta}
 
+  # Business reports. `catchup: true` from the xyOps events is dropped: Dokploy
+  # has no equivalent, and the watchdog plus a deliberate `schedules run`
+  # re-fire beats automatically mailing a stale report hours late.
+  #
+  # report-weekly mails REPORT_TEAM, matching Ofelia. The xyOps event mails
+  # only the owner -- shipping that would have silently stopped the team's
+  # weekly report the moment Ofelia was retired.
+  - {name: report-selfcheck, cron: "50 6 * * *", command: "jobrun report-selfcheck", service: kctl, shell: sh, timezone: Asia/Jakarta}
+  - {name: report-daily,     cron: "0 7 * * *",  command: "jobrun report-daily",     service: kctl, shell: sh, timezone: Asia/Jakarta}
+  - {name: report-weekly,    cron: "0 8 * * 1",  command: "jobrun report-weekly",    service: kctl, shell: sh, timezone: Asia/Jakarta}
+
 # The 10 maintenance jobs are NOT here: every one invokes a command that does
 # not exist. See Task 4 of
 # docs/superpowers/plans/2026-08-31-xyops-to-dokploy-migration.md.
