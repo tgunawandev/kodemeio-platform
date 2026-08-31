@@ -26,19 +26,11 @@ import argparse
 import json
 import sys
 import urllib.error
-import urllib.parse
-import urllib.request
 from pathlib import Path
 
-import yaml
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-CONFIG_PATH = Path.home() / ".config" / "kodemeio" / "config.yaml"
-
-# Dokploy sits behind Cloudflare, which rejects the default Python-urllib user
-# agent with "error code: 1010" before the request ever reaches Dokploy. Any
-# ordinary browser UA passes. Without this every call 403s and the script would
-# report a healthy-looking empty estate.
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+from dokploy_api import list_composes, list_runs, list_schedules, load_profile  # noqa: E402
 
 
 def summarize(schedule: dict, runs: list[dict]) -> dict:
@@ -68,78 +60,22 @@ def summarize(schedule: dict, runs: list[dict]) -> dict:
     }
 
 
-def load_profile(profile: str) -> tuple[str, str]:
-    """Return (base_url, api_key) for a profile from the shared kctl config."""
-    cfg = yaml.safe_load(CONFIG_PATH.read_text()) or {}
-    try:
-        block = cfg["profiles"][profile]["dokploy"]
-    except KeyError as exc:
-        raise SystemExit(f"profile {profile!r} has no dokploy block in {CONFIG_PATH}") from exc
-    url = str(block.get("url", "")).rstrip("/")
-    key = str(block.get("api_key", ""))
-    if not url or not key:
-        raise SystemExit(f"profile {profile!r} is missing dokploy url or api_key")
-    return url, key
-
-
-def api_get(base_url: str, api_key: str, path: str, params: dict | None = None) -> object:
-    """GET one Dokploy API endpoint, returning decoded JSON."""
-    qs = f"?{urllib.parse.urlencode(params)}" if params else ""
-    req = urllib.request.Request(
-        f"{base_url}/api{path}{qs}",
-        headers={"x-api-key": api_key, "User-Agent": USER_AGENT},
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 - fixed https host from config
-        return json.load(resp)
-
-
-def flatten_composes(projects: list[dict]) -> list[dict]:
-    """Flatten compose services out of the /project.all tree.
-
-    There is no /compose.all endpoint. Composes are nested TWO levels deep:
-    project -> environments[] -> compose[]. Reading project["compose"] directly
-    yields an empty list and no error, which made this script cheerfully report
-    "All 0 schedule(s) healthy" -- the same shape of silent nothing it exists
-    to detect.
-    """
-    out: list[dict] = []
-    for project in projects if isinstance(projects, list) else []:
-        for env in project.get("environments") or []:
-            for comp in env.get("compose") or []:
-                if comp.get("composeId"):
-                    out.append(
-                        {
-                            "composeId": comp["composeId"],
-                            "name": comp.get("name", ""),
-                            "project": project.get("name", ""),
-                        }
-                    )
-    return out
-
-
-def list_composes(base_url: str, api_key: str) -> list[dict]:
-    """Every compose service the profile can see."""
-    return flatten_composes(api_get(base_url, api_key, "/project.all"))
-
-
 def collect(profile: str) -> list[dict]:
     """Summarize every compose schedule the profile can see."""
     base_url, api_key = load_profile(profile)
     out: list[dict] = []
     for comp in list_composes(base_url, api_key):
         try:
-            schedules = api_get(
-                base_url, api_key, "/schedule.list", {"id": comp["composeId"], "scheduleType": "compose"}
-            )
+            schedules = list_schedules(base_url, api_key, comp["composeId"])
         except (urllib.error.URLError, ValueError):
             # One unreadable app must not abort the whole sweep.
             continue
-        for s in schedules if isinstance(schedules, list) else []:
+        for sched in schedules:
             try:
-                runs = api_get(base_url, api_key, "/deployment.allByType", {"id": s["scheduleId"], "type": "schedule"})
+                runs = list_runs(base_url, api_key, sched["scheduleId"])
             except (urllib.error.URLError, ValueError):
                 runs = []
-            row = summarize(s, runs if isinstance(runs, list) else [])
+            row = summarize(sched, runs)
             row["app"] = comp["name"]
             out.append(row)
     return out

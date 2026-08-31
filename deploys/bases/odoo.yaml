@@ -84,12 +84,31 @@ schedules:
     service: odoo-cron
     shell: bash
     timezone: Asia/Jakarta
-  # The table is http_sessions(sid, write_date, payload), created by the
-  # session_db server-wide module. `ir_sessions` does not exist in Odoo 18 --
-  # the previous command would have failed even with the service name fixed.
+  # Invoked as a script, NOT as inline SQL, and that is not a style choice.
+  #
+  # Dokploy passes a schedule's `command` to a shell WITHOUT escaping shell
+  # metacharacters. Verified by single-character bisection against live
+  # Dokploy on 2026-08-31:
+  #
+  #     psql ... -tAc "SELECT 1 WHERE 1 = 1"   -> status: done
+  #     psql ... -tAc "SELECT 1 WHERE 1 < 2"   -> status: error
+  #     psql ... -tAc "SELECT count(*) ..."    -> status: error
+  #     psql ... -c "... INTERVAL '7 days'"    -> status: error
+  #
+  # A command containing < > ( ) or ' dies before Dokploy logs its "Running
+  # command:" line, leaving a 22-byte log reading only "Initializing
+  # schedule" -- and no alert, because Dokploy has no failure notification for
+  # scheduled jobs. This cleanup needs a comparison (<), an interval (quotes)
+  # and a function (parens), so it CANNOT be expressed inline.
+  #
+  # The script lives in kodemeio-odoo at scripts/session-cleanup.sh and is
+  # baked into the image at /opt/odoo/scripts/. It also fixes the table name:
+  # session_db creates http_sessions; ir_sessions does not exist in Odoo 18.
+  #
+  # REQUIRES an Odoo image built at or after kodemeio-odoo c7581b9.
   - name: "{instance_name}-session-cleanup"
     cron: "0 3 * * *"
-    command: "psql -U {db_user} -d {db_name} -c \"DELETE FROM http_sessions WHERE write_date < NOW() - INTERVAL '7 days'\""
+    command: "bash /opt/odoo/scripts/session-cleanup.sh"
     service: odoo-cron
     shell: bash
     timezone: Asia/Jakarta

@@ -12,7 +12,9 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_SRC = Path(__file__).resolve().parents[2] / "ops" / "scripts" / "schedule-status.py"
+_OPS = Path(__file__).resolve().parents[2] / "ops" / "scripts"
+sys.path.insert(0, str(_OPS))
+_SRC = _OPS / "schedule-status.py"
 _spec = importlib.util.spec_from_file_location("schedule_status", _SRC)
 schedule_status = importlib.util.module_from_spec(_spec)
 sys.modules["schedule_status"] = schedule_status
@@ -124,7 +126,7 @@ PROJECT_ALL_REAL = [
 
 
 def test_flatten_composes_walks_environments():
-    from schedule_status import flatten_composes
+    from dokploy_api import flatten_composes
 
     out = flatten_composes(PROJECT_ALL_REAL)
     assert [c["name"] for c in out] == ["tpp-odoo-erp", "tpp-infra-postgres"]
@@ -134,13 +136,13 @@ def test_flatten_composes_walks_environments():
 
 def test_flatten_composes_does_not_read_project_level_compose():
     """The old bug: project['compose'] is absent, so this must not silently pass."""
-    from schedule_status import flatten_composes
+    from dokploy_api import flatten_composes
 
     assert flatten_composes([{"name": "x", "compose": [{"composeId": "nope", "name": "wrong"}]}]) == []
 
 
 def test_flatten_composes_tolerates_missing_keys():
-    from schedule_status import flatten_composes
+    from dokploy_api import flatten_composes
 
     assert flatten_composes([]) == []
     assert flatten_composes([{"name": "x"}]) == []
