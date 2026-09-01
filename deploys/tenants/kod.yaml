@@ -26,6 +26,13 @@ odoo:
 # after Phase B of the 2026-05-23 Honcho rollout (currently false because
 # the deploy waits on the operator's OpenRouter key).
 hermes:
+  # Pin the ref kod is ACTUALLY running. It was bumped by hand to v2026.5.29 on
+  # 2026-05-29 to fix the Codex event-stream crash ('NoneType object is not
+  # iterable') and had never been recorded here. Now that gen_hermes emits
+  # HERMES_UPSTREAM_REF into env_overrides — which beats hand-set Dokploy env —
+  # omitting this would roll kod back to the default v2026.5.16 and reintroduce
+  # that bug on the next `deploy apply`.
+  upstream_ref: v2026.5.29
   enabled: true
   edition: superuser
   server: kod-prod-04-claude
