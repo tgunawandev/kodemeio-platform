@@ -9,6 +9,7 @@ server: tpp-prod-05
 env_file: ../../env/production/.env.mac-infra-hermes
 env_overrides:
   HERMES_EDITION: business
+  HERMES_CONTAINER_PREFIX: mac-infra-hermes
   HERMES_CPU_LIMIT: '2.0'
   HERMES_MEM_LIMIT: 2G
   HERMES_MEM_RESERVATION: 512M
