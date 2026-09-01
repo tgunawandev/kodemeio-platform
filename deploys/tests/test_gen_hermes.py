@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from generate import gen_hermes
+from generate import HERMES_DEFAULT_UPSTREAM_REF, gen_hermes
 
 
 def test_gen_hermes_kod_telegram_only():
@@ -282,4 +282,39 @@ def test_gen_hermes_invalid_edition_raises():
     tenant, hermes = _tpp_business()
     hermes["edition"] = "admin"
     with pytest.raises(ValueError, match="edition"):
+        gen_hermes(tenant, hermes, "production")
+
+
+# --- upstream_ref: tenant-scoped image pin -----------------------------------
+
+
+def test_gen_hermes_upstream_ref_defaults_to_fleet_default():
+    """No hermes.upstream_ref → the fleet default, in BOTH manifest and example."""
+    tenant, hermes = _tpp_business()
+    assert "upstream_ref" not in hermes
+    _, y, _, e = gen_hermes(tenant, hermes, "production")
+    assert f"HERMES_UPSTREAM_REF: {HERMES_DEFAULT_UPSTREAM_REF}" in y
+    assert f"HERMES_UPSTREAM_REF={HERMES_DEFAULT_UPSTREAM_REF}" in e
+
+
+def test_gen_hermes_upstream_ref_pin_is_tenant_scoped():
+    """A pinned ref lands in env_overrides (authoritative) and the example."""
+    tenant, hermes = _tpp_business()
+    hermes["upstream_ref"] = "v2026.8.31"
+    _, y, _, e = gen_hermes(tenant, hermes, "production")
+    assert "HERMES_UPSTREAM_REF: v2026.8.31" in y
+    assert "HERMES_UPSTREAM_REF=v2026.8.31" in e
+
+    # Pinning tpp must NOT move a tenant that did not opt in.
+    kod_tenant, kod_hermes = _kod_superuser()
+    _, kod_y, _, kod_e = gen_hermes(kod_tenant, kod_hermes, "production")
+    assert f"HERMES_UPSTREAM_REF: {HERMES_DEFAULT_UPSTREAM_REF}" in kod_y
+    assert f"HERMES_UPSTREAM_REF={HERMES_DEFAULT_UPSTREAM_REF}" in kod_e
+
+
+@pytest.mark.parametrize("bad", ["", "   ", None, 20268, ["v1"]])
+def test_gen_hermes_invalid_upstream_ref_raises(bad):
+    tenant, hermes = _tpp_business()
+    hermes["upstream_ref"] = bad
+    with pytest.raises(ValueError, match="upstream_ref must be a non-empty string"):
         gen_hermes(tenant, hermes, "production")

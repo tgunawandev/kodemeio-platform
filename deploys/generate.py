@@ -83,6 +83,12 @@ HERMES_EDITION_RESOURCES: dict[str, dict[str, str]] = {
     },
 }
 
+# Upstream image tag emitted when a tenant does not pin `hermes.upstream_ref`.
+# Deliberately the value the existing tenants already run — bumping this moves
+# EVERY tenant at once, which is never what a per-agent version bump wants.
+# Pin per tenant in tenants/<code>.yaml instead (see gen_hermes).
+HERMES_DEFAULT_UPSTREAM_REF = "v2026.5.16"
+
 
 def resolve_recipe(recipe_or_profile: str) -> tuple[str, str]:
     """Resolve a tenant `recipe:` (preferred) or legacy `profile:` value to
@@ -939,6 +945,17 @@ def gen_hermes(
     if edition not in ("superuser", "business"):
         raise ValueError(f"tenants/{code}.yaml: hermes.edition must be 'superuser' or 'business', got {edition!r}")
 
+    # Upstream image tag. Tenant-scoped ON PURPOSE: a tenant that does not pin
+    # one keeps the fleet default, so bumping one agent never drags the others
+    # onto an untested upstream release.
+    upstream_ref = hermes.get("upstream_ref", HERMES_DEFAULT_UPSTREAM_REF)
+    if not isinstance(upstream_ref, str) or not upstream_ref.strip():
+        raise ValueError(
+            f"tenants/{code}.yaml: hermes.upstream_ref must be a non-empty string "
+            f"(an upstream git tag, e.g. 'v2026.8.31'), got {upstream_ref!r}"
+        )
+    upstream_ref = upstream_ref.strip()
+
     dashboard_block = hermes.get("dashboard", {})
     dashboard_on = bool(dashboard_block.get("enabled"))
     if dashboard_on and edition != "superuser":
@@ -1000,6 +1017,14 @@ def gen_hermes(
         "env_file": f"../../env/{env_name}/.env.{code}-infra-hermes",
         "env_overrides": {
             "HERMES_EDITION": edition,
+            # Authoritative pin: env_overrides is applied AFTER env_file, so the
+            # manifest — not an operator remembering a runbook step — decides
+            # which upstream release this agent builds from.
+            # COROLLARY: this now BEATS a hand-set Dokploy env var. If an
+            # operator has bumped a live instance's ref by hand, record it as
+            # hermes.upstream_ref in that tenant BEFORE the next `deploy apply`
+            # or the apply silently rolls that instance back.
+            "HERMES_UPSTREAM_REF": upstream_ref,
             "HERMES_CONTAINER_PREFIX": f"{code}-infra-hermes",
             **HERMES_EDITION_RESOURCES[edition],
         },
@@ -1012,7 +1037,7 @@ def gen_hermes(
         "",
         "# === Upstream image + identity ===",
         f"HERMES_EDITION={edition}",
-        "HERMES_UPSTREAM_REF=v2026.8.31",
+        f"HERMES_UPSTREAM_REF={upstream_ref}",
         "HERMES_LOG_LEVEL=info",
         "HERMES_UID=10000",
         "HERMES_GID=10000",

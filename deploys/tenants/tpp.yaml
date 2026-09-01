@@ -99,6 +99,11 @@ hermes:
   enabled: true
   edition: superuser
   server: tpp-prod-04
+  # Pinned for TPP ONLY. v2026.5.16 carries a Codex stream bug ("NoneType object
+  # is not iterable") that breaks the exact backend FRIDAY runs on. kod and mac
+  # stay on the fleet default (see HERMES_DEFAULT_UPSTREAM_REF in generate.py) —
+  # this bump is not validated for them.
+  upstream_ref: v2026.8.31
   dashboard:
     enabled: true
   inbound:

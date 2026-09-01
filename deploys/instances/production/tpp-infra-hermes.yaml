@@ -9,6 +9,7 @@ server: tpp-prod-04
 env_file: ../../env/production/.env.tpp-infra-hermes
 env_overrides:
   HERMES_EDITION: superuser
+  HERMES_UPSTREAM_REF: v2026.8.31
   HERMES_CONTAINER_PREFIX: tpp-infra-hermes
   HERMES_CPU_LIMIT: '4.0'
   HERMES_MEM_LIMIT: 6G
