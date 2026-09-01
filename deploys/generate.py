@@ -939,6 +939,15 @@ def gen_hermes(
     if edition not in ("superuser", "business"):
         raise ValueError(f"tenants/{code}.yaml: hermes.edition must be 'superuser' or 'business', got {edition!r}")
 
+    dashboard_block = hermes.get("dashboard", {})
+    dashboard_on = bool(dashboard_block.get("enabled"))
+    if dashboard_on and edition != "superuser":
+        raise ValueError(
+            f"tenants/{code}.yaml: hermes.dashboard.enabled requires "
+            f"hermes.edition: superuser (got {edition!r}) — the dashboard is an "
+            f"admin surface and must not ship on a business-edition bot"
+        )
+
     inbound = hermes.get("inbound", {})
     telegram_on = bool(inbound.get("telegram", {}).get("enabled"))
     mm_block = inbound.get("mattermost", {})
@@ -991,6 +1000,7 @@ def gen_hermes(
         "env_file": f"../../env/{env_name}/.env.{code}-infra-hermes",
         "env_overrides": {
             "HERMES_EDITION": edition,
+            "HERMES_CONTAINER_PREFIX": f"{code}-infra-hermes",
             **HERMES_EDITION_RESOURCES[edition],
         },
     }
@@ -1002,7 +1012,7 @@ def gen_hermes(
         "",
         "# === Upstream image + identity ===",
         f"HERMES_EDITION={edition}",
-        "HERMES_UPSTREAM_REF=v2026.5.16",
+        "HERMES_UPSTREAM_REF=v2026.8.31",
         "HERMES_LOG_LEVEL=info",
         "HERMES_UID=10000",
         "HERMES_GID=10000",
@@ -1016,6 +1026,24 @@ def gen_hermes(
             "# Fine-grained GitHub PAT (Contents+PRs RW). Set yourself; never paste in chat.",
             "# OAuth (Claude/ChatGPT) bootstrapped once via scripts/bootstrap-coding-agents.sh.",
             "HERMES_WORKSPACE_GH_PAT=CHANGE_ME",
+            "",
+        ]
+
+    if dashboard_on:
+        lines += [
+            "# === Web dashboard (loopback-only; SSH tunnel, no public host) ===",
+            "# Bound 0.0.0.0 in-container, published only to 127.0.0.1 on the host.",
+            "# Upstream fails closed: a non-loopback bind with no auth provider",
+            "# refuses to start. Set the password yourself; never paste it in chat.",
+            "COMPOSE_PROFILES=dashboard",
+            "HERMES_DASHBOARD_PORT=9119",
+            "# Basic-auth provider (plugins/dashboard_auth/basic). Activates ONLY with",
+            "# USERNAME + PASSWORD_HASH; without it a non-loopback bind refuses to start.",
+            "# SECRET is REQUIRED: when empty a random per-process key is generated and",
+            "# every session dies on container restart. openssl rand -base64 32",
+            "HERMES_DASHBOARD_BASIC_AUTH_USERNAME=admin",
+            "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH=CHANGE_ME",
+            "HERMES_DASHBOARD_BASIC_AUTH_SECRET=CHANGE_ME",
             "",
         ]
 

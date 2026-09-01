@@ -78,13 +78,16 @@ services:
     # + UDP port availability (8443/8445).
     server: tpp-prod-04
 
-# Hermes — agent on tpp-prod-01, co-located with mm.idtpp.com. Mattermost
-# inbound only (Telegram intentionally omitted — that runs on kod-infra-hermes).
-# Honcho disabled until Phase C of the 2026-05-23 Honcho rollout.
+# Hermes — FRIDAY (odoo-developer AI). Superuser edition on Codex, on the
+# idle tpp-prod-04. Mattermost inbound only (Telegram runs on kod-infra-hermes).
+# Dashboard is loopback-only (SSH tunnel); no domain, no Traefik.
+# Spec: kodemeio-hermes/docs/superpowers/specs/2026-09-01-odoo-developer-ai-design.md
 hermes:
   enabled: true
-  edition: business
-  server: tpp-prod-01
+  edition: superuser
+  server: tpp-prod-04
+  dashboard:
+    enabled: true
   inbound:
     telegram:
       enabled: false
