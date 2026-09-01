@@ -73,9 +73,22 @@ services:
     # colocates the notify dispatcher with the postgres + redis it depends on.
     server: tpp-prod-01
   mattermost:
-    # DEDICATED HOST — tpp-prod-04 is reserved for Mattermost + RTC. Do NOT
-    # colocate other services here. RTC call quality depends on isolated CPU
-    # + UDP port availability (8443/8445).
+    # HISTORICAL RESERVATION — tpp-prod-04 was originally held for Mattermost
+    # + RTC on the grounds that call quality needs isolated CPU + UDP ports
+    # (8443/8445). RTC never landed here, and neither did Mattermost:
+    # tpp-infra-mattermost runs on tpp-prod-01, tpp-infra-mattermost-sg and
+    # -sg-prod on tpp-prod-06, and mm.idtpp.com resolves to 5.223.69.142
+    # (tpp-prod-06). This entry is the unrealised intent, not the live host.
+    #
+    # As of 2026-09-01 tpp-prod-04 also hosts FRIDAY (tpp-infra-hermes,
+    # superuser, 4 CPU / 6G) alongside kctl, xyops, xyops-backup and
+    # dokploy-traefik, at load ~0.02. Colocation was a deliberate decision:
+    # tpp-prod-01 had 5G free across 66 containers, tpp-prod-04 had 14G.
+    #
+    # WARNING: if Mattermost or RTC is ever actually moved onto this host,
+    # the CPU-isolation requirement comes back and FRIDAY must be relocated
+    # first — a superuser agent runs Node builds and tests and will contend
+    # with RTC for CPU.
     server: tpp-prod-04
 
 # Hermes — FRIDAY (odoo-developer AI). Superuser edition on Codex, on the
