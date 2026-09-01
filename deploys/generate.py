@@ -1073,9 +1073,15 @@ def gen_hermes(
     if mattermost_on and not telegram_on:
         lines += [
             "# === Gateway-level allowlist ===",
-            "# Mattermost-only deployments: Mattermost-side scoping is the trust",
-            "# boundary; upstream's MATTERMOST_ALLOWED_USERS env is unenforced.",
-            "GATEWAY_ALLOW_ALL_USERS=true",
+            "# Fail closed. Upstream DOES enforce MATTERMOST_ALLOWED_USERS as of",
+            "# v2026.8.31 (its troubleshooting guide: 'Bot ignores you — your User",
+            "# ID isn't in MATTERMOST_ALLOWED_USERS'), so the allowlist — not",
+            "# Mattermost-side channel scoping alone — is the inbound boundary.",
+            "GATEWAY_ALLOW_ALL_USERS=false",
+            "# 26-character Mattermost user IDs, comma-separated. NOT @usernames:",
+            "# a username here matches nobody and silently locks the bot out.",
+            "# Read one off: System Console > Users, or `kctl-mm users get <name>`.",
+            "MATTERMOST_ALLOWED_USERS=CHANGE_ME",
             "",
         ]
 

@@ -40,11 +40,12 @@ def test_gen_hermes_kod_telegram_only():
     assert "TELEGRAM_BOT_TOKEN=CHANGE_ME" in e_content
     assert "MATTERMOST_TOKEN=CHANGE_ME" not in e_content  # mattermost inbound block omitted
     assert "HONCHO_API_KEY=" not in e_content  # honcho block omitted
-    assert "GATEWAY_ALLOW_ALL_USERS=true" not in e_content  # only set when Mattermost-only
+    assert "GATEWAY_ALLOW_ALL_USERS" not in e_content  # only set when Mattermost-only
+    assert "MATTERMOST_ALLOWED_USERS" not in e_content
 
 
 def test_gen_hermes_tpp_mattermost_only():
-    """tpp-shape (Mattermost only) → GATEWAY_ALLOW_ALL_USERS=true present."""
+    """tpp-shape (Mattermost only) → gateway allowlist block present, fail-closed."""
     tenant = {
         "code": "tpp",
         "name": "TPP",
@@ -85,8 +86,11 @@ def test_gen_hermes_tpp_mattermost_only():
     assert "TELEGRAM_BOT_TOKEN" not in e_content
     assert "HONCHO_API_KEY" not in e_content
 
-    # GATEWAY_ALLOW_ALL_USERS set because Mattermost is the ONLY inbound
-    assert "GATEWAY_ALLOW_ALL_USERS=true" in e_content
+    # Gateway allowlist block emitted because Mattermost is the ONLY inbound.
+    # Fail-closed: upstream enforces MATTERMOST_ALLOWED_USERS as of v2026.8.31.
+    assert "GATEWAY_ALLOW_ALL_USERS=false" in e_content
+    assert "GATEWAY_ALLOW_ALL_USERS=true" not in e_content
+    assert "MATTERMOST_ALLOWED_USERS=CHANGE_ME" in e_content
 
 
 def test_gen_hermes_mac_with_honcho():
