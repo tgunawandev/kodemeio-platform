@@ -1278,7 +1278,11 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         if hermes.get("enabled") and env_name == "production":
             y_name, y_content, e_name, e_content = gen_hermes(t, hermes, env_name)
             files.append((inst_dir / y_name, header + y_content))
-            files.append((env_dir / e_name, e_content))
+            # The env example carries the header too. Without the marker the
+            # writer treats an existing .example as hand-authored and REFUSES
+            # to overwrite it — which is how the hermes env contract silently
+            # went stale while the manifests moved on.
+            files.append((env_dir / e_name, header + e_content))
 
     return files
 
