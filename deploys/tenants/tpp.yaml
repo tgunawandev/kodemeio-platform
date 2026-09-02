@@ -97,28 +97,54 @@ services:
 # Spec: kodemeio-hermes/docs/superpowers/specs/2026-09-01-odoo-developer-ai-design.md
 hermes:
   enabled: true
-  edition: superuser
   server: tpp-prod-04
   # Pinned for TPP ONLY. v2026.5.16 carries a Codex stream bug ("NoneType object
   # is not iterable") that breaks the exact backend FRIDAY runs on. kod and mac
-  # stay on the fleet default (see HERMES_DEFAULT_UPSTREAM_REF in generate.py) —
-  # this bump is not validated for them.
+  # stay on the fleet default (see HERMES_DEFAULT_UPSTREAM_REF in generate.py).
   upstream_ref: v2026.8.31
-  dashboard:
-    enabled: true
-  inbound:
-    telegram:
-      enabled: false
-    mattermost:
-      enabled: true
-      url: https://mm.idtpp.com
-      reply_mode: thread
-      require_mention: true
-      allowed_channels:
-        - nxe8gt7xyfbp9rxqdqso5m17dr
   memory:
     honcho:
       enabled: false
+
+  agents:
+    # ---- FRIDAY: odoo-developer. Unnamed, so the instance keeps its existing
+    # name (tpp-infra-hermes), volume and compose. Trusted single operator.
+    - edition: superuser
+      dashboard:
+        enabled: true
+      inbound:
+        telegram:
+          enabled: false
+        mattermost:
+          enabled: true
+          url: https://mm.idtpp.com
+          reply_mode: thread
+          require_mention: true
+          allowed_channels:
+            - nxe8gt7xyfbp9rxqdqso5m17dr
+
+    # ---- JARVIS: odoo-helpdesk. business edition, so hermes-edition.sh applies
+    # the deny-by-default toolset allowlist (upstream's `safe` bundle: no
+    # terminal, no file, no code_execution). That is the control that makes
+    # credential absence durable for a bot taking UNTRUSTED multi-user input.
+    #
+    # NO Odoo credentials are declared for JARVIS. Its Odoo reach arrives only
+    # once the act-as broker is deployed AND kodemeio-odoo-mcp forwards caller
+    # identity; until then the MCP server authenticates as one shared account,
+    # which would give every user the same permissions across four instances.
+    - name: jarvis
+      edition: business
+      dashboard:
+        enabled: false
+      inbound:
+        telegram:
+          enabled: false
+        mattermost:
+          enabled: true
+          url: https://mm.idtpp.com
+          reply_mode: thread
+          require_mention: true
+          allowed_channels: []
 
 # Filestore (attachment) backups — production only.
 #
