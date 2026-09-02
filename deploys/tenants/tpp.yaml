@@ -145,6 +145,12 @@ hermes:
           reply_mode: thread
           require_mention: true
           allowed_channels: []
+          # RESTRICTED to tri.gunawan while JARVIS's Odoo reach is a SHARED
+          # account. Widening this requires the act-as broker + identity
+          # forwarding first — otherwise every listed user inherits the same
+          # Odoo permissions on every wired instance.
+          allowed_users:
+            - xz85cyd7xjy55m9yp15jkgqa1c  # tri.gunawan
 
 # Filestore (attachment) backups — production only.
 #

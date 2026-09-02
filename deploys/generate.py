@@ -1145,7 +1145,10 @@ def gen_hermes(
             "# 26-character Mattermost user IDs, comma-separated. NOT @usernames:",
             "# a username here matches nobody and silently locks the bot out.",
             "# Read one off: System Console > Users, or `kctl-mm users get <name>`.",
-            "MATTERMOST_ALLOWED_USERS=CHANGE_ME",
+            (
+                "MATTERMOST_ALLOWED_USERS="
+                + (",".join(mm_block.get("allowed_users") or []) or "CHANGE_ME")
+            ),
             "",
         ]
 
