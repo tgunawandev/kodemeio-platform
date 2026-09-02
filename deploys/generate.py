@@ -918,10 +918,45 @@ def gen_notify(
     return yaml_filename, yaml_dump(instance), env_example_filename, env_example
 
 
+def gen_hermes_agents(
+    tenant: dict,
+    hermes: dict,
+    env_name: str = "production",
+) -> list[tuple[str, str, str, str]]:
+    """Generate one manifest per agent.
+
+    A tenant with no `agents:` list yields exactly one agent, so every existing
+    tenant file keeps working unchanged. With a list, each entry inherits the
+    parent hermes block and overrides what it names — shared config is declared
+    once, per-agent differences (edition, model, inbound) sit with the agent.
+    """
+    agents = hermes.get("agents")
+    if not agents:
+        return [gen_hermes(tenant, hermes, env_name)]
+
+    shared = {k: v for k, v in hermes.items() if k != "agents"}
+    seen: set[str] = set()
+    out: list[tuple[str, str, str, str]] = []
+    for entry in agents:
+        name = (entry or {}).get("name") or ""
+        if name in seen:
+            label = name or "<unnamed>"
+            raise ValueError(
+                f"tenants/{tenant['code']}.yaml: hermes.agents names must be unique "
+                f"— {label!r} appears twice; two agents sharing a name would "
+                f"collide on manifest, env file, container and volume"
+            )
+        seen.add(name)
+        merged = {**shared, **{k: v for k, v in (entry or {}).items() if k != "name"}}
+        out.append(gen_hermes(tenant, merged, env_name, agent_name=name or None))
+    return out
+
+
 def gen_hermes(
     tenant: dict,
     hermes: dict,
     env_name: str = "production",
+    agent_name: str | None = None,
 ) -> tuple[str, str, str, str]:
     """Generate the per-tenant Hermes Dokploy manifest + env.example.
 
@@ -1001,20 +1036,24 @@ def gen_hermes(
         desc_parts.append(f"Honcho memory ({workspace})")
     description = f"Hermes Agent ({short}) — " + ", ".join(desc_parts)
 
-    yaml_filename = f"{code}-infra-hermes.yaml"
-    env_example_filename = f".env.{code}-infra-hermes.example"
+    # A tenant may run several agents (FRIDAY engineering + JARVIS helpdesk).
+    # The suffix keeps their manifests, env files, containers and volumes apart.
+    instance_name = f"{code}-infra-hermes" + (f"-{agent_name}" if agent_name else "")
+
+    yaml_filename = f"{instance_name}.yaml"
+    env_example_filename = f".env.{instance_name}.example"
 
     # Build manifest dict (yaml_dump preserves order)
     instance: dict = {
         "kind": "instance",
         "extends": "../../bases/hermes.yaml",
         "instance": {
-            "name": f"{code}-infra-hermes",
+            "name": instance_name,
             "description": description,
         },
         "project": code,
         "server": server,
-        "env_file": f"../../env/{env_name}/.env.{code}-infra-hermes",
+        "env_file": f"../../env/{env_name}/.env.{instance_name}",
         "env_overrides": {
             "HERMES_EDITION": edition,
             # Authoritative pin: env_overrides is applied AFTER env_file, so the
@@ -1025,14 +1064,14 @@ def gen_hermes(
             # hermes.upstream_ref in that tenant BEFORE the next `deploy apply`
             # or the apply silently rolls that instance back.
             "HERMES_UPSTREAM_REF": upstream_ref,
-            "HERMES_CONTAINER_PREFIX": f"{code}-infra-hermes",
+            "HERMES_CONTAINER_PREFIX": instance_name,
             **HERMES_EDITION_RESOURCES[edition],
         },
     }
 
     # Compose env.example block-by-block based on enabled adapters
     lines: list[str] = [
-        f"# Real values live in .env.{code}-infra-hermes (gitignored, operator-managed).",
+        f"# Real values live in .env.{instance_name} (gitignored, operator-managed).",
         "# This file documents the env contract; never commit secrets here.",
         "",
         "# === Upstream image + identity ===",
@@ -1276,13 +1315,13 @@ def generate_tenant(tenant_path: Path) -> list[tuple[Path, str]]:
         # (not per-env), so generating staging would produce nonsense values.
         hermes = raw.get("hermes", {})
         if hermes.get("enabled") and env_name == "production":
-            y_name, y_content, e_name, e_content = gen_hermes(t, hermes, env_name)
-            files.append((inst_dir / y_name, header + y_content))
             # The env example carries the header too. Without the marker the
             # writer treats an existing .example as hand-authored and REFUSES
             # to overwrite it — which is how the hermes env contract silently
             # went stale while the manifests moved on.
-            files.append((env_dir / e_name, header + e_content))
+            for y_name, y_content, e_name, e_content in gen_hermes_agents(t, hermes, env_name):
+                files.append((inst_dir / y_name, header + y_content))
+                files.append((env_dir / e_name, header + e_content))
 
     return files
 
