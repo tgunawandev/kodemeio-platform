@@ -4,7 +4,7 @@
 
 This repository owns Dokploy deployment desired state, supporting
 infrastructure, monitoring, and operational documentation. CLI implementation
-belongs in [kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli).
+belongs in [kodemeio-skills](https://github.com/tgunawandev/kodemeio-skills).
 
 ## Setup
 

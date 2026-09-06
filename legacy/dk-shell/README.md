@@ -9,7 +9,7 @@ on 2026-08-25:
 
 The shell implementation is not copied into this repository. Its supported
 operations are available through `kctl-dokploy` in
-[kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli).
+[kodemeio-skills](https://github.com/tgunawandev/kodemeio-skills).
 
 Do not add new logic here. If a short transition is required, create a wrapper
 that delegates directly to `kctl-dokploy` with an explicit profile.

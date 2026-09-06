@@ -9,7 +9,7 @@
 Dokploy deployments, infrastructure, monitoring, and runbooks. The repository
 named `kodemeio-dokploy` contained an older Bash toolkit whose Python successor
 had already moved first into the Platform monorepo and then into
-`kodemeio-cli`.
+`kodemeio-skills`.
 
 Keeping both names made ownership unclear. The Platform repository also
 retained obsolete references to deleted `packages/*` paths.
@@ -21,7 +21,7 @@ retained obsolete references to deleted `packages/*` paths.
 2. Rename `tgunawandev/kodemeio-platform` to
    `tgunawandev/kodemeio-dokploy`.
 3. Preserve the active repository's full Git history.
-4. Keep CLI implementation in `kodemeio-cli`.
+4. Keep CLI implementation in `kodemeio-skills`.
 5. Keep deployment manifests, Terraform, monitoring, and operations here.
 6. Preserve a pointer to the legacy toolkit rather than copying its code.
 
@@ -30,7 +30,7 @@ retained obsolete references to deleted `packages/*` paths.
 - Active pre-consolidation tag: `pre-consolidation-20260825`
 - Legacy final tag: `legacy-final-20260825`
 - Legacy final commit: `626bffc1a4b9926d1909b9ad401ca1668d9204ce`
-- Terraform module source: `kodemeio-cli` commit
+- Terraform module source: `kodemeio-skills` commit
   `7528f3e7dc8a22a08cbadd36e1d7f0ac0c0cecc1`
 
 ## Consequences

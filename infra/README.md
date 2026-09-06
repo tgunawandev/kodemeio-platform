@@ -21,10 +21,10 @@ modules/hetzner/                ← Hetzner Cloud module (local source)
 ```
 
 The root module references these modules with stable local paths. They were
-vendored from `kodemeio-cli` commit
+vendored from `kodemeio-skills` commit
 `7528f3e7dc8a22a08cbadd36e1d7f0ac0c0cecc1` during the Dokploy repository
 consolidation. Infrastructure modules are now owned here; CLI code remains in
-`kodemeio-cli`.
+`kodemeio-skills`.
 
 ---
 

@@ -14,7 +14,7 @@ infrastructure required to run it, and how operators verify and recover it.
 | Dokploy and Traefik bootstrap | This repository |
 | Cloudflare and Hetzner Terraform modules | This repository |
 | Monitoring rules and operational runbooks | This repository |
-| `kctl-dokploy` and other `kctl-*` implementation | `kodemeio-cli` |
+| `kctl-dokploy` and other `kctl-*` implementation | `kodemeio-skills` |
 | Secret values | 1Password and ignored local environment files |
 | Current runtime state | Dokploy API and the target servers |
 

@@ -17,7 +17,9 @@
 #   server          (str,  optional) — deploy host override
 #
 # Each scheduler app is an independent Ofelia instance with its own INI config.
-# Jobs use `job-run` to create ephemeral kodemeio-cli containers.
+# Jobs use `job-run` to create ephemeral `ghcr.io/tgunawandev/kodemeio-cli`
+# containers. That image name is deliberately retained after the repo was
+# renamed to kodemeio-skills — it is the image tag, not the repository.
 # =============================================================================
 
 kind: base

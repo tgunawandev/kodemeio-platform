@@ -4,7 +4,7 @@ Source of truth for Kodemeio services operated through Dokploy: deployment
 manifests, environment contracts, infrastructure, monitoring, and runbooks.
 
 The executable CLI is maintained separately in
-[kodemeio-cli](https://github.com/tgunawandev/kodemeio-cli). This repository
+[kodemeio-skills](https://github.com/tgunawandev/kodemeio-skills). This repository
 consumes `kctl-dokploy`; it does not contain CLI implementation code.
 
 ## Repository layout
