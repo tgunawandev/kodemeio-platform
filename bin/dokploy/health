@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+#
+# health — read-only health snapshot of a target: HTTP reachability plus the
+#          wrapped CLI's own doctor/status sections.
+#
+# Usage:
+#   ./<service>.sh health [<selector>...]
+#
+# Reads only. Every section either reports or says it failed; nothing here
+# writes, so there is no --yes and no --dry-run.
+#
+# CANONICAL FILE, vendored byte-identical into every repo. The sections it runs
+# come from <service>.yaml `health:`, so a repo tunes what "healthy" means
+# without touching this script.
+set -euo pipefail
+# shellcheck source=./_boot.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_boot.sh"
+
+[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { fd_usage_from_header "$0"; exit 0; }
+
+# health is read-only already, so there is nothing staged to preview. Reject
+# the flag explicitly rather than accepting and silently ignoring it.
+for _a in "$@"; do
+  [[ "$_a" == "--dry-run" ]] && {
+    c_red "health has no --dry-run — it only reads. Every check connects and reports, so there is nothing to preview without connecting."
+    exit 1
+  }
+done
+
+ARITY="$(fd_selector_arity)"
+if (( $# < ARITY )); then
+  c_red "Need: $(fd_selector_names | tr '\n' ' ')"
+  fd_usage_from_header "$0"
+  exit 1
+fi
+fd_resolve "$@"
+
+CLI="$(fd_cli)"
+c_dim "▶ ${FD_TARGET:-$FD_SERVICE}  ${FD_PROFILE:+profile=$FD_PROFILE  }health"
+
+rc=0
+
+# 1. Web reachability — fast, no credentials needed.
+URL="$(fd_url_for "$FD_TARGET")"
+if [[ -n "$URL" ]] && command -v curl >/dev/null 2>&1; then
+  path="$(yq -r '.health.http_path // "/"' "$FD_YAML")"
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "${URL}${path}" 2>/dev/null || echo 000)"
+  if [[ "$code" == "200" || "$code" == "302" ]]; then
+    c_green "── Web ── ${URL}${path} → HTTP $code"
+  else
+    c_red "── Web ── ${URL}${path} → HTTP $code"; rc=1
+  fi
+  echo >&2
+fi
+
+# 2. CLI-side sections, named per repo in <service>.yaml `health.sections`.
+if [[ -n "$CLI" ]] && command -v "$CLI" >/dev/null 2>&1; then
+  mapfile -t SECTIONS < <(yq -r '.health.sections // [] | .[]' "$FD_YAML")
+  for section in ${SECTIONS[@]+"${SECTIONS[@]}"}; do
+    [[ -n "$section" ]] || continue
+    c_green "── ${section} ──"
+    # `section` is a space-separated command line read from the repo's own
+    # committed YAML ("status health"), so word splitting is the point here.
+    # shellcheck disable=SC2086
+    if [[ -n "$FD_PROFILE" ]]; then
+      "$CLI" -p "$FD_PROFILE" $section || { c_red "  (section failed)"; rc=1; }
+    else
+      "$CLI" $section || { c_red "  (section failed)"; rc=1; }
+    fi
+    echo >&2
+  done
+elif [[ -n "$CLI" ]]; then
+  c_red "── CLI ── $CLI is not on PATH; ran the web check only."
+  rc=1
+fi
+
+exit "$rc"

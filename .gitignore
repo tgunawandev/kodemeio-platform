@@ -20,7 +20,19 @@ deploys/env/local/.env.*
 !deploys/env/local/.env.*.example
 .playwright-mcp/
 .playwright-cli/
+# .claude/ holds both shared team config and per-session scratch (agent-memory,
+# worktrees, settings.local.json). The ROOT one carries skills the whole team
+# needs, so ignore its contents by default and re-include the shared parts
+# explicitly — otherwise a new skill is invisible to git and silently never
+# ships, which is what happened to the generated <service>-development /
+# <service>-deployment pair here.
+# Order matters, and `/.claude/*` must not be `/.claude/`: git does not descend
+# into an ignored directory, so negations inside it would never be evaluated.
+# Same block as kodemeio-odoo/.gitignore.
 .claude/
+!/.claude/
+/.claude/*
+!/.claude/skills/
 .worktrees/
 
 # pytest coverage
